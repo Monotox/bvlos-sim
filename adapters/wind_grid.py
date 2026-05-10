@@ -1,7 +1,7 @@
 """YAML/JSON spatiotemporal wind grid adapter."""
 
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
 from adapters.io import (
     InputDocument,
@@ -49,8 +49,64 @@ def _require_monotonic(axis: list[float], name: str, *, path: Path, document: In
         )
 
 
+def _schema_error(msg: str, *, path: Path, document: InputDocument) -> NoReturn:
+    raise WindGridLoadError(
+        msg,
+        input_name="wind_grid",
+        path=path,
+        stage=InputLoadStage.SCHEMA_VALIDATION,
+        document=document,
+    )
+
+
+def _require_list_of(
+    value: object, expected: int, label: str, *, path: Path, document: InputDocument
+) -> list[object]:
+    if not isinstance(value, list):
+        _schema_error(
+            f"Wind grid values{label}: expected a list of {expected} elements, got {type(value).__name__}.",
+            path=path,
+            document=document,
+        )
+    if len(value) != expected:
+        _schema_error(
+            f"Wind grid values{label}: expected {expected} elements, got {len(value)}.",
+            path=path,
+            document=document,
+        )
+    return value
+
+
+def _validate_en_pair(value: object, label: str, *, path: Path, document: InputDocument) -> None:
+    _require_list_of(value, 2, label, path=path, document=document)
+
+
+def _validate_lon_row(
+    row: object, n_lon: int, label: str, *, path: Path, document: InputDocument
+) -> None:
+    pairs = _require_list_of(row, n_lon, label, path=path, document=document)
+    for i, en in enumerate(pairs):
+        _validate_en_pair(en, f"{label}[{i}]", path=path, document=document)
+
+
+def _validate_lat_block(
+    block: object, n_lat: int, n_lon: int, label: str, *, path: Path, document: InputDocument
+) -> None:
+    rows = _require_list_of(block, n_lat, label, path=path, document=document)
+    for i, row in enumerate(rows):
+        _validate_lon_row(row, n_lon, f"{label}[{i}]", path=path, document=document)
+
+
+def _validate_alt_block(
+    block: object, n_a: int, n_lat: int, n_lon: int, label: str, *, path: Path, document: InputDocument
+) -> None:
+    lat_blocks = _require_list_of(block, n_a, label, path=path, document=document)
+    for i, lat_block in enumerate(lat_blocks):
+        _validate_lat_block(lat_block, n_lat, n_lon, f"{label}[{i}]", path=path, document=document)
+
+
 def _validate_values_shape(
-    values: Any,
+    values: object,
     *,
     n_t: int,
     n_a: int,
@@ -59,29 +115,9 @@ def _validate_values_shape(
     path: Path,
     document: InputDocument,
 ) -> None:
-    def _fail(detail: str) -> None:
-        raise WindGridLoadError(
-            f"Wind grid 'values' shape must be [n_time={n_t}][n_alt={n_a}][n_lat={n_lat}][n_lon={n_lon}] "
-            f"with each innermost element [east_mps, north_mps]. {detail}",
-            input_name="wind_grid",
-            path=path,
-            stage=InputLoadStage.SCHEMA_VALIDATION,
-            document=document,
-        )
-    if not isinstance(values, list) or len(values) != n_t:
-        _fail(f"Outer (time) length is {len(values) if isinstance(values, list) else type(values).__name__}, expected {n_t}.")
-    for t_idx, a_block in enumerate(values):
-        if not isinstance(a_block, list) or len(a_block) != n_a:
-            _fail(f"values[{t_idx}] length is {len(a_block) if isinstance(a_block, list) else '?'}, expected {n_a}.")
-        for a_idx, lat_block in enumerate(a_block):
-            if not isinstance(lat_block, list) or len(lat_block) != n_lat:
-                _fail(f"values[{t_idx}][{a_idx}] length expected {n_lat}.")
-            for lat_idx, lon_block in enumerate(lat_block):
-                if not isinstance(lon_block, list) or len(lon_block) != n_lon:
-                    _fail(f"values[{t_idx}][{a_idx}][{lat_idx}] length expected {n_lon}.")
-                for lon_idx, en in enumerate(lon_block):
-                    if not isinstance(en, list) or len(en) != 2:
-                        _fail(f"values[{t_idx}][{a_idx}][{lat_idx}][{lon_idx}] must be [east, north].")
+    time_blocks = _require_list_of(values, n_t, "", path=path, document=document)
+    for i, alt_block in enumerate(time_blocks):
+        _validate_alt_block(alt_block, n_a, n_lat, n_lon, f"[{i}]", path=path, document=document)
 
 
 def _build_provider(
