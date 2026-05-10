@@ -17,14 +17,14 @@ Use a different command prefix when needed:
 from __future__ import annotations
 
 import argparse
-from collections.abc import Callable
-from dataclasses import dataclass
 import json
 import os
-from pathlib import Path
 import subprocess
 import sys
 import tempfile
+from collections.abc import Callable
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import yaml

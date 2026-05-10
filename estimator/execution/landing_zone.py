@@ -4,19 +4,19 @@ from dataclasses import dataclass
 
 from shapely.geometry import Point
 from shapely.geometry.base import BaseGeometry
-from shapely.ops import nearest_points
-from shapely.ops import unary_union
+from shapely.ops import nearest_points, unary_union
 from shapely.validation import explain_validity
 
-from estimator.core.enums import FailureCode
-from estimator.core.enums import FailureKind
+from estimator.core.enums import FailureCode, FailureKind
 from estimator.core.landing_zone import LandingZone
-from estimator.core.results import EnergyEstimate
-from estimator.core.results import EstimatorContextValue
-from estimator.core.results import EstimatorFailure
-from estimator.core.results import LandingZoneEstimate
-from estimator.core.results import LandingZoneStateReachability
-from estimator.core.results import LegEstimate
+from estimator.core.results import (
+    EnergyEstimate,
+    EstimatorContextValue,
+    EstimatorFailure,
+    LandingZoneEstimate,
+    LandingZoneStateReachability,
+    LegEstimate,
+)
 from estimator.execution.energy import SECONDS_PER_HOUR
 from estimator.execution.runtime import EstimationContext
 from estimator.execution.spatial import polygon_set_to_geometry_list

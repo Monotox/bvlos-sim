@@ -1,9 +1,9 @@
 """YAML/JSON input loading adapters for CLI surfaces."""
 
+import json
 from dataclasses import dataclass
 from enum import StrEnum
 from hashlib import sha256
-import json
 from pathlib import Path
 from typing import Any
 
@@ -11,8 +11,7 @@ import yaml
 from pydantic import ValidationError
 
 from estimator.core.results import EstimatorContextValue
-from schemas import MissionPlan
-from schemas import VehicleProfile
+from schemas import MissionPlan, VehicleProfile
 
 
 @dataclass(frozen=True)

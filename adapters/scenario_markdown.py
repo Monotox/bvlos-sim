@@ -3,7 +3,11 @@
 from collections.abc import Callable
 
 from adapters.scenario_envelope import ScenarioResultEnvelope
-from estimator.core.scenario import CommsLinkPolicyOutcome, ScenarioEventOutcome, TimelinePoint
+from estimator.core.scenario import (
+    CommsLinkPolicyOutcome,
+    ScenarioEventOutcome,
+    TimelinePoint,
+)
 
 # ---------------------------------------------------------------------------
 # Generic section helpers

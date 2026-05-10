@@ -1,15 +1,18 @@
 import pytest
 
-from estimator import EstimationOptions
-from estimator import FailureCode
-from estimator import SpeedSource
-from estimator import WarningCode
-from estimator import estimate_mission_distance_time
-from estimator.core.errors import EstimatorInfeasibleError
-from estimator.core.errors import UnsupportedEstimatorFeatureError
+from estimator import (
+    EstimationOptions,
+    FailureCode,
+    SpeedSource,
+    WarningCode,
+    estimate_mission_distance_time,
+)
+from estimator.core.errors import (
+    EstimatorInfeasibleError,
+    UnsupportedEstimatorFeatureError,
+)
 from schemas import VehicleClass
-from tests.helpers import make_mission
-from tests.helpers import make_vehicle
+from tests.helpers import make_mission, make_vehicle
 
 
 def test_loiter_dwell_populates_wind_speed_and_null_track_components() -> None:

@@ -1,9 +1,9 @@
 """Canonical result envelope for scenario runner CLI outputs."""
 
 import json
+import tomllib
 from importlib import metadata as importlib_metadata
 from pathlib import Path
-import tomllib
 
 from pydantic import BaseModel, ConfigDict
 

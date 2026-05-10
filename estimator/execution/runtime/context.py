@@ -6,17 +6,17 @@ from typing import NoReturn
 
 from pyproj import Geod
 
-from estimator.core.enums import FailureCode
-from estimator.core.enums import FailureKind
-from estimator.core.enums import LegPhase
-from estimator.core.enums import WarningCode
+from estimator.core.enums import FailureCode, FailureKind, LegPhase, WarningCode
 from estimator.core.geofence import GeofenceZone
 from estimator.core.landing_zone import LandingZone
-from estimator.core.results import EstimatorContextValue
-from estimator.core.results import EstimatorFailure
-from estimator.core.results import EstimatorWarning
-from estimator.core.results import LegEstimate
-from estimator.core.results import WindVector
+from estimator.core.results import (
+    EstimatorContextValue,
+    EstimatorFailure,
+    EstimatorWarning,
+    LegEstimate,
+    WindVector,
+)
+from estimator.environment.terrain import TerrainProvider
 from estimator.environment.wind import WindProvider
 from estimator.execution.runtime.capabilities import Capabilities
 from estimator.execution.runtime.failure_translation import error_from_failure
@@ -31,6 +31,7 @@ class EstimationContext:
     mission: MissionPlan
     vehicle: VehicleProfile
     wind_provider: WindProvider
+    terrain_provider: TerrainProvider | None
     geod: Geod
     capabilities: Capabilities
     geofences: tuple[GeofenceZone, ...] | None

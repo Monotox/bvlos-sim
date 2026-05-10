@@ -17,9 +17,10 @@ The current codebase includes:
 - deterministic scenario runner with lost-link policy outcomes
 - scenario wind-change events
 - layered wind, sub-segment sampling, turn arcs, and fixed-wing circular loiter
+- terrain-referenced altitude with offline uniform elevation grid
 - golden fixture regression tests
 - package-root public Python API
-- passing estimator/schema/CLI/scenario test suite with 261 tests
+- passing estimator/schema/CLI/scenario test suite with 280 tests
 
 ## Main Execution Backlog
 
@@ -33,7 +34,7 @@ The current codebase includes:
 8. [021-comms-link-and-contingency-policies.md](./021-comms-link-and-contingency-policies.md) - implemented
 9. [030-fidelity-v2-layered-wind-and-subsegments.md](./030-fidelity-v2-layered-wind-and-subsegments.md) - implemented
 10. [031-fidelity-v2-turns-and-fixed-wing-loiter.md](./031-fidelity-v2-turns-and-fixed-wing-loiter.md) - implemented
-11. [032-terrain-referenced-altitude-execution.md](./032-terrain-referenced-altitude-execution.md) - planned
+11. [032-terrain-referenced-altitude-execution.md](./032-terrain-referenced-altitude-execution.md) - implemented
 12. [033-continuous-spatiotemporal-wind-grid.md](./033-continuous-spatiotemporal-wind-grid.md) - planned
 13. [034-dynamic-landing-zone-availability.md](./034-dynamic-landing-zone-availability.md) - planned
 14. [035-computed-divert-routing.md](./035-computed-divert-routing.md) - planned

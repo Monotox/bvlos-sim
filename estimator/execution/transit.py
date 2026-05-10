@@ -3,26 +3,25 @@
 import math
 from dataclasses import dataclass
 
-from estimator.core.constants import CRAB_ANGLE_WARNING_MARGIN
-from estimator.core.constants import EPS_DISTANCE_M
-from estimator.core.constants import GROUNDSPEED_WARNING_MARGIN
-from estimator.core.constants import MIN_TURN_ANGLE_DEG
-from estimator.core.enums import FailureCode
-from estimator.core.enums import FailureKind
-from estimator.core.enums import FidelityMode
-from estimator.core.enums import LegPhase
-from estimator.core.enums import WarningCode
-from estimator.core.results import EstimatorContextValue
-from estimator.core.results import LegEstimate
-from estimator.core.results import WindVector
+from estimator.core.constants import (
+    CRAB_ANGLE_WARNING_MARGIN,
+    EPS_DISTANCE_M,
+    GROUNDSPEED_WARNING_MARGIN,
+    MIN_TURN_ANGLE_DEG,
+)
+from estimator.core.enums import (
+    FailureCode,
+    FailureKind,
+    FidelityMode,
+    LegPhase,
+    WarningCode,
+)
+from estimator.core.results import EstimatorContextValue, LegEstimate, WindVector
 from estimator.execution.rules import resolve_transit_tas
-from estimator.execution.runtime import EstimationContext
-from estimator.execution.runtime import TargetPhase
-from estimator.execution.vertical import compute_vertical_time
-from estimator.execution.vertical import VerticalProfile
+from estimator.execution.runtime import EstimationContext, TargetPhase
+from estimator.execution.vertical import VerticalProfile, compute_vertical_time
 from estimator.math.turn_arc import compute_turn_arc_geometry
-from estimator.math.wind_triangle import normalize_deg
-from estimator.math.wind_triangle import solve_wind_triangle
+from estimator.math.wind_triangle import normalize_deg, solve_wind_triangle
 from schemas.mission import RouteItem
 
 

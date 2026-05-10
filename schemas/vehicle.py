@@ -8,11 +8,10 @@ from dataclasses import dataclass
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
 from schemas.vehicle_capabilities import VehicleCapabilities
-from schemas.vehicle_energy import EnergyModel
-from schemas.vehicle_energy import FailsafeProfile
-from schemas.vehicle_enums import AutopilotStack
-from schemas.vehicle_enums import VehicleClass
+from schemas.vehicle_energy import EnergyModel, FailsafeProfile
+from schemas.vehicle_enums import AutopilotStack, VehicleClass
 from schemas.vehicle_mass import MassProfile
 from schemas.vehicle_performance import PerformanceProfile
 from schemas.vehicle_sitl import SitlProfile

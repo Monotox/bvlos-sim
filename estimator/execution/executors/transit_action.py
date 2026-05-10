@@ -2,10 +2,11 @@
 
 from dataclasses import dataclass
 
-from estimator.core.enums import FailureCode
-from estimator.core.enums import LegPhase
-from estimator.execution.executors.support import build_transit_target
-from estimator.execution.executors.support import require_hover_capability
+from estimator.core.enums import FailureCode, LegPhase
+from estimator.execution.executors.support import (
+    build_transit_target,
+    require_hover_capability,
+)
 from estimator.execution.runtime import EstimationContext
 from estimator.execution.transit import append_transit_leg
 from schemas.mission import RouteItem
