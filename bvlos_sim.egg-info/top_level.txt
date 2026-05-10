@@ -1,4 +1,0 @@
-adapters
-estimator
-main
-schemas
