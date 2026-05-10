@@ -25,7 +25,7 @@
 ## Assumptions
 
 - Estimator v1 is deterministic and uses no randomness.
-- Wind input is constant in space and time unless a different provider is added.
+- Wind input is constant in space and time unless a layered, time-varying, or spatiotemporal grid provider is used.
 - Transit is modeled as geodesic leg-to-leg kinematics.
 - Terrain-referenced altitude uses an offline uniform elevation grid; online terrain service calls are not performed.
 - Turn dynamics and sub-segment integration are excluded from estimator v1.

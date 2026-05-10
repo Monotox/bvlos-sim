@@ -1,9 +1,26 @@
 """Wind provider abstractions."""
 
+import bisect
 from dataclasses import dataclass
 from typing import Protocol
 
 from estimator.core.results import WindVector
+
+
+def _lerp(a: float, b: float, t: float) -> float:
+    return a + (b - a) * t
+
+
+def _interp_index(axis: tuple[float, ...], value: float) -> tuple[int, float]:
+    """Return (lower_index, fraction) for linear interpolation along a sorted axis.
+
+    Clamps: lower_index stays in [0, len-2] and fraction stays in [0.0, 1.0]
+    so out-of-bounds queries extrapolate from the nearest edge cell.
+    """
+    i = bisect.bisect_right(axis, value) - 1
+    i0 = max(0, min(i, len(axis) - 2))
+    t = (value - axis[i0]) / (axis[i0 + 1] - axis[i0])
+    return i0, max(0.0, min(1.0, t))
 
 
 class WindProvider(Protocol):
@@ -128,6 +145,85 @@ class TimeVaryingWindProvider:
             lon=lon,
             altitude_amsl_m=altitude_amsl_m,
             elapsed_time_s=elapsed_time_s,
+        )
+
+
+class SpatiotemporalWindProvider:
+    """Provider backed by a 4D (time × altitude × lat × lon) wind grid.
+
+    All four axes must be strictly monotonically increasing and contain at
+    least two entries each. Wind vectors are quadrilinearly interpolated from
+    the eight surrounding grid points. Queries outside any axis bound are
+    clamped to the nearest edge (no out-of-bounds error at query time).
+    """
+
+    provider_id = "spatiotemporal_grid"
+
+    def __init__(
+        self,
+        *,
+        time_s: list[float],
+        altitude_m: list[float],
+        lat: list[float],
+        lon: list[float],
+        # values[t_idx][alt_idx][lat_idx][lon_idx] = [east_mps, north_mps]
+        values: list[list[list[list[list[float]]]]],
+    ) -> None:
+        self._time_s = tuple(time_s)
+        self._altitude_m = tuple(altitude_m)
+        self._lat = tuple(lat)
+        self._lon = tuple(lon)
+        self._n_t = len(self._time_s)
+        self._n_a = len(self._altitude_m)
+        self._n_lat = len(self._lat)
+        self._n_lon = len(self._lon)
+        self._east = tuple(float(en[0]) for t in values for a in t for lat_row in a for en in lat_row)
+        self._north = tuple(float(en[1]) for t in values for a in t for lat_row in a for en in lat_row)
+
+    def _idx(self, it: int, ia: int, ilat: int, ilon: int) -> int:
+        return (
+            it * (self._n_a * self._n_lat * self._n_lon)
+            + ia * (self._n_lat * self._n_lon)
+            + ilat * self._n_lon
+            + ilon
+        )
+
+    def wind_at(
+        self,
+        lat: float,
+        lon: float,
+        altitude_amsl_m: float,
+        elapsed_time_s: float,
+    ) -> WindVector:
+        it0, tt = _interp_index(self._time_s, elapsed_time_s)
+        ia0, ta = _interp_index(self._altitude_m, altitude_amsl_m)
+        ilat0, tlat = _interp_index(self._lat, lat)
+        ilon0, tlon = _interp_index(self._lon, lon)
+
+        def _get(dt: int, da: int, dlat: int, dlon: int) -> tuple[float, float]:
+            idx = self._idx(it0 + dt, ia0 + da, ilat0 + dlat, ilon0 + dlon)
+            return self._east[idx], self._north[idx]
+
+        def _lon_interp(dt: int, da: int, dlat: int) -> tuple[float, float]:
+            e0, n0 = _get(dt, da, dlat, 0)
+            e1, n1 = _get(dt, da, dlat, 1)
+            return _lerp(e0, e1, tlon), _lerp(n0, n1, tlon)
+
+        def _lat_interp(dt: int, da: int) -> tuple[float, float]:
+            e0, n0 = _lon_interp(dt, da, 0)
+            e1, n1 = _lon_interp(dt, da, 1)
+            return _lerp(e0, e1, tlat), _lerp(n0, n1, tlat)
+
+        def _alt_interp(dt: int) -> tuple[float, float]:
+            e0, n0 = _lat_interp(dt, 0)
+            e1, n1 = _lat_interp(dt, 1)
+            return _lerp(e0, e1, ta), _lerp(n0, n1, ta)
+
+        e0, n0 = _alt_interp(0)
+        e1, n1 = _alt_interp(1)
+        return WindVector(
+            wind_east_mps=_lerp(e0, e1, tt),
+            wind_north_mps=_lerp(n0, n1, tt),
         )
 
 

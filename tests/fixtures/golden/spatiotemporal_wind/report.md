@@ -31,8 +31,9 @@
 ## Provenance
 
 - Estimator API: `estimator.try_estimate_mission_distance_time`
-- mission: `yaml` sha256 `7bab3b2b9b996564f04f80c9cbb92051e2e187f2d4198b355e0939e9eec4473c`
+- mission: `yaml` sha256 `d5cf66b6a52da6e9106b51885d13735eafd5053e87a1e6e74869dbb2c0cca7da`
 - vehicle: `yaml` sha256 `4067f6697bba308915271afc95bf273ae7dc7637f3d921c71ac30b15a26453e5`
+- wind_grid: `yaml` sha256 `10326e2f5c6d70305d94bbd79e38824ea5fd8db0ed0d2cd056c6ce60dc9fc216`
 
 ## Determinism
 
@@ -44,17 +45,17 @@
 - Horizontal distance m: `707.0645448969212`
 - Vertical distance m: `240.0`
 - Path distance m: `707.0645448969212`
-- Time s: `169.820275172818`
+- Time s: `169.06024195158028`
 - Legs: `5`
 
 ## Energy Feasibility
 
 - Feasible: `true`
-- Total energy Wh: `41.50531217438002`
+- Total energy Wh: `41.410308021725314`
 - Battery capacity Wh: `900.0`
 - Usable energy Wh: `675.0`
 - Reserve threshold percent: `25.0`
 - Reserve threshold Wh: `225.0`
-- Reserve at landing Wh: `858.49468782562`
-- Reserve at landing percent: `95.38829864729111`
+- Reserve at landing Wh: `858.5896919782747`
+- Reserve at landing percent: `95.39885466425274`
 - Energy legs: `5`

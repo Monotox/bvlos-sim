@@ -20,10 +20,11 @@ VEHICLE_SCHEMA_VERSION = "vehicle.v2"
 GEOFENCE_SCHEMA_VERSION = "geofence-geojson.v1"
 LANDING_ZONE_SCHEMA_VERSION = "landing-zone-geojson.v1"
 TERRAIN_SCHEMA_VERSION = "terrain-grid.v1"
+WIND_GRID_SCHEMA_VERSION = "wind-grid.v1"
 
 _ASSUMPTIONS = [
     "Estimator v1 is deterministic and uses no randomness.",
-    "Wind input is constant in space and time unless a different provider is added.",
+    "Wind input is constant in space and time unless a layered, time-varying, or spatiotemporal grid provider is used.",
     "Transit is modeled as geodesic leg-to-leg kinematics.",
     "Terrain-referenced altitude uses an offline uniform elevation grid; online terrain service calls are not performed.",
     "Turn dynamics and sub-segment integration are excluded from estimator v1.",
@@ -181,6 +182,7 @@ class EnvelopeInputs:
     geofences: InputDocument | None = None
     landing_zones: InputDocument | None = None
     terrain: InputDocument | None = None
+    wind_grid: InputDocument | None = None
 
 
 def _tool_version() -> str:
@@ -218,6 +220,11 @@ def _build_provenance(inputs: EnvelopeInputs) -> Provenance:
         provenance_inputs["terrain"] = ProvenanceInput(
             format=inputs.terrain.format,
             sha256=inputs.terrain.sha256,
+        )
+    if inputs.wind_grid is not None:
+        provenance_inputs["wind_grid"] = ProvenanceInput(
+            format=inputs.wind_grid.format,
+            sha256=inputs.wind_grid.sha256,
         )
 
     return Provenance(
@@ -362,6 +369,7 @@ def _input_schema_versions() -> dict[str, str]:
         "geofences": GEOFENCE_SCHEMA_VERSION,
         "landing_zones": LANDING_ZONE_SCHEMA_VERSION,
         "terrain": TERRAIN_SCHEMA_VERSION,
+        "wind_grid": WIND_GRID_SCHEMA_VERSION,
     }
 
 

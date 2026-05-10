@@ -1,0 +1,28 @@
+# Spatiotemporal wind grid for the pipeline demo area
+# schema: wind-grid.v1
+# Covers 2 time snapshots × 2 altitude bands × 3 lat × 3 lon spatial grid
+# Structure: values[time_idx][alt_idx][lat_idx][lon_idx] = [wind_east_mps, wind_north_mps]
+axes:
+  time_s: [0.0, 600.0]        # Two time snapshots: t=0s and t=600s
+  altitude_m: [0.0, 200.0]    # Two altitude bands: surface and 200 m AMSL
+  lat: [51.990, 52.000, 52.010]
+  lon: [3.990, 4.000, 4.010]
+values:
+  # time=0s
+  - # alt=0m: uniform 2 m/s easterly at all lat/lon points
+    - - [[2.0, 0.0], [2.0, 0.0], [2.0, 0.0]]
+      - [[2.0, 0.0], [2.0, 0.0], [2.0, 0.0]]
+      - [[2.0, 0.0], [2.0, 0.0], [2.0, 0.0]]
+    # alt=200m: 3 m/s east + slight southerly (-0.5 m/s north)
+    - - [[3.0, -0.5], [3.0, -0.5], [3.0, -0.5]]
+      - [[3.0, -0.5], [3.0, -0.5], [3.0, -0.5]]
+      - [[3.0, -0.5], [3.0, -0.5], [3.0, -0.5]]
+  # time=600s (wind increases by 0.5 m/s east at both altitude bands)
+  - # alt=0m
+    - - [[2.5, 0.0], [2.5, 0.0], [2.5, 0.0]]
+      - [[2.5, 0.0], [2.5, 0.0], [2.5, 0.0]]
+      - [[2.5, 0.0], [2.5, 0.0], [2.5, 0.0]]
+    # alt=200m
+    - - [[3.5, -0.5], [3.5, -0.5], [3.5, -0.5]]
+      - [[3.5, -0.5], [3.5, -0.5], [3.5, -0.5]]
+      - [[3.5, -0.5], [3.5, -0.5], [3.5, -0.5]]
