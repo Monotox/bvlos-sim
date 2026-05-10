@@ -1,7 +1,7 @@
 {
   "assumptions": [
     "Estimator v1 is deterministic and uses no randomness.",
-    "Wind input is constant in space and time unless a different provider is added.",
+    "Wind input is constant in space and time unless a layered, time-varying, or spatiotemporal grid provider is used.",
     "Transit is modeled as geodesic leg-to-leg kinematics.",
     "Terrain-referenced altitude uses an offline uniform elevation grid; online terrain service calls are not performed.",
     "Turn dynamics and sub-segment integration are excluded from estimator v1.",
@@ -37,7 +37,8 @@
     "landing_zones": "landing-zone-geojson.v1",
     "mission": "mission.v4",
     "terrain": "terrain-grid.v1",
-    "vehicle": "vehicle.v2"
+    "vehicle": "vehicle.v2",
+    "wind_grid": "wind-grid.v1"
   },
   "provenance": {
     "estimator_api": "estimator.try_estimate_mission_distance_time",

@@ -36,6 +36,7 @@ from adapters.scenario_envelope import (
 from adapters.scenario_io import load_scenario, resolve_scenario_asset_path
 from adapters.scenario_markdown import render_scenario_markdown
 from adapters.terrain_grid import TerrainGridLoadError, load_terrain_grid
+from adapters.wind_grid import WindGridLoadError, load_wind_grid
 from estimator import (
     EstimateStatus,
     EstimationOptions,
@@ -50,7 +51,7 @@ from estimator import (
     try_estimate_mission_distance_time,
 )
 
-StaticAssetLoadError = GeofenceLoadError | LandingZoneLoadError | TerrainGridLoadError
+StaticAssetLoadError = GeofenceLoadError | LandingZoneLoadError | TerrainGridLoadError | WindGridLoadError
 
 app = typer.Typer(name="bvlos-sim", add_completion=False, no_args_is_help=True)
 
@@ -210,6 +211,7 @@ def _envelope_inputs_for_static_asset_error(
     geofence_document: InputDocument | None,
     landing_zone_document: InputDocument | None,
     terrain_document: InputDocument | None,
+    wind_grid_document: InputDocument | None,
 ) -> EnvelopeInputs | None:
     if mission_document is None or vehicle_document is None:
         return None
@@ -231,6 +233,11 @@ def _envelope_inputs_for_static_asset_error(
             error.document
             if isinstance(error, TerrainGridLoadError)
             else terrain_document
+        ),
+        wind_grid=(
+            error.document
+            if isinstance(error, WindGridLoadError)
+            else wind_grid_document
         ),
     )
 
@@ -295,6 +302,7 @@ def estimate(
     geofence_document: InputDocument | None = None
     landing_zone_document: InputDocument | None = None
     terrain_document: InputDocument | None = None
+    wind_grid_document: InputDocument | None = None
     envelope_inputs: EnvelopeInputs | None = None
     try:
         options = _build_estimation_options(fidelity, max_segment_length_m)
@@ -308,6 +316,16 @@ def estimate(
                 mission_path=mission_document.path,
             )
             terrain_provider, terrain_document = load_terrain_grid(terrain_path)
+        asset_wind_provider = None
+        if mission_model.assets.wind_grid_file is not None:
+            wind_grid_path = _resolve_asset_path(
+                mission_model.assets.wind_grid_file,
+                mission_path=mission_document.path,
+            )
+            asset_wind_provider, wind_grid_document = load_wind_grid(wind_grid_path)
+        # CLI --wind-layer takes precedence over mission asset wind grid
+        if wind_provider is None:
+            wind_provider = asset_wind_provider
         geofences = None
         if mission_model.assets.geofences_file is not None:
             geofence_path = _resolve_asset_path(
@@ -328,6 +346,7 @@ def estimate(
             geofences=geofence_document,
             landing_zones=landing_zone_document,
             terrain=terrain_document,
+            wind_grid=wind_grid_document,
         )
         result = try_estimate_mission_distance_time(
             mission_model,
@@ -371,6 +390,7 @@ def estimate(
             geofence_document=geofence_document,
             landing_zone_document=landing_zone_document,
             terrain_document=terrain_document,
+            wind_grid_document=wind_grid_document,
         )
         if asset_error_inputs is not None:
             envelope_inputs = asset_error_inputs

@@ -1,0 +1,19 @@
+# Minimal 2×2×2×2 spatiotemporal wind grid for golden fixture testing
+# schema: wind-grid.v1
+# Uniform 2.0 m/s easterly wind at all grid points
+axes:
+  time_s: [0.0, 999.0]
+  altitude_m: [0.0, 200.0]
+  lat: [52.0, 52.01]
+  lon: [4.0, 4.01]
+values:
+  # time=0s
+  - - - [[2.0, 0.0], [2.0, 0.0]]
+      - [[2.0, 0.0], [2.0, 0.0]]
+    - - [[2.0, 0.0], [2.0, 0.0]]
+      - [[2.0, 0.0], [2.0, 0.0]]
+  # time=999s
+  - - - [[2.0, 0.0], [2.0, 0.0]]
+      - [[2.0, 0.0], [2.0, 0.0]]
+    - - [[2.0, 0.0], [2.0, 0.0]]
+      - [[2.0, 0.0], [2.0, 0.0]]

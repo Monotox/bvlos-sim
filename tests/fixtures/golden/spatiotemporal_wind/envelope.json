@@ -43,11 +43,15 @@
     "inputs": {
       "mission": {
         "format": "yaml",
-        "sha256": "7bab3b2b9b996564f04f80c9cbb92051e2e187f2d4198b355e0939e9eec4473c"
+        "sha256": "d5cf66b6a52da6e9106b51885d13735eafd5053e87a1e6e74869dbb2c0cca7da"
       },
       "vehicle": {
         "format": "yaml",
         "sha256": "4067f6697bba308915271afc95bf273ae7dc7637f3d921c71ac30b15a26453e5"
+      },
+      "wind_grid": {
+        "format": "yaml",
+        "sha256": "10326e2f5c6d70305d94bbd79e38824ea5fd8db0ed0d2cd056c6ce60dc9fc216"
       }
     }
   },
@@ -77,14 +81,14 @@
           "time_s": 13.333333333333334
         },
         {
-          "energy_wh": 1.2275343966022492,
+          "energy_wh": 1.1325302439475347,
           "leg_index": 2,
           "phase": "loiter_transit",
           "power_source": "vehicle.energy.cruise_power_w",
           "power_w": 450.0,
           "route_item_id": "loiter",
           "route_item_index": 2,
-          "time_s": 9.820275172817993
+          "time_s": 9.060241951580277
         },
         {
           "energy_wh": 20.0,
@@ -107,11 +111,11 @@
           "time_s": 60.0
         }
       ],
-      "reserve_at_landing_percent": 95.38829864729111,
-      "reserve_at_landing_wh": 858.49468782562,
+      "reserve_at_landing_percent": 95.39885466425274,
+      "reserve_at_landing_wh": 858.5896919782747,
       "reserve_threshold_percent": 25.0,
       "reserve_threshold_wh": 225.0,
-      "total_energy_wh": 41.50531217438002,
+      "total_energy_wh": 41.410308021725314,
       "usable_energy_wh": 675.0
     },
     "failure": null,
@@ -150,17 +154,17 @@
       },
       {
         "action": "waypoint",
-        "crab_angle_deg": 0.0,
+        "crab_angle_deg": -4.010587778997831,
         "end_alt_amsl_m": 132.0,
         "end_lat": 52.001,
         "end_lon": 4.002,
         "ground_track_deg": 50.98916625158068,
-        "groundspeed_mps": 18.0,
+        "groundspeed_mps": 19.509974476269388,
         "horizontal_distance_m": 176.76731936998286,
         "leg_index": 1,
         "path_distance_m": 176.76731936998286,
         "phase": "transit",
-        "required_heading_deg": 50.98916625158068,
+        "required_heading_deg": 46.97857847258286,
         "route_item_id": "wp1",
         "route_item_index": 1,
         "speed_source": "mission.defaults.cruise_speed_mps",
@@ -172,25 +176,25 @@
         "vertical_delta_m": 40.0,
         "vertical_distance_m": 40.0,
         "warnings": [],
-        "wind_along_track_mps": 0.0,
-        "wind_cross_track_mps": 0.0,
-        "wind_east_mps": 0.0,
+        "wind_along_track_mps": 1.5540539055661085,
+        "wind_cross_track_mps": 1.2589346522336753,
+        "wind_east_mps": 2.0,
         "wind_north_mps": 0.0,
-        "wind_speed_mps": 0.0
+        "wind_speed_mps": 2.0
       },
       {
         "action": "loiter_time",
-        "crab_angle_deg": 0.0,
+        "crab_angle_deg": -4.01064223995931,
         "end_alt_amsl_m": 132.0,
         "end_lat": 52.002,
         "end_lon": 4.004,
         "ground_track_deg": 50.98853699347508,
-        "groundspeed_mps": 18.0,
+        "groundspeed_mps": 19.50995945311292,
         "horizontal_distance_m": 176.7649531107239,
         "leg_index": 2,
         "path_distance_m": 176.7649531107239,
         "phase": "loiter_transit",
-        "required_heading_deg": 50.98853699347508,
+        "required_heading_deg": 46.97789475351576,
         "route_item_id": "loiter",
         "route_item_index": 2,
         "speed_source": "mission.defaults.cruise_speed_mps",
@@ -198,15 +202,15 @@
         "start_lat": 52.001,
         "start_lon": 4.002,
         "tas_mps": 18.0,
-        "time_s": 9.820275172817993,
+        "time_s": 9.060241951580277,
         "vertical_delta_m": 0.0,
         "vertical_distance_m": 0.0,
         "warnings": [],
-        "wind_along_track_mps": 0.0,
-        "wind_cross_track_mps": 0.0,
-        "wind_east_mps": 0.0,
+        "wind_along_track_mps": 1.5540400790642086,
+        "wind_cross_track_mps": 1.2589517197502484,
+        "wind_east_mps": 2.0,
         "wind_north_mps": 0.0,
-        "wind_speed_mps": 0.0
+        "wind_speed_mps": 2.0
       },
       {
         "action": "loiter_time",
@@ -236,23 +240,23 @@
         ],
         "wind_along_track_mps": null,
         "wind_cross_track_mps": null,
-        "wind_east_mps": 0.0,
+        "wind_east_mps": 2.0,
         "wind_north_mps": 0.0,
-        "wind_speed_mps": 0.0
+        "wind_speed_mps": 2.0
       },
       {
         "action": "rtl",
-        "crab_angle_deg": 0.0,
+        "crab_angle_deg": 4.010410400243757,
         "end_alt_amsl_m": 12.0,
         "end_lat": 52.0,
         "end_lon": 4.0,
         "ground_track_deg": 230.99121569980684,
-        "groundspeed_mps": 18.0,
+        "groundspeed_mps": 16.401825531896346,
         "horizontal_distance_m": 353.53227241621454,
         "leg_index": 4,
         "path_distance_m": 353.53227241621454,
         "phase": "rtl_transit",
-        "required_heading_deg": 230.99121569980684,
+        "required_heading_deg": 235.0016261000506,
         "route_item_id": "rtl",
         "route_item_index": 3,
         "speed_source": "mission.defaults.cruise_speed_mps",
@@ -264,11 +268,11 @@
         "vertical_delta_m": -120.0,
         "vertical_distance_m": 120.0,
         "warnings": [],
-        "wind_along_track_mps": -0.0,
-        "wind_cross_track_mps": 0.0,
-        "wind_east_mps": 0.0,
+        "wind_along_track_mps": -1.5540989361852737,
+        "wind_cross_track_mps": -1.2588790635115832,
+        "wind_east_mps": 2.0,
         "wind_north_mps": 0.0,
-        "wind_speed_mps": 0.0
+        "wind_speed_mps": 2.0
       }
     ],
     "metadata": {
@@ -276,12 +280,12 @@
       "capabilities_source": "explicit",
       "estimator_version": "v1",
       "options_source": "library_defaults",
-      "wind_provider_id": "constant"
+      "wind_provider_id": "spatiotemporal_grid"
     },
     "status": "success",
     "total_horizontal_distance_m": 707.0645448969212,
     "total_path_distance_m": 707.0645448969212,
-    "total_time_s": 169.820275172818,
+    "total_time_s": 169.06024195158028,
     "total_vertical_distance_m": 240.0,
     "totals_are_partial": false,
     "warnings": [

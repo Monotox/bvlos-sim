@@ -338,6 +338,50 @@ fails with `UNSUPPORTED_ALTITUDE_REFERENCE_TERRAIN`.
 
 See `examples/terrain/flat_polder.yaml` for a working example grid.
 
+### Spatiotemporal Wind Grid
+
+A spatiotemporal wind grid provides wind as a deterministic function of elapsed
+time, altitude, latitude, and longitude. It uses quadrilinear interpolation
+and clamps at domain boundaries.
+
+The grid format is a YAML or JSON file:
+
+```yaml
+axes:
+  time_s: [0.0, 600.0]
+  altitude_m: [0.0, 200.0]
+  lat: [51.990, 52.000, 52.010]
+  lon: [3.990, 4.000, 4.010]
+values:
+  # values[time_idx][alt_idx][lat_idx][lon_idx] = [wind_east_mps, wind_north_mps]
+  - - - [[2.0, 0.0], [2.0, 0.0], [2.0, 0.0]]
+      - [[2.0, 0.0], [2.0, 0.0], [2.0, 0.0]]
+      - [[2.0, 0.0], [2.0, 0.0], [2.0, 0.0]]
+    - - [[3.0, -0.5], [3.0, -0.5], [3.0, -0.5]]
+      - [[3.0, -0.5], [3.0, -0.5], [3.0, -0.5]]
+      - [[3.0, -0.5], [3.0, -0.5], [3.0, -0.5]]
+  - - - [[2.5, 0.0], [2.5, 0.0], [2.5, 0.0]]
+      - [[2.5, 0.0], [2.5, 0.0], [2.5, 0.0]]
+      - [[2.5, 0.0], [2.5, 0.0], [2.5, 0.0]]
+    - - [[3.5, -0.5], [3.5, -0.5], [3.5, -0.5]]
+      - [[3.5, -0.5], [3.5, -0.5], [3.5, -0.5]]
+      - [[3.5, -0.5], [3.5, -0.5], [3.5, -0.5]]
+```
+
+Each axis must be strictly monotonically increasing with at least 2 entries.
+
+Reference the grid from the mission file:
+
+```yaml
+assets:
+  wind_grid_file: wind/pipeline_wind_grid.yaml
+```
+
+The CLI `--wind-layer` flags take precedence over `wind_grid_file` when both
+are present. `wind_grid_file` takes precedence over `estimation.wind_layers`.
+
+See `examples/wind/pipeline_wind_grid.yaml` for a working example grid.
+
 ## Python API
 
 Use the package-root imports for stable caller code:
@@ -348,6 +392,7 @@ from estimator import EstimationOptions
 from estimator import FidelityMode
 from estimator import GridTerrainProvider
 from estimator import LayeredWindProvider
+from estimator import SpatiotemporalWindProvider
 from estimator import TerrainProvider
 from estimator import WindLayer
 from estimator import estimate_mission_distance_time
@@ -396,6 +441,20 @@ result = estimate_mission_distance_time(
     mission,
     vehicle,
     terrain_provider=provider,
+)
+```
+
+Spatiotemporal wind grid example:
+
+```python
+from adapters.wind_grid import load_wind_grid
+
+wind_provider, _ = load_wind_grid(Path("wind/pipeline_wind_grid.yaml"))
+
+result = estimate_mission_distance_time(
+    mission,
+    vehicle,
+    wind_provider=wind_provider,
 )
 ```
 

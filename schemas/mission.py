@@ -371,6 +371,10 @@ class MissionAssets(BaseModel):
         default=None,
         description="Optional elevation grid file (YAML/JSON uniform grid) for terrain-referenced altitude resolution.",
     )
+    wind_grid_file: Path | None = Field(
+        default=None,
+        description="Optional spatiotemporal wind grid file (YAML/JSON) for 4D wind estimation.",
+    )
     comms_coverage_file: Path | None = Field(
         default=None,
         description="GeoJSON or raster communication coverage file reserved for later simulator phases.",

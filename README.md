@@ -71,6 +71,7 @@ The current `v0.2.0` release includes:
 - comms-link lost-link policy model with `rtl`, `land`, `loiter`, and `divert` actions
 - layered wind, optional sub-segment sampling, turn-arc dynamics, and fixed-wing circular loiter
 - terrain-referenced altitude using an offline uniform elevation grid
+- spatiotemporal wind grid with quadrilinear interpolation (offline 4D wind data)
 - documented schema/versioning policy with golden contract fixtures
 - passing test suite
 

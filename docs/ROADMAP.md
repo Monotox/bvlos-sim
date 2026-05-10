@@ -5,15 +5,16 @@ toward a broader BVLOS simulation platform.
 
 ## Current Status
 
-The current `v0.2.0` release implements Phases 1 through 4, plus Ticket 032:
+The current `v0.2.0` release implements Phases 1 through 4, plus Tickets 032 and 033:
 
 - estimator hardening
 - static feasibility checks
 - scenario runner and contingency policy outcomes
 - fidelity v2 trajectory and wind features
 - terrain-referenced altitude execution
+- continuous spatiotemporal wind grid
 
-The test suite currently passes with 280 tests.
+The test suite currently passes with 304 tests.
 
 bvlos-sim remains an engineering validation tool. It is not a flight-safety
 system, operational approval tool, or complete BVLOS compliance system.
@@ -41,6 +42,7 @@ Wind and trajectory fidelity:
 
 - `ConstantWindProvider`
 - `LayeredWindProvider`
+- `SpatiotemporalWindProvider` with quadrilinear interpolation (offline wind grid)
 - optional transit sub-segment wind sampling
 - wind-triangle correction for forward-flight transit
 - station-keep loiter for hover-capable vehicles
@@ -76,8 +78,6 @@ Interfaces and contracts:
 Estimator limitations:
 
 - no Monte Carlo uncertainty model
-- no continuous spatial or temporal wind grid beyond altitude-banded layers and
-  scenario wind-change events
 - no bank-angle model or Dubins path optimization
 - vertical-only movement does not add 3D slant path distance
 
