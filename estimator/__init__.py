@@ -60,6 +60,7 @@ from estimator.environment.terrain import (
 from estimator.environment.wind import (
     ConstantWindProvider,
     LayeredWindProvider,
+    SpatiotemporalWindProvider,
     WindLayer,
     WindProvider,
 )
@@ -107,6 +108,7 @@ __all__ = [
     "LegEstimate",
     "MissionEstimate",
     "ScenarioAssertionResult",
+    "SpatiotemporalWindProvider",
     "ScenarioEventOutcome",
     "ScenarioResult",
     "ScenarioStatus",

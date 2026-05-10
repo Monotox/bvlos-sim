@@ -12,9 +12,10 @@ from adapters.envelope import (
     build_invalid_input_envelope,
     render_envelope_json,
 )
-from adapters.io import InputDocument, InputLoadError, load_mission, load_vehicle
+from adapters.io import InputLoadError, load_mission, load_vehicle
 from adapters.markdown import render_envelope_markdown
 from adapters.terrain_grid import load_terrain_grid
+from adapters.wind_grid import load_wind_grid
 from estimator import EstimateStatus, try_estimate_mission_distance_time
 from schemas import MissionPlan, VehicleProfile
 from tests.helpers import make_mission_payload, make_vehicle_payload
@@ -22,44 +23,48 @@ from tests.helpers import make_mission_payload, make_vehicle_payload
 FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "golden"
 
 
-def _load_fixture_terrain(
-    fixture_dir: Path,
-    mission: MissionPlan,
-) -> tuple[object | None, InputDocument | None]:
-    if mission.assets.terrain_file is None:
-        return None, None
-    terrain_path = fixture_dir / mission.assets.terrain_file
-    terrain_provider, terrain_doc = load_terrain_grid(terrain_path)
-    return terrain_provider, terrain_doc
+def _build_fixture_envelope(scenario: str) -> EstimatorResultEnvelope:
+    fixture_dir = FIXTURE_ROOT / scenario
+    mission, mission_doc = load_mission(fixture_dir / "mission.yaml")
+    vehicle, vehicle_doc = load_vehicle(fixture_dir / "vehicle.yaml")
+
+    terrain_provider = None
+    terrain_doc = None
+    if mission.assets.terrain_file is not None:
+        terrain_path = fixture_dir / mission.assets.terrain_file
+        terrain_provider, terrain_doc = load_terrain_grid(terrain_path)
+
+    wind_provider = None
+    wind_grid_doc = None
+    if mission.assets.wind_grid_file is not None:
+        wind_grid_path = fixture_dir / mission.assets.wind_grid_file
+        wind_provider, wind_grid_doc = load_wind_grid(wind_grid_path)
+
+    result = try_estimate_mission_distance_time(
+        mission, vehicle,
+        terrain_provider=terrain_provider,
+        wind_provider=wind_provider,
+    )
+    return build_estimator_envelope(
+        result=result,
+        inputs=EnvelopeInputs(
+            mission=mission_doc,
+            vehicle=vehicle_doc,
+            terrain=terrain_doc,
+            wind_grid=wind_grid_doc,
+        ),
+    )
 
 
 def _render_fixture_envelope(scenario: str) -> str:
-    fixture_dir = FIXTURE_ROOT / scenario
-    mission, mission_doc = load_mission(fixture_dir / "mission.yaml")
-    vehicle, vehicle_doc = load_vehicle(fixture_dir / "vehicle.yaml")
-    terrain_provider, terrain_doc = _load_fixture_terrain(fixture_dir, mission)
-    result = try_estimate_mission_distance_time(mission, vehicle, terrain_provider=terrain_provider)
-    envelope = build_estimator_envelope(
-        result=result,
-        inputs=EnvelopeInputs(mission=mission_doc, vehicle=vehicle_doc, terrain=terrain_doc),
-    )
-    return render_envelope_json(envelope)
+    return render_envelope_json(_build_fixture_envelope(scenario))
 
 
 def _render_fixture_markdown(scenario: str) -> str:
-    fixture_dir = FIXTURE_ROOT / scenario
-    mission, mission_doc = load_mission(fixture_dir / "mission.yaml")
-    vehicle, vehicle_doc = load_vehicle(fixture_dir / "vehicle.yaml")
-    terrain_provider, terrain_doc = _load_fixture_terrain(fixture_dir, mission)
-    result = try_estimate_mission_distance_time(mission, vehicle, terrain_provider=terrain_provider)
-    envelope = build_estimator_envelope(
-        result=result,
-        inputs=EnvelopeInputs(mission=mission_doc, vehicle=vehicle_doc, terrain=terrain_doc),
-    )
-    return render_envelope_markdown(envelope)
+    return render_envelope_markdown(_build_fixture_envelope(scenario))
 
 
-@pytest.mark.parametrize("scenario", ["success", "partial", "infeasible", "terrain"])
+@pytest.mark.parametrize("scenario", ["success", "partial", "infeasible", "terrain", "spatiotemporal_wind"])
 def test_canonical_json_matches_golden_fixture(scenario: str) -> None:
     rendered = _render_fixture_envelope(scenario)
     expected = (FIXTURE_ROOT / scenario / "envelope.json").read_text(encoding="utf-8")
@@ -67,7 +72,7 @@ def test_canonical_json_matches_golden_fixture(scenario: str) -> None:
     assert rendered == expected
 
 
-@pytest.mark.parametrize("scenario", ["success", "partial", "infeasible", "terrain"])
+@pytest.mark.parametrize("scenario", ["success", "partial", "infeasible", "terrain", "spatiotemporal_wind"])
 def test_markdown_matches_golden_fixture(scenario: str) -> None:
     rendered = _render_fixture_markdown(scenario)
     expected = (FIXTURE_ROOT / scenario / "report.md").read_text(encoding="utf-8")
