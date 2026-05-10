@@ -1,6 +1,5 @@
 """Environment-facing estimator providers."""
 
-from estimator.environment.wind import ConstantWindProvider
-from estimator.environment.wind import WindProvider
+from estimator.environment.wind import ConstantWindProvider, WindProvider
 
 __all__ = ["ConstantWindProvider", "WindProvider"]

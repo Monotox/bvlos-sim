@@ -5,31 +5,38 @@ from dataclasses import dataclass
 
 from pyproj import Geod
 
-from estimator.core.constants import DEFAULT_MAX_CRAB_ANGLE_DEG
-from estimator.core.constants import DEFAULT_MIN_GROUNDSPEED_MPS
-from estimator.core.enums import CapabilitySource
-from estimator.core.enums import FailureCode
-from estimator.core.enums import FidelityMode
-from estimator.core.enums import FailureKind
-from estimator.core.enums import OptionSource
+from estimator.core.constants import (
+    DEFAULT_MAX_CRAB_ANGLE_DEG,
+    DEFAULT_MIN_GROUNDSPEED_MPS,
+)
+from estimator.core.enums import (
+    CapabilitySource,
+    FailureCode,
+    FailureKind,
+    FidelityMode,
+    OptionSource,
+)
+from estimator.core.errors import InvalidEstimatorInputError
 from estimator.core.geofence import GeofenceZone
 from estimator.core.landing_zone import LandingZone
 from estimator.core.options import EstimationOptions
-from estimator.core.errors import InvalidEstimatorInputError
-from estimator.core.results import EstimatorContextValue
-from estimator.core.results import EstimatorFailure
-from estimator.environment.wind import ConstantWindProvider
-from estimator.environment.wind import LayeredWindProvider
-from estimator.environment.wind import WindLayer
-from estimator.environment.wind import WindProvider
-from estimator.environment.wind import wind_provider_id
-from estimator.execution.runtime import Capabilities
-from estimator.execution.runtime import EstimationContext
-from estimator.execution.runtime import FlightState
-from estimator.execution.runtime import ResolvedOptions
+from estimator.core.results import EstimatorContextValue, EstimatorFailure
+from estimator.environment.terrain import TerrainProvider, terrain_provider_id
+from estimator.environment.wind import (
+    ConstantWindProvider,
+    LayeredWindProvider,
+    WindLayer,
+    WindProvider,
+    wind_provider_id,
+)
+from estimator.execution.runtime import (
+    Capabilities,
+    EstimationContext,
+    FlightState,
+    ResolvedOptions,
+)
 from schemas.mission import MissionPlan
-from schemas.vehicle import VehicleClass
-from schemas.vehicle import VehicleProfile
+from schemas.vehicle import VehicleClass, VehicleProfile
 
 
 @dataclass(frozen=True)
@@ -152,6 +159,7 @@ def build_estimation_context(
     *,
     options: EstimationOptions | None = None,
     wind_provider: WindProvider | None = None,
+    terrain_provider: TerrainProvider | None = None,
     geofences: Sequence[GeofenceZone] | None = None,
     landing_zones: Sequence[LandingZone] | None = None,
 ) -> EstimationContext:
@@ -195,6 +203,9 @@ def build_estimation_context(
             )
     metadata["wind_provider_id"] = wind_provider_id(wind_provider)
 
+    if terrain_provider is not None:
+        metadata["terrain_provider_id"] = terrain_provider_id(terrain_provider)
+
     if resolved_options.min_groundspeed_mps == DEFAULT_MIN_GROUNDSPEED_MPS:
         metadata["applied_default_min_groundspeed_mps"] = DEFAULT_MIN_GROUNDSPEED_MPS
 
@@ -202,6 +213,7 @@ def build_estimation_context(
         mission=mission,
         vehicle=vehicle,
         wind_provider=wind_provider,
+        terrain_provider=terrain_provider,
         geod=Geod(ellps="WGS84"),
         capabilities=capabilities,
         geofences=None if geofences is None else tuple(geofences),

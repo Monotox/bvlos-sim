@@ -2,15 +2,16 @@ import math
 
 import pytest
 
-from estimator import EnergyPowerSource
-from estimator import EstimateStatus
-from estimator import FailureCode
-from estimator import InvalidEstimatorInputError
-from estimator import LegPhase
-from estimator import estimate_mission_distance_time
-from estimator import try_estimate_mission_distance_time
-from tests.helpers import make_mission
-from tests.helpers import make_vehicle
+from estimator import (
+    EnergyPowerSource,
+    EstimateStatus,
+    FailureCode,
+    InvalidEstimatorInputError,
+    LegPhase,
+    estimate_mission_distance_time,
+    try_estimate_mission_distance_time,
+)
+from tests.helpers import make_mission, make_vehicle
 
 
 def test_successful_estimate_includes_energy_breakdown_and_reserve() -> None:

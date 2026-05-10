@@ -20,7 +20,7 @@
 - Estimator v1 is deterministic and uses no randomness.
 - Wind input is constant in space and time unless a different provider is added.
 - Transit is modeled as geodesic leg-to-leg kinematics.
-- Terrain-referenced altitude is unsupported in estimator v1.
+- Terrain-referenced altitude uses an offline uniform elevation grid; online terrain service calls are not performed.
 - Turn dynamics and sub-segment integration are excluded from estimator v1.
 - Fixed-wing circular loiter is unsupported in estimator v1.
 - Energy feasibility uses deterministic phase power values from the vehicle profile.

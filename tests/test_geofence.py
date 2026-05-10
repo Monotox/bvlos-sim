@@ -3,16 +3,16 @@ from pathlib import Path
 
 import pytest
 
-from adapters.geofence_geojson import GeofenceLoadError
-from adapters.geofence_geojson import load_geofences
-from estimator import EstimateStatus
-from estimator import FailureCode
-from estimator import FailureKind
-from estimator import GeofenceKind
-from estimator import GeofenceZone
-from estimator import try_estimate_mission_distance_time
-from tests.helpers import make_mission
-from tests.helpers import make_vehicle
+from adapters.geofence_geojson import GeofenceLoadError, load_geofences
+from estimator import (
+    EstimateStatus,
+    FailureCode,
+    FailureKind,
+    GeofenceKind,
+    GeofenceZone,
+    try_estimate_mission_distance_time,
+)
+from tests.helpers import make_mission, make_vehicle
 
 
 def _zone(

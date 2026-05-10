@@ -2,8 +2,12 @@
 
 import pytest
 
-from estimator.environment.wind import ConstantWindProvider, TimedWindChange, TimeVaryingWindProvider
 from estimator import LayeredWindProvider, WindLayer
+from estimator.environment.wind import (
+    ConstantWindProvider,
+    TimedWindChange,
+    TimeVaryingWindProvider,
+)
 
 
 def _wind_at(provider: LayeredWindProvider, altitude_m: float) -> tuple[float, float]:

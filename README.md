@@ -70,6 +70,7 @@ The current `v0.2.0` release includes:
 - deterministic scenario runner with event injection, wind-change events, and assertions (`scenario.v1`)
 - comms-link lost-link policy model with `rtl`, `land`, `loiter`, and `divert` actions
 - layered wind, optional sub-segment sampling, turn-arc dynamics, and fixed-wing circular loiter
+- terrain-referenced altitude using an offline uniform elevation grid
 - documented schema/versioning policy with golden contract fixtures
 - passing test suite
 
@@ -111,7 +112,7 @@ for the full roadmap and known limitations.
   Deterministic estimator package:
   - `core/` for public enums/options/results, constants, and typed errors
   - `execution/` for orchestration, executors, runtime models, context-building, rules, altitude, vertical, transit, loiter, and scenario logic
-  - `environment/` for wind providers
+  - `environment/` for wind and terrain providers
   - `math/` for wind-triangle and turn-arc helpers
 
 - `examples/`

@@ -1,5 +1,4 @@
-from schemas import MissionPlan
-from schemas import VehicleProfile
+from schemas import MissionPlan, VehicleProfile
 
 
 def make_vehicle_payload() -> dict:

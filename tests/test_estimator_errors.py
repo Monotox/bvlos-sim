@@ -1,13 +1,14 @@
 import pytest
 
-from estimator import EstimateStatus
-from estimator import FailureCode
-from estimator import estimate_mission_distance_time
-from estimator import try_estimate_mission_distance_time
+from estimator import (
+    EstimateStatus,
+    FailureCode,
+    estimate_mission_distance_time,
+    try_estimate_mission_distance_time,
+)
 from estimator.core.errors import EstimatorError
 from schemas import AltitudeReference
-from tests.helpers import make_mission
-from tests.helpers import make_vehicle
+from tests.helpers import make_mission, make_vehicle
 
 
 def test_tas_non_positive_fails_with_invalid_speed_profile() -> None:

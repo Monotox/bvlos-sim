@@ -1,10 +1,10 @@
 """Shared GeoJSON parsing helpers for static feature adapters."""
 
+import json
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
 from hashlib import sha256
-import json
 from pathlib import Path
 from typing import Any
 

@@ -2,14 +2,15 @@ import math
 
 import pytest
 
-from estimator import FailureCode
-from schemas import AltitudeReference
-from estimator import EstimationOptions
-from estimator import WarningCode
-from estimator import estimate_mission_distance_time
+from estimator import (
+    EstimationOptions,
+    FailureCode,
+    WarningCode,
+    estimate_mission_distance_time,
+)
 from estimator.core.errors import UnsupportedEstimatorFeatureError
-from tests.helpers import make_mission
-from tests.helpers import make_vehicle
+from schemas import AltitudeReference
+from tests.helpers import make_mission, make_vehicle
 
 
 def test_tailwind_shortens_time_vs_headwind() -> None:

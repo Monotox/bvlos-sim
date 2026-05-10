@@ -3,8 +3,7 @@
 from collections.abc import Sequence
 from typing import Protocol
 
-from shapely.geometry import MultiPolygon
-from shapely.geometry import Polygon
+from shapely.geometry import MultiPolygon, Polygon
 from shapely.geometry.base import BaseGeometry
 
 

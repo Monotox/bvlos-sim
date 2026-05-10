@@ -1,26 +1,19 @@
 # Estimator Report
 
-- Status: `error`
+- Status: `success`
 - Envelope schema: `estimator-envelope.v4`
 - Tool version: `0.2.0`
 
 ## Result Validity
 
-- Complete: `false`
-- Partial: `true`
-- Valid for full mission: `false`
-- Scope: `completed_legs_only`
-
-### Invalidated Fields
-
-- `result.total_horizontal_distance_m`
-- `result.total_vertical_distance_m`
-- `result.total_path_distance_m`
-- `result.total_time_s`
+- Complete: `true`
+- Partial: `false`
+- Valid for full mission: `true`
+- Scope: `full_mission`
 
 ## Diagnostics
 
-- `error` `INVALID_MISSION_PROFILE`: loiter_time_s must be non-negative.
+- `warning` `LOITER_ASSUMED_ZERO_GROUND_DISTANCE`: Loiter dwell modeled as station-keep hold with zero ground-path distance in estimator v1.
 
 ## Assumptions
 
@@ -38,8 +31,9 @@
 ## Provenance
 
 - Estimator API: `estimator.try_estimate_mission_distance_time`
-- mission: `yaml` sha256 `5d6cab40974459fcdcde15d97cdb18d58382cf9a349de2421931654770ce36c0`
+- mission: `yaml` sha256 `b8bb0971a34817a6a6048a41300f15c3a0e9cce2baed2705855c8fd1d9cebe14`
 - vehicle: `yaml` sha256 `4067f6697bba308915271afc95bf273ae7dc7637f3d921c71ac30b15a26453e5`
+- terrain: `yaml` sha256 `69c0c7349f2d821bb69c116ad41f03f40e4d9c9d31ac2c3455a08e9d811e00c8`
 
 ## Determinism
 
@@ -48,8 +42,20 @@
 
 ## Estimate Summary
 
-- Horizontal distance m: `176.76731936998286`
-- Vertical distance m: `120.0`
-- Path distance m: `176.76731936998286`
-- Time s: `40.0`
-- Legs: `1`
+- Horizontal distance m: `707.0645448969212`
+- Vertical distance m: `236.0`
+- Path distance m: `707.0645448969212`
+- Time s: `168.15360850615133`
+- Legs: `5`
+
+## Energy Feasibility
+
+- Feasible: `true`
+- Total energy Wh: `41.10253439660225`
+- Battery capacity Wh: `900.0`
+- Usable energy Wh: `675.0`
+- Reserve threshold percent: `25.0`
+- Reserve threshold Wh: `225.0`
+- Reserve at landing Wh: `858.8974656033978`
+- Reserve at landing percent: `95.43305173371085`
+- Energy legs: `5`

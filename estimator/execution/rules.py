@@ -2,10 +2,7 @@
 
 from dataclasses import dataclass
 
-from estimator.core.enums import FailureCode
-from estimator.core.enums import FailureKind
-from estimator.core.enums import SpeedSource
-from estimator.core.enums import WarningCode
+from estimator.core.enums import FailureCode, FailureKind, SpeedSource, WarningCode
 from estimator.core.results import EstimatorContextValue
 from estimator.execution.runtime import EstimationContext
 from schemas.mission import RouteItem

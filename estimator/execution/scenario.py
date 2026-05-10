@@ -6,14 +6,6 @@ from typing import cast
 from estimator.core.enums import AssertionOutcome, EstimateStatus, FidelityMode
 from estimator.core.options import EstimationOptions
 from estimator.core.results import LegEstimate, MissionEstimate
-from estimator.environment.wind import (
-    ConstantWindProvider,
-    LayeredWindProvider,
-    TimedWindChange,
-    TimeVaryingWindProvider,
-    WindLayer,
-    WindProvider,
-)
 from estimator.core.scenario import (
     AssertionFieldValue,
     CommsLinkPolicyOutcome,
@@ -22,6 +14,14 @@ from estimator.core.scenario import (
     ScenarioResult,
     ScenarioStatus,
     TimelinePoint,
+)
+from estimator.environment.wind import (
+    ConstantWindProvider,
+    LayeredWindProvider,
+    TimedWindChange,
+    TimeVaryingWindProvider,
+    WindLayer,
+    WindProvider,
 )
 from estimator.execution.engine import try_estimate_mission_distance_time
 from schemas.mission import MissionPlan, WindLayerConfig

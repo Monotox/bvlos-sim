@@ -1,22 +1,17 @@
 """Canonical result envelope for estimator CLI outputs."""
 
+import json
+import tomllib
 from dataclasses import dataclass
 from enum import StrEnum
 from importlib import metadata as importlib_metadata
-import json
 from pathlib import Path
-import tomllib
 
-from pydantic import BaseModel
-from pydantic import ConfigDict
-from pydantic import Field
+from pydantic import BaseModel, ConfigDict, Field
 
-from adapters.io import InputDocument
-from adapters.io import InputLoadError
-from estimator import EstimateStatus
-from estimator import MissionEstimate
-from estimator.core.enums import FailureCode
-from estimator.core.enums import WarningCode
+from adapters.io import InputDocument, InputLoadError
+from estimator import EstimateStatus, MissionEstimate
+from estimator.core.enums import FailureCode, WarningCode
 from estimator.core.results import EstimatorContextValue
 
 RESULT_ENVELOPE_SCHEMA_VERSION = "estimator-envelope.v4"
@@ -24,12 +19,13 @@ MISSION_SCHEMA_VERSION = "mission.v4"
 VEHICLE_SCHEMA_VERSION = "vehicle.v2"
 GEOFENCE_SCHEMA_VERSION = "geofence-geojson.v1"
 LANDING_ZONE_SCHEMA_VERSION = "landing-zone-geojson.v1"
+TERRAIN_SCHEMA_VERSION = "terrain-grid.v1"
 
 _ASSUMPTIONS = [
     "Estimator v1 is deterministic and uses no randomness.",
     "Wind input is constant in space and time unless a different provider is added.",
     "Transit is modeled as geodesic leg-to-leg kinematics.",
-    "Terrain-referenced altitude is unsupported in estimator v1.",
+    "Terrain-referenced altitude uses an offline uniform elevation grid; online terrain service calls are not performed.",
     "Turn dynamics and sub-segment integration are excluded from estimator v1.",
     "Fixed-wing circular loiter is unsupported in estimator v1.",
     "Energy feasibility uses deterministic phase power values from the vehicle profile.",
@@ -184,6 +180,7 @@ class EnvelopeInputs:
     vehicle: InputDocument
     geofences: InputDocument | None = None
     landing_zones: InputDocument | None = None
+    terrain: InputDocument | None = None
 
 
 def _tool_version() -> str:
@@ -216,6 +213,11 @@ def _build_provenance(inputs: EnvelopeInputs) -> Provenance:
         provenance_inputs["landing_zones"] = ProvenanceInput(
             format=inputs.landing_zones.format,
             sha256=inputs.landing_zones.sha256,
+        )
+    if inputs.terrain is not None:
+        provenance_inputs["terrain"] = ProvenanceInput(
+            format=inputs.terrain.format,
+            sha256=inputs.terrain.sha256,
         )
 
     return Provenance(
@@ -359,6 +361,7 @@ def _input_schema_versions() -> dict[str, str]:
         "vehicle": VEHICLE_SCHEMA_VERSION,
         "geofences": GEOFENCE_SCHEMA_VERSION,
         "landing_zones": LANDING_ZONE_SCHEMA_VERSION,
+        "terrain": TERRAIN_SCHEMA_VERSION,
     }
 
 

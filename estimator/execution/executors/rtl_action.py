@@ -1,8 +1,7 @@
 """Executor for RTL mission actions."""
 
 from estimator.core.enums import LegPhase
-from estimator.execution.runtime import EstimationContext
-from estimator.execution.runtime import TargetPhase
+from estimator.execution.runtime import EstimationContext, TargetPhase
 from estimator.execution.transit import append_transit_leg
 from schemas.mission import RouteItem
 

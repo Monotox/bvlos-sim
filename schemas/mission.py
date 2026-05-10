@@ -367,6 +367,10 @@ class MissionAssets(BaseModel):
         default=None,
         description="Optional GeoJSON emergency landing zone file used by reachability checks.",
     )
+    terrain_file: Path | None = Field(
+        default=None,
+        description="Optional elevation grid file (YAML/JSON uniform grid) for terrain-referenced altitude resolution.",
+    )
     comms_coverage_file: Path | None = Field(
         default=None,
         description="GeoJSON or raster communication coverage file reserved for later simulator phases.",
