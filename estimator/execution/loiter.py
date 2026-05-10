@@ -1,13 +1,17 @@
 """Loiter dwell estimation: station-keep (hover) and circular orbit (fixed-wing)."""
 
-from estimator.core.enums import FailureCode
-from estimator.core.enums import FailureKind
-from estimator.core.enums import LegPhase
-from estimator.core.enums import SpeedSource
-from estimator.core.enums import WarningCode
+from estimator.core.enums import (
+    FailureCode,
+    FailureKind,
+    LegPhase,
+    SpeedSource,
+    WarningCode,
+)
 from estimator.core.results import LegEstimate
-from estimator.execution.rules import resolve_station_keep_authority
-from estimator.execution.rules import resolve_transit_tas
+from estimator.execution.rules import (
+    resolve_station_keep_authority,
+    resolve_transit_tas,
+)
 from estimator.execution.runtime import EstimationContext
 from schemas.mission import RouteItem
 

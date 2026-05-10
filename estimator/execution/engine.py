@@ -6,26 +6,28 @@ dispatch, and leg estimation are delegated to smaller execution modules.
 
 from collections.abc import Sequence
 
+from estimator.core.enums import EstimateStatus, FailureKind
 from estimator.core.errors import EstimatorError
-from estimator.core.enums import EstimateStatus
-from estimator.core.enums import FailureKind
 from estimator.core.geofence import GeofenceZone
 from estimator.core.landing_zone import LandingZone
 from estimator.core.options import EstimationOptions
-from estimator.core.results import EnergyEstimate
-from estimator.core.results import EstimatorFailure
-from estimator.core.results import GeofenceEstimate
-from estimator.core.results import LandingZoneEstimate
-from estimator.core.results import MissionEstimate
+from estimator.core.results import (
+    EnergyEstimate,
+    EstimatorFailure,
+    GeofenceEstimate,
+    LandingZoneEstimate,
+    MissionEstimate,
+)
+from estimator.environment.terrain import TerrainProvider
 from estimator.environment.wind import WindProvider
 from estimator.execution.context_builder import build_estimation_context
 from estimator.execution.energy import evaluate_energy_feasibility
 from estimator.execution.executors import execute_route_item
 from estimator.execution.geofence import evaluate_geofence_feasibility
 from estimator.execution.landing_zone import evaluate_landing_zone_reachability
+from estimator.execution.rules import validate_global_constraints
 from estimator.execution.runtime import EstimationContext
 from estimator.execution.runtime.failure_translation import error_from_failure
-from estimator.execution.rules import validate_global_constraints
 from estimator.execution.totals import sum_totals
 from schemas.mission import MissionPlan
 from schemas.vehicle import VehicleProfile
@@ -116,6 +118,7 @@ def estimate_mission_distance_time(
     *,
     options: EstimationOptions | None = None,
     wind_provider: WindProvider | None = None,
+    terrain_provider: TerrainProvider | None = None,
     geofences: Sequence[GeofenceZone] | None = None,
     landing_zones: Sequence[LandingZone] | None = None,
 ) -> MissionEstimate:
@@ -124,6 +127,7 @@ def estimate_mission_distance_time(
         vehicle,
         options=options,
         wind_provider=wind_provider,
+        terrain_provider=terrain_provider,
         geofences=geofences,
         landing_zones=landing_zones,
     )
@@ -136,6 +140,7 @@ def try_estimate_mission_distance_time(
     *,
     options: EstimationOptions | None = None,
     wind_provider: WindProvider | None = None,
+    terrain_provider: TerrainProvider | None = None,
     geofences: Sequence[GeofenceZone] | None = None,
     landing_zones: Sequence[LandingZone] | None = None,
 ) -> MissionEstimate:
@@ -145,6 +150,7 @@ def try_estimate_mission_distance_time(
             vehicle,
             options=options,
             wind_provider=wind_provider,
+            terrain_provider=terrain_provider,
             geofences=geofences,
             landing_zones=landing_zones,
         )

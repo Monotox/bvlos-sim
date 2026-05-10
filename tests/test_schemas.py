@@ -4,9 +4,7 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from schemas import MissionPlan
-from schemas import ScenarioPlan
-from schemas import VehicleProfile
+from schemas import MissionPlan, ScenarioPlan, VehicleProfile
 
 ROOT = Path(__file__).resolve().parents[1]
 

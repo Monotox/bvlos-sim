@@ -2,15 +2,14 @@
 
 from dataclasses import dataclass
 
-from estimator.core.enums import EnergyPowerSource
-from estimator.core.enums import FailureCode
-from estimator.core.enums import FailureKind
-from estimator.core.enums import LegPhase
-from estimator.core.results import EnergyEstimate
-from estimator.core.results import EnergyLegEstimate
-from estimator.core.results import EstimatorContextValue
-from estimator.core.results import EstimatorFailure
-from estimator.core.results import LegEstimate
+from estimator.core.enums import EnergyPowerSource, FailureCode, FailureKind, LegPhase
+from estimator.core.results import (
+    EnergyEstimate,
+    EnergyLegEstimate,
+    EstimatorContextValue,
+    EstimatorFailure,
+    LegEstimate,
+)
 from estimator.execution.runtime import EstimationContext
 from schemas.vehicle_energy import EnergyModel
 

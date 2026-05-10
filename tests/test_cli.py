@@ -1,14 +1,12 @@
 import json
 from pathlib import Path
 
-import adapters.cli as cli_module
-from typer.testing import CliRunner
 import yaml
+from typer.testing import CliRunner
 
-from adapters.cli import CliExitCode
-from adapters.cli import app
-from tests.helpers import make_mission_payload
-from tests.helpers import make_vehicle_payload
+import adapters.cli as cli_module
+from adapters.cli import CliExitCode, app
+from tests.helpers import make_mission_payload, make_vehicle_payload
 
 runner = CliRunner()
 

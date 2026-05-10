@@ -2,8 +2,7 @@
 
 from dataclasses import dataclass
 
-from estimator.core.enums import FidelityMode
-from estimator.core.enums import OptionSource
+from estimator.core.enums import FidelityMode, OptionSource
 
 
 @dataclass(frozen=True)

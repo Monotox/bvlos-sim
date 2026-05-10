@@ -15,14 +15,16 @@ Units and conventions:
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from estimator.core.enums import EstimateStatus
-from estimator.core.enums import EnergyPowerSource
-from estimator.core.enums import FailureCode
-from estimator.core.enums import FailureKind
-from estimator.core.enums import GeofenceKind
-from estimator.core.enums import LegPhase
-from estimator.core.enums import SpeedSource
-from estimator.core.enums import WarningCode
+from estimator.core.enums import (
+    EnergyPowerSource,
+    EstimateStatus,
+    FailureCode,
+    FailureKind,
+    GeofenceKind,
+    LegPhase,
+    SpeedSource,
+    WarningCode,
+)
 
 
 class WindVector(BaseModel):

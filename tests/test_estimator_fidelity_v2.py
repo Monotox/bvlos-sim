@@ -4,19 +4,19 @@ import math
 
 import pytest
 
-from estimator import EstimationOptions
-from estimator import FailureCode
-from estimator import FidelityMode
-from estimator import LegPhase
-from estimator import SpeedSource
-from estimator import estimate_mission_distance_time
+from estimator import (
+    EstimationOptions,
+    FailureCode,
+    FidelityMode,
+    LegPhase,
+    SpeedSource,
+    estimate_mission_distance_time,
+)
 from estimator.core.errors import UnsupportedEstimatorFeatureError
 from estimator.math.turn_arc import compute_turn_arc_geometry
 from schemas import VehicleClass
 from schemas.mission import MissionAction, RouteItem
-from tests.helpers import make_mission
-from tests.helpers import make_vehicle
-
+from tests.helpers import make_mission, make_vehicle
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -375,7 +375,7 @@ def test_collinear_waypoints_produce_no_turn_arc() -> None:
     # Place both waypoints due north of home so the bearing is constant ~0°
     wp.lat = 52.01
     wp.lon = 4.0
-    from schemas.mission import RouteItem, MissionAction
+    from schemas.mission import MissionAction, RouteItem
     wp2 = RouteItem(
         id="wp2",
         action=MissionAction.WAYPOINT,

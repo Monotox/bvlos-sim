@@ -5,14 +5,15 @@ toward a broader BVLOS simulation platform.
 
 ## Current Status
 
-The current `v0.2.0` release implements Phases 1 through 4:
+The current `v0.2.0` release implements Phases 1 through 4, plus Ticket 032:
 
 - estimator hardening
 - static feasibility checks
 - scenario runner and contingency policy outcomes
 - fidelity v2 trajectory and wind features
+- terrain-referenced altitude execution
 
-The test suite currently passes with 261 tests.
+The test suite currently passes with 280 tests.
 
 bvlos-sim remains an engineering validation tool. It is not a flight-safety
 system, operational approval tool, or complete BVLOS compliance system.
@@ -44,6 +45,14 @@ Wind and trajectory fidelity:
 - wind-triangle correction for forward-flight transit
 - station-keep loiter for hover-capable vehicles
 
+Terrain:
+
+- `TerrainProvider` interface
+- `ConstantElevationProvider`
+- `GridTerrainProvider` with bilinear interpolation (offline uniform elevation grid)
+- terrain-referenced altitude resolution from mission asset file
+- structured diagnostics for missing provider and missing coverage
+
 Scenario runner:
 
 - `scenario.v1` input schema
@@ -66,7 +75,6 @@ Interfaces and contracts:
 
 Estimator limitations:
 
-- no terrain-referenced altitude execution
 - no Monte Carlo uncertainty model
 - no continuous spatial or temporal wind grid beyond altitude-banded layers and
   scenario wind-change events

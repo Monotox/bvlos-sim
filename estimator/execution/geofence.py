@@ -2,21 +2,20 @@
 
 from dataclasses import dataclass
 
-from shapely.geometry import LineString
-from shapely.geometry import Point
+from shapely.geometry import LineString, Point
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 from shapely.validation import explain_validity
 
-from estimator.core.enums import FailureCode
-from estimator.core.enums import FailureKind
-from estimator.core.enums import GeofenceKind
+from estimator.core.enums import FailureCode, FailureKind, GeofenceKind
 from estimator.core.geofence import GeofenceZone
-from estimator.core.results import EstimatorContextValue
-from estimator.core.results import EstimatorFailure
-from estimator.core.results import GeofenceConflict
-from estimator.core.results import GeofenceEstimate
-from estimator.core.results import LegEstimate
+from estimator.core.results import (
+    EstimatorContextValue,
+    EstimatorFailure,
+    GeofenceConflict,
+    GeofenceEstimate,
+    LegEstimate,
+)
 from estimator.execution.runtime import EstimationContext
 from estimator.execution.spatial import polygon_set_to_shapely
 

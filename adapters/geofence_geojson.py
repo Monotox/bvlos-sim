@@ -5,19 +5,18 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from adapters.geojson import GeoJsonEntry
-from adapters.geojson import GeoJsonGeometryType
-from adapters.geojson import GeoJsonLoadStage
-from adapters.geojson import geojson_entries_from_root
-from adapters.geojson import polygon_payloads_from_geometry
-from adapters.geojson import read_geojson_object
+from adapters.geojson import (
+    GeoJsonEntry,
+    GeoJsonGeometryType,
+    GeoJsonLoadStage,
+    geojson_entries_from_root,
+    polygon_payloads_from_geometry,
+    read_geojson_object,
+)
 from adapters.io import InputDocument
-from estimator.core.enums import FailureCode
-from estimator.core.enums import FailureKind
-from estimator.core.enums import GeofenceKind
+from estimator.core.enums import FailureCode, FailureKind, GeofenceKind
 from estimator.core.geofence import GeofenceZone
-from estimator.core.results import EstimatorContextValue
-from estimator.core.results import EstimatorFailure
+from estimator.core.results import EstimatorContextValue, EstimatorFailure
 
 GeofenceLoadStage = GeoJsonLoadStage
 

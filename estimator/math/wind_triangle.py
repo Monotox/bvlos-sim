@@ -1,14 +1,8 @@
 """Pure wind-triangle math utilities."""
 
-from math import asin
-from math import cos
-from math import degrees
-from math import radians
-from math import sin
-from math import sqrt
+from math import asin, cos, degrees, radians, sin, sqrt
 
-from pydantic import BaseModel
-from pydantic import ConfigDict
+from pydantic import BaseModel, ConfigDict
 
 
 def normalize_deg(angle_deg: float) -> float:

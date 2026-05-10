@@ -1,6 +1,5 @@
 from estimator import estimate_mission_distance_time
-from tests.helpers import make_mission
-from tests.helpers import make_vehicle
+from tests.helpers import make_mission, make_vehicle
 
 
 def test_estimator_is_deterministic_for_same_inputs() -> None:

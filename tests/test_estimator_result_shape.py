@@ -1,14 +1,14 @@
 import math
 
-from estimator import EstimationOptions
-from estimator import FidelityMode
-from estimator import LegPhase
-from estimator import WindVector
-from estimator import estimate_mission_distance_time
-from schemas import AltitudeReference
-from schemas import MissionEstimation
-from tests.helpers import make_mission
-from tests.helpers import make_vehicle
+from estimator import (
+    EstimationOptions,
+    FidelityMode,
+    LegPhase,
+    WindVector,
+    estimate_mission_distance_time,
+)
+from schemas import AltitudeReference, MissionEstimation
+from tests.helpers import make_mission, make_vehicle
 
 
 def test_leg_provenance_tracks_expanded_route_items() -> None:

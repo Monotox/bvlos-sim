@@ -8,7 +8,6 @@ from schemas.scenario import (
 )
 from tests.helpers import make_mission, make_vehicle
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

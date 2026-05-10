@@ -1,11 +1,8 @@
 """Shared support helpers for route-item executors."""
 
-from estimator.core.enums import FailureCode
-from estimator.core.enums import FailureKind
-from estimator.core.enums import LegPhase
+from estimator.core.enums import FailureCode, FailureKind, LegPhase
 from estimator.execution.altitude import resolve_target_altitude_amsl
-from estimator.execution.runtime import EstimationContext
-from estimator.execution.runtime import TargetPhase
+from estimator.execution.runtime import EstimationContext, TargetPhase
 from schemas.mission import RouteItem
 
 

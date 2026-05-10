@@ -4,8 +4,7 @@ from dataclasses import dataclass
 from math import isclose
 from typing import cast
 
-from estimator.core.enums import FailureCode
-from estimator.core.enums import FailureKind
+from estimator.core.enums import FailureCode, FailureKind
 from estimator.execution.runtime import EstimationContext
 from schemas.mission import RouteItem
 

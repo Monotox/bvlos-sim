@@ -10,8 +10,7 @@ from estimator import (
     WindLayer,
     estimate_mission_distance_time,
 )
-from schemas import AltitudeReference
-from schemas import MissionPlan
+from schemas import AltitudeReference, MissionPlan
 from tests.helpers import make_mission, make_vehicle
 
 

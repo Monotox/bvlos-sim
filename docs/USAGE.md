@@ -286,14 +286,69 @@ If runtime options are used while mission `wind_layers` are present and no
 explicit wind provider is supplied, the estimator records that the mission
 layers were ignored in result metadata.
 
+### Terrain-Referenced Altitude
+
+Route items with `altitude_reference: terrain` resolve their altitude above the
+ground elevation at each waypoint position. This requires an offline elevation
+grid asset file.
+
+The grid format is a YAML or JSON file with these fields:
+
+```yaml
+origin_lat: 51.990
+origin_lon: 3.990
+step_lat_deg: 0.001
+step_lon_deg: 0.001
+elevations_m:
+  - [10.0, 10.5, 11.0]
+  - [10.2, 10.7, 11.1]
+  - [10.3, 10.8, 11.2]
+```
+
+Reference the grid from the mission file:
+
+```yaml
+assets:
+  terrain_file: terrain/flat_polder.yaml
+```
+
+Set the default altitude reference for the whole route:
+
+```yaml
+defaults:
+  altitude_reference: terrain
+```
+
+Or per route item:
+
+```yaml
+route:
+  - id: wp1
+    action: waypoint
+    lat: 52.001
+    lon: 4.002
+    altitude_m: 120.0
+    altitude_reference: terrain
+```
+
+When terrain coverage is missing for a route-item position, the estimator
+fails with structured diagnostics (`TERRAIN_COVERAGE_MISSING`). When no
+terrain file is configured but a terrain reference is used, the estimator
+fails with `UNSUPPORTED_ALTITUDE_REFERENCE_TERRAIN`.
+
+See `examples/terrain/flat_polder.yaml` for a working example grid.
+
 ## Python API
 
 Use the package-root imports for stable caller code:
 
 ```python
+from estimator import ConstantElevationProvider
 from estimator import EstimationOptions
 from estimator import FidelityMode
+from estimator import GridTerrainProvider
 from estimator import LayeredWindProvider
+from estimator import TerrainProvider
 from estimator import WindLayer
 from estimator import estimate_mission_distance_time
 from estimator import run_scenario
@@ -315,6 +370,32 @@ result = estimate_mission_distance_time(
         fidelity=FidelityMode.V2,
         max_segment_length_m=500.0,
     ),
+)
+```
+
+Terrain example:
+
+```python
+from adapters.terrain_grid import load_terrain_grid
+
+terrain_provider, _ = load_terrain_grid(Path("terrain/flat_polder.yaml"))
+
+result = estimate_mission_distance_time(
+    mission,
+    vehicle,
+    terrain_provider=terrain_provider,
+)
+```
+
+Or with a constant elevation (useful when ground elevation is uniform):
+
+```python
+provider = ConstantElevationProvider(elevation_m=10.0)
+
+result = estimate_mission_distance_time(
+    mission,
+    vehicle,
+    terrain_provider=provider,
 )
 ```
 

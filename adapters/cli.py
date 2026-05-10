@@ -6,23 +6,25 @@ from pathlib import Path
 import typer
 from pydantic import ValidationError
 
-from adapters.envelope import EnvelopeInputs
-from adapters.envelope import EstimatorResultEnvelope
-from adapters.envelope import OutputFormat
-from adapters.envelope import build_estimator_envelope
-from adapters.envelope import build_internal_error_envelope
-from adapters.envelope import build_invalid_input_envelope
-from adapters.envelope import render_envelope_json
-from adapters.geofence_geojson import GeofenceLoadError
-from adapters.geofence_geojson import load_geofences
-from adapters.io import InputDocument
-from adapters.io import InputLoadError
-from adapters.io import InputLoadStage
-from adapters.io import load_mission
-from adapters.io import load_vehicle
-from adapters.io import validation_error_summary
-from adapters.landing_zone_geojson import LandingZoneLoadError
-from adapters.landing_zone_geojson import load_landing_zones
+from adapters.envelope import (
+    EnvelopeInputs,
+    EstimatorResultEnvelope,
+    OutputFormat,
+    build_estimator_envelope,
+    build_internal_error_envelope,
+    build_invalid_input_envelope,
+    render_envelope_json,
+)
+from adapters.geofence_geojson import GeofenceLoadError, load_geofences
+from adapters.io import (
+    InputDocument,
+    InputLoadError,
+    InputLoadStage,
+    load_mission,
+    load_vehicle,
+    validation_error_summary,
+)
+from adapters.landing_zone_geojson import LandingZoneLoadError, load_landing_zones
 from adapters.markdown import render_envelope_markdown
 from adapters.scenario_envelope import (
     ScenarioResultEnvelope,
@@ -33,19 +35,22 @@ from adapters.scenario_envelope import (
 )
 from adapters.scenario_io import load_scenario, resolve_scenario_asset_path
 from adapters.scenario_markdown import render_scenario_markdown
-from estimator import EstimateStatus
-from estimator import EstimationOptions
-from estimator import EstimatorFailure
-from estimator import FailureKind
-from estimator import FidelityMode
-from estimator import LayeredWindProvider
-from estimator import MissionEstimate
-from estimator import ScenarioStatus
-from estimator import WindLayer
-from estimator import run_scenario
-from estimator import try_estimate_mission_distance_time
+from adapters.terrain_grid import TerrainGridLoadError, load_terrain_grid
+from estimator import (
+    EstimateStatus,
+    EstimationOptions,
+    EstimatorFailure,
+    FailureKind,
+    FidelityMode,
+    LayeredWindProvider,
+    MissionEstimate,
+    ScenarioStatus,
+    WindLayer,
+    run_scenario,
+    try_estimate_mission_distance_time,
+)
 
-StaticAssetLoadError = GeofenceLoadError | LandingZoneLoadError
+StaticAssetLoadError = GeofenceLoadError | LandingZoneLoadError | TerrainGridLoadError
 
 app = typer.Typer(name="bvlos-sim", add_completion=False, no_args_is_help=True)
 
@@ -204,6 +209,7 @@ def _envelope_inputs_for_static_asset_error(
     vehicle_document: InputDocument | None,
     geofence_document: InputDocument | None,
     landing_zone_document: InputDocument | None,
+    terrain_document: InputDocument | None,
 ) -> EnvelopeInputs | None:
     if mission_document is None or vehicle_document is None:
         return None
@@ -220,6 +226,11 @@ def _envelope_inputs_for_static_asset_error(
             error.document
             if isinstance(error, LandingZoneLoadError)
             else landing_zone_document
+        ),
+        terrain=(
+            error.document
+            if isinstance(error, TerrainGridLoadError)
+            else terrain_document
         ),
     )
 
@@ -283,12 +294,20 @@ def estimate(
     vehicle_document: InputDocument | None = None
     geofence_document: InputDocument | None = None
     landing_zone_document: InputDocument | None = None
+    terrain_document: InputDocument | None = None
     envelope_inputs: EnvelopeInputs | None = None
     try:
         options = _build_estimation_options(fidelity, max_segment_length_m)
         wind_provider = LayeredWindProvider(_parse_wind_layers(wind_layer)) if wind_layer else None
         mission_model, mission_document = load_mission(mission)
         vehicle_model, vehicle_document = load_vehicle(vehicle)
+        terrain_provider = None
+        if mission_model.assets.terrain_file is not None:
+            terrain_path = _resolve_asset_path(
+                mission_model.assets.terrain_file,
+                mission_path=mission_document.path,
+            )
+            terrain_provider, terrain_document = load_terrain_grid(terrain_path)
         geofences = None
         if mission_model.assets.geofences_file is not None:
             geofence_path = _resolve_asset_path(
@@ -308,12 +327,14 @@ def estimate(
             vehicle=vehicle_document,
             geofences=geofence_document,
             landing_zones=landing_zone_document,
+            terrain=terrain_document,
         )
         result = try_estimate_mission_distance_time(
             mission_model,
             vehicle_model,
             options=options,
             wind_provider=wind_provider,
+            terrain_provider=terrain_provider,
             geofences=geofences,
             landing_zones=landing_zones,
         )
@@ -349,6 +370,7 @@ def estimate(
             vehicle_document=vehicle_document,
             geofence_document=geofence_document,
             landing_zone_document=landing_zone_document,
+            terrain_document=terrain_document,
         )
         if asset_error_inputs is not None:
             envelope_inputs = asset_error_inputs
