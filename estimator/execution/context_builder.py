@@ -1,0 +1,220 @@
+"""Execution-context assembly and option/capability derivation."""
+
+from collections.abc import Sequence
+from dataclasses import dataclass
+
+from pyproj import Geod
+
+from estimator.core.constants import DEFAULT_MAX_CRAB_ANGLE_DEG
+from estimator.core.constants import DEFAULT_MIN_GROUNDSPEED_MPS
+from estimator.core.enums import CapabilitySource
+from estimator.core.enums import FailureCode
+from estimator.core.enums import FidelityMode
+from estimator.core.enums import FailureKind
+from estimator.core.enums import OptionSource
+from estimator.core.geofence import GeofenceZone
+from estimator.core.landing_zone import LandingZone
+from estimator.core.options import EstimationOptions
+from estimator.core.errors import InvalidEstimatorInputError
+from estimator.core.results import EstimatorContextValue
+from estimator.core.results import EstimatorFailure
+from estimator.environment.wind import ConstantWindProvider
+from estimator.environment.wind import LayeredWindProvider
+from estimator.environment.wind import WindLayer
+from estimator.environment.wind import WindProvider
+from estimator.environment.wind import wind_provider_id
+from estimator.execution.runtime import Capabilities
+from estimator.execution.runtime import EstimationContext
+from estimator.execution.runtime import FlightState
+from estimator.execution.runtime import ResolvedOptions
+from schemas.mission import MissionPlan
+from schemas.vehicle import VehicleClass
+from schemas.vehicle import VehicleProfile
+
+
+@dataclass(frozen=True)
+class OptionSourceValues:
+    source: OptionSource
+    wind_east_mps: float
+    wind_north_mps: float
+    min_groundspeed_mps: float | None
+    max_segment_length_m: float | None = None
+    fidelity: FidelityMode = FidelityMode.V1
+
+
+_DERIVED_CAPABILITIES: dict[VehicleClass, tuple[bool, bool]] = {
+    VehicleClass.FIXED_WING: (False, True),
+    VehicleClass.MULTIROTOR: (True, False),
+    VehicleClass.VTOL: (True, True),
+}
+
+
+def derive_capabilities(vehicle: VehicleProfile) -> Capabilities:
+    if vehicle.capabilities is not None:
+        return Capabilities(
+            hover=vehicle.capabilities.hover,
+            forward_flight=vehicle.capabilities.forward_flight,
+            source=CapabilitySource.EXPLICIT,
+        )
+
+    hover, forward_flight = _DERIVED_CAPABILITIES[vehicle.vehicle_class]
+    return Capabilities(
+        hover=hover,
+        forward_flight=forward_flight,
+        source=CapabilitySource.DERIVED_FROM_VEHICLE_CLASS,
+    )
+
+
+def resolve_option_source_values(
+    mission: MissionPlan,
+    options: EstimationOptions | None,
+) -> OptionSourceValues:
+    if options is not None:
+        return OptionSourceValues(
+            source=OptionSource.RUNTIME_OPTIONS,
+            wind_east_mps=options.wind_east_mps,
+            wind_north_mps=options.wind_north_mps,
+            min_groundspeed_mps=options.min_groundspeed_mps,
+            max_segment_length_m=options.max_segment_length_m,
+            fidelity=options.fidelity,
+        )
+
+    if mission.estimation is not None:
+        return OptionSourceValues(
+            source=OptionSource.MISSION_ESTIMATION,
+            wind_east_mps=mission.estimation.wind_east_mps,
+            wind_north_mps=mission.estimation.wind_north_mps,
+            min_groundspeed_mps=mission.estimation.min_groundspeed_mps,
+            max_segment_length_m=mission.estimation.max_segment_length_m,
+            fidelity=FidelityMode(mission.estimation.fidelity),
+        )
+
+    return OptionSourceValues(
+        source=OptionSource.LIBRARY_DEFAULTS,
+        wind_east_mps=0.0,
+        wind_north_mps=0.0,
+        min_groundspeed_mps=None,
+    )
+
+
+def resolve_options(
+    mission: MissionPlan,
+    options: EstimationOptions | None,
+) -> ResolvedOptions:
+    source_values = resolve_option_source_values(mission, options)
+    min_ground = source_values.min_groundspeed_mps
+    if min_ground is None:
+        min_ground = DEFAULT_MIN_GROUNDSPEED_MPS
+
+    return ResolvedOptions(
+        wind_east_mps=source_values.wind_east_mps,
+        wind_north_mps=source_values.wind_north_mps,
+        min_groundspeed_mps=min_ground,
+        options_source=source_values.source,
+        max_segment_length_m=source_values.max_segment_length_m,
+        fidelity=source_values.fidelity,
+    )
+
+
+def resolve_max_crab_angle_deg(
+    vehicle: VehicleProfile,
+    metadata: dict[str, EstimatorContextValue],
+) -> float:
+    max_crab_angle = vehicle.performance.max_crab_angle_deg
+    if max_crab_angle is None:
+        max_crab_angle = DEFAULT_MAX_CRAB_ANGLE_DEG
+        metadata["applied_default_max_crab_angle_deg"] = DEFAULT_MAX_CRAB_ANGLE_DEG
+    return max_crab_angle
+
+
+def validate_estimation_inputs(
+    mission: MissionPlan,
+    vehicle: VehicleProfile,
+) -> None:
+    if mission.vehicle_profile == vehicle.vehicle_id:
+        return
+    raise InvalidEstimatorInputError(
+        EstimatorFailure(
+            kind=FailureKind.INVALID_INPUT,
+            code=FailureCode.INVALID_MISSION_PROFILE,
+            message="mission.vehicle_profile must match vehicle.vehicle_id.",
+            context={
+                "mission_vehicle_profile": mission.vehicle_profile,
+                "vehicle_id": vehicle.vehicle_id,
+            },
+        )
+    )
+
+
+def build_estimation_context(
+    mission: MissionPlan,
+    vehicle: VehicleProfile,
+    *,
+    options: EstimationOptions | None = None,
+    wind_provider: WindProvider | None = None,
+    geofences: Sequence[GeofenceZone] | None = None,
+    landing_zones: Sequence[LandingZone] | None = None,
+) -> EstimationContext:
+    validate_estimation_inputs(mission, vehicle)
+    resolved_options = resolve_options(mission, options)
+    metadata: dict[str, EstimatorContextValue] = {
+        "estimator_version": resolved_options.fidelity.value,
+        "options_source": resolved_options.options_source,
+    }
+    capabilities = derive_capabilities(vehicle)
+    metadata["capabilities_source"] = capabilities.source
+
+    mission_wind_layers_ignored = (
+        mission.estimation is not None
+        and mission.estimation.wind_layers is not None
+        and resolved_options.options_source == OptionSource.RUNTIME_OPTIONS
+        and wind_provider is None
+    )
+    if mission_wind_layers_ignored:
+        metadata["mission_wind_layers_ignored"] = True
+        metadata["mission_wind_layers_ignored_reason"] = "runtime_options"
+
+    if wind_provider is None:
+        if (
+            mission.estimation is not None
+            and mission.estimation.wind_layers is not None
+            and resolved_options.options_source != OptionSource.RUNTIME_OPTIONS
+        ):
+            wind_provider = LayeredWindProvider([
+                WindLayer(
+                    altitude_m=layer.altitude_m,
+                    wind_east_mps=layer.wind_east_mps,
+                    wind_north_mps=layer.wind_north_mps,
+                )
+                for layer in mission.estimation.wind_layers
+            ])
+        else:
+            wind_provider = ConstantWindProvider(
+                resolved_options.wind_east_mps,
+                resolved_options.wind_north_mps,
+            )
+    metadata["wind_provider_id"] = wind_provider_id(wind_provider)
+
+    if resolved_options.min_groundspeed_mps == DEFAULT_MIN_GROUNDSPEED_MPS:
+        metadata["applied_default_min_groundspeed_mps"] = DEFAULT_MIN_GROUNDSPEED_MPS
+
+    return EstimationContext(
+        mission=mission,
+        vehicle=vehicle,
+        wind_provider=wind_provider,
+        geod=Geod(ellps="WGS84"),
+        capabilities=capabilities,
+        geofences=None if geofences is None else tuple(geofences),
+        landing_zones=None if landing_zones is None else tuple(landing_zones),
+        resolved_options=resolved_options,
+        max_crab_angle_deg=resolve_max_crab_angle_deg(vehicle, metadata),
+        metadata=metadata,
+        warnings=[],
+        route_legs=[],
+        state=FlightState(
+            lat=mission.planned_home.lat,
+            lon=mission.planned_home.lon,
+            alt_amsl_m=mission.planned_home.altitude_amsl_m,
+            elapsed_time_s=0.0,
+        ),
+    )

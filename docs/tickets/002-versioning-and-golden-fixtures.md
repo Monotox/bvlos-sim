@@ -1,0 +1,43 @@
+# Ticket 002: Versioning Policy and Golden Fixtures
+
+## Status
+
+Implemented in May 2026.
+
+## Goal
+
+Stabilize estimator outputs before building more layers on top.
+
+## Current Gap
+
+This ticket is complete.
+
+Implementation note:
+- Golden fixtures should exercise the package-root `estimator` API and documented output contract.
+- Avoid coupling fixtures to internal subpackage boundaries so internal refactors do not create false compatibility breaks.
+
+Implemented in:
+- [docs/VERSIONING_POLICY.md](../VERSIONING_POLICY.md)
+- [tests/test_contract_golden.py](../../tests/test_contract_golden.py)
+- [tests/fixtures/golden/](../../tests/fixtures/golden/)
+
+## Scope
+
+- Define lightweight schema/versioning policy.
+- Document unknown-field behavior.
+- Version public output schemas.
+- Add golden input/output fixtures for:
+  - successful estimate
+  - failed estimate
+  - partial estimate
+- Add compatibility test harness comparing current outputs to stored golden fixtures.
+
+## Acceptance Criteria
+
+- Golden output tests fail on unintended contract changes.
+- Public schema/versioning rules are documented and enforced in tests.
+
+## Out of Scope
+
+- New estimator features.
+- Adapter-specific output formatting beyond canonical JSON/Markdown.

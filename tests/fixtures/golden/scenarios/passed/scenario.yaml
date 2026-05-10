@@ -1,0 +1,36 @@
+schema_version: scenario.v1
+scenario_id: pipeline-passed-v1
+description: Golden scenario that should pass all assertions.
+mission_file: ../../success/mission.yaml
+vehicle_file: ../../success/vehicle.yaml
+initial_conditions:
+  wind_east_mps: 0.0
+  wind_north_mps: 0.0
+events:
+  - event_id: start
+    kind: observe
+    trigger: at_mission_start
+    description: Mission start.
+  - event_id: loiter-reached
+    kind: observe
+    trigger: at_route_item
+    trigger_route_item_id: loiter
+    description: Loiter waypoint reached.
+  - event_id: end
+    kind: observe
+    trigger: at_mission_end
+    description: Mission end.
+assertions:
+  - assertion_id: estimate-succeeds
+    kind: estimate_succeeds
+    description: Estimation should succeed.
+  - assertion_id: time-under-limit
+    kind: field_lt
+    field_path: estimate.total_time_s
+    expected: 3600.0
+    description: Mission under one hour.
+  - assertion_id: energy-feasible
+    kind: field_eq
+    field_path: estimate.energy.is_feasible
+    expected: true
+    description: Energy feasibility passes.

@@ -1,0 +1,26 @@
+mission_id: pipeline_demo_infeasible
+vehicle_profile: quadplane_v1
+planned_home:
+  lat: 52.0
+  lon: 4.0
+  altitude_amsl_m: 12.0
+defaults:
+  cruise_speed_mps: 18.0
+  hover_speed_mps: 5.0
+  altitude_reference: relative_home
+route:
+  - id: wp1
+    action: waypoint
+    lat: 52.01
+    lon: 4.0
+    altitude_m: 120.0
+estimation:
+  wind_east_mps: 30.0
+  wind_north_mps: 0.0
+  min_groundspeed_mps: 3.0
+constraints:
+  min_landing_reserve_percent: 25.0
+  max_wind_mps: 10.0
+  min_distance_to_landing_zone_m: 2500.0
+assets: {}
+policy: {}

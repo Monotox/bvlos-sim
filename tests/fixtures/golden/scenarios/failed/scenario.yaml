@@ -1,0 +1,39 @@
+schema_version: scenario.v1
+scenario_id: pipeline-failed-v1
+description: Golden scenario with a failing time assertion and lost-link policy.
+mission_file: ../../success/mission.yaml
+vehicle_file: ../../success/vehicle.yaml
+initial_conditions:
+  wind_east_mps: 0.0
+  wind_north_mps: 0.0
+  lost_link_policy:
+    action: rtl
+    loiter_s: 30.0
+events:
+  - event_id: start
+    kind: observe
+    trigger: at_mission_start
+  - event_id: link-lost
+    kind: lost_link
+    trigger: at_elapsed_time
+    trigger_elapsed_time_s: 30.0
+    description: Simulated comms-link loss at t=30s.
+assertions:
+  - assertion_id: estimate-succeeds
+    kind: estimate_succeeds
+    description: Estimation should succeed.
+  - assertion_id: time-too-short
+    kind: field_lt
+    field_path: estimate.total_time_s
+    expected: 10.0
+    description: This should fail - mission takes longer than 10s.
+  - assertion_id: unsupported-field
+    kind: field_lt
+    field_path: estimate.unknown_field
+    expected: 100.0
+    description: Should produce unsupported outcome.
+  - assertion_id: policy-action
+    kind: policy_action_eq
+    event_id: link-lost
+    expected: rtl
+    description: Lost-link policy should decide RTL.

@@ -1,0 +1,39 @@
+schema_version: scenario.v1
+scenario_id: pipeline-demo-fidelity-v2
+description: >
+  Fidelity v2 scenario for the pipeline demo mission.
+  Uses turn-arc dynamics and a layered wind profile.
+  Assertions validate the v2 estimator output.
+mission_file: ../missions/pipeline_demo_001.yaml
+vehicle_file: ../vehicles/quadplane_v1.yaml
+initial_conditions:
+  fidelity: v2
+  wind_layers:
+    - altitude_m: 0.0
+      wind_east_mps: 2.0
+      wind_north_mps: 0.0
+    - altitude_m: 120.0
+      wind_east_mps: 4.0
+      wind_north_mps: -1.0
+  max_segment_length_m: 500.0
+events:
+  - event_id: start
+    kind: observe
+    trigger: at_mission_start
+  - event_id: end
+    kind: observe
+    trigger: at_mission_end
+assertions:
+  - assertion_id: estimate-succeeds
+    kind: estimate_succeeds
+    description: Fidelity v2 estimation should succeed.
+  - assertion_id: time-under-one-hour
+    kind: field_lt
+    field_path: estimate.total_time_s
+    expected: 3600.0
+    description: Mission should complete in under one hour even with wind and turn arcs.
+  - assertion_id: energy-feasible
+    kind: field_eq
+    field_path: estimate.energy.is_feasible
+    expected: true
+    description: Energy should remain feasible under this wind profile.

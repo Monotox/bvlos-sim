@@ -1,0 +1,109 @@
+{
+  "assumptions": [
+    "Estimator v1 is deterministic and uses no randomness.",
+    "Wind input is constant in space and time unless a different provider is added.",
+    "Transit is modeled as geodesic leg-to-leg kinematics.",
+    "Terrain-referenced altitude is unsupported in estimator v1.",
+    "Turn dynamics and sub-segment integration are excluded from estimator v1.",
+    "Fixed-wing circular loiter is unsupported in estimator v1.",
+    "Energy feasibility uses deterministic phase power values from the vehicle profile.",
+    "Static geofence feasibility uses 2D lon/lat route-segment geometry.",
+    "Static landing-zone reachability uses straight-line geodesic distance and deterministic cruise-power divert energy.",
+    "Landing-zone v1 excludes terrain, obstacles, dynamic availability, suitability scoring, and comms dependency."
+  ],
+  "determinism_metadata": {
+    "canonical_json": true,
+    "canonical_json_sort_keys": true,
+    "deterministic": true,
+    "external_network_access_used": false,
+    "randomness_used": false
+  },
+  "diagnostics": [
+    {
+      "code": "WIND_TRIANGLE_NO_SOLUTION",
+      "context": {
+        "action": "waypoint",
+        "tas_mps": 18.0,
+        "track_azimuth_deg": 0.0,
+        "wind_east_mps": 30.0,
+        "wind_north_mps": 0.0
+      },
+      "kind": "infeasible",
+      "leg_index": 0,
+      "level": "error",
+      "message": "No wind-triangle solution exists for required crosswind correction.",
+      "route_item_id": "wp1",
+      "route_item_index": 0
+    }
+  ],
+  "input_schema_versions": {
+    "geofences": "geofence-geojson.v1",
+    "landing_zones": "landing-zone-geojson.v1",
+    "mission": "mission.v4",
+    "vehicle": "vehicle.v2"
+  },
+  "provenance": {
+    "estimator_api": "estimator.try_estimate_mission_distance_time",
+    "inputs": {
+      "mission": {
+        "format": "yaml",
+        "sha256": "b232030aa35508ce45d2f34dd74779fc24013b66121a4ad2ff6c6e551bfd5db9"
+      },
+      "vehicle": {
+        "format": "yaml",
+        "sha256": "4067f6697bba308915271afc95bf273ae7dc7637f3d921c71ac30b15a26453e5"
+      }
+    }
+  },
+  "result": {
+    "energy": null,
+    "failure": {
+      "code": "WIND_TRIANGLE_NO_SOLUTION",
+      "context": {
+        "action": "waypoint",
+        "tas_mps": 18.0,
+        "track_azimuth_deg": 0.0,
+        "wind_east_mps": 30.0,
+        "wind_north_mps": 0.0
+      },
+      "kind": "infeasible",
+      "leg_index": 0,
+      "message": "No wind-triangle solution exists for required crosswind correction.",
+      "route_item_id": "wp1",
+      "route_item_index": 0
+    },
+    "geofence": null,
+    "landing_zone": null,
+    "legs": [],
+    "metadata": {
+      "applied_default_min_groundspeed_mps": 3.0,
+      "capabilities_source": "explicit",
+      "estimator_version": "v1",
+      "options_source": "mission_estimation",
+      "wind_provider_id": "constant"
+    },
+    "status": "infeasible",
+    "total_horizontal_distance_m": 0.0,
+    "total_path_distance_m": 0.0,
+    "total_time_s": 0.0,
+    "total_vertical_distance_m": 0.0,
+    "totals_are_partial": false,
+    "warnings": []
+  },
+  "result_validity": {
+    "invalidated_fields": [],
+    "is_complete": false,
+    "is_partial": false,
+    "is_valid_for_full_mission": false,
+    "scope": "none",
+    "unavailable_fields": [
+      "result.total_horizontal_distance_m",
+      "result.total_vertical_distance_m",
+      "result.total_path_distance_m",
+      "result.total_time_s"
+    ]
+  },
+  "schema_version": "estimator-envelope.v4",
+  "status": "infeasible",
+  "tool_version": "0.2.0"
+}

@@ -1,0 +1,16 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "demo_landing_zone_wp1",
+      "properties": {
+        "surface": "grass"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [4.002, 52.001]
+      }
+    }
+  ]
+}

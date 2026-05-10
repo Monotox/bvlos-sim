@@ -1,0 +1,39 @@
+schema_version: scenario.v1
+scenario_id: pipeline-demo-baseline
+description: >
+  Baseline deterministic scenario for the pipeline demo mission.
+  All assertions should pass under zero-wind conditions.
+mission_file: ../missions/pipeline_demo_001.yaml
+vehicle_file: ../vehicles/quadplane_v1.yaml
+initial_conditions:
+  wind_east_mps: 0.0
+  wind_north_mps: 0.0
+  fidelity: v1
+events:
+  - event_id: start
+    kind: observe
+    trigger: at_mission_start
+    description: Mission start observation.
+  - event_id: loiter-reached
+    kind: observe
+    trigger: at_route_item
+    trigger_route_item_id: loiter
+    description: Observation at loiter waypoint.
+  - event_id: end
+    kind: observe
+    trigger: at_mission_end
+    description: Mission end observation.
+assertions:
+  - assertion_id: estimate-succeeds
+    kind: estimate_succeeds
+    description: Mission estimation should succeed.
+  - assertion_id: time-under-one-hour
+    kind: field_lt
+    field_path: estimate.total_time_s
+    expected: 3600.0
+    description: Mission should complete in under one hour.
+  - assertion_id: energy-feasible
+    kind: field_eq
+    field_path: estimate.energy.is_feasible
+    expected: true
+    description: Energy feasibility should pass.

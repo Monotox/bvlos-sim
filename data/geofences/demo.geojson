@@ -1,0 +1,24 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "demo_no_fly_zone",
+      "properties": {
+        "kind": "forbidden"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [4.02, 52.01],
+            [4.03, 52.01],
+            [4.03, 52.02],
+            [4.02, 52.02],
+            [4.02, 52.01]
+          ]
+        ]
+      }
+    }
+  ]
+}

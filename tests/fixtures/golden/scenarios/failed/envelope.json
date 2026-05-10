@@ -1,0 +1,409 @@
+{
+  "assertion_results": [
+    {
+      "actual": null,
+      "assertion_id": "estimate-succeeds",
+      "expected": null,
+      "field_path": null,
+      "kind": "estimate_succeeds",
+      "message": "Estimate status is 'success' (success).",
+      "outcome": "passed",
+      "unsupported_reason": null
+    },
+    {
+      "actual": 169.820275172818,
+      "assertion_id": "time-too-short",
+      "expected": 10.0,
+      "field_path": "estimate.total_time_s",
+      "kind": "field_lt",
+      "message": "'estimate.total_time_s' field_lt 10.0 not satisfied (actual: 169.820275172818).",
+      "outcome": "failed",
+      "unsupported_reason": null
+    },
+    {
+      "actual": null,
+      "assertion_id": "unsupported-field",
+      "expected": null,
+      "field_path": "estimate.unknown_field",
+      "kind": "field_lt",
+      "message": "Assertion is not supported: Field path 'estimate.unknown_field' is not supported in scenario.v1. See docs for supported field paths.",
+      "outcome": "unsupported",
+      "unsupported_reason": "Field path 'estimate.unknown_field' is not supported in scenario.v1. See docs for supported field paths."
+    },
+    {
+      "actual": "rtl",
+      "assertion_id": "policy-action",
+      "expected": "rtl",
+      "field_path": null,
+      "kind": "policy_action_eq",
+      "message": "Policy action for event 'link-lost' is 'rtl' as expected.",
+      "outcome": "passed",
+      "unsupported_reason": null
+    }
+  ],
+  "determinism_metadata": {
+    "canonical_json": true,
+    "canonical_json_sort_keys": true,
+    "deterministic": true,
+    "external_network_access_used": false,
+    "randomness_used": false
+  },
+  "estimate": {
+    "energy": {
+      "battery_capacity_wh": 900.0,
+      "is_feasible": true,
+      "legs": [
+        {
+          "energy_wh": 11.11111111111111,
+          "leg_index": 0,
+          "phase": "vertical_takeoff",
+          "power_source": "vehicle.energy.climb_power_w",
+          "power_w": 1500.0,
+          "route_item_id": "takeoff",
+          "route_item_index": 0,
+          "time_s": 26.666666666666668
+        },
+        {
+          "energy_wh": 1.6666666666666667,
+          "leg_index": 1,
+          "phase": "transit",
+          "power_source": "vehicle.energy.cruise_power_w",
+          "power_w": 450.0,
+          "route_item_id": "wp1",
+          "route_item_index": 1,
+          "time_s": 13.333333333333334
+        },
+        {
+          "energy_wh": 1.2275343966022492,
+          "leg_index": 2,
+          "phase": "loiter_transit",
+          "power_source": "vehicle.energy.cruise_power_w",
+          "power_w": 450.0,
+          "route_item_id": "loiter",
+          "route_item_index": 2,
+          "time_s": 9.820275172817993
+        },
+        {
+          "energy_wh": 20.0,
+          "leg_index": 3,
+          "phase": "loiter_dwell",
+          "power_source": "vehicle.energy.hover_power_w",
+          "power_w": 1200.0,
+          "route_item_id": "loiter",
+          "route_item_index": 2,
+          "time_s": 60.0
+        },
+        {
+          "energy_wh": 7.5,
+          "leg_index": 4,
+          "phase": "rtl_transit",
+          "power_source": "vehicle.energy.cruise_power_w",
+          "power_w": 450.0,
+          "route_item_id": "rtl",
+          "route_item_index": 3,
+          "time_s": 60.0
+        }
+      ],
+      "reserve_at_landing_percent": 95.38829864729111,
+      "reserve_at_landing_wh": 858.49468782562,
+      "reserve_threshold_percent": 25.0,
+      "reserve_threshold_wh": 225.0,
+      "total_energy_wh": 41.50531217438002,
+      "usable_energy_wh": 675.0
+    },
+    "failure": null,
+    "geofence": null,
+    "landing_zone": null,
+    "legs": [
+      {
+        "action": "vtol_takeoff",
+        "crab_angle_deg": null,
+        "end_alt_amsl_m": 92.0,
+        "end_lat": 52.0,
+        "end_lon": 4.0,
+        "ground_track_deg": null,
+        "groundspeed_mps": null,
+        "horizontal_distance_m": 0.0,
+        "leg_index": 0,
+        "path_distance_m": 0.0,
+        "phase": "vertical_takeoff",
+        "required_heading_deg": null,
+        "route_item_id": "takeoff",
+        "route_item_index": 0,
+        "speed_source": null,
+        "start_alt_amsl_m": 12.0,
+        "start_lat": 52.0,
+        "start_lon": 4.0,
+        "tas_mps": null,
+        "time_s": 26.666666666666668,
+        "vertical_delta_m": 80.0,
+        "vertical_distance_m": 80.0,
+        "warnings": [],
+        "wind_along_track_mps": null,
+        "wind_cross_track_mps": null,
+        "wind_east_mps": null,
+        "wind_north_mps": null,
+        "wind_speed_mps": null
+      },
+      {
+        "action": "waypoint",
+        "crab_angle_deg": 0.0,
+        "end_alt_amsl_m": 132.0,
+        "end_lat": 52.001,
+        "end_lon": 4.002,
+        "ground_track_deg": 50.98916625158068,
+        "groundspeed_mps": 18.0,
+        "horizontal_distance_m": 176.76731936998286,
+        "leg_index": 1,
+        "path_distance_m": 176.76731936998286,
+        "phase": "transit",
+        "required_heading_deg": 50.98916625158068,
+        "route_item_id": "wp1",
+        "route_item_index": 1,
+        "speed_source": "mission.defaults.cruise_speed_mps",
+        "start_alt_amsl_m": 92.0,
+        "start_lat": 52.0,
+        "start_lon": 4.0,
+        "tas_mps": 18.0,
+        "time_s": 13.333333333333334,
+        "vertical_delta_m": 40.0,
+        "vertical_distance_m": 40.0,
+        "warnings": [],
+        "wind_along_track_mps": 0.0,
+        "wind_cross_track_mps": 0.0,
+        "wind_east_mps": 0.0,
+        "wind_north_mps": 0.0,
+        "wind_speed_mps": 0.0
+      },
+      {
+        "action": "loiter_time",
+        "crab_angle_deg": 0.0,
+        "end_alt_amsl_m": 132.0,
+        "end_lat": 52.002,
+        "end_lon": 4.004,
+        "ground_track_deg": 50.98853699347508,
+        "groundspeed_mps": 18.0,
+        "horizontal_distance_m": 176.7649531107239,
+        "leg_index": 2,
+        "path_distance_m": 176.7649531107239,
+        "phase": "loiter_transit",
+        "required_heading_deg": 50.98853699347508,
+        "route_item_id": "loiter",
+        "route_item_index": 2,
+        "speed_source": "mission.defaults.cruise_speed_mps",
+        "start_alt_amsl_m": 132.0,
+        "start_lat": 52.001,
+        "start_lon": 4.002,
+        "tas_mps": 18.0,
+        "time_s": 9.820275172817993,
+        "vertical_delta_m": 0.0,
+        "vertical_distance_m": 0.0,
+        "warnings": [],
+        "wind_along_track_mps": 0.0,
+        "wind_cross_track_mps": 0.0,
+        "wind_east_mps": 0.0,
+        "wind_north_mps": 0.0,
+        "wind_speed_mps": 0.0
+      },
+      {
+        "action": "loiter_time",
+        "crab_angle_deg": null,
+        "end_alt_amsl_m": 132.0,
+        "end_lat": 52.002,
+        "end_lon": 4.004,
+        "ground_track_deg": null,
+        "groundspeed_mps": null,
+        "horizontal_distance_m": 0.0,
+        "leg_index": 3,
+        "path_distance_m": 0.0,
+        "phase": "loiter_dwell",
+        "required_heading_deg": null,
+        "route_item_id": "loiter",
+        "route_item_index": 2,
+        "speed_source": "station_keep_authority",
+        "start_alt_amsl_m": 132.0,
+        "start_lat": 52.002,
+        "start_lon": 4.004,
+        "tas_mps": null,
+        "time_s": 60.0,
+        "vertical_delta_m": 0.0,
+        "vertical_distance_m": 0.0,
+        "warnings": [
+          "LOITER_ASSUMED_ZERO_GROUND_DISTANCE"
+        ],
+        "wind_along_track_mps": null,
+        "wind_cross_track_mps": null,
+        "wind_east_mps": 0.0,
+        "wind_north_mps": 0.0,
+        "wind_speed_mps": 0.0
+      },
+      {
+        "action": "rtl",
+        "crab_angle_deg": 0.0,
+        "end_alt_amsl_m": 12.0,
+        "end_lat": 52.0,
+        "end_lon": 4.0,
+        "ground_track_deg": 230.99121569980684,
+        "groundspeed_mps": 18.0,
+        "horizontal_distance_m": 353.53227241621454,
+        "leg_index": 4,
+        "path_distance_m": 353.53227241621454,
+        "phase": "rtl_transit",
+        "required_heading_deg": 230.99121569980684,
+        "route_item_id": "rtl",
+        "route_item_index": 3,
+        "speed_source": "mission.defaults.cruise_speed_mps",
+        "start_alt_amsl_m": 132.0,
+        "start_lat": 52.002,
+        "start_lon": 4.004,
+        "tas_mps": 18.0,
+        "time_s": 60.0,
+        "vertical_delta_m": -120.0,
+        "vertical_distance_m": 120.0,
+        "warnings": [],
+        "wind_along_track_mps": -0.0,
+        "wind_cross_track_mps": 0.0,
+        "wind_east_mps": 0.0,
+        "wind_north_mps": 0.0,
+        "wind_speed_mps": 0.0
+      }
+    ],
+    "metadata": {
+      "applied_default_min_groundspeed_mps": 3.0,
+      "capabilities_source": "explicit",
+      "estimator_version": "v1",
+      "options_source": "runtime_options",
+      "wind_provider_id": "constant"
+    },
+    "status": "success",
+    "total_horizontal_distance_m": 707.0645448969212,
+    "total_path_distance_m": 707.0645448969212,
+    "total_time_s": 169.820275172818,
+    "total_vertical_distance_m": 240.0,
+    "totals_are_partial": false,
+    "warnings": [
+      {
+        "code": "LOITER_ASSUMED_ZERO_GROUND_DISTANCE",
+        "leg_index": 3,
+        "message": "Loiter dwell modeled as station-keep hold with zero ground-path distance in estimator v1.",
+        "route_item_id": "loiter",
+        "route_item_index": 2
+      }
+    ]
+  },
+  "event_outcomes": [
+    {
+      "event_id": "start",
+      "fired": true,
+      "kind": "observe",
+      "policy_outcome": null,
+      "timeline_index": 0,
+      "unsupported": false,
+      "unsupported_reason": null
+    },
+    {
+      "event_id": "link-lost",
+      "fired": true,
+      "kind": "lost_link",
+      "policy_outcome": {
+        "action": "rtl",
+        "action_altitude_amsl_m": 132.0,
+        "action_at_elapsed_s": 70.0,
+        "action_at_timeline_index": 4,
+        "action_lat": 52.002,
+        "action_lon": 4.004,
+        "divert_target_id": null,
+        "link_lost_at_elapsed_s": 40.0,
+        "link_lost_at_timeline_index": 2,
+        "loiter_s": 30.0
+      },
+      "timeline_index": 2,
+      "unsupported": false,
+      "unsupported_reason": null
+    }
+  ],
+  "provenance": {
+    "inputs": {
+      "mission": {
+        "format": "yaml",
+        "sha256": "7bab3b2b9b996564f04f80c9cbb92051e2e187f2d4198b355e0939e9eec4473c"
+      },
+      "scenario": {
+        "format": "yaml",
+        "sha256": "1ec836db62b982e3d8f3be3dbd3367ea18f76026b8f82c21f6cd156fa26fcdf0"
+      },
+      "vehicle": {
+        "format": "yaml",
+        "sha256": "4067f6697bba308915271afc95bf273ae7dc7637f3d921c71ac30b15a26453e5"
+      }
+    },
+    "scenario_runner_api": "scenario_runner.run_scenario"
+  },
+  "scenario_id": "pipeline-failed-v1",
+  "scenario_schema_version": "scenario.v1",
+  "schema_version": "scenario-report.v1",
+  "status": "failed",
+  "timeline": [
+    {
+      "altitude_amsl_m": 12.0,
+      "elapsed_time_s": 0.0,
+      "index": 0,
+      "lat": 52.0,
+      "leg_index": null,
+      "lon": 4.0,
+      "route_item_id": null,
+      "route_item_index": null
+    },
+    {
+      "altitude_amsl_m": 92.0,
+      "elapsed_time_s": 26.666666666666668,
+      "index": 1,
+      "lat": 52.0,
+      "leg_index": 0,
+      "lon": 4.0,
+      "route_item_id": "takeoff",
+      "route_item_index": 0
+    },
+    {
+      "altitude_amsl_m": 132.0,
+      "elapsed_time_s": 40.0,
+      "index": 2,
+      "lat": 52.001,
+      "leg_index": 1,
+      "lon": 4.002,
+      "route_item_id": "wp1",
+      "route_item_index": 1
+    },
+    {
+      "altitude_amsl_m": 132.0,
+      "elapsed_time_s": 49.82027517281799,
+      "index": 3,
+      "lat": 52.002,
+      "leg_index": 2,
+      "lon": 4.004,
+      "route_item_id": "loiter",
+      "route_item_index": 2
+    },
+    {
+      "altitude_amsl_m": 132.0,
+      "elapsed_time_s": 109.82027517281799,
+      "index": 4,
+      "lat": 52.002,
+      "leg_index": 3,
+      "lon": 4.004,
+      "route_item_id": "loiter",
+      "route_item_index": 2
+    },
+    {
+      "altitude_amsl_m": 12.0,
+      "elapsed_time_s": 169.820275172818,
+      "index": 5,
+      "lat": 52.0,
+      "leg_index": 4,
+      "lon": 4.0,
+      "route_item_id": "rtl",
+      "route_item_index": 3
+    }
+  ],
+  "tool_version": "0.2.0"
+}

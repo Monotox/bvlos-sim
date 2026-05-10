@@ -1,0 +1,67 @@
+[project]
+name = "bvlos-sim"
+version = "0.2.0"
+description = "Open-source BVLOS mission validation and simulation tooling."
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [
+    { name = "bvlos-sim contributors" },
+]
+license = "MIT"
+keywords = [
+    "bvlos",
+    "drone",
+    "geofence",
+    "mission-planning",
+    "simulation",
+    "uav",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: GIS",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "mavsdk>=3.15.3",
+    "pydantic>=2.13.4",
+    "pyproj>=3.7.2",
+    "pyyaml>=6.0.3",
+    "rich>=15.0.0",
+    "shapely>=2.1.2",
+    "typer>=0.25.1",
+]
+
+[project.urls]
+Homepage = "https://github.com/Monotox/bvlos-sim"
+Repository = "https://github.com/Monotox/bvlos-sim"
+Documentation = "https://github.com/Monotox/bvlos-sim/tree/main/docs"
+
+[project.scripts]
+bvlos-sim = "main:main"
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+    "ruff>=0.15.12",
+]
+
+[tool.setuptools]
+py-modules = ["main"]
+
+[tool.setuptools.packages.find]
+include = ["adapters*", "estimator*", "schemas*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
