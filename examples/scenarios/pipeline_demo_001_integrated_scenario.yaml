@@ -1,0 +1,46 @@
+schema_version: scenario.v1
+scenario_id: pipeline-demo-integrated
+description: >
+  Integrated scenario for the pipeline demo mission. The scenario intentionally
+  leaves initial wind unset so mission assets.wind_grid_file supplies the wind
+  provider while scenario initial_conditions supply fidelity and policy settings.
+mission_file: ../missions/pipeline_demo_001_integrated.yaml
+vehicle_file: ../vehicles/quadplane_v1.yaml
+initial_conditions:
+  fidelity: v2
+  max_segment_length_m: 500.0
+  min_groundspeed_mps: 5.0
+  lost_link_policy:
+    action: divert
+    divert_target_id: demo_landing_zone_wp1
+    loiter_s: 0.0
+events:
+  - event_id: start
+    kind: observe
+    trigger: at_mission_start
+  - event_id: lost-link-at-wp1
+    kind: lost_link
+    trigger: at_route_item
+    trigger_route_item_id: wp1
+  - event_id: end
+    kind: observe
+    trigger: at_mission_end
+assertions:
+  - assertion_id: estimate-succeeds
+    kind: estimate_succeeds
+  - assertion_id: energy-feasible
+    kind: field_eq
+    field_path: estimate.energy.is_feasible
+    expected: true
+  - assertion_id: geofence-feasible
+    kind: field_eq
+    field_path: estimate.geofence.is_feasible
+    expected: true
+  - assertion_id: landing-zone-feasible
+    kind: field_eq
+    field_path: estimate.landing_zone.is_feasible
+    expected: true
+  - assertion_id: divert-policy-selected
+    kind: policy_action_eq
+    event_id: lost-link-at-wp1
+    expected: divert

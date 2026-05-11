@@ -184,6 +184,9 @@ Runtime precedence:
 - Runtime `EstimationOptions` take precedence over mission `estimation`.
 - CLI `--wind-layer` provides an explicit `LayeredWindProvider`.
 - Scenario `initial_conditions` override mission `estimation` for scenario runs.
+- The `scenario` CLI loads mission asset wind grids when the scenario leaves
+  initial wind unset. Explicit scenario scalar wind or `wind_layers` take
+  precedence over the mission wind-grid asset.
 - If runtime options are used while mission `wind_layers` are present and no explicit wind provider is supplied, result metadata records `mission_wind_layers_ignored=true`.
 
 ## Fidelity Semantics

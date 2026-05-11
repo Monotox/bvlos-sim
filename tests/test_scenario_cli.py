@@ -77,6 +77,38 @@ def test_v2_example_scenario_runs_from_cli() -> None:
     assert payload["estimate"]["metadata"]["estimator_version"] == "v2"
 
 
+def test_integrated_example_scenario_loads_mission_assets_from_cli() -> None:
+    scenario_path = REPO_ROOT / "examples/scenarios/pipeline_demo_001_integrated_scenario.yaml"
+
+    result = _run(["scenario", str(scenario_path)])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    estimate = payload["estimate"]
+    assert payload["status"] == "passed"
+    assert estimate["metadata"]["estimator_version"] == "v2"
+    assert estimate["metadata"]["terrain_provider_id"] == "uniform_grid"
+    assert estimate["metadata"]["wind_provider_id"] == "spatiotemporal_grid"
+    assert estimate["geofence"]["is_feasible"] is True
+    assert estimate["landing_zone"]["is_feasible"] is True
+    assert set(payload["provenance"]["inputs"]) >= {
+        "scenario",
+        "mission",
+        "vehicle",
+        "geofences",
+        "landing_zones",
+        "terrain",
+        "wind_grid",
+    }
+    lost_link_event = next(
+        event
+        for event in payload["event_outcomes"]
+        if event["event_id"] == "lost-link-at-wp1"
+    )
+    assert lost_link_event["fired"] is True
+    assert lost_link_event["policy_outcome"]["action"] == "divert"
+
+
 def test_wind_change_scenario_runs_from_cli(tmp_path: Path) -> None:
     scenario_path = tmp_path / "wind-change-scenario.yaml"
     mission_path = FIXTURE_ROOT.parent / "success" / "mission.yaml"

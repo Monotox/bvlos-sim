@@ -20,12 +20,30 @@ or other deterministic events.
 - Document precedence between static assets and scenario availability events.
 - Add scenario, estimator, CLI, and fixture coverage.
 
+## Integration Requirements
+
+- Extend `scenario.v1` YAML in a backward-compatible way or bump the scenario
+  schema version if result behavior changes.
+- Keep static landing-zone assets loaded from mission YAML through
+  `assets.landing_zones_file`.
+- Add scenario YAML examples that combine landing-zone availability with
+  lost-link policy, `divert`, wind changes, terrain assets, and wind-grid assets
+  where relevant.
+- Ensure the `scenario` CLI command exercises availability changes through the
+  same runner path used by library callers.
+- Ensure the `estimate` command remains compatible with static landing-zone
+  assets when no scenario availability events are configured.
+- Update JSON/Markdown reports and golden fixtures when availability state
+  becomes part of public outputs.
+
 ## Acceptance Criteria
 
 - A scenario can make a landing zone unavailable before a divert decision.
 - Reachability outputs identify which zones were considered available.
 - Static landing-zone behavior remains unchanged when no availability events are
   configured.
+- Existing mission, vehicle, terrain, wind, and landing-zone YAML examples still
+  run together without special-case commands.
 
 ## Out of Scope
 

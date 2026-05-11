@@ -21,7 +21,22 @@ The current codebase includes:
 - continuous spatiotemporal wind grid with quadrilinear interpolation
 - golden fixture regression tests
 - package-root public Python API
-- passing estimator/schema/CLI/scenario test suite with 304 tests
+- passing estimator/schema/CLI/scenario test suite with 307 tests
+
+## Implemented Integration Validation
+
+Implemented tickets are expected to operate together through the same runtime
+path rather than through isolated examples. Current validation includes:
+
+- `estimate` loading mission YAML, vehicle YAML, terrain YAML, wind-grid YAML,
+  geofence GeoJSON, and landing-zone GeoJSON together.
+- `scenario` loading the same mission asset stack before executing events,
+  policies, assertions, and reports.
+- Integrated examples under `examples/missions/` and `examples/scenarios/`
+  combining fidelity v2, terrain, spatiotemporal wind, geofence checks,
+  landing-zone checks, energy feasibility, and lost-link policy assertions.
+- Golden fixtures and CLI tests covering canonical JSON, Markdown, exit codes,
+  provenance, and deterministic outputs.
 
 ## Main Execution Backlog
 
@@ -46,6 +61,18 @@ The current codebase includes:
 19. [070-operational-integration-seams.md](./070-operational-integration-seams.md) - planned
 20. [071-live-comms-remote-id-and-traffic-integrations.md](./071-live-comms-remote-id-and-traffic-integrations.md) - planned
 
+## Limitation Coverage and Status
+
+- No SITL integration yet: Ticket 040.
+- No REST API or UI: Ticket 050.
+- No Monte Carlo uncertainty modeling: Ticket 036.
+- Terrain-referenced altitude execution: Ticket 032, implemented.
+- Continuous spatial and temporal wind grid support: Ticket 033, implemented.
+- No dynamic landing-zone availability: Ticket 034.
+- No computed route for divert policy outcomes: Ticket 035.
+- No live comms, UTM/U-space, Remote ID, or traffic integrations: Tickets 070
+  and 071.
+
 ## Validation and Calibration Track
 
 1. [080-flight-log-ingestion-and-trace-normalization.md](./080-flight-log-ingestion-and-trace-normalization.md) - planned
@@ -62,3 +89,22 @@ The current codebase includes:
 - Reject unsupported inputs explicitly instead of approximating silently.
 - Do not add live external dependencies to core CI.
 - Update docs, tests, and fixtures in the same change when public behavior changes.
+
+## Integration Standard
+
+Every new ticket must explain how the work composes with existing functionality.
+Unless a ticket explicitly states otherwise, implementation should integrate
+through the established surfaces:
+
+- mission, vehicle, scenario, terrain, wind, geofence, and landing-zone YAML/JSON
+  schemas
+- examples under `examples/missions`, `examples/vehicles`,
+  `examples/scenarios`, `examples/terrain`, and `examples/wind`
+- existing CLI commands such as `estimate` and `scenario`, or adapter commands
+  that reuse the same core execution path
+- canonical JSON envelopes, Markdown reports, golden fixtures, and regression
+  tests
+- package-root Python APIs and existing estimator/scenario execution contracts
+
+New capabilities should work together with previously implemented pieces rather
+than requiring separate one-off input formats or isolated commands.

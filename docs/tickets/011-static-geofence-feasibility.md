@@ -8,7 +8,8 @@ Add deterministic route-vs-zone validation.
 
 ## Current Gap
 
-There is no core geofence model, no GeoJSON adapter, and no route-vs-zone analysis.
+This ticket is complete. Static GeoJSON geofence feasibility is available from
+the estimator, scenario runner, and CLI paths.
 
 ## Scope
 
@@ -40,6 +41,17 @@ There is no core geofence model, no GeoJSON adapter, and no route-vs-zone analys
 - Forbidden zones use intersection semantics, so boundary touching is a conflict.
 - Required zones are evaluated as a union and use cover semantics, so route contact with the required-zone boundary is allowed.
 - JSON envelope versions were bumped to `estimator-envelope.v3` and `mission.v3` because `assets.geofences_file` is now operative and the result shape includes `result.geofence`.
+
+## Integrated Surfaces
+
+- Mission YAML references geofence GeoJSON through `assets.geofences_file`.
+- Geofence examples live under `data/geofences/` and are used by mission
+  examples.
+- `estimate` and `scenario` load geofence assets from the mission file
+  directory and pass domain `GeofenceZone` objects into the core engine.
+- JSON and Markdown reports include geofence feasibility, checked-zone counts,
+  checked-leg counts, and conflicts.
+- Scenario field assertions can validate `estimate.geofence.is_feasible`.
 
 ## Out of Scope
 

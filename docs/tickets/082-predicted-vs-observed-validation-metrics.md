@@ -20,10 +20,23 @@ The project has no validation metrics layer for comparing estimator outputs to o
 - Add validation report schema.
 - Keep calibration and validation datasets separate in output/reporting.
 
+## Integration Requirements
+
+- Predicted outputs must come from existing `estimate` and `scenario` runs.
+- Observed inputs must come from normalized traces and phase segments from
+  Tickets 080 and 081.
+- Validation reports must preserve links to mission, vehicle, terrain, wind,
+  geofence, landing-zone, and scenario YAML inputs.
+- Add examples that run the full path from YAML mission inputs to validation
+  metrics without manual data translation.
+- Keep validation reporting separate from calibration updates.
+
 ## Acceptance Criteria
 
 - A real flight trace and a matching mission/vehicle input can produce a structured validation report.
 - Metrics are available per mission and per phase.
+- Validation metrics can be produced for missions using existing terrain, wind,
+  geofence, landing-zone, energy, and scenario features.
 
 ## Out of Scope
 

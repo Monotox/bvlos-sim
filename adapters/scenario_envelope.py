@@ -83,14 +83,33 @@ def _build_provenance(
     scenario_document: InputDocument,
     mission_document: InputDocument,
     vehicle_document: InputDocument,
+    *,
+    geofence_document: InputDocument | None = None,
+    landing_zone_document: InputDocument | None = None,
+    terrain_document: InputDocument | None = None,
+    wind_grid_document: InputDocument | None = None,
 ) -> ScenarioProvenance:
+    inputs = {
+        "scenario": _provenance_input(scenario_document),
+        "mission": _provenance_input(mission_document),
+        "vehicle": _provenance_input(vehicle_document),
+    }
+    optional_inputs = {
+        "geofences": geofence_document,
+        "landing_zones": landing_zone_document,
+        "terrain": terrain_document,
+        "wind_grid": wind_grid_document,
+    }
+    inputs.update(
+        {
+            name: _provenance_input(document)
+            for name, document in optional_inputs.items()
+            if document is not None
+        }
+    )
     return ScenarioProvenance(
         scenario_runner_api="scenario_runner.run_scenario",
-        inputs={
-            "scenario": _provenance_input(scenario_document),
-            "mission": _provenance_input(mission_document),
-            "vehicle": _provenance_input(vehicle_document),
-        },
+        inputs=inputs,
     )
 
 
@@ -147,9 +166,21 @@ def build_scenario_envelope(
     scenario_document: InputDocument,
     mission_document: InputDocument,
     vehicle_document: InputDocument,
+    geofence_document: InputDocument | None = None,
+    landing_zone_document: InputDocument | None = None,
+    terrain_document: InputDocument | None = None,
+    wind_grid_document: InputDocument | None = None,
 ) -> ScenarioResultEnvelope:
     """Build the canonical scenario result envelope from a completed run."""
-    provenance = _build_provenance(scenario_document, mission_document, vehicle_document)
+    provenance = _build_provenance(
+        scenario_document,
+        mission_document,
+        vehicle_document,
+        geofence_document=geofence_document,
+        landing_zone_document=landing_zone_document,
+        terrain_document=terrain_document,
+        wind_grid_document=wind_grid_document,
+    )
     return _base_envelope(
         scenario_id=result.scenario_id,
         status=result.status,
@@ -165,6 +196,7 @@ def build_scenario_invalid_input_envelope(
     scenario_document: InputDocument | None = None,
     mission_document: InputDocument | None = None,
     vehicle_document: InputDocument | None = None,
+    known_documents: dict[str, InputDocument | None] | None = None,
 ) -> ScenarioResultEnvelope:
     """Build an error envelope for input load failures."""
     known: dict[str, InputDocument | None] = {
@@ -172,6 +204,8 @@ def build_scenario_invalid_input_envelope(
         "mission": mission_document,
         "vehicle": vehicle_document,
     }
+    if known_documents is not None:
+        known.update(known_documents)
     # Attach partial document from the error if available and not yet known.
     if error.document is not None and known.get(error.input_name) is None:
         known[error.input_name] = error.document
