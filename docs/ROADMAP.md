@@ -5,7 +5,7 @@ toward a broader BVLOS simulation platform.
 
 ## Current Status
 
-The current `v0.2.0` release implements Phases 1 through 4, plus Tickets 032 and 033:
+The current `v0.2.0` release implements Phases 1 through 4, plus Tickets 032, 033, 035, and 036:
 
 - estimator hardening
 - static feasibility checks
@@ -13,6 +13,8 @@ The current `v0.2.0` release implements Phases 1 through 4, plus Tickets 032 and
 - fidelity v2 trajectory and wind features
 - terrain-referenced altitude execution
 - continuous spatiotemporal wind grid
+- dynamic landing-zone availability via scenario events
+- computed divert route estimates on policy outcomes
 
 The test suite currently passes with 321 tests.
 
@@ -62,6 +64,7 @@ Scenario runner:
 - observe, lost-link, wind-change, and landing-zone-unavailable events
 - assertion outcomes: `passed`, `failed`, `skipped`, `unsupported`
 - lost-link policy outcomes for `rtl`, `land`, `loiter`, and `divert`
+- computed divert route estimates (`DivertRouteEstimate`) on `divert` policy outcomes: geodesic distance, TAS transit time, cruise-power energy, reserve after divert, and feasibility flag
 - `policy_action_eq` assertions
 
 Interfaces and contracts:
@@ -85,7 +88,7 @@ Estimator limitations:
 
 Scenario limitations:
 
-- `divert` policy outcomes record the target ID but do not compute a divert route (Ticket 036)
+- no bank-angle model or Dubins path optimization (divert routing uses straight-line geodesic)
 
 Platform limitations:
 
@@ -199,12 +202,12 @@ battery-only or lost-link-only fields.
 
 ### Phase 4.7: Scenario Contingency Model Gaps
 
-Status: partially implemented.
+Status: implemented.
 
 Scope:
 
 - Ticket 035: dynamic landing-zone availability — implemented
-- Ticket 036: computed divert routing — planned
+- Ticket 036: computed divert routing — implemented
 - integration with scenario YAML, mission assets, terrain, wind, geofences,
   landing zones, resource systems, link systems, and existing scenario reports
 

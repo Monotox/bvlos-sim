@@ -22,7 +22,8 @@ The current codebase includes:
 - golden fixture regression tests
 - package-root public Python API
 - dynamic landing-zone availability via scenario `landing_zone_unavailable` events
-- passing estimator/schema/CLI/scenario test suite with 321 tests
+- computed divert route estimates on `CommsLinkPolicyOutcome.divert_estimate` (distance, time, energy, reserve, feasibility)
+- passing estimator/schema/CLI/scenario test suite with 338 tests
 
 ## Implemented Integration Validation
 
@@ -55,7 +56,7 @@ path rather than through isolated examples. Current validation includes:
 12. [033-continuous-spatiotemporal-wind-grid.md](./033-continuous-spatiotemporal-wind-grid.md) - implemented
 13. [034-resource-and-link-feasibility-abstractions.md](./034-resource-and-link-feasibility-abstractions.md) - planned
 14. [035-dynamic-landing-zone-availability.md](./035-dynamic-landing-zone-availability.md) - implemented
-15. [036-computed-divert-routing.md](./036-computed-divert-routing.md) - planned
+15. [036-computed-divert-routing.md](./036-computed-divert-routing.md) - implemented
 16. [037-monte-carlo-uncertainty-modeling.md](./037-monte-carlo-uncertainty-modeling.md) - planned
 17. [040-sitl-ardupilot-first.md](./040-sitl-ardupilot-first.md) - planned
 18. [050-user-interfaces-and-service-adapters.md](./050-user-interfaces-and-service-adapters.md) - planned
@@ -72,7 +73,7 @@ path rather than through isolated examples. Current validation includes:
 - Terrain-referenced altitude execution: Ticket 032, implemented.
 - Continuous spatial and temporal wind grid support: Ticket 033, implemented.
 - Dynamic landing-zone availability via scenario `landing_zone_unavailable` events: Ticket 035, implemented.
-- No computed route for divert policy outcomes: Ticket 036.
+- Computed divert route estimates on `CommsLinkPolicyOutcome.divert_estimate`: Ticket 036, implemented.
 - No live comms, UTM/U-space, Remote ID, or traffic integrations: Tickets 070
   and 071.
 

@@ -46,6 +46,7 @@ from estimator.core.results import (
 from estimator.core.scenario import (
     AssertionOutcome,
     CommsLinkPolicyOutcome,
+    DivertRouteEstimate,
     ScenarioAssertionResult,
     ScenarioEventOutcome,
     ScenarioResult,
@@ -73,6 +74,7 @@ from estimator.execution.scenario import run_scenario
 __all__ = [
     "AssertionOutcome",
     "CommsLinkPolicyOutcome",
+    "DivertRouteEstimate",
     "ConstantElevationProvider",
     "ConstantWindProvider",
     "GridTerrainProvider",

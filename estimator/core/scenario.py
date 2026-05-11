@@ -10,6 +10,7 @@ __all__ = [
     "AssertionOutcome",
     "AssertionFieldValue",
     "CommsLinkPolicyOutcome",
+    "DivertRouteEstimate",
     "ScenarioAssertionResult",
     "ScenarioEventOutcome",
     "ScenarioResult",
@@ -39,6 +40,39 @@ class TimelinePoint(BaseModel):
     leg_index: int | None = None
     route_item_index: int | None = None
     route_item_id: str | None = None
+
+
+class DivertRouteEstimate(BaseModel):
+    """Deterministic straight-line divert route estimate.
+
+    Computed when a divert policy action fires and the target landing zone and
+    energy state are available. Uses TAS-based transit time and cruise-power
+    energy without wind correction or geofence intersection on the divert leg.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    target_zone_id: str = Field(description="ID of the landing zone targeted by the divert.")
+    distance_m: float = Field(description="Straight-line geodesic distance to the target zone in metres.")
+    time_s: float = Field(description="Estimated divert transit time in seconds at cruise TAS.")
+    energy_wh: float = Field(description="Estimated divert energy consumption in Wh.")
+    energy_remaining_at_action_wh: float = Field(
+        description="Battery energy remaining at the action execution point in Wh."
+    )
+    reserve_after_divert_wh: float = Field(
+        description="Estimated reserve remaining after completing the divert in Wh."
+    )
+    reserve_after_divert_percent: float = Field(
+        description="Estimated reserve remaining after completing the divert as a percentage of battery capacity."
+    )
+    reserve_threshold_wh: float = Field(
+        description="Reserve threshold in Wh that the divert must not breach."
+    )
+    is_feasible: bool = Field(description="True if the divert reserve exceeds the reserve threshold.")
+    infeasible_reason: str | None = Field(
+        default=None,
+        description="Human-readable reason when is_feasible is False.",
+    )
 
 
 class CommsLinkPolicyOutcome(BaseModel):
@@ -72,6 +106,13 @@ class CommsLinkPolicyOutcome(BaseModel):
     divert_target_id: str | None = Field(
         default=None,
         description="Landing zone ID for divert action, if configured.",
+    )
+    divert_estimate: DivertRouteEstimate | None = Field(
+        default=None,
+        description=(
+            "Computed divert route estimate when action is 'divert', the target zone "
+            "is found in configured landing zones, and energy state is available."
+        ),
     )
 
 
