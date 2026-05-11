@@ -243,6 +243,41 @@ Result metadata field `estimator_version` records the actual fidelity used:
 - Divert energy uses straight-line geodesic distance, resolved cruise TAS, and deterministic cruise power.
 - Landing-zone v1 does not evaluate terrain, obstacles, dynamic availability, suitability scoring, weather scoring, comms dependency, or landing-zone altitude.
 
+## Divert Routing Semantics
+
+Divert route estimates are computed in scenario runs when a `lost_link` event
+fires and the configured `lost_link_policy.action` is `divert`.
+
+Fields computed in `CommsLinkPolicyOutcome.divert_estimate`:
+
+- `target_zone_id`: ID of the landing zone targeted by the divert policy.
+- `distance_m`: straight-line geodesic distance from the action execution point to the nearest point of the target zone geometry.
+- `time_s`: transit time at mission or vehicle cruise TAS (`distance_m / tas_mps`).
+- `energy_wh`: deterministic cruise-power energy for the divert leg (`cruise_power_w * time_s / 3600`).
+- `energy_remaining_at_action_wh`: battery energy available at the action execution point, computed as `battery_capacity_wh` minus the sum of all leg energies with `leg_index <= action_at_timeline_index - 1`.
+- `reserve_after_divert_wh`: `energy_remaining_at_action_wh - energy_wh`.
+- `reserve_after_divert_percent`: `reserve_after_divert_wh / battery_capacity_wh * 100`.
+- `reserve_threshold_wh`: the mission reserve threshold in Wh.
+- `is_feasible`: `True` when `reserve_after_divert_wh >= reserve_threshold_wh`.
+- `infeasible_reason`: human-readable string when `is_feasible` is `False`.
+
+Divert routing is informational. It does not change the overall mission
+estimate status. The `divert_estimate.is_feasible` field indicates whether the
+planned divert leg has sufficient energy reserve.
+
+Divert route estimates use no wind correction, no geofence intersection, and no
+terrain avoidance on the divert leg. TAS is taken from
+`mission.defaults.cruise_speed_mps` if set; otherwise from
+`vehicle.performance.cruise_speed_mps`.
+
+`CommsLinkPolicyOutcome.divert_estimate` is `None` when:
+- the policy action is not `divert`
+- no landing zones are configured in the scenario
+
+When the target zone is not found in the configured landing zones, or when energy
+is not available, `divert_estimate` is populated with `is_feasible=False` and a
+descriptive `infeasible_reason`.
+
 ## Update Rule
 
 When a non-operative field becomes operative, update all of the following in the

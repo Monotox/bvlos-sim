@@ -1,0 +1,54 @@
+schema_version: scenario.v1
+scenario_id: pipeline-demo-divert-routing
+description: >
+  Computed divert routing example. A lost-link event fires at wp1 with a divert
+  policy targeting demo_landing_zone_wp1. The scenario runner computes a
+  deterministic straight-line divert route estimate (distance, transit time,
+  energy cost, and reserve after divert) and attaches it to the policy outcome.
+  The full asset stack is exercised: terrain, wind-grid, geofences, and the
+  static landing-zone file.
+mission_file: ../missions/pipeline_demo_001_integrated.yaml
+vehicle_file: ../vehicles/quadplane_v1.yaml
+initial_conditions:
+  fidelity: v2
+  max_segment_length_m: 500.0
+  min_groundspeed_mps: 5.0
+  lost_link_policy:
+    action: divert
+    divert_target_id: demo_landing_zone_wp1
+    loiter_s: 30.0
+events:
+  - event_id: start
+    kind: observe
+    trigger: at_mission_start
+  - event_id: lost-link-at-wp1
+    kind: lost_link
+    trigger: at_route_item
+    trigger_route_item_id: wp1
+    description: >
+      Link loss resolved at wp1. After a 30-second loiter the divert action
+      fires. The runner computes geodesic distance to demo_landing_zone_wp1,
+      TAS-based transit time, cruise-power energy cost, and reserve remaining
+      after completing the divert leg.
+  - event_id: end
+    kind: observe
+    trigger: at_mission_end
+assertions:
+  - assertion_id: estimate-succeeds
+    kind: estimate_succeeds
+    description: Baseline mission estimation should succeed.
+  - assertion_id: energy-feasible
+    kind: field_eq
+    field_path: estimate.energy.is_feasible
+    expected: true
+    description: Mission energy is feasible at cruise conditions.
+  - assertion_id: lz-feasible
+    kind: field_eq
+    field_path: estimate.landing_zone.is_feasible
+    expected: true
+    description: At least one landing zone is reachable throughout the route.
+  - assertion_id: divert-policy-selected
+    kind: policy_action_eq
+    event_id: lost-link-at-wp1
+    expected: divert
+    description: The configured divert policy action is recorded on the event outcome.

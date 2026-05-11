@@ -181,6 +181,27 @@ def test_lz_availability_example_scenario_runs_from_cli() -> None:
     assert estimate["metadata"]["scenario_lz_unavailability_event_count"] == 1
 
 
+def test_divert_routing_example_scenario_runs_from_cli() -> None:
+    scenario_path = REPO_ROOT / "examples/scenarios/pipeline_demo_001_divert_routing_scenario.yaml"
+
+    result = _run(["scenario", str(scenario_path)])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["status"] == "passed"
+    lost_link_outcome = next(
+        o for o in payload["event_outcomes"] if o["event_id"] == "lost-link-at-wp1"
+    )
+    policy_outcome = lost_link_outcome["policy_outcome"]
+    assert policy_outcome["action"] == "divert"
+    assert policy_outcome["divert_target_id"] == "demo_landing_zone_wp1"
+    divert_estimate = policy_outcome["divert_estimate"]
+    assert divert_estimate is not None
+    assert divert_estimate["target_zone_id"] == "demo_landing_zone_wp1"
+    assert divert_estimate["distance_m"] >= 0.0
+    assert divert_estimate["is_feasible"] is True
+
+
 def test_output_file_contains_assertion_results(tmp_path: Path) -> None:
     scenario_path = str(FIXTURE_ROOT / "passed" / "scenario.yaml")
     out_file = tmp_path / "result.json"
