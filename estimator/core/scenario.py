@@ -43,17 +43,25 @@ class TimelinePoint(BaseModel):
 
 
 class DivertRouteEstimate(BaseModel):
-    """Deterministic straight-line divert route estimate.
+    """Deterministic divert route estimate.
 
     Computed when a divert policy action fires and the target landing zone and
-    energy state are available. Uses TAS-based transit time and cruise-power
-    energy without wind correction or geofence intersection on the divert leg.
+    energy state are available. Uses Dubins path distance when entry heading and
+    vehicle turn radius are known; otherwise straight-line geodesic distance.
+    Uses TAS-based transit time and cruise-power energy without wind correction
+    or geofence intersection on the divert leg.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     target_zone_id: str = Field(description="ID of the landing zone targeted by the divert.")
-    distance_m: float = Field(description="Straight-line geodesic distance to the target zone in metres.")
+    distance_m: float = Field(
+        description=(
+            "Divert path distance to the target zone in metres. "
+            "Uses Dubins path (bank-angle-constrained arc + straight) when entry heading "
+            "and vehicle turn radius are available; otherwise straight-line geodesic distance."
+        )
+    )
     time_s: float = Field(description="Estimated divert transit time in seconds at cruise TAS.")
     energy_wh: float = Field(description="Estimated divert energy consumption in Wh.")
     energy_remaining_at_action_wh: float = Field(

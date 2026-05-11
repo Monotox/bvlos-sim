@@ -5,8 +5,8 @@ toward a broader BVLOS simulation platform.
 
 ## Current Status
 
-The current codebase implements Phases 1 through 4.8, plus Tickets 032, 033,
-034, 035, 036, and 037:
+The current codebase implements Phases 1 through 4.9, plus Tickets 032, 033,
+034, 035, 036, 037, and 038:
 
 - estimator hardening
 - static feasibility checks
@@ -18,8 +18,9 @@ The current codebase implements Phases 1 through 4.8, plus Tickets 032, 033,
 - dynamic landing-zone availability via scenario events
 - computed divert route estimates on policy outcomes
 - Monte Carlo uncertainty analysis via `uncertainty.v1` YAML and `sample` CLI command
+- Dubins path solver and bank-angle-constrained divert distance
 
-The test suite currently passes with 395 tests.
+The test suite currently passes with 412 tests.
 
 bvlos-sim remains an engineering validation tool. It is not a flight-safety
 system, operational approval tool, or complete BVLOS compliance system.
@@ -96,15 +97,12 @@ Interfaces and contracts:
 
 Estimator limitations:
 
-- no bank-angle model or Dubins path optimization for transit legs and divert
-  routing — fidelity v2 turn arcs use a circular arc approximation and divert
-  routing uses straight-line geodesic distance (Ticket 038)
-- vertical-only movement does not add 3D slant path distance (Ticket 038)
+- fidelity v2 turn arcs model the heading change as a same-position arc; tangent-point offsets on adjacent transit legs are not subtracted
+- vertical-only movement does not add 3D slant path distance
 
 Scenario limitations:
 
-- divert routing uses straight-line geodesic distance with no bank-angle
-  constraint or heading continuity (Ticket 038)
+- divert Dubins path uses a planar East-North approximation; not applicable to routes spanning hundreds of kilometres
 
 Platform limitations:
 
@@ -248,19 +246,43 @@ behavior without changing deterministic defaults.
 
 ### Phase 4.9: Bank-Angle Model and Dubins Path Optimization
 
-Status: planned.
+Status: implemented.
 
 Scope:
 
 - Ticket 038: bank-angle model and Dubins path optimization
-- replace straight-line geodesic divert distance with Dubins path distance
-- replace fidelity v2 turn-arc approximation with proper entry/exit heading
-  constraints
-- optional: add 3D slant path distance for vertical legs
+
+Delivered:
+
+- `estimator.math.dubins` Dubins path-to-point solver (RS and LS path types)
+- divert route estimates use Dubins path distance (bank-angle-constrained arc +
+  straight) when entry heading and `vehicle.performance.turn_radius_m` are
+  available; falls back to straight-line geodesic otherwise
+- fidelity v2 turn arc confirmed as the exact Dubins solution for a
+  same-position heading change (`turn_radius_m * |Δθ|`); no change to v2 math
+- entry heading extracted from the last completed leg's `ground_track_deg` at
+  the action timeline index
 
 Exit criterion: horizontal path planning accounts for bank-angle constraints
 and heading continuity across transit, turn, and divert segments without
 changing fidelity v1 behavior or existing public result field names.
+
+### Phase 4.10: Path-Planning Model Gaps
+
+Status: planned.
+
+Scope:
+
+- Ticket 039: path-planning model gaps
+- subtract tangent-point offsets (`turn_radius_m * tan(|Δθ|/2)`) from fidelity
+  v2 transit legs adjacent to turn arcs
+- 3D slant path distance for `takeoff` and `land` legs
+- document and warn on Dubins divert planar approximation limit (~50 km)
+
+Exit criterion: fidelity v2 total path distance equals the sum of
+offset-adjusted transit legs plus turn arc lengths; takeoff and land legs
+report correct 3D slant path distance; a diagnostic warning is emitted when
+Dubins divert distance exceeds the planar approximation accuracy limit.
 
 ### Phase 5: SITL Integration
 

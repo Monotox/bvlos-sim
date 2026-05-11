@@ -1,5 +1,6 @@
 """Deterministic divert route estimation for lost-link policy outcomes."""
 
+import math
 from collections.abc import Sequence
 
 from pyproj import Geod
@@ -11,6 +12,7 @@ from estimator.core.landing_zone import LandingZone
 from estimator.core.results import EnergyEstimate
 from estimator.core.scenario import DivertRouteEstimate
 from estimator.execution.spatial import polygon_set_to_geometry_list
+from estimator.math.dubins import dubins_path_to_point_m
 from schemas.mission import MissionPlan
 from schemas.vehicle import VehicleProfile
 
@@ -28,8 +30,13 @@ def compute_divert_estimate(
     energy: EnergyEstimate | None,
     mission: MissionPlan,
     vehicle: VehicleProfile,
+    entry_heading_deg: float | None = None,
 ) -> DivertRouteEstimate:
-    """Compute a deterministic straight-line divert route estimate.
+    """Compute a deterministic divert route estimate.
+
+    When entry_heading_deg and vehicle.performance.turn_radius_m are available,
+    uses Dubins path distance (bank-angle-constrained arc + straight). Otherwise
+    falls back to straight-line geodesic distance.
 
     Uses TAS-based transit time and cruise-power energy without wind correction
     or geofence intersection on the divert leg.
@@ -58,7 +65,13 @@ def compute_divert_estimate(
             reason=f"Divert target zone '{target_zone_id}' has invalid or empty geometry.",
         )
 
-    distance_m = _distance_to_geometry_m(action_lat, action_lon, geometry)
+    turn_radius_m = vehicle.performance.turn_radius_m
+    if entry_heading_deg is not None and turn_radius_m is not None:
+        distance_m = _dubins_distance_to_geometry_m(
+            action_lat, action_lon, entry_heading_deg, turn_radius_m, geometry
+        )
+    else:
+        distance_m = _distance_to_geometry_m(action_lat, action_lon, geometry)
 
     tas_mps = _resolve_tas(mission, vehicle)
     if tas_mps is None or tas_mps <= 0:
@@ -108,6 +121,30 @@ def _distance_to_geometry_m(lat: float, lon: float, geometry: BaseGeometry) -> f
     _, nearest = nearest_points(state_point, geometry)
     _, _, distance_m = _GEOD.inv(lon, lat, nearest.x, nearest.y)
     return distance_m
+
+
+def _dubins_distance_to_geometry_m(
+    lat: float,
+    lon: float,
+    heading_deg: float,
+    turn_radius_m: float,
+    geometry: BaseGeometry,
+) -> float:
+    """Dubins path distance from pose (lat, lon, heading) to nearest zone point.
+
+    Uses a planar approximation in the East-North frame. Accurate for divert
+    distances up to tens of kilometres.
+    """
+    state_point = Point(lon, lat)
+    if geometry.covers(state_point):
+        return 0.0
+    _, nearest = nearest_points(state_point, geometry)
+    fwd_az, _, dist_m = _GEOD.inv(lon, lat, nearest.x, nearest.y)
+    bearing_rad = math.radians(fwd_az)
+    target_e = dist_m * math.sin(bearing_rad)
+    target_n = dist_m * math.cos(bearing_rad)
+    heading_rad = math.radians(heading_deg)
+    return dubins_path_to_point_m(0.0, 0.0, heading_rad, target_e, target_n, turn_radius_m)
 
 
 def _resolve_tas(mission: MissionPlan, vehicle: VehicleProfile) -> float | None:
