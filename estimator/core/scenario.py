@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from estimator.core.enums import AssertionOutcome, ScenarioStatus
+from estimator.core.enums import AssertionOutcome, ScenarioStatus, WarningCode
 from estimator.core.results import MissionEstimate
 
 # Re-export so callers that already import from this module continue to work.
@@ -80,6 +80,15 @@ class DivertRouteEstimate(BaseModel):
     infeasible_reason: str | None = Field(
         default=None,
         description="Human-readable reason when is_feasible is False.",
+    )
+    warnings: list[WarningCode] = Field(
+        default_factory=list,
+        description=(
+            "Structured diagnostic warnings for this divert estimate. "
+            "DUBINS_DIVERT_PLANAR_APPROXIMATION_LIMIT is emitted when the geodesic "
+            "distance to the target zone exceeds 50 km and the Dubins planar "
+            "approximation may accumulate meaningful error."
+        ),
     )
 
 

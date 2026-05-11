@@ -1,4 +1,10 @@
-"""Transit geometry and forward-flight leg estimation."""
+"""Transit geometry and forward-flight leg estimation.
+
+Fidelity v2 inserts a TURN_ARC leg at each waypoint heading change and
+subtracts the tangent-point offset (turn_radius_m * tan(|Δθ|/2)) from the
+path_distance_m of both adjacent transit legs so that total path distance
+reflects the true Dubins-path length.
+"""
 
 import math
 from dataclasses import dataclass
@@ -93,7 +99,7 @@ def build_vertical_only_leg(
         horizontal_distance_m=0.0,
         vertical_delta_m=vertical.delta_m,
         vertical_distance_m=vertical.distance_m,
-        path_distance_m=0.0,
+        path_distance_m=vertical.distance_m,
         time_s=vertical.time_s,
     )
 
@@ -207,6 +213,7 @@ def build_forward_transit_leg(
     start_lat: float,
     start_lon: float,
     start_alt: float,
+    tangent_offset_m: float = 0.0,
 ) -> LegEstimate:
     if not context.capabilities.forward_flight:
         context.fail(
@@ -350,7 +357,7 @@ def build_forward_transit_leg(
         horizontal_distance_m=geometry.horizontal_distance_m,
         vertical_delta_m=vertical.delta_m,
         vertical_distance_m=vertical.distance_m,
-        path_distance_m=geometry.horizontal_distance_m,
+        path_distance_m=max(0.0, geometry.horizontal_distance_m - tangent_offset_m),
         time_s=leg_time_s,
         tas_mps=tas_mps,
         groundspeed_mps=solution.groundspeed_mps,
@@ -432,9 +439,13 @@ def append_transit_leg(
     - the vehicle has forward-flight capability with a defined turn radius, and
     - the new transit leg has a non-trivial horizontal distance.
 
-    This keeps the caller contract identical to the v1 pattern while transparently
-    adding turn-arc overhead in v2.
+    When a TURN_ARC is injected, the tangent-point offset
+    (turn_radius_m * tan(|Δθ|/2)) is subtracted from the path_distance_m of
+    both the preceding transit leg and the new transit leg so that total path
+    distance reflects the true Dubins-path length.
     """
+    tangent_offset_m = 0.0
+
     if (
         context.resolved_options.fidelity == FidelityMode.V2
         and context.state.last_track_deg is not None
@@ -455,10 +466,25 @@ def append_transit_leg(
                 outgoing_track_deg=geometry.track_deg,
             )
             if turn_arc is not None:
+                turn_radius_m = context.vehicle.performance.turn_radius_m
+                turn_angle_rad = turn_arc.path_distance_m / turn_radius_m
+                tangent_offset_m = turn_radius_m * math.tan(turn_angle_rad / 2.0)
                 context.append_leg(turn_arc)
+                # Retroactively trim the transit leg that leads into this arc.
+                if len(context.route_legs) >= 2:
+                    prev = context.route_legs[-2]
+                    context.route_legs[-2] = prev.model_copy(
+                        update={"path_distance_m": max(0.0, prev.path_distance_m - tangent_offset_m)}
+                    )
 
     context.append_leg(
-        estimate_transit_leg(context, item, route_item_index=route_item_index, target=target)
+        estimate_transit_leg(
+            context,
+            item,
+            route_item_index=route_item_index,
+            target=target,
+            tangent_offset_m=tangent_offset_m,
+        )
     )
 
 
@@ -468,6 +494,7 @@ def estimate_transit_leg(
     *,
     route_item_index: int,
     target: TargetPhase,
+    tangent_offset_m: float = 0.0,
 ) -> LegEstimate:
     start_lat = context.state.lat
     start_lon = context.state.lon
@@ -509,4 +536,5 @@ def estimate_transit_leg(
         start_lat=start_lat,
         start_lon=start_lon,
         start_alt=start_alt,
+        tangent_offset_m=tangent_offset_m,
     )

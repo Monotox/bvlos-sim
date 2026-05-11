@@ -105,7 +105,7 @@ def test_zero_horizontal_vertical_only_leg_skips_wind_triangle_fields() -> None:
     leg = result.legs[0]
 
     assert leg.horizontal_distance_m == 0.0
-    assert leg.path_distance_m == 0.0
+    assert leg.path_distance_m == leg.vertical_distance_m
     assert leg.tas_mps is None
     assert leg.groundspeed_mps is None
     assert leg.ground_track_deg is None
