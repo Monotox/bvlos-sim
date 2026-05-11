@@ -495,6 +495,68 @@ def _estimate_with_wind_changes(
 
 
 # ---------------------------------------------------------------------------
+# Dynamic landing-zone availability
+# ---------------------------------------------------------------------------
+
+
+def _lz_unavailable_events(events: list[ScenarioEvent]) -> list[ScenarioEvent]:
+    return [e for e in events if e.kind == ScenarioEventKind.LANDING_ZONE_UNAVAILABLE]
+
+
+def _build_lz_unavailability_schedule(
+    lz_events: list[ScenarioEvent],
+    timeline: list[TimelinePoint],
+    state_count: int,
+) -> list[frozenset[str]]:
+    """Return per-state unavailable zone ID sets (cumulative, monotone)."""
+    schedule: list[frozenset[str]] = [frozenset() for _ in range(state_count)]
+    for event in lz_events:
+        trigger_index = _resolve_trigger_index(event, timeline)
+        if trigger_index is None:
+            continue
+        zone_ids = frozenset(event.unavailable_zone_ids or [])
+        first_state = max(0, trigger_index - 1)
+        for i in range(first_state, state_count):
+            schedule[i] = schedule[i] | zone_ids
+    return schedule
+
+
+def _apply_lz_unavailability(
+    scenario: ScenarioPlan,
+    mission: MissionPlan,
+    vehicle: VehicleProfile,
+    estimate: MissionEstimate,
+    *,
+    options: EstimationOptions,
+    wind_provider: WindProvider | None,
+    terrain_provider: TerrainProvider | None,
+    geofences: Sequence[GeofenceZone] | None,
+    landing_zones: Sequence[LandingZone] | None,
+) -> MissionEstimate:
+    lz_events = _lz_unavailable_events(scenario.events)
+    if not lz_events or not landing_zones:
+        return estimate
+
+    timeline = _build_timeline(mission, estimate)
+    schedule = _build_lz_unavailability_schedule(lz_events, timeline, len(estimate.legs))
+    if not any(schedule):
+        return estimate
+
+    result = try_estimate_mission_distance_time(
+        mission,
+        vehicle,
+        options=options,
+        wind_provider=wind_provider,
+        terrain_provider=terrain_provider,
+        geofences=geofences,
+        landing_zones=landing_zones,
+        lz_unavailability=schedule,
+    )
+    result.metadata["scenario_lz_unavailability_event_count"] = len(lz_events)
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Field resolution for assertions
 # ---------------------------------------------------------------------------
 
@@ -814,15 +876,27 @@ def run_scenario(
     This function is pure and does not depend on CLI adapters or I/O.
     """
     options = _build_options(scenario)
+    resolved_wind_provider = _resolve_base_wind_provider(scenario, wind_provider)
     estimate = _estimate_with_wind_changes(
         scenario,
         mission,
         vehicle,
         options,
-        _resolve_base_wind_provider(scenario, wind_provider),
+        resolved_wind_provider,
         terrain_provider,
         geofences,
         landing_zones,
+    )
+    estimate = _apply_lz_unavailability(
+        scenario,
+        mission,
+        vehicle,
+        estimate,
+        options=options,
+        wind_provider=resolved_wind_provider,
+        terrain_provider=terrain_provider,
+        geofences=geofences,
+        landing_zones=landing_zones,
     )
 
     timeline = _build_timeline(mission, estimate)

@@ -181,12 +181,13 @@ class LandingZoneStateReachability(BaseModel):
     reserve_after_divert_percent: float | None = None
     is_reachable: bool
     reserve_ok: bool
+    available_zone_count: int | None = None
     code: FailureCode | None = None
     message: str | None = None
 
 
 class LandingZoneEstimate(BaseModel):
-    """Mission-level static landing-zone reachability result."""
+    """Mission-level landing-zone reachability result."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -196,6 +197,7 @@ class LandingZoneEstimate(BaseModel):
     max_allowed_distance_m: float | None = None
     reserve_threshold_percent: float
     reserve_threshold_wh: float
+    unavailable_zone_ids: list[str] = Field(default_factory=list)
     states: list[LandingZoneStateReachability] = Field(default_factory=list)
 
 

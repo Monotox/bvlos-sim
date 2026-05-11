@@ -107,6 +107,7 @@ Events:
 - `events[].wind_east_mps`
 - `events[].wind_north_mps`
 - `events[].wind_layers`
+- `events[].unavailable_zone_ids`
 
 Assertions:
 

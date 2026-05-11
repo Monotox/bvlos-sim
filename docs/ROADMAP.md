@@ -14,7 +14,7 @@ The current `v0.2.0` release implements Phases 1 through 4, plus Tickets 032 and
 - terrain-referenced altitude execution
 - continuous spatiotemporal wind grid
 
-The test suite currently passes with 307 tests.
+The test suite currently passes with 321 tests.
 
 bvlos-sim remains an engineering validation tool. It is not a flight-safety
 system, operational approval tool, or complete BVLOS compliance system.
@@ -59,7 +59,7 @@ Scenario runner:
 
 - `scenario.v1` input schema
 - deterministic timeline construction
-- observe, lost-link, and wind-change events
+- observe, lost-link, wind-change, and landing-zone-unavailable events
 - assertion outcomes: `passed`, `failed`, `skipped`, `unsupported`
 - lost-link policy outcomes for `rtl`, `land`, `loiter`, and `divert`
 - `policy_action_eq` assertions
@@ -85,7 +85,6 @@ Estimator limitations:
 
 Scenario limitations:
 
-- no dynamic landing-zone availability model (Ticket 035)
 - `divert` policy outcomes record the target ID but do not compute a divert route (Ticket 036)
 
 Platform limitations:
@@ -200,12 +199,12 @@ battery-only or lost-link-only fields.
 
 ### Phase 4.7: Scenario Contingency Model Gaps
 
-Status: planned.
+Status: partially implemented.
 
 Scope:
 
-- Ticket 035: dynamic landing-zone availability
-- Ticket 036: computed divert routing
+- Ticket 035: dynamic landing-zone availability — implemented
+- Ticket 036: computed divert routing — planned
 - integration with scenario YAML, mission assets, terrain, wind, geofences,
   landing zones, resource systems, link systems, and existing scenario reports
 
