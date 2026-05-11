@@ -59,11 +59,12 @@ path rather than through isolated examples. Current validation includes:
 14. [035-dynamic-landing-zone-availability.md](./035-dynamic-landing-zone-availability.md) - implemented
 15. [036-computed-divert-routing.md](./036-computed-divert-routing.md) - implemented
 16. [037-monte-carlo-uncertainty-modeling.md](./037-monte-carlo-uncertainty-modeling.md) - implemented
-17. [040-sitl-ardupilot-first.md](./040-sitl-ardupilot-first.md) - planned
-18. [050-user-interfaces-and-service-adapters.md](./050-user-interfaces-and-service-adapters.md) - planned
-19. [060-import-export-and-batch-workflows.md](./060-import-export-and-batch-workflows.md) - planned
-20. [070-operational-integration-seams.md](./070-operational-integration-seams.md) - planned
-21. [071-live-comms-remote-id-and-traffic-integrations.md](./071-live-comms-remote-id-and-traffic-integrations.md) - planned
+17. [038-bank-angle-and-dubins-path-optimization.md](./038-bank-angle-and-dubins-path-optimization.md) - planned
+18. [040-sitl-ardupilot-first.md](./040-sitl-ardupilot-first.md) - planned
+19. [050-user-interfaces-and-service-adapters.md](./050-user-interfaces-and-service-adapters.md) - planned
+20. [060-import-export-and-batch-workflows.md](./060-import-export-and-batch-workflows.md) - planned
+21. [070-operational-integration-seams.md](./070-operational-integration-seams.md) - planned
+22. [071-live-comms-remote-id-and-traffic-integrations.md](./071-live-comms-remote-id-and-traffic-integrations.md) - planned
 
 ## Limitation Coverage and Status
 
@@ -75,6 +76,9 @@ path rather than through isolated examples. Current validation includes:
 - Continuous spatial and temporal wind grid support: Ticket 033, implemented.
 - Dynamic landing-zone availability via scenario `landing_zone_unavailable` events: Ticket 035, implemented.
 - Computed divert route estimates on `CommsLinkPolicyOutcome.divert_estimate`: Ticket 036, implemented.
+- No bank-angle model or Dubins path optimization for transit, turn, and divert
+  path segments: Ticket 038.
+- Vertical-only movement does not add 3D slant path distance: Ticket 038.
 - No live comms, UTM/U-space, Remote ID, or traffic integrations: Tickets 070
   and 071.
 
