@@ -27,8 +27,8 @@ _ASSUMPTIONS = [
     "Wind input is constant in space and time unless a layered, time-varying, or spatiotemporal grid provider is used.",
     "Transit is modeled as geodesic leg-to-leg kinematics.",
     "Terrain-referenced altitude uses an offline uniform elevation grid; online terrain service calls are not performed.",
-    "Turn dynamics and sub-segment integration are excluded from estimator v1.",
-    "Fixed-wing circular loiter is unsupported in estimator v1.",
+    "Fidelity v1 uses geodesic leg-to-leg kinematics with no turn-arc dynamics or sub-segment wind sampling; fidelity v2 adds turn-arc geometry and sub-segment sampling.",
+    "Fixed-wing circular loiter requires fidelity v2; it is unsupported in fidelity v1.",
     "Energy feasibility uses deterministic phase power values from the vehicle profile.",
     "Static geofence feasibility uses 2D lon/lat route-segment geometry.",
     "Static landing-zone reachability uses straight-line geodesic distance and deterministic cruise-power divert energy.",
@@ -311,6 +311,19 @@ def _build_result_validity(result: MissionEstimate | None) -> ResultValidity:
         and not result.totals_are_partial
     ):
         return _static_feasibility_result_validity(result)
+
+    if (
+        result.failure is not None
+        and result.failure.code not in _STATIC_FEASIBILITY_FAILURE_CODES
+        and not result.totals_are_partial
+        and result.legs
+    ):
+        return ResultValidity(
+            is_complete=False,
+            is_partial=False,
+            is_valid_for_full_mission=False,
+            scope=ResultScope.FULL_MISSION,
+        )
 
     if result.totals_are_partial:
         return ResultValidity(
