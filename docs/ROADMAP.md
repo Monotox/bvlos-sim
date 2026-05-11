@@ -16,7 +16,7 @@ The current `v0.2.0` release implements Phases 1 through 4, plus Tickets 032, 03
 - dynamic landing-zone availability via scenario events
 - computed divert route estimates on policy outcomes
 
-The test suite currently passes with 338 tests.
+The test suite currently passes with 321 tests.
 
 bvlos-sim remains an engineering validation tool. It is not a flight-safety
 system, operational approval tool, or complete BVLOS compliance system.
