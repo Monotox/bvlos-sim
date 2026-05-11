@@ -1,5 +1,12 @@
-"""Public schema models for mission, vehicle, and scenario configuration."""
+"""Public schema models for mission, vehicle, scenario, and uncertainty configuration."""
 
+from schemas.uncertainty import (
+    NormalDistribution,
+    UniformDistribution,
+    UncertaintyDistribution,
+    UncertaintyParameters,
+    UncertaintyPlan,
+)
 from schemas.mission import (
     AltitudeReference,
     MissionAction,
@@ -36,6 +43,11 @@ from schemas.vehicle import (
 
 __all__ = [
     "AltitudeReference",
+    "NormalDistribution",
+    "UniformDistribution",
+    "UncertaintyDistribution",
+    "UncertaintyParameters",
+    "UncertaintyPlan",
     "AutopilotStack",
     "EnergyModel",
     "FailsafeProfile",

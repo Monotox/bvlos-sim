@@ -5,7 +5,7 @@ toward a broader BVLOS simulation platform.
 
 ## Current Status
 
-The current `v0.2.0` release implements Phases 1 through 4, plus Tickets 032, 033, 035, and 036:
+The current `v0.2.0` release implements Phases 1 through 4.8, plus Tickets 032, 033, 035, 036, and 037:
 
 - estimator hardening
 - static feasibility checks
@@ -15,8 +15,9 @@ The current `v0.2.0` release implements Phases 1 through 4, plus Tickets 032, 03
 - continuous spatiotemporal wind grid
 - dynamic landing-zone availability via scenario events
 - computed divert route estimates on policy outcomes
+- Monte Carlo uncertainty analysis via `uncertainty.v1` YAML and `sample` CLI command
 
-The test suite currently passes with 338 tests.
+The test suite currently passes with 384 tests.
 
 bvlos-sim remains an engineering validation tool. It is not a flight-safety
 system, operational approval tool, or complete BVLOS compliance system.
@@ -67,20 +68,31 @@ Scenario runner:
 - computed divert route estimates (`DivertRouteEstimate`) on `divert` policy outcomes: geodesic distance, TAS transit time, cruise-power energy, reserve after divert, and feasibility flag
 - `policy_action_eq` assertions
 
+Uncertainty modeling:
+
+- `uncertainty.v1` YAML input schema with `normal` and `uniform` distributions
+- seeded Monte Carlo sampling over wind, cruise speed, cruise power, and battery capacity
+- `run_monte_carlo` Python API wrapping the deterministic estimator
+- `sample` CLI command for uncertainty execution
+- `uncertainty-report.v1` JSON envelope with summary statistics (mean, std, min, p5, p50, p95, max) and deterministic baseline
+- Markdown rendering for uncertainty reports
+
 Interfaces and contracts:
 
 - `estimate` CLI command
 - `scenario` CLI command
+- `sample` CLI command
 - canonical estimator JSON envelope (`estimator-envelope.v4`)
 - canonical scenario JSON envelope (`scenario-report.v1`)
-- Markdown rendering for estimator and scenario reports
+- canonical uncertainty JSON envelope (`uncertainty-report.v1`)
+- Markdown rendering for estimator, scenario, and uncertainty reports
 - golden fixture regression tests
 
 ## Known Limitations
 
 Estimator limitations:
 
-- no Monte Carlo uncertainty model (Ticket 037)
+- no bank-angle model for divert path (divert uses straight-line geodesic)
 - no generalized resource/link feasibility model beyond battery-oriented energy
   fields and scenario lost-link events (Ticket 034)
 - no bank-angle model or Dubins path optimization
@@ -216,14 +228,14 @@ and feasibility features as baseline mission estimation.
 
 ### Phase 4.8: Uncertainty Modeling
 
-Status: planned.
+Status: implemented.
 
 Scope:
 
-- Ticket 037: Monte Carlo uncertainty modeling
-- YAML-configured uncertainty inputs
-- explicit opt-in CLI/API execution path
-- JSON/Markdown uncertainty reports that preserve deterministic baseline output
+- Ticket 037: Monte Carlo uncertainty modeling — implemented
+- `uncertainty.v1` YAML-configured uncertainty inputs
+- explicit opt-in `sample` CLI command
+- `uncertainty-report.v1` JSON envelope and Markdown rendering preserving deterministic baseline output
 
 Exit criterion: uncertainty analysis composes with existing mission, vehicle,
 terrain, wind, geofence, landing-zone, resource, link, energy, and scenario

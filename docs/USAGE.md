@@ -496,6 +496,38 @@ Scenario example:
 result = run_scenario(scenario, mission, vehicle)
 ```
 
+Monte Carlo uncertainty example:
+
+```python
+from estimator import run_monte_carlo
+from schemas.uncertainty import UncertaintyPlan, UncertaintyParameters, NormalDistribution
+
+plan = UncertaintyPlan(
+    schema_version="uncertainty.v1",
+    uncertainty_id="my-run",
+    mission_file="mission.yaml",
+    vehicle_file="vehicle.yaml",
+    samples=200,
+    seed=42,
+    parameters=UncertaintyParameters(
+        wind_east_mps=NormalDistribution(kind="normal", mean=0.0, std=2.0),
+        wind_north_mps=NormalDistribution(kind="normal", mean=0.0, std=2.0),
+    ),
+)
+
+mc_result = run_monte_carlo(plan, mission, vehicle)
+print(mc_result.feasibility_rate)
+print(mc_result.total_time_s.mean)
+print(mc_result.total_time_s.p95)
+```
+
+Or via the `sample` CLI command:
+
+```bash
+bvlos-sim sample examples/uncertainty/pipeline_demo_001_wind_uncertainty.yaml
+bvlos-sim sample examples/uncertainty/pipeline_demo_001_wind_uncertainty.yaml --format markdown
+```
+
 ## Output Contracts
 
 The estimator CLI emits `estimator-envelope.v4`.

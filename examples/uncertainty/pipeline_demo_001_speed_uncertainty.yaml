@@ -1,0 +1,15 @@
+schema_version: uncertainty.v1
+uncertainty_id: pipeline-demo-speed-uncertainty
+mission_file: ../missions/pipeline_demo_001.yaml
+vehicle_file: ../vehicles/quadplane_v1.yaml
+samples: 100
+seed: 7
+
+# Vary cruise speed uniformly across the expected operating envelope.
+# This captures uncertainty from airspeed calibration error, indicated-
+# vs-true airspeed divergence, and mission-plan conservatism.
+parameters:
+  cruise_speed_mps:
+    kind: uniform
+    low: 14.0
+    high: 22.0
