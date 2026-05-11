@@ -312,6 +312,7 @@
         "action_at_timeline_index": 4,
         "action_lat": 52.002,
         "action_lon": 4.004,
+        "divert_estimate": null,
         "divert_target_id": null,
         "link_lost_at_elapsed_s": 40.0,
         "link_lost_at_timeline_index": 2,

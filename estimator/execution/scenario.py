@@ -5,7 +5,7 @@ from typing import cast
 
 from estimator.core.enums import AssertionOutcome, EstimateStatus, FidelityMode
 from estimator.core.options import EstimationOptions
-from estimator.core.results import LegEstimate, MissionEstimate
+from estimator.core.results import EnergyEstimate, LegEstimate, MissionEstimate
 from estimator.core.geofence import GeofenceZone
 from estimator.core.landing_zone import LandingZone
 from estimator.core.scenario import (
@@ -26,10 +26,12 @@ from estimator.environment.wind import (
     WindLayer,
     WindProvider,
 )
+from estimator.execution.divert import compute_divert_estimate
 from estimator.execution.engine import try_estimate_mission_distance_time
 from schemas.mission import MissionPlan, WindLayerConfig
 from schemas.scenario import (
     FIELD_ASSERTION_KINDS,
+    LostLinkAction,
     LostLinkPolicy,
     ScenarioAssertion,
     ScenarioAssertionKind,
@@ -276,11 +278,34 @@ def _build_policy_outcome(
     policy: LostLinkPolicy,
     timeline: list[TimelinePoint],
     trigger_index: int,
+    *,
+    energy: EnergyEstimate | None,
+    mission: MissionPlan,
+    vehicle: VehicleProfile,
+    landing_zones: Sequence[LandingZone] | None,
 ) -> CommsLinkPolicyOutcome:
     trigger_point = timeline[trigger_index]
     action_elapsed_s = trigger_point.elapsed_time_s + policy.loiter_s
     action_index = _resolve_at_elapsed_time(timeline, action_elapsed_s)
     action_point = timeline[action_index]
+
+    divert_estimate = None
+    if (
+        policy.action == LostLinkAction.DIVERT
+        and policy.divert_target_id is not None
+        and landing_zones
+    ):
+        divert_estimate = compute_divert_estimate(
+            action_lat=action_point.lat,
+            action_lon=action_point.lon,
+            action_at_timeline_index=action_index,
+            target_zone_id=policy.divert_target_id,
+            landing_zones=landing_zones,
+            energy=energy,
+            mission=mission,
+            vehicle=vehicle,
+        )
+
     return CommsLinkPolicyOutcome(
         action=policy.action,
         loiter_s=policy.loiter_s,
@@ -292,6 +317,7 @@ def _build_policy_outcome(
         action_lon=action_point.lon,
         action_altitude_amsl_m=action_point.altitude_amsl_m,
         divert_target_id=policy.divert_target_id,
+        divert_estimate=divert_estimate,
     )
 
 
@@ -300,9 +326,22 @@ def _process_lost_link_event(
     timeline: list[TimelinePoint],
     policy: LostLinkPolicy | None,
     trigger_index: int,
+    *,
+    energy: EnergyEstimate | None,
+    mission: MissionPlan,
+    vehicle: VehicleProfile,
+    landing_zones: Sequence[LandingZone] | None,
 ) -> ScenarioEventOutcome:
     policy_outcome = (
-        _build_policy_outcome(policy, timeline, trigger_index)
+        _build_policy_outcome(
+            policy,
+            timeline,
+            trigger_index,
+            energy=energy,
+            mission=mission,
+            vehicle=vehicle,
+            landing_zones=landing_zones,
+        )
         if policy is not None
         else None
     )
@@ -319,12 +358,26 @@ def _process_event(
     event: ScenarioEvent,
     timeline: list[TimelinePoint],
     lost_link_policy: LostLinkPolicy | None,
+    *,
+    energy: EnergyEstimate | None,
+    mission: MissionPlan,
+    vehicle: VehicleProfile,
+    landing_zones: Sequence[LandingZone] | None,
 ) -> ScenarioEventOutcome:
     trigger_index = _resolve_trigger_index(event, timeline)
     if trigger_index is None:
         return _not_fired_event_outcome(event)
     if event.kind == ScenarioEventKind.LOST_LINK:
-        return _process_lost_link_event(event, timeline, lost_link_policy, trigger_index)
+        return _process_lost_link_event(
+            event,
+            timeline,
+            lost_link_policy,
+            trigger_index,
+            energy=energy,
+            mission=mission,
+            vehicle=vehicle,
+            landing_zones=landing_zones,
+        )
     return _fired_event_outcome(event, trigger_index)
 
 
@@ -332,8 +385,24 @@ def _process_events(
     events: list[ScenarioEvent],
     timeline: list[TimelinePoint],
     lost_link_policy: LostLinkPolicy | None,
+    *,
+    energy: EnergyEstimate | None,
+    mission: MissionPlan,
+    vehicle: VehicleProfile,
+    landing_zones: Sequence[LandingZone] | None,
 ) -> list[ScenarioEventOutcome]:
-    return [_process_event(event, timeline, lost_link_policy) for event in events]
+    return [
+        _process_event(
+            event,
+            timeline,
+            lost_link_policy,
+            energy=energy,
+            mission=mission,
+            vehicle=vehicle,
+            landing_zones=landing_zones,
+        )
+        for event in events
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -901,7 +970,15 @@ def run_scenario(
 
     timeline = _build_timeline(mission, estimate)
     lost_link_policy = scenario.initial_conditions.lost_link_policy
-    event_outcomes = _process_events(scenario.events, timeline, lost_link_policy)
+    event_outcomes = _process_events(
+        scenario.events,
+        timeline,
+        lost_link_policy,
+        energy=estimate.energy,
+        mission=mission,
+        vehicle=vehicle,
+        landing_zones=landing_zones,
+    )
     assertion_results = [
         _evaluate_assertion(assertion, estimate, event_outcomes)
         for assertion in scenario.assertions
