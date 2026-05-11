@@ -23,3 +23,6 @@ and this project adheres to semantic versioning once public releases begin.
 - Terrain-referenced altitude execution using an offline uniform elevation grid (`assets.terrain_file`).
 - Spatiotemporal wind grid with quadrilinear interpolation (`assets.wind_grid_file`).
 - Integrated example combining terrain, wind-grid, geofences, landing zones, energy, and fidelity v2.
+- Dynamic landing-zone availability via scenario `landing_zone_unavailable` events; zones can be marked unavailable from a trigger point onward with `ALL_LANDING_ZONES_UNAVAILABLE` failure diagnostics.
+- `LandingZoneEstimate.unavailable_zone_ids` and `LandingZoneStateReachability.available_zone_count` output fields for availability tracing.
+- `lz_unavailability` parameter on `estimate_mission_distance_time` and `try_estimate_mission_distance_time` for library callers.

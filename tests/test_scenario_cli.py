@@ -167,6 +167,20 @@ def test_output_written_to_file(tmp_path: Path) -> None:
     assert "scenario_id" in payload
 
 
+def test_lz_availability_example_scenario_runs_from_cli() -> None:
+    scenario_path = REPO_ROOT / "examples/scenarios/pipeline_demo_001_lz_availability_scenario.yaml"
+
+    result = _run(["scenario", str(scenario_path)])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["status"] == "passed"
+    estimate = payload["estimate"]
+    assert estimate["failure"]["code"] == "ALL_LANDING_ZONES_UNAVAILABLE"
+    assert estimate["landing_zone"]["unavailable_zone_ids"] == ["demo_landing_zone_wp1"]
+    assert estimate["metadata"]["scenario_lz_unavailability_event_count"] == 1
+
+
 def test_output_file_contains_assertion_results(tmp_path: Path) -> None:
     scenario_path = str(FIXTURE_ROOT / "passed" / "scenario.yaml")
     out_file = tmp_path / "result.json"

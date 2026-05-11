@@ -32,6 +32,7 @@ class ScenarioEventKind(StrEnum):
     OBSERVE = "observe"
     LOST_LINK = "lost_link"
     WIND_CHANGE = "wind_change"
+    LANDING_ZONE_UNAVAILABLE = "landing_zone_unavailable"
 
 
 class ScenarioTriggerKind(StrEnum):
@@ -122,6 +123,29 @@ def _validate_wind_layers_are_non_empty(event: "ScenarioEvent") -> None:
     if event.wind_layers:
         return
     raise ValueError("wind_layers must contain at least one layer")
+
+
+def _validate_lz_unavailable_params(event: "ScenarioEvent") -> None:
+    is_lz_event = event.kind == ScenarioEventKind.LANDING_ZONE_UNAVAILABLE
+    has_ids = event.unavailable_zone_ids is not None
+    ids_empty = has_ids and len(event.unavailable_zone_ids) == 0  # type: ignore[arg-type]
+    checks = (
+        (
+            is_lz_event and not has_ids,
+            "unavailable_zone_ids is required for landing_zone_unavailable events",
+        ),
+        (
+            is_lz_event and ids_empty,
+            "unavailable_zone_ids must contain at least one zone id",
+        ),
+        (
+            not is_lz_event and has_ids,
+            "unavailable_zone_ids is only valid for landing_zone_unavailable events",
+        ),
+    )
+    for invalid, message in checks:
+        if invalid:
+            raise ValueError(message)
 
 
 def _validate_wind_change_params(event: "ScenarioEvent") -> None:
@@ -252,12 +276,21 @@ class ScenarioEvent(BaseModel):
             "Mutually exclusive with scalar wind fields."
         ),
     )
+    unavailable_zone_ids: list[str] | None = Field(
+        default=None,
+        description=(
+            "Landing zone IDs to mark unavailable from this event's trigger time onward. "
+            "Required and must be non-empty for landing_zone_unavailable events. "
+            "Not valid on other event kinds."
+        ),
+    )
     description: str | None = None
 
     @model_validator(mode="after")
     def validate_trigger_params(self) -> "ScenarioEvent":
         _validate_event_trigger_params(self)
         _validate_wind_change_params(self)
+        _validate_lz_unavailable_params(self)
         return self
 
 
