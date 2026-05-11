@@ -292,6 +292,14 @@ def _not_fired_event_outcome(event: ScenarioEvent) -> ScenarioEventOutcome:
     )
 
 
+def _entry_heading_at_index(legs: list[LegEstimate], action_index: int) -> float | None:
+    """Return ground_track_deg of the last leg before action_index, or None."""
+    leg_index = action_index - 1
+    if leg_index < 0 or leg_index >= len(legs):
+        return None
+    return legs[leg_index].ground_track_deg
+
+
 def _build_policy_outcome(
     policy: LostLinkPolicy,
     timeline: list[TimelinePoint],
@@ -301,6 +309,7 @@ def _build_policy_outcome(
     mission: MissionPlan,
     vehicle: VehicleProfile,
     landing_zones: Sequence[LandingZone] | None,
+    legs: list[LegEstimate],
 ) -> CommsLinkPolicyOutcome:
     trigger_point = timeline[trigger_index]
     action_elapsed_s = trigger_point.elapsed_time_s + policy.loiter_s
@@ -313,6 +322,7 @@ def _build_policy_outcome(
         and policy.divert_target_id is not None
         and landing_zones
     ):
+        entry_heading_deg = _entry_heading_at_index(legs, action_index)
         divert_estimate = compute_divert_estimate(
             action_lat=action_point.lat,
             action_lon=action_point.lon,
@@ -322,6 +332,7 @@ def _build_policy_outcome(
             energy=energy,
             mission=mission,
             vehicle=vehicle,
+            entry_heading_deg=entry_heading_deg,
         )
 
     return CommsLinkPolicyOutcome(
@@ -349,6 +360,7 @@ def _process_lost_link_event(
     mission: MissionPlan,
     vehicle: VehicleProfile,
     landing_zones: Sequence[LandingZone] | None,
+    legs: list[LegEstimate],
 ) -> ScenarioEventOutcome:
     policy_outcome = (
         _build_policy_outcome(
@@ -359,6 +371,7 @@ def _process_lost_link_event(
             mission=mission,
             vehicle=vehicle,
             landing_zones=landing_zones,
+            legs=legs,
         )
         if policy is not None
         else None
@@ -381,6 +394,7 @@ def _process_event(
     mission: MissionPlan,
     vehicle: VehicleProfile,
     landing_zones: Sequence[LandingZone] | None,
+    legs: list[LegEstimate],
 ) -> ScenarioEventOutcome:
     trigger_index = _resolve_trigger_index(event, timeline)
     if trigger_index is None:
@@ -395,6 +409,7 @@ def _process_event(
             mission=mission,
             vehicle=vehicle,
             landing_zones=landing_zones,
+            legs=legs,
         )
     return _fired_event_outcome(event, trigger_index)
 
@@ -408,6 +423,7 @@ def _process_events(
     mission: MissionPlan,
     vehicle: VehicleProfile,
     landing_zones: Sequence[LandingZone] | None,
+    legs: list[LegEstimate],
 ) -> list[ScenarioEventOutcome]:
     return [
         _process_event(
@@ -418,6 +434,7 @@ def _process_events(
             mission=mission,
             vehicle=vehicle,
             landing_zones=landing_zones,
+            legs=legs,
         )
         for event in events
     ]
@@ -997,6 +1014,7 @@ def run_scenario(
         mission=mission,
         vehicle=vehicle,
         landing_zones=landing_zones,
+        legs=list(estimate.legs),
     )
     assertion_results = [
         _evaluate_assertion(assertion, estimate, event_outcomes)

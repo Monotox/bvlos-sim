@@ -25,7 +25,8 @@ The current codebase includes:
 - dynamic landing-zone availability via scenario `landing_zone_unavailable` events
 - computed divert route estimates on `CommsLinkPolicyOutcome.divert_estimate` (distance, time, energy, reserve, feasibility)
 - Monte Carlo uncertainty sampling via `uncertainty.v1` YAML and `sample` CLI command; seeded reproducible runs varying wind, cruise speed, cruise power, and battery capacity
-- passing estimator/schema/CLI/scenario test suite with 395 tests
+- Dubins path solver for bank-angle-constrained divert routing; divert distance uses RS/LS arc + straight when entry heading and turn radius are available
+- passing estimator/schema/CLI/scenario test suite with 412 tests
 
 ## Implemented Integration Validation
 
@@ -61,23 +62,28 @@ path rather than through isolated examples. Current validation includes:
 14. [035-dynamic-landing-zone-availability.md](./035-dynamic-landing-zone-availability.md) - implemented
 15. [036-computed-divert-routing.md](./036-computed-divert-routing.md) - implemented
 16. [037-monte-carlo-uncertainty-modeling.md](./037-monte-carlo-uncertainty-modeling.md) - implemented
-17. [038-bank-angle-and-dubins-path-optimization.md](./038-bank-angle-and-dubins-path-optimization.md) - planned
-18. [040-sitl-adapter-contract-and-evidence-schema.md](./040-sitl-adapter-contract-and-evidence-schema.md) - planned
-19. [041-ardupilot-sitl-launch-and-mission-upload.md](./041-ardupilot-sitl-launch-and-mission-upload.md) - planned
-20. [042-sitl-telemetry-recorder-and-evidence-bundle.md](./042-sitl-telemetry-recorder-and-evidence-bundle.md) - planned
-21. [043-sitl-scenario-comparison-report.md](./043-sitl-scenario-comparison-report.md) - planned
-22. [050-user-interfaces-and-service-adapters.md](./050-user-interfaces-and-service-adapters.md) - planned
-23. [060-import-export-and-batch-workflows.md](./060-import-export-and-batch-workflows.md) - planned
-24. [070-operational-integration-seams.md](./070-operational-integration-seams.md) - planned
-25. [071-live-comms-remote-id-and-traffic-integrations.md](./071-live-comms-remote-id-and-traffic-integrations.md) - planned
+17. [038-bank-angle-and-dubins-path-optimization.md](./038-bank-angle-and-dubins-path-optimization.md) - implemented
+18. [039-path-planning-model-gaps.md](./039-path-planning-model-gaps.md) - planned
+19. [040-sitl-adapter-contract-and-evidence-schema.md](./040-sitl-adapter-contract-and-evidence-schema.md) - planned
+20. [041-ardupilot-sitl-launch-and-mission-upload.md](./041-ardupilot-sitl-launch-and-mission-upload.md) - planned
+21. [042-sitl-telemetry-recorder-and-evidence-bundle.md](./042-sitl-telemetry-recorder-and-evidence-bundle.md) - planned
+22. [043-sitl-scenario-comparison-report.md](./043-sitl-scenario-comparison-report.md) - planned
+23. [050-user-interfaces-and-service-adapters.md](./050-user-interfaces-and-service-adapters.md) - planned
+24. [060-import-export-and-batch-workflows.md](./060-import-export-and-batch-workflows.md) - planned
+25. [070-operational-integration-seams.md](./070-operational-integration-seams.md) - planned
+26. [071-live-comms-remote-id-and-traffic-integrations.md](./071-live-comms-remote-id-and-traffic-integrations.md) - planned
 
 ## Limitation Coverage and Status
 
 - No SITL integration yet: Tickets 040-043.
 - No REST API or UI: Ticket 050.
-- No bank-angle model or Dubins path optimization for transit, turn, and divert
-  path segments: Ticket 038.
-- Vertical-only movement does not add 3D slant path distance: Ticket 038.
+- Ticket 038 implemented: Dubins path solver for bank-angle-constrained divert
+  routing; fidelity v2 turn arc uses the exact Dubins solution for same-position
+  heading changes.
+- Remaining path-planning gaps tracked in Ticket 039: fidelity v2 transit legs
+  do not subtract tangent-point offsets adjacent to turn arcs; vertical-only
+  movement does not add 3D slant path distance; Dubins divert planar
+  approximation accuracy limit (~50 km) is not yet documented or warned.
 - No live comms, UTM/U-space, Remote ID, or traffic integrations: Tickets 070
   and 071.
 

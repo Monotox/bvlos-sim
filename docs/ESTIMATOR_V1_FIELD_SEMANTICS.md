@@ -250,9 +250,7 @@ Fidelity v2:
 - turn arc has zero net displacement
 - fixed-wing `loiter_time` is modeled as circular loiter
 - hover-capable vehicles continue to use station-keep loiter
-- turn arcs use a circular arc path-length approximation
-  (`turn_radius_m * abs(delta_heading_rad)`) and do not enforce Dubins-path
-  entry/exit heading constraints between segments (Ticket 038)
+- turn arc path length is `turn_radius_m * abs(delta_heading_rad)`, which is the exact Dubins solution for a same-position heading change; the arc has zero net displacement
 
 Result metadata field `estimator_version` records the actual fidelity used:
 `"v1"` or `"v2"`.
@@ -332,7 +330,7 @@ Result metadata field `estimator_version` records the actual fidelity used:
 - GeoJSON coordinates are interpreted in `[lon, lat]` order.
 - Supported geometries are `Point`, `Polygon`, and `MultiPolygon`.
 - Reachability is evaluated at deterministic route leg end states.
-- Divert energy uses straight-line geodesic distance, resolved cruise TAS, and deterministic cruise power.
+- Divert energy uses resolved cruise TAS and deterministic cruise power; distance uses Dubins path when entry heading and turn radius are available, otherwise straight-line geodesic.
 - Landing-zone v1 does not evaluate terrain, obstacles, dynamic availability, suitability scoring, weather scoring, comms dependency, or landing-zone altitude.
 
 ## Divert Routing Semantics
@@ -343,7 +341,7 @@ fires and the configured `lost_link_policy.action` is `divert`.
 Fields computed in `CommsLinkPolicyOutcome.divert_estimate`:
 
 - `target_zone_id`: ID of the landing zone targeted by the divert policy.
-- `distance_m`: straight-line geodesic distance from the action execution point to the nearest point of the target zone geometry.
+- `distance_m`: divert path distance to the nearest point of the target zone. Uses Dubins path distance (bank-angle-constrained arc + straight) when entry heading and `vehicle.performance.turn_radius_m` are both available; otherwise straight-line geodesic distance.
 - `time_s`: transit time at mission or vehicle cruise TAS (`distance_m / tas_mps`).
 - `energy_wh`: deterministic cruise-power energy for the divert leg (`cruise_power_w * time_s / 3600`).
 - `energy_remaining_at_action_wh`: battery energy available at the action execution point, computed as `battery_capacity_wh` minus the sum of all leg energies with `leg_index <= action_at_timeline_index - 1`.
@@ -357,11 +355,18 @@ Divert routing is informational. It does not change the overall mission
 estimate status. The `divert_estimate.is_feasible` field indicates whether the
 planned divert leg has sufficient energy reserve.
 
-Divert route estimates use no wind correction, no geofence intersection, no
-terrain avoidance, and no bank-angle constraint on the divert leg. Distance is
-straight-line geodesic; heading continuity and turn cost are not modeled
-(Ticket 038). TAS is taken from `mission.defaults.cruise_speed_mps` if set;
-otherwise from `vehicle.performance.cruise_speed_mps`.
+Dubins path distance is computed in the local East-North plane using the RS
+(right arc + straight) and LS (left arc + straight) path types. The shorter
+valid path is used. Entry heading is taken from `ground_track_deg` of the last
+completed leg at the action timeline index; when no prior leg exists (e.g.
+`at_mission_start` trigger with no loiter), entry heading is unavailable and
+the estimate falls back to straight-line geodesic distance. Dubins distance
+is never applied when `vehicle.performance.turn_radius_m` is not set.
+
+Divert route estimates use no wind correction, no geofence intersection, and no
+terrain avoidance on the divert leg. TAS is taken from
+`mission.defaults.cruise_speed_mps` if set; otherwise from
+`vehicle.performance.cruise_speed_mps`.
 
 `CommsLinkPolicyOutcome.divert_estimate` is `None` when:
 - the policy action is not `divert`
