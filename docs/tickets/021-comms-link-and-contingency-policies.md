@@ -41,7 +41,7 @@ available in scenario execution.
   report as estimator assertions.
 - The `scenario` CLI reports policy outcomes in canonical JSON and Markdown.
 - Divert target IDs can refer to landing-zone asset IDs, while computed divert
-  routes remain planned in Ticket 035.
+  routes remain planned in Ticket 036.
 
 ## Out of Scope
 
