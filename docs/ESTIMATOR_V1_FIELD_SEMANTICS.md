@@ -20,6 +20,8 @@ Top-level mission fields:
 - `constraints.min_distance_to_landing_zone_m`: maximum landing-zone distance
 - `assets.geofences_file`: static geofence file loaded by the CLI
 - `assets.landing_zones_file`: static landing-zone file loaded by the CLI
+- `assets.terrain_file`: offline elevation grid file loaded by the CLI for terrain-referenced altitude resolution
+- `assets.wind_grid_file`: offline spatiotemporal wind grid file loaded by the CLI as a 4D wind provider
 - `estimation`: persisted estimator settings
 
 Route item fields:
