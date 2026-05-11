@@ -272,11 +272,12 @@ Prerequisites:
 
 Scope:
 
-- ArduPilot SITL backend first
-- MAVLink mission upload/start/monitor flow
-- telemetry recorder
-- policy command execution through MAVLink
-- replay and evidence bundle generation
+- Ticket 040: SITL adapter contract and evidence schema
+- Ticket 041: ArduPilot SITL launch and mission upload
+- Ticket 042: SITL telemetry recorder and evidence bundle
+- Ticket 043: SITL scenario comparison report
+- adapter-local ArduPilot and MAVLink dependencies that stay outside core
+  estimator/scenario execution
 - comparison against existing deterministic `scenario` outputs
 
 Exit criterion: a scenario can be executed against ArduPilot SITL with recorded

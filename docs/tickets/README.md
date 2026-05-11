@@ -60,15 +60,18 @@ path rather than through isolated examples. Current validation includes:
 15. [036-computed-divert-routing.md](./036-computed-divert-routing.md) - implemented
 16. [037-monte-carlo-uncertainty-modeling.md](./037-monte-carlo-uncertainty-modeling.md) - implemented
 17. [038-bank-angle-and-dubins-path-optimization.md](./038-bank-angle-and-dubins-path-optimization.md) - planned
-18. [040-sitl-ardupilot-first.md](./040-sitl-ardupilot-first.md) - planned
-19. [050-user-interfaces-and-service-adapters.md](./050-user-interfaces-and-service-adapters.md) - planned
-20. [060-import-export-and-batch-workflows.md](./060-import-export-and-batch-workflows.md) - planned
-21. [070-operational-integration-seams.md](./070-operational-integration-seams.md) - planned
-22. [071-live-comms-remote-id-and-traffic-integrations.md](./071-live-comms-remote-id-and-traffic-integrations.md) - planned
+18. [040-sitl-adapter-contract-and-evidence-schema.md](./040-sitl-adapter-contract-and-evidence-schema.md) - planned
+19. [041-ardupilot-sitl-launch-and-mission-upload.md](./041-ardupilot-sitl-launch-and-mission-upload.md) - planned
+20. [042-sitl-telemetry-recorder-and-evidence-bundle.md](./042-sitl-telemetry-recorder-and-evidence-bundle.md) - planned
+21. [043-sitl-scenario-comparison-report.md](./043-sitl-scenario-comparison-report.md) - planned
+22. [050-user-interfaces-and-service-adapters.md](./050-user-interfaces-and-service-adapters.md) - planned
+23. [060-import-export-and-batch-workflows.md](./060-import-export-and-batch-workflows.md) - planned
+24. [070-operational-integration-seams.md](./070-operational-integration-seams.md) - planned
+25. [071-live-comms-remote-id-and-traffic-integrations.md](./071-live-comms-remote-id-and-traffic-integrations.md) - planned
 
 ## Limitation Coverage and Status
 
-- No SITL integration yet: Ticket 040.
+- No SITL integration yet: Tickets 040-043.
 - No REST API or UI: Ticket 050.
 - No generalized resource and link feasibility abstraction: Ticket 034.
 - Monte Carlo uncertainty modeling: Ticket 037, implemented.
