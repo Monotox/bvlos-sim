@@ -43,8 +43,15 @@ class ZoneDistance:
 def evaluate_landing_zone_reachability(
     context: EstimationContext,
     energy: EnergyEstimate | None,
+    *,
+    unavailable_zone_ids_by_state: list[frozenset[str]] | None = None,
 ) -> LandingZoneEvaluation:
-    """Evaluate static landing-zone reachability after energy feasibility."""
+    """Evaluate landing-zone reachability after energy feasibility.
+
+    When ``unavailable_zone_ids_by_state`` is provided (one frozenset per
+    state index), zones in each set are excluded from consideration at that
+    state. All zones are available when the argument is None.
+    """
 
     if context.landing_zones is None:
         return LandingZoneEvaluation(landing_zone=None, failure=None)
@@ -71,19 +78,31 @@ def evaluate_landing_zone_reachability(
 
     energy_used_by_leg = _energy_used_by_leg(energy)
     max_distance_m = context.mission.constraints.min_distance_to_landing_zone_m
-    states = [
-        _evaluate_state(
+    has_availability_filter = unavailable_zone_ids_by_state is not None
+
+    all_unavailable: set[str] = set()
+    states: list[LandingZoneStateReachability] = []
+    for state_index, leg in enumerate(context.route_legs):
+        unavailable_at_state: frozenset[str] = (
+            unavailable_zone_ids_by_state[state_index]
+            if has_availability_filter and state_index < len(unavailable_zone_ids_by_state)
+            else frozenset()
+        )
+        all_unavailable.update(unavailable_at_state)
+        available_zones = [z for z in compiled_zones if z.zone.id not in unavailable_at_state]
+        state = _evaluate_state(
             context=context,
             energy=energy,
-            compiled_zones=compiled_zones,
+            available_zones=available_zones,
+            all_zone_count=len(compiled_zones),
             leg=leg,
             state_index=state_index,
             energy_used_wh=energy_used_by_leg.get(leg.leg_index, 0.0),
             tas_mps=tas_mps,
             max_distance_m=max_distance_m,
+            has_availability_filter=has_availability_filter,
         )
-        for state_index, leg in enumerate(context.route_legs)
-    ]
+        states.append(state)
 
     landing_zone = LandingZoneEstimate(
         is_feasible=all(state.is_reachable and state.reserve_ok for state in states),
@@ -92,6 +111,7 @@ def evaluate_landing_zone_reachability(
         max_allowed_distance_m=max_distance_m,
         reserve_threshold_percent=energy.reserve_threshold_percent,
         reserve_threshold_wh=energy.reserve_threshold_wh,
+        unavailable_zone_ids=sorted(all_unavailable),
         states=states,
     )
     failed_state = next((state for state in states if state.code is not None), None)
@@ -164,14 +184,31 @@ def _evaluate_state(
     *,
     context: EstimationContext,
     energy: EnergyEstimate,
-    compiled_zones: list[CompiledLandingZone],
+    available_zones: list[CompiledLandingZone],
+    all_zone_count: int,
     leg: LegEstimate,
     state_index: int,
     energy_used_wh: float,
     tas_mps: float,
     max_distance_m: float | None,
+    has_availability_filter: bool,
 ) -> LandingZoneStateReachability:
-    nearest = _nearest_zone_distance(context, compiled_zones, leg)
+    available_zone_count = len(available_zones) if has_availability_filter else None
+
+    if has_availability_filter and len(available_zones) == 0:
+        energy_remaining_wh = energy.battery_capacity_wh - energy_used_wh
+        return _state_record(
+            leg=leg,
+            state_index=state_index,
+            nearest=None,
+            reachable=None,
+            energy_remaining_wh=energy_remaining_wh,
+            available_zone_count=available_zone_count,
+            code=FailureCode.ALL_LANDING_ZONES_UNAVAILABLE,
+            message="All landing zones are marked unavailable at this route state.",
+        )
+
+    nearest = _nearest_zone_distance(context, available_zones, leg)
     reachable = (
         nearest
         if nearest is not None
@@ -187,6 +224,7 @@ def _evaluate_state(
             nearest=nearest,
             reachable=None,
             energy_remaining_wh=energy_remaining_wh,
+            available_zone_count=available_zone_count,
             code=FailureCode.NO_REACHABLE_LANDING_ZONE,
             message="No landing zone is reachable from this route state.",
         )
@@ -207,6 +245,7 @@ def _evaluate_state(
         nearest=nearest,
         reachable=reachable,
         energy_remaining_wh=energy_remaining_wh,
+        available_zone_count=available_zone_count,
         divert_energy_wh=divert_energy_wh,
         reserve_after_divert_wh=reserve_after_divert_wh,
         reserve_after_divert_percent=reserve_after_divert_percent,
@@ -226,7 +265,7 @@ def _evaluate_state(
 
 def _nearest_zone_distance(
     context: EstimationContext,
-    compiled_zones: list[CompiledLandingZone],
+    available_zones: list[CompiledLandingZone],
     leg: LegEstimate,
 ) -> ZoneDistance | None:
     distances = [
@@ -234,7 +273,7 @@ def _nearest_zone_distance(
             zone_id=zone.zone.id,
             distance_m=_distance_to_geometry_m(context, leg, zone.geometry),
         )
-        for zone in compiled_zones
+        for zone in available_zones
     ]
     return min(distances, key=lambda distance: distance.distance_m, default=None)
 
@@ -274,6 +313,7 @@ def _state_record(
     nearest: ZoneDistance | None,
     reachable: ZoneDistance | None,
     energy_remaining_wh: float,
+    available_zone_count: int | None = None,
     divert_energy_wh: float | None = None,
     reserve_after_divert_wh: float | None = None,
     reserve_after_divert_percent: float | None = None,
@@ -299,6 +339,7 @@ def _state_record(
         reserve_after_divert_percent=reserve_after_divert_percent,
         is_reachable=reachable is not None,
         reserve_ok=reserve_ok,
+        available_zone_count=available_zone_count,
         code=code,
         message=message,
     )

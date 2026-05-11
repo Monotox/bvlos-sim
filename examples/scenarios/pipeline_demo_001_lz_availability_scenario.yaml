@@ -1,0 +1,41 @@
+schema_version: scenario.v1
+scenario_id: pipeline-demo-lz-availability
+description: >
+  Dynamic landing-zone availability example. The primary landing zone is marked
+  unavailable at wp1 (simulating occupancy or a weather close). The scenario
+  confirms that the mission becomes infeasible when no alternative zone is
+  reachable, exercising the full asset stack: terrain, wind-grid, geofences,
+  and the static landing-zone file.
+mission_file: ../missions/pipeline_demo_001_integrated.yaml
+vehicle_file: ../vehicles/quadplane_v1.yaml
+initial_conditions:
+  fidelity: v2
+  max_segment_length_m: 500.0
+  min_groundspeed_mps: 5.0
+  lost_link_policy:
+    action: divert
+    divert_target_id: demo_landing_zone_wp1
+    loiter_s: 0.0
+events:
+  - event_id: start
+    kind: observe
+    trigger: at_mission_start
+  - event_id: lz-unavailable-at-wp1
+    kind: landing_zone_unavailable
+    trigger: at_route_item
+    trigger_route_item_id: wp1
+    unavailable_zone_ids:
+      - demo_landing_zone_wp1
+    description: >
+      Primary landing zone closes at wp1 (occupancy event). Because this is the
+      only configured zone and it is now unavailable, reachability fails from
+      wp1 onward.
+  - event_id: end
+    kind: observe
+    trigger: at_mission_end
+assertions:
+  - assertion_id: estimate-fails-due-to-lz-unavailability
+    kind: estimate_fails
+    description: >
+      The mission should be infeasible because the only landing zone becomes
+      unavailable before the end of the route.

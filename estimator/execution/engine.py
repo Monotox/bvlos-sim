@@ -55,7 +55,11 @@ def _raise_feasibility_failure(
     )
 
 
-def run_estimation(context: EstimationContext) -> MissionEstimate:
+def run_estimation(
+    context: EstimationContext,
+    *,
+    lz_unavailability: list[frozenset[str]] | None = None,
+) -> MissionEstimate:
     """Execute the estimator against a prepared context."""
 
     validate_global_constraints(context)
@@ -86,6 +90,7 @@ def run_estimation(context: EstimationContext) -> MissionEstimate:
     landing_zone_evaluation = evaluate_landing_zone_reachability(
         context,
         energy_evaluation.energy,
+        unavailable_zone_ids_by_state=lz_unavailability,
     )
     _raise_feasibility_failure(
         landing_zone_evaluation.failure,
@@ -121,6 +126,7 @@ def estimate_mission_distance_time(
     terrain_provider: TerrainProvider | None = None,
     geofences: Sequence[GeofenceZone] | None = None,
     landing_zones: Sequence[LandingZone] | None = None,
+    lz_unavailability: list[frozenset[str]] | None = None,
 ) -> MissionEstimate:
     context = build_estimation_context(
         mission,
@@ -131,7 +137,7 @@ def estimate_mission_distance_time(
         geofences=geofences,
         landing_zones=landing_zones,
     )
-    return run_estimation(context)
+    return run_estimation(context, lz_unavailability=lz_unavailability)
 
 
 def try_estimate_mission_distance_time(
@@ -143,6 +149,7 @@ def try_estimate_mission_distance_time(
     terrain_provider: TerrainProvider | None = None,
     geofences: Sequence[GeofenceZone] | None = None,
     landing_zones: Sequence[LandingZone] | None = None,
+    lz_unavailability: list[frozenset[str]] | None = None,
 ) -> MissionEstimate:
     try:
         return estimate_mission_distance_time(
@@ -153,6 +160,7 @@ def try_estimate_mission_distance_time(
             terrain_provider=terrain_provider,
             geofences=geofences,
             landing_zones=landing_zones,
+            lz_unavailability=lz_unavailability,
         )
     except EstimatorError as exc:
         totals = sum_totals(exc.partial_legs)

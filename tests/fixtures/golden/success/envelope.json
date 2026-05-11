@@ -9,7 +9,8 @@
     "Energy feasibility uses deterministic phase power values from the vehicle profile.",
     "Static geofence feasibility uses 2D lon/lat route-segment geometry.",
     "Static landing-zone reachability uses straight-line geodesic distance and deterministic cruise-power divert energy.",
-    "Landing-zone v1 excludes terrain, obstacles, dynamic availability, suitability scoring, and comms dependency."
+    "Landing-zone v1 excludes terrain, obstacles, dynamic availability, suitability scoring, and comms dependency.",
+    "Dynamic landing-zone availability is a scenario-only feature; availability changes are resolved deterministically against the scenario timeline and do not affect the estimate CLI."
   ],
   "determinism_metadata": {
     "canonical_json": true,
