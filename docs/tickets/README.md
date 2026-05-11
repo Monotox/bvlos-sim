@@ -59,7 +59,6 @@ path rather than through isolated examples. Current validation includes:
 14. [035-dynamic-landing-zone-availability.md](./035-dynamic-landing-zone-availability.md) - implemented
 15. [036-computed-divert-routing.md](./036-computed-divert-routing.md) - implemented
 16. [037-monte-carlo-uncertainty-modeling.md](./037-monte-carlo-uncertainty-modeling.md) - implemented
-16. [037-monte-carlo-uncertainty-modeling.md](./037-monte-carlo-uncertainty-modeling.md) - planned
 17. [040-sitl-ardupilot-first.md](./040-sitl-ardupilot-first.md) - planned
 18. [050-user-interfaces-and-service-adapters.md](./050-user-interfaces-and-service-adapters.md) - planned
 19. [060-import-export-and-batch-workflows.md](./060-import-export-and-batch-workflows.md) - planned
