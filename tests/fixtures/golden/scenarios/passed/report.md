@@ -42,7 +42,7 @@
 
 - Horizontal distance m: `707.0645448969212`
 - Vertical distance m: `240.0`
-- Path distance m: `707.0645448969212`
+- Path distance m: `787.0645448969212`
 - Time s: `169.820275172818`
 - Legs: `5`
 
