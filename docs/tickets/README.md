@@ -71,7 +71,8 @@ path rather than through isolated examples. Current validation includes:
 20. [041-ardupilot-sitl-launch-and-mission-upload.md](./041-ardupilot-sitl-launch-and-mission-upload.md) - planned
 21. [042-sitl-telemetry-recorder-and-evidence-bundle.md](./042-sitl-telemetry-recorder-and-evidence-bundle.md) - planned
 22. [043-sitl-scenario-comparison-report.md](./043-sitl-scenario-comparison-report.md) - planned
-23. [050-user-interfaces-and-service-adapters.md](./050-user-interfaces-and-service-adapters.md) - planned
+23. [044-geodesic-dubins-divert.md](./044-geodesic-dubins-divert.md) - planned
+24. [050-user-interfaces-and-service-adapters.md](./050-user-interfaces-and-service-adapters.md) - planned
 24. [060-import-export-and-batch-workflows.md](./060-import-export-and-batch-workflows.md) - planned
 25. [070-operational-integration-seams.md](./070-operational-integration-seams.md) - planned
 26. [071-live-comms-remote-id-and-traffic-integrations.md](./071-live-comms-remote-id-and-traffic-integrations.md) - planned
@@ -86,6 +87,9 @@ path rather than through isolated examples. Current validation includes:
 - Ticket 039 implemented: fidelity v2 tangent-point offset subtraction, 3D slant
   path distance for vertical legs, and Dubins divert planar approximation limit
   warning (50 km threshold).
+- Dubins divert uses a planar East-North approximation; accurate within a
+  fraction of a percent for distances under 50 km (warning emitted beyond that
+  threshold): Ticket 044.
 - No live comms, UTM/U-space, Remote ID, or traffic integrations: Tickets 070
   and 071.
 
