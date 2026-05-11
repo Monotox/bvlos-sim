@@ -8,6 +8,7 @@ from shapely.geometry import Point
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import nearest_points, unary_union
 
+from estimator.core.enums import WarningCode
 from estimator.core.landing_zone import LandingZone
 from estimator.core.results import EnergyEstimate
 from estimator.core.scenario import DivertRouteEstimate
@@ -18,6 +19,7 @@ from schemas.vehicle import VehicleProfile
 
 _GEOD = Geod(ellps="WGS84")
 _SECONDS_PER_HOUR = 3600.0
+_PLANAR_APPROXIMATION_LIMIT_M = 50_000.0
 
 
 def compute_divert_estimate(
@@ -65,13 +67,18 @@ def compute_divert_estimate(
             reason=f"Divert target zone '{target_zone_id}' has invalid or empty geometry.",
         )
 
+    geodesic_dist_m = _distance_to_geometry_m(action_lat, action_lon, geometry)
+    divert_warnings: list[WarningCode] = []
+    if geodesic_dist_m > _PLANAR_APPROXIMATION_LIMIT_M:
+        divert_warnings.append(WarningCode.DUBINS_DIVERT_PLANAR_APPROXIMATION_LIMIT)
+
     turn_radius_m = vehicle.performance.turn_radius_m
     if entry_heading_deg is not None and turn_radius_m is not None:
         distance_m = _dubins_distance_to_geometry_m(
             action_lat, action_lon, entry_heading_deg, turn_radius_m, geometry
         )
     else:
-        distance_m = _distance_to_geometry_m(action_lat, action_lon, geometry)
+        distance_m = geodesic_dist_m
 
     tas_mps = _resolve_tas(mission, vehicle)
     if tas_mps is None or tas_mps <= 0:
@@ -100,6 +107,7 @@ def compute_divert_estimate(
         reserve_threshold_wh=energy.reserve_threshold_wh,
         is_feasible=is_feasible,
         infeasible_reason=None if is_feasible else "Insufficient reserve after completing the divert leg.",
+        warnings=divert_warnings,
     )
 
 

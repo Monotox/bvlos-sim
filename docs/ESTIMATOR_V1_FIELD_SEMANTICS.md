@@ -246,11 +246,15 @@ Fidelity v2:
 
 - opt-in through Python API, CLI, mission YAML, or scenario YAML
 - injects `TURN_ARC` legs at waypoint heading changes of at least 1 degree
-- turn arc path distance is `turn_radius_m * abs(delta_heading_rad)`
-- turn arc has zero net displacement
+- turn arc path distance is `turn_radius_m * abs(delta_heading_rad)`, which is the exact Dubins solution for a same-position heading change; the arc has zero net displacement
+- subtracts the tangent-point offset (`turn_radius_m * tan(|Δθ|/2)`) from `path_distance_m` of both transit legs adjacent to each turn arc; offsets are clamped to zero so no leg reports a negative path distance
+- total path distance in fidelity v2 equals the sum of trimmed transit-leg distances plus all turn-arc lengths, which matches the true Dubins-path length through the waypoints
 - fixed-wing `loiter_time` is modeled as circular loiter
 - hover-capable vehicles continue to use station-keep loiter
-- turn arc path length is `turn_radius_m * abs(delta_heading_rad)`, which is the exact Dubins solution for a same-position heading change; the arc has zero net displacement
+
+Vertical legs (takeoff and landing-transit) in all fidelity modes:
+
+- `path_distance_m` equals `vertical_distance_m` (the 3D slant path distance for a purely vertical leg with zero horizontal displacement)
 
 Result metadata field `estimator_version` records the actual fidelity used:
 `"v1"` or `"v2"`.
@@ -350,6 +354,7 @@ Fields computed in `CommsLinkPolicyOutcome.divert_estimate`:
 - `reserve_threshold_wh`: the mission reserve threshold in Wh.
 - `is_feasible`: `True` when `reserve_after_divert_wh >= reserve_threshold_wh`.
 - `infeasible_reason`: human-readable string when `is_feasible` is `False`.
+- `warnings`: list of structured diagnostic warning codes. `DUBINS_DIVERT_PLANAR_APPROXIMATION_LIMIT` is included when the geodesic distance to the target zone exceeds 50 km; see below.
 
 Divert routing is informational. It does not change the overall mission
 estimate status. The `divert_estimate.is_feasible` field indicates whether the
@@ -362,6 +367,14 @@ completed leg at the action timeline index; when no prior leg exists (e.g.
 `at_mission_start` trigger with no loiter), entry heading is unavailable and
 the estimate falls back to straight-line geodesic distance. Dubins distance
 is never applied when `vehicle.performance.turn_radius_m` is not set.
+
+Planar approximation limit: the Dubins path solver works in a flat East-North
+plane derived from the geodesic bearing and distance to the nearest zone point.
+This approximation is accurate to within a fraction of a percent for divert
+distances shorter than approximately 50 km. When the geodesic distance to the
+target zone exceeds 50 km, the `DUBINS_DIVERT_PLANAR_APPROXIMATION_LIMIT`
+warning is added to `divert_estimate.warnings`. The warning is emitted
+regardless of whether Dubins or straight-line distance is ultimately used.
 
 Divert route estimates use no wind correction, no geofence intersection, and no
 terrain avoidance on the divert leg. TAS is taken from

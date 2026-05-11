@@ -153,9 +153,15 @@ def test_v2_turn_arc_adds_to_total_path_distance() -> None:
         leg.path_distance_m for leg in r_v2.legs if leg.phase == LegPhase.TURN_ARC
     )
     assert arc_total > 0.0
+    # Total equals the sum of individual leg distances (definitional).
     assert math.isclose(
-        r_v2.total_path_distance_m, r_v1.total_path_distance_m + arc_total, rel_tol=1e-9
+        r_v2.total_path_distance_m,
+        sum(leg.path_distance_m for leg in r_v2.legs),
+        rel_tol=1e-9,
     )
+    # Tangent-point offsets are subtracted from adjacent transit legs, so the
+    # v2 total is less than the v1 total plus raw arc length alone.
+    assert r_v2.total_path_distance_m < r_v1.total_path_distance_m + arc_total
 
 
 def test_v2_turn_arc_zero_displacement() -> None:

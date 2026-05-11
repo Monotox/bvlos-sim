@@ -5,8 +5,8 @@ toward a broader BVLOS simulation platform.
 
 ## Current Status
 
-The current codebase implements Phases 1 through 4.9, plus Tickets 032, 033,
-034, 035, 036, 037, and 038:
+The current codebase implements Phases 1 through 4.10, plus Tickets 032, 033,
+034, 035, 036, 037, 038, and 039:
 
 - estimator hardening
 - static feasibility checks
@@ -19,8 +19,9 @@ The current codebase implements Phases 1 through 4.9, plus Tickets 032, 033,
 - computed divert route estimates on policy outcomes
 - Monte Carlo uncertainty analysis via `uncertainty.v1` YAML and `sample` CLI command
 - Dubins path solver and bank-angle-constrained divert distance
+- fidelity v2 tangent-point offset subtraction, 3D slant path for vertical legs, and Dubins divert planar limit warning
 
-The test suite currently passes with 412 tests.
+The test suite currently passes with 427 tests.
 
 bvlos-sim remains an engineering validation tool. It is not a flight-safety
 system, operational approval tool, or complete BVLOS compliance system.
@@ -97,12 +98,11 @@ Interfaces and contracts:
 
 Estimator limitations:
 
-- fidelity v2 turn arcs model the heading change as a same-position arc; tangent-point offsets on adjacent transit legs are not subtracted
-- vertical-only movement does not add 3D slant path distance
+- no known path-planning model gaps remaining after Ticket 039
 
 Scenario limitations:
 
-- divert Dubins path uses a planar East-North approximation; not applicable to routes spanning hundreds of kilometres
+- divert Dubins path uses a planar East-North approximation; a `DUBINS_DIVERT_PLANAR_APPROXIMATION_LIMIT` warning is emitted when geodesic divert distance exceeds 50 km; not accurate for routes spanning hundreds of kilometres
 
 Platform limitations:
 
@@ -269,15 +269,22 @@ changing fidelity v1 behavior or existing public result field names.
 
 ### Phase 4.10: Path-Planning Model Gaps
 
-Status: planned.
+Status: implemented.
 
 Scope:
 
 - Ticket 039: path-planning model gaps
-- subtract tangent-point offsets (`turn_radius_m * tan(|Δθ|/2)`) from fidelity
-  v2 transit legs adjacent to turn arcs
-- 3D slant path distance for `takeoff` and `land` legs
-- document and warn on Dubins divert planar approximation limit (~50 km)
+
+Delivered:
+
+- fidelity v2 transit legs adjacent to TURN_ARC legs subtract the
+  tangent-point offset (`turn_radius_m * tan(|Δθ|/2)`) from `path_distance_m`;
+  offsets clamped to zero; total path distance now matches the true Dubins-path
+  length through all waypoints
+- takeoff and landing-transit legs report `path_distance_m = vertical_distance_m`
+  (3D slant path for purely vertical legs) in all fidelity modes
+- `DUBINS_DIVERT_PLANAR_APPROXIMATION_LIMIT` warning added to
+  `DivertRouteEstimate.warnings` when geodesic divert distance exceeds 50 km
 
 Exit criterion: fidelity v2 total path distance equals the sum of
 offset-adjusted transit legs plus turn arc lengths; takeoff and land legs
