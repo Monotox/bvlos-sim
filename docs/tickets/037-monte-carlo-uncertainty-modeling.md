@@ -1,4 +1,4 @@
-# Ticket 036: Monte Carlo Uncertainty Modeling
+# Ticket 037: Monte Carlo Uncertainty Modeling
 
 ## Goal
 
@@ -13,8 +13,8 @@ time, energy reserve, wind margins, or feasibility outcomes.
 
 ## Scope
 
-- Define versioned uncertainty inputs for selected mission, vehicle, wind, and
-  energy parameters.
+- Define versioned uncertainty inputs for selected mission, vehicle, wind,
+  resource, link, and energy parameters.
 - Add seeded Monte Carlo execution that wraps the deterministic estimator.
 - Report distributions and summary statistics for key outputs.
 - Preserve deterministic reproducibility for a given seed and sample count.
@@ -26,6 +26,10 @@ time, energy reserve, wind margins, or feasibility outcomes.
 - Add uncertainty configuration through YAML so users can pair it with existing
   mission, vehicle, terrain, wind-grid, geofence, landing-zone, and scenario
   files.
+- Include resource and link feasibility abstractions from Ticket 034 so sampled
+  runs can vary communication availability, external power availability, backup
+  battery policy, or link failover state without bypassing deterministic
+  defaults.
 - Keep the deterministic `estimate` command as the baseline path and add
   uncertainty execution as an explicit opt-in mode or command option.
 - Ensure scenario execution can reference uncertainty outputs only through a
@@ -42,7 +46,8 @@ time, energy reserve, wind margins, or feasibility outcomes.
 - Uncertainty outputs clearly distinguish sampled results from baseline
   deterministic estimates.
 - Uncertainty runs compose with all implemented deterministic inputs instead of
-  bypassing terrain, wind, geofence, landing-zone, or energy behavior.
+  bypassing terrain, wind, geofence, landing-zone, resource, link, or energy
+  behavior.
 
 ## Out of Scope
 

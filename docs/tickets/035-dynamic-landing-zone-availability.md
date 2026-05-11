@@ -1,4 +1,4 @@
-# Ticket 034: Dynamic Landing-Zone Availability
+# Ticket 035: Dynamic Landing-Zone Availability
 
 ## Goal
 
@@ -29,6 +29,9 @@ or other deterministic events.
 - Add scenario YAML examples that combine landing-zone availability with
   lost-link policy, `divert`, wind changes, terrain assets, and wind-grid assets
   where relevant.
+- Apply resource and link feasibility abstractions from Ticket 034 when
+  availability depends on command-and-control continuity, external power,
+  tether constraints, or other configured resource/link state.
 - Ensure the `scenario` CLI command exercises availability changes through the
   same runner path used by library callers.
 - Ensure the `estimate` command remains compatible with static landing-zone
@@ -42,8 +45,8 @@ or other deterministic events.
 - Reachability outputs identify which zones were considered available.
 - Static landing-zone behavior remains unchanged when no availability events are
   configured.
-- Existing mission, vehicle, terrain, wind, and landing-zone YAML examples still
-  run together without special-case commands.
+- Existing mission, vehicle, terrain, wind, landing-zone, resource, and link
+  YAML examples still run together without special-case commands.
 
 ## Out of Scope
 

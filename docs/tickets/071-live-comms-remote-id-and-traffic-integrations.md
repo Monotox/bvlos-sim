@@ -26,6 +26,8 @@ and governance concepts.
   that existing `estimate`, `scenario`, validation, and report tooling can read.
 - Captured comms, Remote ID, traffic, and UTM/U-space data must connect to the
   operational seams from Ticket 070 rather than bypassing them.
+- Captured comms evidence must replay into the link-system abstraction from
+  Ticket 034 rather than introducing a separate live-only feasibility path.
 - Add examples that combine live-input replay with existing mission, vehicle,
   terrain, wind, geofence, landing-zone, and scenario files.
 - Keep live network dependencies optional and outside deterministic core

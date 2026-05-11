@@ -52,24 +52,26 @@ path rather than through isolated examples. Current validation includes:
 10. [031-fidelity-v2-turns-and-fixed-wing-loiter.md](./031-fidelity-v2-turns-and-fixed-wing-loiter.md) - implemented
 11. [032-terrain-referenced-altitude-execution.md](./032-terrain-referenced-altitude-execution.md) - implemented
 12. [033-continuous-spatiotemporal-wind-grid.md](./033-continuous-spatiotemporal-wind-grid.md) - implemented
-13. [034-dynamic-landing-zone-availability.md](./034-dynamic-landing-zone-availability.md) - planned
-14. [035-computed-divert-routing.md](./035-computed-divert-routing.md) - planned
-15. [036-monte-carlo-uncertainty-modeling.md](./036-monte-carlo-uncertainty-modeling.md) - planned
-16. [040-sitl-ardupilot-first.md](./040-sitl-ardupilot-first.md) - planned
-17. [050-user-interfaces-and-service-adapters.md](./050-user-interfaces-and-service-adapters.md) - planned
-18. [060-import-export-and-batch-workflows.md](./060-import-export-and-batch-workflows.md) - planned
-19. [070-operational-integration-seams.md](./070-operational-integration-seams.md) - planned
-20. [071-live-comms-remote-id-and-traffic-integrations.md](./071-live-comms-remote-id-and-traffic-integrations.md) - planned
+13. [034-resource-and-link-feasibility-abstractions.md](./034-resource-and-link-feasibility-abstractions.md) - planned
+14. [035-dynamic-landing-zone-availability.md](./035-dynamic-landing-zone-availability.md) - planned
+15. [036-computed-divert-routing.md](./036-computed-divert-routing.md) - planned
+16. [037-monte-carlo-uncertainty-modeling.md](./037-monte-carlo-uncertainty-modeling.md) - planned
+17. [040-sitl-ardupilot-first.md](./040-sitl-ardupilot-first.md) - planned
+18. [050-user-interfaces-and-service-adapters.md](./050-user-interfaces-and-service-adapters.md) - planned
+19. [060-import-export-and-batch-workflows.md](./060-import-export-and-batch-workflows.md) - planned
+20. [070-operational-integration-seams.md](./070-operational-integration-seams.md) - planned
+21. [071-live-comms-remote-id-and-traffic-integrations.md](./071-live-comms-remote-id-and-traffic-integrations.md) - planned
 
 ## Limitation Coverage and Status
 
 - No SITL integration yet: Ticket 040.
 - No REST API or UI: Ticket 050.
-- No Monte Carlo uncertainty modeling: Ticket 036.
+- No generalized resource and link feasibility abstraction: Ticket 034.
+- No Monte Carlo uncertainty modeling: Ticket 037.
 - Terrain-referenced altitude execution: Ticket 032, implemented.
 - Continuous spatial and temporal wind grid support: Ticket 033, implemented.
-- No dynamic landing-zone availability: Ticket 034.
-- No computed route for divert policy outcomes: Ticket 035.
+- No dynamic landing-zone availability: Ticket 035.
+- No computed route for divert policy outcomes: Ticket 036.
 - No live comms, UTM/U-space, Remote ID, or traffic integrations: Tickets 070
   and 071.
 
