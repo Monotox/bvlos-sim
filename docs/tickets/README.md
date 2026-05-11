@@ -19,12 +19,13 @@ The current codebase includes:
 - layered wind, sub-segment sampling, turn arcs, and fixed-wing circular loiter
 - terrain-referenced altitude with offline uniform elevation grid
 - continuous spatiotemporal wind grid with quadrilinear interpolation
+- resource and communication-link feasibility abstractions
 - golden fixture regression tests
 - package-root public Python API
 - dynamic landing-zone availability via scenario `landing_zone_unavailable` events
 - computed divert route estimates on `CommsLinkPolicyOutcome.divert_estimate` (distance, time, energy, reserve, feasibility)
 - Monte Carlo uncertainty sampling via `uncertainty.v1` YAML and `sample` CLI command; seeded reproducible runs varying wind, cruise speed, cruise power, and battery capacity
-- passing estimator/schema/CLI/scenario test suite with 384 tests
+- passing estimator/schema/CLI/scenario test suite with 395 tests
 
 ## Implemented Integration Validation
 
@@ -37,7 +38,8 @@ path rather than through isolated examples. Current validation includes:
   policies, assertions, and reports.
 - Integrated examples under `examples/missions/` and `examples/scenarios/`
   combining fidelity v2, terrain, spatiotemporal wind, geofence checks,
-  landing-zone checks, energy feasibility, and lost-link policy assertions.
+  landing-zone checks, energy feasibility, resource systems, link systems, and
+  lost-link policy assertions.
 - Golden fixtures and CLI tests covering canonical JSON, Markdown, exit codes,
   provenance, and deterministic outputs.
 
@@ -55,7 +57,7 @@ path rather than through isolated examples. Current validation includes:
 10. [031-fidelity-v2-turns-and-fixed-wing-loiter.md](./031-fidelity-v2-turns-and-fixed-wing-loiter.md) - implemented
 11. [032-terrain-referenced-altitude-execution.md](./032-terrain-referenced-altitude-execution.md) - implemented
 12. [033-continuous-spatiotemporal-wind-grid.md](./033-continuous-spatiotemporal-wind-grid.md) - implemented
-13. [034-resource-and-link-feasibility-abstractions.md](./034-resource-and-link-feasibility-abstractions.md) - planned
+13. [034-resource-and-link-feasibility-abstractions.md](./034-resource-and-link-feasibility-abstractions.md) - implemented
 14. [035-dynamic-landing-zone-availability.md](./035-dynamic-landing-zone-availability.md) - implemented
 15. [036-computed-divert-routing.md](./036-computed-divert-routing.md) - implemented
 16. [037-monte-carlo-uncertainty-modeling.md](./037-monte-carlo-uncertainty-modeling.md) - implemented
@@ -73,7 +75,7 @@ path rather than through isolated examples. Current validation includes:
 
 - No SITL integration yet: Tickets 040-043.
 - No REST API or UI: Ticket 050.
-- No generalized resource and link feasibility abstraction: Ticket 034.
+- Generalized resource and link feasibility abstraction: Ticket 034, implemented.
 - Monte Carlo uncertainty modeling: Ticket 037, implemented.
 - Terrain-referenced altitude execution: Ticket 032, implemented.
 - Continuous spatial and temporal wind grid support: Ticket 033, implemented.
@@ -108,8 +110,8 @@ Every new ticket must explain how the work composes with existing functionality.
 Unless a ticket explicitly states otherwise, implementation should integrate
 through the established surfaces:
 
-- mission, vehicle, scenario, terrain, wind, geofence, and landing-zone YAML/JSON
-  schemas
+- mission, vehicle, scenario, resource, link, terrain, wind, geofence, and
+  landing-zone YAML/JSON schemas
 - examples under `examples/missions`, `examples/vehicles`,
   `examples/scenarios`, `examples/terrain`, and `examples/wind`
 - existing CLI commands such as `estimate` and `scenario`, or adapter commands

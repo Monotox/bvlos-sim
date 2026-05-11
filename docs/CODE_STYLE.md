@@ -38,11 +38,11 @@ Rules:
 Treat these as stable:
 
 - package-root `estimator` imports
-- `mission.v4`
-- `vehicle.v2`
+- `mission.v5`
+- `vehicle.v3`
 - `scenario.v1`
-- `estimator-envelope.v4`
-- `scenario-report.v1`
+- `estimator-envelope.v5`
+- `scenario-report.v2`
 - `geofence-geojson.v1`
 - `landing-zone-geojson.v1`
 - CLI exit-code semantics

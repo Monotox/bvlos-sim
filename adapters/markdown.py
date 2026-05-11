@@ -99,6 +99,36 @@ def render_envelope_markdown(envelope: EstimatorResultEnvelope) -> str:
                 ]
             )
 
+        if envelope.result.resource is not None:
+            resource = envelope.result.resource
+            lines.extend(
+                [
+                    "",
+                    "## Resource Feasibility",
+                    "",
+                    f"- Feasible: `{str(resource.is_feasible).lower()}`",
+                    f"- Selected resource: `{resource.selected_resource_id}`",
+                    f"- Total demand Wh: `{resource.total_demand_wh}`",
+                    f"- Peak power W: `{resource.peak_power_w}`",
+                    f"- Systems: `{len(resource.systems)}`",
+                ]
+            )
+
+        if envelope.result.link is not None:
+            link = envelope.result.link
+            lines.extend(
+                [
+                    "",
+                    "## Link Feasibility",
+                    "",
+                    f"- Feasible: `{str(link.is_feasible).lower()}`",
+                    f"- Selected link: `{link.selected_link_id}`",
+                    f"- Required links: `{link.required_link_count}`",
+                    f"- Available links: `{link.available_link_count}`",
+                    f"- Systems: `{len(link.systems)}`",
+                ]
+            )
+
         if envelope.result.geofence is not None:
             geofence = envelope.result.geofence
             lines.extend(

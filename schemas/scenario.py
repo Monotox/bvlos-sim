@@ -7,6 +7,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from schemas.mission import WindLayerConfig
+from schemas.resource_link import LinkSystemConfig
 
 # ---------------------------------------------------------------------------
 # Enums
@@ -359,6 +360,13 @@ class ScenarioInitialConditions(BaseModel):
     lost_link_policy: LostLinkPolicy | None = Field(
         default=None,
         description="Lost-link contingency policy applied when a lost_link event fires.",
+    )
+    link_systems: list[LinkSystemConfig] | None = Field(
+        default=None,
+        description=(
+            "Optional scenario-specific communication-link systems. When set, "
+            "replaces mission.link_systems for this scenario run."
+        ),
     )
     max_segment_length_m: float | None = Field(
         default=None,

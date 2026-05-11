@@ -1,5 +1,9 @@
 # Ticket 034: Resource and Link Feasibility Abstractions
 
+## Status
+
+Implemented.
+
 ## Goal
 
 Generalize flight feasibility around configurable resource and communication
@@ -96,6 +100,18 @@ divert/RTL/loiter action remains valid.
 - Resource and link feasibility compose with mission YAML, vehicle YAML,
   scenario YAML, terrain assets, wind assets, geofence assets, landing-zone
   assets, `estimate`, `scenario`, package-root APIs, and golden fixtures.
+
+## Implementation Notes
+
+- Vehicle YAML accepts `resource_systems` for onboard battery, external power,
+  hybrid power, and reserved future resource kinds.
+- Mission YAML accepts `link_systems`; scenario `initial_conditions.link_systems`
+  can override mission link systems for a scenario run.
+- Estimator and scenario reports expose `result.resource` and `result.link`.
+- Scenario assertions support `estimate.resource.is_feasible` and
+  `estimate.link.is_feasible`.
+- Live network, modem, satellite, Remote ID, traffic, and UTM integrations
+  remain out of scope and are covered by later tickets.
 
 ## Out of Scope
 

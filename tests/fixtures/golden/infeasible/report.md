@@ -1,7 +1,7 @@
 # Estimator Report
 
 - Status: `infeasible`
-- Envelope schema: `estimator-envelope.v4`
+- Envelope schema: `estimator-envelope.v5`
 - Tool version: `0.2.0`
 
 ## Result Validity
@@ -31,6 +31,8 @@
 - Fidelity v1 uses geodesic leg-to-leg kinematics with no turn-arc dynamics or sub-segment wind sampling; fidelity v2 adds turn-arc geometry and sub-segment sampling.
 - Fixed-wing circular loiter requires fidelity v2; it is unsupported in fidelity v1.
 - Energy feasibility uses deterministic phase power values from the vehicle profile.
+- Explicit resource systems are evaluated after route expansion; when configured, they determine resource feasibility while result.energy remains the legacy battery-only energy view.
+- Communication-link feasibility is deterministic and uses configured static availability and range constraints only; live network calls are not performed.
 - Static geofence feasibility uses 2D lon/lat route-segment geometry.
 - Static landing-zone reachability uses straight-line geodesic distance and deterministic cruise-power divert energy.
 - Landing-zone v1 excludes terrain, obstacles, dynamic availability, suitability scoring, and comms dependency.

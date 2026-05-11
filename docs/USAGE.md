@@ -19,16 +19,18 @@ uv run bvlos-sim --help
 
 ## CLI Commands
 
-bvlos-sim exposes two commands:
+bvlos-sim exposes three commands:
 
 - `estimate`: run deterministic mission estimation and static feasibility checks
 - `scenario`: run deterministic scenario events and assertions
+- `sample`: run seeded Monte Carlo uncertainty sampling
 
 Command help:
 
 ```bash
 uv run bvlos-sim estimate --help
 uv run bvlos-sim scenario --help
+uv run bvlos-sim sample --help
 ```
 
 ## Mission Estimation
@@ -92,6 +94,13 @@ geofence, landing-zone, energy, and lost-link policy checks:
 ```bash
 uv run bvlos-sim scenario \
   examples/scenarios/pipeline_demo_001_integrated_scenario.yaml
+```
+
+Run the integrated resource/link scenario:
+
+```bash
+uv run bvlos-sim scenario \
+  examples/scenarios/pipeline_demo_001_resource_link_scenario.yaml
 ```
 
 Write Markdown:
@@ -167,6 +176,42 @@ Relative asset paths are resolved from the file that references them:
 - the `scenario` command loads mission-referenced terrain, wind-grid,
   geofence, and landing-zone assets before executing scenario events and
   assertions
+
+## Resource and Link Feasibility
+
+Explicit resource systems are configured on vehicle YAML:
+
+```yaml
+resource_systems:
+  - resource_id: fiber-power-primary
+    kind: external_power
+    delivery: optical_fiber
+    continuous_power_w: 2000.0
+    max_tether_length_m: 2500.0
+```
+
+Communication-link systems are configured on mission YAML:
+
+```yaml
+link_systems:
+  - link_id: mesh-primary
+    kind: mesh_network
+    max_range_m: 5000.0
+  - link_id: starlink-backup
+    kind: starlink
+    priority: 1
+    max_range_m: 100000.0
+```
+
+Scenario `initial_conditions.link_systems` replaces mission link systems for
+that scenario run. Reports expose `result.resource` and `result.link`, and
+scenario assertions can use `estimate.resource.is_feasible` and
+`estimate.link.is_feasible`.
+
+Existing battery-only vehicle files do not need changes. To make the legacy
+battery budget explicit, add an `onboard_battery` resource system and omit
+`battery_capacity_wh` / `reserve_percent` on the resource entry to reuse
+`vehicle.energy` and the mission reserve policy.
 
 ## Estimator Options
 
@@ -530,9 +575,9 @@ bvlos-sim sample examples/uncertainty/pipeline_demo_001_wind_uncertainty.yaml --
 
 ## Output Contracts
 
-The estimator CLI emits `estimator-envelope.v4`.
+The estimator CLI emits `estimator-envelope.v5`.
 
-The scenario CLI emits `scenario-report.v1`.
+The scenario CLI emits `scenario-report.v2`.
 
 Both JSON outputs are canonical, deterministic, and regression-tested with
 golden fixtures. Markdown output is supported for human-readable reports.

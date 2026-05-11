@@ -115,6 +115,38 @@ def test_vehicle_profile_accepts_valid_vtol_profile() -> None:
     assert profile.energy.hover_power_w == 1200.0
 
 
+def test_vehicle_profile_accepts_resource_systems() -> None:
+    payload = valid_vehicle_payload()
+    payload["resource_systems"] = [
+        {
+            "resource_id": "fiber-power",
+            "kind": "external_power",
+            "delivery": "optical_fiber",
+            "continuous_power_w": 2000.0,
+            "max_tether_length_m": 2500.0,
+        }
+    ]
+
+    profile = VehicleProfile.model_validate(payload)
+
+    assert profile.resource_systems[0].resource_id == "fiber-power"
+
+
+def test_resource_system_rejects_unknown_keys() -> None:
+    payload = valid_vehicle_payload()
+    payload["resource_systems"] = [
+        {
+            "resource_id": "fiber-power",
+            "kind": "external_power",
+            "continuous_power_w": 2000.0,
+            "unexpected": True,
+        }
+    ]
+
+    with pytest.raises(ValidationError):
+        VehicleProfile.model_validate(payload)
+
+
 def test_vehicle_profile_rejects_inconsistent_mass_limits() -> None:
     payload = valid_vehicle_payload()
     payload["mass"]["max_takeoff_kg"] = 9.0
@@ -172,6 +204,35 @@ def test_mission_plan_accepts_valid_route() -> None:
     assert mission.mission_id == "pipeline_demo_001"
     assert len(mission.route) == 4
     assert mission.route[1].acceptance_radius_m == 20.0
+
+
+def test_mission_plan_accepts_link_systems() -> None:
+    payload = valid_mission_payload()
+    payload["link_systems"] = [
+        {
+            "link_id": "satcom",
+            "kind": "starlink",
+            "max_range_m": 100000.0,
+        }
+    ]
+
+    mission = MissionPlan.model_validate(payload)
+
+    assert mission.link_systems[0].link_id == "satcom"
+
+
+def test_link_system_rejects_unknown_keys() -> None:
+    payload = valid_mission_payload()
+    payload["link_systems"] = [
+        {
+            "link_id": "satcom",
+            "kind": "starlink",
+            "unexpected": True,
+        }
+    ]
+
+    with pytest.raises(ValidationError):
+        MissionPlan.model_validate(payload)
 
 
 def test_mission_plan_allows_vehicle_default_reserve_threshold() -> None:

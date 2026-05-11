@@ -258,6 +258,7 @@
         "wind_speed_mps": 0.0
       }
     ],
+    "link": null,
     "metadata": {
       "applied_default_min_groundspeed_mps": 3.0,
       "capabilities_source": "explicit",
@@ -265,6 +266,7 @@
       "options_source": "runtime_options",
       "wind_provider_id": "constant"
     },
+    "resource": null,
     "status": "success",
     "total_horizontal_distance_m": 707.0645448969212,
     "total_path_distance_m": 707.0645448969212,
@@ -329,7 +331,7 @@
   },
   "scenario_id": "pipeline-passed-v1",
   "scenario_schema_version": "scenario.v1",
-  "schema_version": "scenario-report.v1",
+  "schema_version": "scenario-report.v2",
   "status": "passed",
   "timeline": [
     {

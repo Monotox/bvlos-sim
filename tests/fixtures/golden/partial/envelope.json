@@ -7,6 +7,8 @@
     "Fidelity v1 uses geodesic leg-to-leg kinematics with no turn-arc dynamics or sub-segment wind sampling; fidelity v2 adds turn-arc geometry and sub-segment sampling.",
     "Fixed-wing circular loiter requires fidelity v2; it is unsupported in fidelity v1.",
     "Energy feasibility uses deterministic phase power values from the vehicle profile.",
+    "Explicit resource systems are evaluated after route expansion; when configured, they determine resource feasibility while result.energy remains the legacy battery-only energy view.",
+    "Communication-link feasibility is deterministic and uses configured static availability and range constraints only; live network calls are not performed.",
     "Static geofence feasibility uses 2D lon/lat route-segment geometry.",
     "Static landing-zone reachability uses straight-line geodesic distance and deterministic cruise-power divert energy.",
     "Landing-zone v1 excludes terrain, obstacles, dynamic availability, suitability scoring, and comms dependency.",
@@ -38,9 +40,9 @@
   "input_schema_versions": {
     "geofences": "geofence-geojson.v1",
     "landing_zones": "landing-zone-geojson.v1",
-    "mission": "mission.v4",
+    "mission": "mission.v5",
     "terrain": "terrain-grid.v1",
-    "vehicle": "vehicle.v2",
+    "vehicle": "vehicle.v3",
     "wind_grid": "wind-grid.v1"
   },
   "provenance": {
@@ -103,6 +105,7 @@
         "wind_speed_mps": 0.0
       }
     ],
+    "link": null,
     "metadata": {
       "applied_default_min_groundspeed_mps": 3.0,
       "capabilities_source": "explicit",
@@ -110,6 +113,7 @@
       "options_source": "library_defaults",
       "wind_provider_id": "constant"
     },
+    "resource": null,
     "status": "error",
     "total_horizontal_distance_m": 176.76731936998286,
     "total_path_distance_m": 176.76731936998286,
@@ -131,7 +135,7 @@
     "scope": "completed_legs_only",
     "unavailable_fields": []
   },
-  "schema_version": "estimator-envelope.v4",
+  "schema_version": "estimator-envelope.v5",
   "status": "error",
   "tool_version": "0.2.0"
 }

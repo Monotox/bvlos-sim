@@ -23,6 +23,7 @@ Top-level mission fields:
 - `assets.terrain_file`: offline elevation grid file loaded by the CLI for terrain-referenced altitude resolution
 - `assets.wind_grid_file`: offline spatiotemporal wind grid file loaded by the CLI as a 4D wind provider
 - `estimation`: persisted estimator settings
+- `link_systems`: deterministic communication-link systems
 
 Route item fields:
 
@@ -42,6 +43,15 @@ Mission estimation fields:
 - `estimation.min_groundspeed_mps`
 - `estimation.max_segment_length_m`
 - `estimation.fidelity`
+
+Mission link-system fields:
+
+- `link_systems[].link_id`
+- `link_systems[].kind`
+- `link_systems[].required`
+- `link_systems[].priority`
+- `link_systems[].availability`
+- `link_systems[].max_range_m`
 
 ## Vehicle Fields Used At Runtime
 
@@ -72,6 +82,18 @@ Energy:
 - `energy.climb_power_w`
 - `energy.descent_power_w`
 
+Resource systems:
+
+- `resource_systems[].resource_id`
+- `resource_systems[].kind`
+- `resource_systems[].priority`
+- `resource_systems[].battery_capacity_wh`
+- `resource_systems[].reserve_percent`
+- `resource_systems[].continuous_power_w`
+- `resource_systems[].max_route_distance_m`
+- `resource_systems[].max_route_time_s`
+- `resource_systems[].max_tether_length_m`
+
 ## Scenario Fields Used At Runtime
 
 Scenario files are consumed by the scenario CLI and runner:
@@ -96,6 +118,13 @@ Initial conditions:
 - `initial_conditions.lost_link_policy.loiter_s`
 - `initial_conditions.lost_link_policy.action`
 - `initial_conditions.lost_link_policy.divert_target_id`
+- `initial_conditions.link_systems`
+- `initial_conditions.link_systems[].link_id`
+- `initial_conditions.link_systems[].kind`
+- `initial_conditions.link_systems[].required`
+- `initial_conditions.link_systems[].priority`
+- `initial_conditions.link_systems[].availability`
+- `initial_conditions.link_systems[].max_range_m`
 
 Events:
 
@@ -117,6 +146,11 @@ Assertions:
 - `assertions[].expected`
 - `assertions[].event_id`
 
+Supported resource/link assertion field paths:
+
+- `estimate.resource.is_feasible`
+- `estimate.link.is_feasible`
+
 ## Accepted But Non-Operative Fields
 
 Mission:
@@ -126,6 +160,8 @@ Mission:
 - `constraints.max_wind_mps`
 - `assets.comms_coverage_file`
 - `policy.lost_link_policy`
+- `link_systems[].coverage_asset_ref`
+- `link_systems[].metadata`
 - `metadata`
 - `route[].acceptance_radius_m`
 - `route[].loiter_radius_m`
@@ -138,6 +174,8 @@ Vehicle:
 - `autopilot`
 - `mass.*`
 - `performance.max_wind_mps`
+- `resource_systems[].delivery`
+- `resource_systems[].metadata`
 - `failsafe.*`
 - `sitl.*`
 - `metadata`
@@ -145,6 +183,8 @@ Vehicle:
 Scenario:
 
 - `description`
+- `initial_conditions.link_systems[].coverage_asset_ref`
+- `initial_conditions.link_systems[].metadata`
 - `events[].description`
 - `assertions[].description`
 - `metadata`
@@ -226,6 +266,55 @@ Result metadata field `estimator_version` records the actual fidelity used:
 - `hover_power_w` is required for hover-capable loiter dwell.
 - Fixed-wing circular loiter in fidelity v2 uses `cruise_power_w`.
 - Energy infeasibility does not make distance/time totals partial.
+- When `vehicle.resource_systems` is configured, `result.energy` remains the
+  legacy battery-only energy view and may report `is_feasible=false` while
+  `result.resource.is_feasible=true`. In that case resource feasibility, not
+  legacy battery capacity, determines mission resource feasibility.
+
+## Resource Semantics
+
+- Resource systems are configured on `vehicle.resource_systems`.
+- When `resource_systems` is omitted, the estimator preserves legacy
+  battery-only behavior from `vehicle.energy` and `result.resource` is `null`.
+- When `resource_systems` is present, each configured system is evaluated after
+  route kinematics and phase-power demand are computed.
+- The mission is resource-feasible when at least one configured resource system
+  is feasible. The selected system is the feasible system with the lowest
+  `priority`, then lexicographically lowest `resource_id`.
+- `onboard_battery` uses `battery_capacity_wh` and `reserve_percent` when set;
+  otherwise it uses the legacy `vehicle.energy` capacity and mission/vehicle
+  reserve threshold.
+- `external_power` uses `continuous_power_w` as an effectively continuous supply
+  and enforces `max_route_distance_m`, `max_route_time_s`, and
+  `max_tether_length_m` when set.
+- `hybrid` uses `continuous_power_w` first and charges only residual per-leg
+  power demand above that supply against the onboard battery capacity.
+- `fuel`, `hydrogen`, and `other` are accepted extension points but currently
+  produce an unsupported resource-feasibility diagnostic when configured.
+- `max_tether_length_m` is checked against the maximum horizontal distance from
+  planned home observed at route leg start and end states.
+- Resource infeasibility does not make distance/time totals partial.
+
+## Link Semantics
+
+- Link systems are configured on `mission.link_systems`.
+- Scenario `initial_conditions.link_systems` replaces `mission.link_systems`
+  for that scenario run when set.
+- When no link systems are configured, `result.link` is `null` and link
+  feasibility does not affect the estimate.
+- Link checks are deterministic and make no live network, modem, satellite, or
+  coverage-service calls.
+- `availability: unavailable` makes that link infeasible.
+- `max_range_m` is checked against the maximum horizontal distance from planned
+  home observed at route leg start and end states.
+- If one or more links have `required=true`, at least one required link must be
+  feasible. Optional links are reported but do not make the mission infeasible.
+- The selected link is the feasible required link with the lowest `priority`,
+  then lexicographically lowest `link_id`; if no required links exist, the same
+  selection rule is applied to feasible optional links.
+- `coverage_asset_ref` is accepted for future coverage models but is always
+  ignored by the estimator.
+- Link infeasibility does not make distance/time totals partial.
 
 ## Geofence Semantics
 

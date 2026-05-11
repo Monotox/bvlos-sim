@@ -20,6 +20,14 @@ from schemas.mission import (
     RouteItem,
     WindLayerConfig,
 )
+from schemas.resource_link import (
+    ExternalPowerDelivery,
+    LinkAvailability,
+    LinkSystemConfig,
+    LinkSystemKind,
+    ResourceSystemConfig,
+    ResourceSystemKind,
+)
 from schemas.scenario import (
     ScenarioAssertion,
     ScenarioAssertionKind,
@@ -50,7 +58,11 @@ __all__ = [
     "UncertaintyPlan",
     "AutopilotStack",
     "EnergyModel",
+    "ExternalPowerDelivery",
     "FailsafeProfile",
+    "LinkAvailability",
+    "LinkSystemConfig",
+    "LinkSystemKind",
     "MassProfile",
     "MissionAction",
     "MissionAssets",
@@ -61,6 +73,8 @@ __all__ = [
     "MissionPolicyRef",
     "PerformanceProfile",
     "PlannedHome",
+    "ResourceSystemConfig",
+    "ResourceSystemKind",
     "RouteItem",
     "WindLayerConfig",
     "ScenarioAssertion",

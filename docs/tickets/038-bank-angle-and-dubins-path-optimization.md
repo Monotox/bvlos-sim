@@ -57,7 +57,7 @@ There are three related path-planning limitations in the current codebase:
   heading is known.
 - Fidelity v2 turn segments satisfy Dubins path entry/exit heading constraints.
 - Fidelity v1 behavior is unchanged.
-- All existing 384 tests pass; new Dubins geometry tests are added.
+- The existing test suite passes; new Dubins geometry tests are added.
 
 ## Out of Scope
 

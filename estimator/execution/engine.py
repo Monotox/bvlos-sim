@@ -16,7 +16,9 @@ from estimator.core.results import (
     EstimatorFailure,
     GeofenceEstimate,
     LandingZoneEstimate,
+    LinkEstimate,
     MissionEstimate,
+    ResourceEstimate,
 )
 from estimator.environment.terrain import TerrainProvider
 from estimator.environment.wind import WindProvider
@@ -25,6 +27,10 @@ from estimator.execution.energy import evaluate_energy_feasibility
 from estimator.execution.executors import execute_route_item
 from estimator.execution.geofence import evaluate_geofence_feasibility
 from estimator.execution.landing_zone import evaluate_landing_zone_reachability
+from estimator.execution.resource_link import (
+    evaluate_link_feasibility,
+    evaluate_resource_feasibility,
+)
 from estimator.execution.rules import validate_global_constraints
 from estimator.execution.runtime import EstimationContext
 from estimator.execution.runtime.failure_translation import error_from_failure
@@ -38,6 +44,8 @@ def _raise_feasibility_failure(
     context: EstimationContext,
     *,
     energy: EnergyEstimate | None = None,
+    resource: ResourceEstimate | None = None,
+    link: LinkEstimate | None = None,
     geofence: GeofenceEstimate | None = None,
     landing_zone: LandingZoneEstimate | None = None,
 ) -> None:
@@ -47,6 +55,8 @@ def _raise_feasibility_failure(
         failure,
         partial_legs=context.route_legs,
         energy=energy,
+        resource=resource,
+        link=link,
         geofence=geofence,
         landing_zone=landing_zone,
         totals_are_partial=False,
@@ -72,11 +82,35 @@ def run_estimation(
         )
 
     totals = sum_totals(context.route_legs)
-    energy_evaluation = evaluate_energy_feasibility(context)
+    explicit_resource_systems = bool(context.vehicle.resource_systems)
+    energy_evaluation = evaluate_energy_feasibility(
+        context,
+        enforce_battery_capacity=not explicit_resource_systems,
+    )
     _raise_feasibility_failure(
         energy_evaluation.failure,
         context,
         energy=energy_evaluation.energy,
+    )
+
+    resource_evaluation = evaluate_resource_feasibility(
+        context,
+        energy_evaluation.energy,
+    )
+    _raise_feasibility_failure(
+        resource_evaluation.failure,
+        context,
+        energy=energy_evaluation.energy,
+        resource=resource_evaluation.resource,
+    )
+
+    link_evaluation = evaluate_link_feasibility(context)
+    _raise_feasibility_failure(
+        link_evaluation.failure,
+        context,
+        energy=energy_evaluation.energy,
+        resource=resource_evaluation.resource,
+        link=link_evaluation.link,
     )
 
     geofence_evaluation = evaluate_geofence_feasibility(context)
@@ -84,6 +118,8 @@ def run_estimation(
         geofence_evaluation.failure,
         context,
         energy=energy_evaluation.energy,
+        resource=resource_evaluation.resource,
+        link=link_evaluation.link,
         geofence=geofence_evaluation.geofence,
     )
 
@@ -96,6 +132,8 @@ def run_estimation(
         landing_zone_evaluation.failure,
         context,
         energy=energy_evaluation.energy,
+        resource=resource_evaluation.resource,
+        link=link_evaluation.link,
         geofence=geofence_evaluation.geofence,
         landing_zone=landing_zone_evaluation.landing_zone,
     )
@@ -109,6 +147,8 @@ def run_estimation(
         totals_are_partial=False,
         legs=context.route_legs,
         energy=energy_evaluation.energy,
+        resource=resource_evaluation.resource,
+        link=link_evaluation.link,
         geofence=geofence_evaluation.geofence,
         landing_zone=landing_zone_evaluation.landing_zone,
         warnings=context.warnings,
@@ -177,6 +217,8 @@ def try_estimate_mission_distance_time(
             totals_are_partial=exc.totals_are_partial,
             legs=exc.partial_legs,
             energy=exc.energy,
+            resource=exc.resource,
+            link=exc.link,
             geofence=exc.geofence,
             landing_zone=exc.landing_zone,
             warnings=exc.warnings,
