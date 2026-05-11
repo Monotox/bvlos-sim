@@ -56,6 +56,8 @@ _SUPPORTED_FIELD_PATHS: frozenset[str] = frozenset(
         "estimate.energy.is_feasible",
         "estimate.energy.reserve_at_landing_percent",
         "estimate.energy.reserve_at_landing_wh",
+        "estimate.resource.is_feasible",
+        "estimate.link.is_feasible",
         "estimate.geofence.is_feasible",
         "estimate.landing_zone.is_feasible",
     }
@@ -75,6 +77,12 @@ _FIELD_RESOLVERS: dict[str, FieldResolver] = {
     ),
     "estimate.energy.reserve_at_landing_wh": lambda e: (
         e.energy.reserve_at_landing_wh if e.energy is not None else None
+    ),
+    "estimate.resource.is_feasible": lambda e: (
+        e.resource.is_feasible if e.resource is not None else None
+    ),
+    "estimate.link.is_feasible": lambda e: (
+        e.link.is_feasible if e.link is not None else None
     ),
     "estimate.geofence.is_feasible": lambda e: (
         e.geofence.is_feasible if e.geofence is not None else None
@@ -173,6 +181,16 @@ def _build_event_wind_provider(event: ScenarioEvent) -> WindProvider:
         wind_east_mps=cast(float, event.wind_east_mps),
         wind_north_mps=cast(float, event.wind_north_mps),
     )
+
+
+def _mission_with_scenario_link_systems(
+    scenario: ScenarioPlan,
+    mission: MissionPlan,
+) -> MissionPlan:
+    link_systems = scenario.initial_conditions.link_systems
+    if link_systems is None:
+        return mission
+    return mission.model_copy(update={"link_systems": link_systems})
 
 
 # ---------------------------------------------------------------------------
@@ -944,6 +962,7 @@ def run_scenario(
 
     This function is pure and does not depend on CLI adapters or I/O.
     """
+    mission = _mission_with_scenario_link_systems(scenario, mission)
     options = _build_options(scenario)
     resolved_wind_provider = _resolve_base_wind_provider(scenario, wind_provider)
     estimate = _estimate_with_wind_changes(

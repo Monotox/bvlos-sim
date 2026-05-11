@@ -107,6 +107,23 @@ def test_empty_events_and_assertions_accepted() -> None:
     assert plan.assertions == []
 
 
+def test_initial_conditions_accept_link_systems() -> None:
+    initial_conditions = ScenarioInitialConditions.model_validate(
+        {
+            "link_systems": [
+                {
+                    "link_id": "mesh",
+                    "kind": "mesh_network",
+                    "max_range_m": 5000.0,
+                }
+            ]
+        }
+    )
+
+    assert initial_conditions.link_systems is not None
+    assert initial_conditions.link_systems[0].link_id == "mesh"
+
+
 # ---------------------------------------------------------------------------
 # ScenarioEvent trigger validation
 # ---------------------------------------------------------------------------

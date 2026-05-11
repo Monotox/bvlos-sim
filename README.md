@@ -58,13 +58,15 @@ Full usage details are in [docs/USAGE.md](./docs/USAGE.md).
 
 ## Status
 
-The current `v0.2.0` release includes:
+The current codebase includes:
 
 - deterministic mission distance/time estimation
 - estimator CLI command surface (`estimate`)
 - scenario CLI command surface (`scenario`)
 - canonical JSON envelopes and optional Markdown reports
 - deterministic energy feasibility and reserve-at-landing output
+- resource-system feasibility for onboard battery, external power, and hybrid power configurations
+- communication-link feasibility for mission and scenario link systems
 - static GeoJSON geofence feasibility checks
 - static GeoJSON landing-zone reachability checks
 - deterministic scenario runner with event injection, wind-change events, and assertions (`scenario.v1`)
@@ -75,8 +77,9 @@ The current `v0.2.0` release includes:
 - documented schema/versioning policy with golden contract fixtures
 - passing test suite
 
-The next roadmap area is SITL integration. See [docs/ROADMAP.md](./docs/ROADMAP.md)
-for the full roadmap and known limitations.
+The next roadmap areas are bank-angle path optimization and SITL integration.
+See [docs/ROADMAP.md](./docs/ROADMAP.md) for the full roadmap and known
+limitations.
 
 ## Documentation
 

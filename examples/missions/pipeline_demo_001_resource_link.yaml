@@ -1,0 +1,68 @@
+mission_id: pipeline_demo_001_resource_link
+vehicle_profile: quadplane_resource_link
+
+planned_home:
+  lat: 52.0
+  lon: 4.0
+  altitude_amsl_m: 12.0
+
+defaults:
+  cruise_speed_mps: 18.0
+  hover_speed_mps: 5.0
+  altitude_reference: terrain
+
+route:
+  - id: takeoff
+    action: vtol_takeoff
+    altitude_m: 80.0
+
+  - id: wp1
+    action: waypoint
+    lat: 52.001
+    lon: 4.002
+    altitude_m: 120.0
+    acceptance_radius_m: 20.0
+
+  - id: loiter
+    action: loiter_time
+    lat: 52.002
+    lon: 4.004
+    altitude_m: 120.0
+    loiter_time_s: 60.0
+    loiter_radius_m: 80.0
+
+  - id: rtl
+    action: rtl
+
+constraints:
+  min_landing_reserve_percent: 25.0
+  max_wind_mps: 10.0
+  min_distance_to_landing_zone_m: 2500.0
+
+assets:
+  geofences_file: ../../data/geofences/demo.geojson
+  landing_zones_file: ../../data/landing_zones/demo.geojson
+  terrain_file: ../terrain/flat_polder.yaml
+  wind_grid_file: ../wind/pipeline_wind_grid.yaml
+
+policy:
+  lost_link_policy: standard_lost_link_v1
+
+link_systems:
+  - link_id: mesh-primary
+    kind: mesh_network
+    priority: 0
+    max_range_m: 5000.0
+  - link_id: starlink-backup
+    kind: starlink
+    priority: 1
+    max_range_m: 100000.0
+
+estimation:
+  fidelity: v2
+  max_segment_length_m: 500.0
+  min_groundspeed_mps: 5.0
+
+metadata:
+  mission_type: integrated_pipeline_inspection
+  notes: Example combining terrain, wind-grid, geofence, landing-zone, resource systems, link systems, and fidelity-v2 configuration.

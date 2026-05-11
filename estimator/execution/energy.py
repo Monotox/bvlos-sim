@@ -37,7 +37,11 @@ class EnergyEvaluation:
     failure: EstimatorFailure | None
 
 
-def evaluate_energy_feasibility(context: EstimationContext) -> EnergyEvaluation:
+def evaluate_energy_feasibility(
+    context: EstimationContext,
+    *,
+    enforce_battery_capacity: bool = True,
+) -> EnergyEvaluation:
     """Evaluate energy after kinematic route expansion is complete."""
 
     energy_model = context.vehicle.energy
@@ -87,7 +91,9 @@ def evaluate_energy_feasibility(context: EstimationContext) -> EnergyEvaluation:
     )
     return EnergyEvaluation(
         energy=energy,
-        failure=_build_feasibility_failure(energy),
+        failure=_build_feasibility_failure(energy)
+        if enforce_battery_capacity
+        else None,
     )
 
 

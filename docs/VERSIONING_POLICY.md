@@ -8,13 +8,13 @@ a published version.
 Current public contracts:
 
 - package-root `estimator` imports
-- mission input schema: `mission.v4`
-- vehicle input schema: `vehicle.v2`
+- mission input schema: `mission.v5`
+- vehicle input schema: `vehicle.v3`
 - scenario input schema: `scenario.v1`
 - geofence input schema: `geofence-geojson.v1`
 - landing-zone input schema: `landing-zone-geojson.v1`
-- estimator JSON envelope: `estimator-envelope.v4`
-- scenario JSON envelope: `scenario-report.v1`
+- estimator JSON envelope: `estimator-envelope.v5`
+- scenario JSON envelope: `scenario-report.v2`
 - CLI exit-code semantics
 - supported Markdown report shape covered by golden fixtures
 
@@ -58,6 +58,9 @@ Free-form maps are explicit exceptions:
 - mission `metadata`
 - route item `metadata`
 - vehicle `metadata`
+- vehicle resource-system `metadata`
+- mission link-system `metadata`
+- scenario link-system `metadata`
 - scenario `metadata`
 - estimator failure `context`
 - estimator result `metadata`

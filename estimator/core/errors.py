@@ -8,6 +8,8 @@ from estimator.core.results import (
     GeofenceEstimate,
     LandingZoneEstimate,
     LegEstimate,
+    LinkEstimate,
+    ResourceEstimate,
 )
 
 
@@ -20,6 +22,8 @@ class EstimatorError(Exception):
         *,
         partial_legs: list[LegEstimate] | None = None,
         energy: EnergyEstimate | None = None,
+        resource: ResourceEstimate | None = None,
+        link: LinkEstimate | None = None,
         geofence: GeofenceEstimate | None = None,
         landing_zone: LandingZoneEstimate | None = None,
         totals_are_partial: bool | None = None,
@@ -31,6 +35,8 @@ class EstimatorError(Exception):
         self.failure = failure
         self.partial_legs = legs
         self.energy = energy
+        self.resource = resource
+        self.link = link
         self.geofence = geofence
         self.landing_zone = landing_zone
         self.totals_are_partial = (

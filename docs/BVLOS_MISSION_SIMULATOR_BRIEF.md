@@ -20,20 +20,27 @@ validation, regulatory requirements, and real-world flight data.
 
 ## Current Capabilities
 
-The current release includes:
+The current codebase includes:
 
 - deterministic mission distance and time estimation
 - fidelity v1 and fidelity v2 trajectory modes
 - wind-triangle correction for forward-flight transit legs
 - altitude-banded layered wind and optional sub-segment sampling
+- offline spatiotemporal wind grids
+- terrain-referenced altitude execution with offline uniform elevation grids
 - deterministic energy feasibility with reserve-at-landing outputs
+- resource-system feasibility for battery, external power, and hybrid power
+- communication-link feasibility for mission and scenario link systems
 - static GeoJSON geofence checks
 - static GeoJSON landing-zone reachability checks
+- dynamic landing-zone availability in scenario runs
 - deterministic scenario execution with timeline events and assertions
 - scenario `wind_change` events with scalar or altitude-banded wind payloads
 - lost-link policy outcomes for `rtl`, `land`, `loiter`, and `divert`
+- computed straight-line divert estimates for divert policy outcomes
+- Monte Carlo uncertainty sampling through the `sample` CLI command
 - canonical JSON envelopes and optional Markdown reports
-- CLI commands for estimator and scenario workflows
+- CLI commands for estimator, scenario, and uncertainty workflows
 - golden fixture tests for stable public output contracts
 
 ## Primary Workflows
@@ -57,6 +64,7 @@ Typical output includes:
 - route legs with distance, time, wind, and phase details
 - mission totals
 - energy feasibility and reserve margin
+- resource and communication-link feasibility when configured
 - geofence and landing-zone feasibility artifacts when configured
 
 ### Scenario Execution
@@ -82,10 +90,10 @@ Typical output includes:
 
 Current input contracts:
 
-- `mission.v4`: route, planned home, defaults, constraints, assets, policy
-  references, and persisted estimator settings
-- `vehicle.v2`: vehicle class, mass, performance, energy, failsafe,
-  capabilities, SITL metadata, and free-form notes
+- `mission.v5`: route, planned home, defaults, constraints, assets, policy
+  references, link systems, and persisted estimator settings
+- `vehicle.v3`: vehicle class, mass, performance, energy, resource systems,
+  failsafe, capabilities, SITL metadata, and free-form notes
 - `scenario.v1`: referenced mission and vehicle files, initial conditions,
   events, assertions, and metadata
 - `geofence-geojson.v1`: static GeoJSON geofences
@@ -97,8 +105,8 @@ Mission, vehicle, and scenario files may be authored as YAML or JSON.
 
 Current output contracts:
 
-- `estimator-envelope.v4`: canonical estimator JSON envelope
-- `scenario-report.v1`: canonical scenario JSON envelope
+- `estimator-envelope.v5`: canonical estimator JSON envelope
+- `scenario-report.v2`: canonical scenario JSON envelope
 - Markdown reports for estimator and scenario outputs
 
 JSON rendering is deterministic and sorted, and representative outputs are
@@ -171,12 +179,8 @@ Known limitations are deliberate for the current release:
 
 - no SITL integration yet
 - no REST API or UI
-- no Monte Carlo uncertainty modeling
-- no terrain-referenced altitude execution
-- no continuous spatial or temporal wind grid beyond altitude-banded layers and
-  scenario wind-change events
-- no dynamic landing-zone availability
-- no computed route for `divert` policy outcomes
+- no bank-angle model or Dubins path optimization
+- vertical-only movement does not add 3D slant path distance
 - no live comms, UTM, Remote ID, or traffic integrations
 
 See [ROADMAP.md](./ROADMAP.md) for planned expansion.

@@ -49,7 +49,7 @@ def _build_envelope_for(scenario_name: str) -> ScenarioResultEnvelope:
 # ---------------------------------------------------------------------------
 
 
-def test_envelope_schema_version_is_scenario_report_v1() -> None:
+def test_envelope_schema_version_is_current_scenario_report_version() -> None:
     envelope = _build_envelope_for("passed")
     assert envelope.schema_version == SCENARIO_REPORT_SCHEMA_VERSION
 

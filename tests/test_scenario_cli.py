@@ -63,7 +63,7 @@ def test_json_format_is_default() -> None:
     scenario_path = str(FIXTURE_ROOT / "passed" / "scenario.yaml")
     result = _run(["scenario", scenario_path])
     payload = json.loads(result.output)
-    assert payload["schema_version"] == "scenario-report.v1"
+    assert payload["schema_version"] == "scenario-report.v2"
 
 
 def test_v2_example_scenario_runs_from_cli() -> None:
@@ -107,6 +107,19 @@ def test_integrated_example_scenario_loads_mission_assets_from_cli() -> None:
     )
     assert lost_link_event["fired"] is True
     assert lost_link_event["policy_outcome"]["action"] == "divert"
+
+
+def test_resource_link_example_scenario_runs_from_cli() -> None:
+    scenario_path = REPO_ROOT / "examples/scenarios/pipeline_demo_001_resource_link_scenario.yaml"
+
+    result = _run(["scenario", str(scenario_path)])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    estimate = payload["estimate"]
+    assert payload["status"] == "passed"
+    assert estimate["resource"]["is_feasible"] is True
+    assert estimate["link"]["is_feasible"] is True
 
 
 def test_wind_change_scenario_runs_from_cli(tmp_path: Path) -> None:

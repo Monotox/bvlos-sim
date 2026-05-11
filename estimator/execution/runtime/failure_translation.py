@@ -15,6 +15,8 @@ from estimator.core.results import (
     GeofenceEstimate,
     LandingZoneEstimate,
     LegEstimate,
+    LinkEstimate,
+    ResourceEstimate,
 )
 
 _FAILURE_ERROR_TYPES = {
@@ -29,6 +31,8 @@ def error_from_failure(
     *,
     partial_legs: list[LegEstimate],
     energy: EnergyEstimate | None = None,
+    resource: ResourceEstimate | None = None,
+    link: LinkEstimate | None = None,
     geofence: GeofenceEstimate | None = None,
     landing_zone: LandingZoneEstimate | None = None,
     totals_are_partial: bool | None = None,
@@ -40,6 +44,8 @@ def error_from_failure(
         failure,
         partial_legs=partial_legs,
         energy=energy,
+        resource=resource,
+        link=link,
         geofence=geofence,
         landing_zone=landing_zone,
         totals_are_partial=totals_are_partial,

@@ -40,7 +40,11 @@ from estimator.core.results import (
     LandingZoneEstimate,
     LandingZoneStateReachability,
     LegEstimate,
+    LinkEstimate,
+    LinkSystemEstimate,
     MissionEstimate,
+    ResourceEstimate,
+    ResourceSystemEstimate,
     WindVector,
 )
 from estimator.core.scenario import (
@@ -110,7 +114,11 @@ __all__ = [
     "LandingZoneStateReachability",
     "LegPhase",
     "LegEstimate",
+    "LinkEstimate",
+    "LinkSystemEstimate",
     "MissionEstimate",
+    "ResourceEstimate",
+    "ResourceSystemEstimate",
     "ScenarioAssertionResult",
     "SpatiotemporalWindProvider",
     "ScenarioEventOutcome",

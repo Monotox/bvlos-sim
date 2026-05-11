@@ -5,7 +5,8 @@ toward a broader BVLOS simulation platform.
 
 ## Current Status
 
-The current `v0.2.0` release implements Phases 1 through 4.8, plus Tickets 032, 033, 035, 036, and 037:
+The current codebase implements Phases 1 through 4.8, plus Tickets 032, 033,
+034, 035, 036, and 037:
 
 - estimator hardening
 - static feasibility checks
@@ -13,11 +14,12 @@ The current `v0.2.0` release implements Phases 1 through 4.8, plus Tickets 032, 
 - fidelity v2 trajectory and wind features
 - terrain-referenced altitude execution
 - continuous spatiotemporal wind grid
+- resource and communication-link feasibility abstractions
 - dynamic landing-zone availability via scenario events
 - computed divert route estimates on policy outcomes
 - Monte Carlo uncertainty analysis via `uncertainty.v1` YAML and `sample` CLI command
 
-The test suite currently passes with 384 tests.
+The test suite currently passes with 395 tests.
 
 bvlos-sim remains an engineering validation tool. It is not a flight-safety
 system, operational approval tool, or complete BVLOS compliance system.
@@ -36,6 +38,8 @@ Estimator:
 Static feasibility:
 
 - deterministic phase-based energy model
+- deterministic resource-system feasibility for onboard battery, external power, and hybrid power configurations
+- deterministic communication-link feasibility for mission and scenario link systems
 - reserve-at-landing output
 - reserve threshold failures
 - static GeoJSON geofence checks
@@ -82,8 +86,8 @@ Interfaces and contracts:
 - `estimate` CLI command
 - `scenario` CLI command
 - `sample` CLI command
-- canonical estimator JSON envelope (`estimator-envelope.v4`)
-- canonical scenario JSON envelope (`scenario-report.v1`)
+- canonical estimator JSON envelope (`estimator-envelope.v5`)
+- canonical scenario JSON envelope (`scenario-report.v2`)
 - canonical uncertainty JSON envelope (`uncertainty-report.v1`)
 - Markdown rendering for estimator, scenario, and uncertainty reports
 - golden fixture regression tests
@@ -95,8 +99,6 @@ Estimator limitations:
 - no bank-angle model or Dubins path optimization for transit legs and divert
   routing — fidelity v2 turn arcs use a circular arc approximation and divert
   routing uses straight-line geodesic distance (Ticket 038)
-- no generalized resource/link feasibility model beyond battery-oriented energy
-  fields and scenario lost-link events (Ticket 034)
 - vertical-only movement does not add 3D slant path distance (Ticket 038)
 
 Scenario limitations:
@@ -198,17 +200,18 @@ mission YAML and `estimate` command path as existing deterministic features.
 
 ### Phase 4.6: Resource and Link Feasibility
 
-Status: planned.
+Status: implemented.
 
 Scope:
 
-- Ticket 034: resource and link feasibility abstractions
-- generalized resource systems for battery, external/tethered or optical-fiber
-  power, hybrid power, and future resource types
+- Ticket 034: resource and link feasibility abstractions — implemented
+- generalized resource systems for onboard battery, external/tethered or
+  optical-fiber power, hybrid power, and future resource-type extension points
 - generalized communication link systems for direct, mesh, cellular, satellite,
   Starlink-class, and hybrid failover architectures
 - integration with mission YAML, vehicle YAML, scenario YAML, existing
-  feasibility reports, and later live adapter replay artifacts
+  feasibility reports, scenario assertions, and later live adapter replay
+  artifacts
 
 Exit criterion: energy/resource and communication-link feasibility can be
 modeled through shared deterministic abstractions instead of one-off
@@ -265,10 +268,10 @@ Status: planned.
 
 Prerequisites:
 
-- Ticket 034: Resource and Link Feasibility Abstractions
-- Ticket 035: Dynamic Landing-Zone Availability
-- Ticket 036: Computed Divert Routing
-- Ticket 037: Monte Carlo Uncertainty Modeling
+- Ticket 034: Resource and Link Feasibility Abstractions — implemented
+- Ticket 035: Dynamic Landing-Zone Availability — implemented
+- Ticket 036: Computed Divert Routing — implemented
+- Ticket 037: Monte Carlo Uncertainty Modeling — implemented
 
 Scope:
 
