@@ -9,6 +9,9 @@ and this project adheres to semantic versioning once public releases begin.
 
 ### Added
 
+- Dubins path solver (`estimator.math.dubins`) for bank-angle-constrained 2D path planning; evaluates RS (right arc + straight) and LS (left arc + straight) path types with unconstrained exit heading.
+- Divert route estimates now use Dubins path distance (bank-angle-constrained arc + straight) when entry heading and `vehicle.performance.turn_radius_m` are available, replacing the previous straight-line geodesic approximation. Falls back to straight-line when heading or turn radius is unavailable.
+
 - Initial `v0.2.0` release.
 - Deterministic estimator v1 with fidelity v1 and fidelity v2 modes.
 - Deterministic energy feasibility with reserve-at-landing outputs.
