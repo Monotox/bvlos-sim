@@ -65,10 +65,12 @@ from estimator.environment.wind import (
     WindLayer,
     WindProvider,
 )
+from estimator.core.uncertainty import MonteCarloResult, SampledOutputStats
 from estimator.execution.engine import (
     estimate_mission_distance_time,
     try_estimate_mission_distance_time,
 )
+from estimator.execution.monte_carlo import run_monte_carlo
 from estimator.execution.scenario import run_scenario
 
 __all__ = [
@@ -121,7 +123,10 @@ __all__ = [
     "WarningCode",
     "WindProvider",
     "WindVector",
+    "MonteCarloResult",
+    "SampledOutputStats",
     "estimate_mission_distance_time",
+    "run_monte_carlo",
     "run_scenario",
     "try_estimate_mission_distance_time",
 ]
