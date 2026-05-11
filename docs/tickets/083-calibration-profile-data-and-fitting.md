@@ -25,10 +25,24 @@ There is no calibration data format and no fitter for turning observed flights i
   - applicable conditions
 - Keep calibration artifacts versioned and reproducible.
 
+## Integration Requirements
+
+- Calibration profiles must layer on top of existing vehicle YAML rather than
+  replacing vehicle profiles.
+- Calibration artifacts should be selectable by `estimate`, `scenario`, API, and
+  validation workflows through explicit configuration.
+- Add examples that pair base vehicle YAML, calibration artifacts, mission YAML,
+  terrain, wind, and validation data.
+- Keep fitted values traceable to source logs, normalized traces, validation
+  reports, and tool versions.
+- Preserve deterministic behavior for a fixed calibration artifact.
+
 ## Acceptance Criteria
 
 - A calibration dataset can produce a versioned calibration artifact without changing core estimator logic.
 - Fitted parameters are separated from raw manufacturer/default profile values.
+- Calibrated runs compose with existing mission, vehicle, terrain, wind,
+  geofence, landing-zone, energy, and scenario behavior.
 
 ## Out of Scope
 

@@ -6,6 +6,8 @@ from typing import cast
 from estimator.core.enums import AssertionOutcome, EstimateStatus, FidelityMode
 from estimator.core.options import EstimationOptions
 from estimator.core.results import LegEstimate, MissionEstimate
+from estimator.core.geofence import GeofenceZone
+from estimator.core.landing_zone import LandingZone
 from estimator.core.scenario import (
     AssertionFieldValue,
     CommsLinkPolicyOutcome,
@@ -15,6 +17,7 @@ from estimator.core.scenario import (
     ScenarioStatus,
     TimelinePoint,
 )
+from estimator.environment.terrain import TerrainProvider
 from estimator.environment.wind import (
     ConstantWindProvider,
     LayeredWindProvider,
@@ -139,6 +142,26 @@ def _build_initial_wind_provider(scenario: ScenarioPlan) -> WindProvider:
         wind_east_mps=ic.wind_east_mps,
         wind_north_mps=ic.wind_north_mps,
     )
+
+
+def _has_explicit_initial_wind(scenario: ScenarioPlan) -> bool:
+    return bool(
+        {
+            "wind_east_mps",
+            "wind_north_mps",
+            "wind_layers",
+        }
+        & scenario.initial_conditions.model_fields_set
+    )
+
+
+def _resolve_base_wind_provider(
+    scenario: ScenarioPlan,
+    wind_provider: WindProvider | None,
+) -> WindProvider | None:
+    if _has_explicit_initial_wind(scenario):
+        return _build_initial_wind_provider(scenario)
+    return wind_provider
 
 
 def _build_event_wind_provider(event: ScenarioEvent) -> WindProvider:
@@ -379,12 +402,18 @@ def _estimate_for_wind_provider(
     *,
     options: EstimationOptions,
     wind_provider: WindProvider | None,
+    terrain_provider: TerrainProvider | None,
+    geofences: Sequence[GeofenceZone] | None,
+    landing_zones: Sequence[LandingZone] | None,
 ) -> MissionEstimate:
     return try_estimate_mission_distance_time(
         mission,
         vehicle,
         options=options,
         wind_provider=wind_provider,
+        terrain_provider=terrain_provider,
+        geofences=geofences,
+        landing_zones=landing_zones,
     )
 
 
@@ -393,7 +422,10 @@ def _estimate_with_wind_changes(
     mission: MissionPlan,
     vehicle: VehicleProfile,
     options: EstimationOptions,
-    base_wind_provider: WindProvider,
+    base_wind_provider: WindProvider | None,
+    terrain_provider: TerrainProvider | None,
+    geofences: Sequence[GeofenceZone] | None,
+    landing_zones: Sequence[LandingZone] | None,
 ) -> MissionEstimate:
     wind_events = _wind_change_events(scenario.events)
     if not wind_events:
@@ -401,14 +433,23 @@ def _estimate_with_wind_changes(
             mission,
             vehicle,
             options=options,
-            wind_provider=_build_initial_layered_wind_provider(scenario),
+            wind_provider=base_wind_provider,
+            terrain_provider=terrain_provider,
+            geofences=geofences,
+            landing_zones=landing_zones,
         )
 
+    resolved_base_wind_provider = (
+        base_wind_provider or _build_initial_wind_provider(scenario)
+    )
     estimate = _estimate_for_wind_provider(
         mission,
         vehicle,
         options=options,
-        wind_provider=base_wind_provider,
+        wind_provider=resolved_base_wind_provider,
+        terrain_provider=terrain_provider,
+        geofences=geofences,
+        landing_zones=landing_zones,
     )
     previous_schedule = _resolve_wind_change_schedule(
         wind_events,
@@ -429,9 +470,12 @@ def _estimate_with_wind_changes(
             vehicle,
             options=options,
             wind_provider=_wind_provider_for_schedule(
-                base_wind_provider,
+                resolved_base_wind_provider,
                 previous_schedule,
             ),
+            terrain_provider=terrain_provider,
+            geofences=geofences,
+            landing_zones=landing_zones,
         )
         timeline = _build_timeline(mission, estimate)
         schedule = _resolve_wind_change_schedule(wind_events, timeline)
@@ -759,6 +803,11 @@ def run_scenario(
     scenario: ScenarioPlan,
     mission: MissionPlan,
     vehicle: VehicleProfile,
+    *,
+    wind_provider: WindProvider | None = None,
+    terrain_provider: TerrainProvider | None = None,
+    geofences: Sequence[GeofenceZone] | None = None,
+    landing_zones: Sequence[LandingZone] | None = None,
 ) -> ScenarioResult:
     """Execute a deterministic scenario and return a structured result.
 
@@ -770,7 +819,10 @@ def run_scenario(
         mission,
         vehicle,
         options,
-        _build_initial_wind_provider(scenario),
+        _resolve_base_wind_provider(scenario, wind_provider),
+        terrain_provider,
+        geofences,
+        landing_zones,
     )
 
     timeline = _build_timeline(mission, estimate)

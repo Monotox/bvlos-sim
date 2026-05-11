@@ -2,6 +2,7 @@
 
 
 from estimator.core.scenario import AssertionOutcome, ScenarioStatus
+from estimator.environment.wind import LayeredWindProvider, WindLayer
 from estimator.execution.scenario import run_scenario
 from schemas.scenario import (
     ScenarioPlan,
@@ -32,6 +33,19 @@ def _plan(
             "initial_conditions": ic,
             "events": events or [],
             "assertions": assertions or [],
+        }
+    )
+
+
+def _plan_without_initial_wind() -> ScenarioPlan:
+    return ScenarioPlan.model_validate(
+        {
+            "schema_version": "scenario.v1",
+            "scenario_id": "test",
+            "mission_file": "mission.yaml",
+            "vehicle_file": "vehicle.yaml",
+            "events": [],
+            "assertions": [],
         }
     )
 
@@ -322,6 +336,36 @@ def test_wind_change_event_at_unknown_route_item_does_not_fire() -> None:
     outcome = result.event_outcomes[0]
     assert outcome.fired is False
     assert outcome.unsupported is False
+
+
+def test_supplied_wind_provider_applies_when_initial_wind_is_unset() -> None:
+    provider = LayeredWindProvider([
+        WindLayer(altitude_m=0.0, wind_east_mps=4.0, wind_north_mps=0.0)
+    ])
+
+    result = run_scenario(
+        _plan_without_initial_wind(),
+        make_mission(),
+        make_vehicle(),
+        wind_provider=provider,
+    )
+
+    assert result.estimate.metadata["wind_provider_id"] == "layered"
+
+
+def test_explicit_initial_wind_overrides_supplied_wind_provider() -> None:
+    provider = LayeredWindProvider([
+        WindLayer(altitude_m=0.0, wind_east_mps=4.0, wind_north_mps=0.0)
+    ])
+
+    result = run_scenario(
+        _plan(),
+        make_mission(),
+        make_vehicle(),
+        wind_provider=provider,
+    )
+
+    assert result.estimate.metadata["wind_provider_id"] == "constant"
 
 
 # ---------------------------------------------------------------------------

@@ -20,10 +20,22 @@ There is no holdout validation workflow or report that distinguishes calibration
   - known invalid conditions
 - Version and store validation reports as artifacts.
 
+## Integration Requirements
+
+- Holdout reports must reference the same mission, vehicle, terrain, wind,
+  scenario, calibration, and trace artifacts used to generate them.
+- Reports should compare baseline deterministic runs and calibrated runs through
+  the existing estimator/scenario output contracts.
+- Add examples showing a complete holdout workflow from YAML inputs through
+  validation report output.
+- Keep report generation deterministic for a fixed dataset split.
+
 ## Acceptance Criteria
 
 - Calibration and validation results are reported separately.
 - Holdout validation quality can be reviewed without inspecting raw logs manually.
+- Holdout reporting composes with existing YAML-configured missions, assets,
+  calibration artifacts, and scenario behavior.
 
 ## Out of Scope
 

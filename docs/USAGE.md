@@ -86,6 +86,14 @@ uv run bvlos-sim scenario \
   examples/scenarios/pipeline_demo_001_v2_scenario.yaml
 ```
 
+Run the integrated scenario that combines fidelity v2, terrain, wind-grid,
+geofence, landing-zone, energy, and lost-link policy checks:
+
+```bash
+uv run bvlos-sim scenario \
+  examples/scenarios/pipeline_demo_001_integrated_scenario.yaml
+```
+
 Write Markdown:
 
 ```bash
@@ -156,6 +164,9 @@ Relative asset paths are resolved from the file that references them:
 
 - mission assets are resolved from the mission file directory
 - scenario `mission_file` and `vehicle_file` are resolved from the scenario file directory
+- the `scenario` command loads mission-referenced terrain, wind-grid,
+  geofence, and landing-zone assets before executing scenario events and
+  assertions
 
 ## Estimator Options
 
@@ -337,6 +348,9 @@ terrain file is configured but a terrain reference is used, the estimator
 fails with `UNSUPPORTED_ALTITUDE_REFERENCE_TERRAIN`.
 
 See `examples/terrain/flat_polder.yaml` for a working example grid.
+See `examples/missions/pipeline_demo_001_integrated.yaml` for a mission that
+uses the terrain grid together with geofence, landing-zone, wind-grid, and
+fidelity-v2 settings.
 
 ### Spatiotemporal Wind Grid
 
@@ -379,6 +393,9 @@ assets:
 
 The CLI `--wind-layer` flags take precedence over `wind_grid_file` when both
 are present. `wind_grid_file` takes precedence over `estimation.wind_layers`.
+Scenario YAML initial wind settings take precedence over a mission wind grid;
+when a scenario leaves initial wind unset, the `scenario` command can inherit
+the mission's `assets.wind_grid_file`.
 
 See `examples/wind/pipeline_wind_grid.yaml` for a working example grid.
 
@@ -415,6 +432,21 @@ result = estimate_mission_distance_time(
         fidelity=FidelityMode.V2,
         max_segment_length_m=500.0,
     ),
+)
+```
+
+Scenario execution can receive the same providers and static domain inputs as
+mission estimation:
+
+```python
+result = run_scenario(
+    scenario,
+    mission,
+    vehicle,
+    wind_provider=wind_provider,
+    terrain_provider=terrain_provider,
+    geofences=geofences,
+    landing_zones=landing_zones,
 )
 ```
 

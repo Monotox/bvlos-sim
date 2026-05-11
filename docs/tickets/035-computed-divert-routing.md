@@ -20,11 +20,29 @@ for the divert action.
 - Add tests for reachable, infeasible, and missing-target divert cases.
 - Update golden fixtures if public result contracts change.
 
+## Integration Requirements
+
+- Use existing mission YAML landing-zone assets, geofence assets, terrain assets,
+  wind layers, wind grids, vehicle performance, and energy models when building
+  divert estimates.
+- Keep `lost_link_policy` and `divert_target_id` in scenario YAML as the primary
+  scenario entry point.
+- Add scenario YAML examples that combine computed divert routing with dynamic
+  landing-zone availability, terrain-referenced altitude, and wind-grid inputs.
+- Expose divert details through the existing `scenario` command and scenario
+  envelope rather than a separate command.
+- Keep the `estimate` command behavior stable for missions that do not execute
+  scenario contingency policies.
+- Update Markdown reports so divert route evidence is visible alongside the
+  existing policy outcome.
+
 ## Acceptance Criteria
 
 - `divert` policy outcomes include deterministic route and feasibility evidence.
 - Infeasible divert actions produce structured diagnostics.
 - Existing non-divert lost-link policy behavior remains stable.
+- Divert routing composes with existing YAML-configured mission, vehicle,
+  terrain, wind, geofence, and landing-zone features.
 
 ## Out of Scope
 

@@ -8,7 +8,8 @@ Add deterministic contingency reachability checks for landing alternatives.
 
 ## Current Gap
 
-There is no landing zone model, no importer, and no reachability analysis from route states.
+This ticket is complete. Static landing-zone reachability is available from the
+estimator, scenario runner, and CLI paths.
 
 ## Scope
 
@@ -41,6 +42,18 @@ There is no landing zone model, no importer, and no reachability analysis from r
 - Divert energy uses resolved cruise TAS and deterministic cruise power.
 - Reserve after divert is compared to the same reserve threshold used by deterministic energy feasibility.
 - JSON envelope versions were bumped to `estimator-envelope.v4` and `mission.v4` because `assets.landing_zones_file` and `constraints.min_distance_to_landing_zone_m` are now operative and the result shape includes `result.landing_zone`.
+
+## Integrated Surfaces
+
+- Mission YAML references landing-zone GeoJSON through
+  `assets.landing_zones_file`.
+- Landing-zone examples live under `data/landing_zones/` and are used by
+  mission examples.
+- `estimate` and `scenario` load landing-zone assets from the mission file
+  directory and pass domain `LandingZone` objects into the core engine.
+- JSON and Markdown reports include landing-zone feasibility, nearest zone
+  data, reachability, and reserve-after-divert values.
+- Scenario field assertions can validate `estimate.landing_zone.is_feasible`.
 
 ## Out of Scope
 
