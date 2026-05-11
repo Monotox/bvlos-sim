@@ -77,14 +77,16 @@ Interfaces and contracts:
 
 Estimator limitations:
 
-- no Monte Carlo uncertainty model
+- no Monte Carlo uncertainty model (Ticket 037)
+- no generalized resource/link feasibility model beyond battery-oriented energy
+  fields and scenario lost-link events (Ticket 034)
 - no bank-angle model or Dubins path optimization
 - vertical-only movement does not add 3D slant path distance
 
 Scenario limitations:
 
-- no dynamic landing-zone availability model (Ticket 034)
-- `divert` policy outcomes record the target ID but do not compute a divert route (Ticket 035)
+- no dynamic landing-zone availability model (Ticket 035)
+- `divert` policy outcomes record the target ID but do not compute a divert route (Ticket 036)
 
 Platform limitations:
 
@@ -178,34 +180,52 @@ Delivered:
 Exit criterion: terrain and wind-grid inputs can be used through the same
 mission YAML and `estimate` command path as existing deterministic features.
 
-### Phase 4.6: Scenario Contingency Model Gaps
+### Phase 4.6: Resource and Link Feasibility
 
 Status: planned.
 
 Scope:
 
-- Ticket 034: dynamic landing-zone availability
-- Ticket 035: computed divert routing
+- Ticket 034: resource and link feasibility abstractions
+- generalized resource systems for battery, external/tethered or optical-fiber
+  power, hybrid power, and future resource types
+- generalized communication link systems for direct, mesh, cellular, satellite,
+  Starlink-class, and hybrid failover architectures
+- integration with mission YAML, vehicle YAML, scenario YAML, existing
+  feasibility reports, and later live adapter replay artifacts
+
+Exit criterion: energy/resource and communication-link feasibility can be
+modeled through shared deterministic abstractions instead of one-off
+battery-only or lost-link-only fields.
+
+### Phase 4.7: Scenario Contingency Model Gaps
+
+Status: planned.
+
+Scope:
+
+- Ticket 035: dynamic landing-zone availability
+- Ticket 036: computed divert routing
 - integration with scenario YAML, mission assets, terrain, wind, geofences,
-  landing zones, and existing scenario reports
+  landing zones, resource systems, link systems, and existing scenario reports
 
 Exit criterion: contingency outcomes can use the same configured environment
 and feasibility features as baseline mission estimation.
 
-### Phase 4.7: Uncertainty Modeling
+### Phase 4.8: Uncertainty Modeling
 
 Status: planned.
 
 Scope:
 
-- Ticket 036: Monte Carlo uncertainty modeling
+- Ticket 037: Monte Carlo uncertainty modeling
 - YAML-configured uncertainty inputs
 - explicit opt-in CLI/API execution path
 - JSON/Markdown uncertainty reports that preserve deterministic baseline output
 
 Exit criterion: uncertainty analysis composes with existing mission, vehicle,
-terrain, wind, geofence, landing-zone, energy, and scenario behavior without
-changing deterministic defaults.
+terrain, wind, geofence, landing-zone, resource, link, energy, and scenario
+behavior without changing deterministic defaults.
 
 ### Phase 5: SITL Integration
 
@@ -213,9 +233,10 @@ Status: planned.
 
 Prerequisites:
 
-- Ticket 034: Dynamic Landing-Zone Availability
-- Ticket 035: Computed Divert Routing
-- Ticket 036: Monte Carlo Uncertainty Modeling
+- Ticket 034: Resource and Link Feasibility Abstractions
+- Ticket 035: Dynamic Landing-Zone Availability
+- Ticket 036: Computed Divert Routing
+- Ticket 037: Monte Carlo Uncertainty Modeling
 
 Scope:
 

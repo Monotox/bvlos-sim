@@ -1,4 +1,4 @@
-# Ticket 035: Computed Divert Routing
+# Ticket 036: Computed Divert Routing
 
 ## Goal
 
@@ -23,12 +23,13 @@ for the divert action.
 ## Integration Requirements
 
 - Use existing mission YAML landing-zone assets, geofence assets, terrain assets,
-  wind layers, wind grids, vehicle performance, and energy models when building
-  divert estimates.
+  wind layers, wind grids, vehicle performance, resource systems, link systems,
+  and energy models when building divert estimates.
 - Keep `lost_link_policy` and `divert_target_id` in scenario YAML as the primary
   scenario entry point.
 - Add scenario YAML examples that combine computed divert routing with dynamic
-  landing-zone availability, terrain-referenced altitude, and wind-grid inputs.
+  landing-zone availability, terrain-referenced altitude, wind-grid inputs,
+  external/tethered power, and communication-link constraints.
 - Expose divert details through the existing `scenario` command and scenario
   envelope rather than a separate command.
 - Keep the `estimate` command behavior stable for missions that do not execute
@@ -42,7 +43,7 @@ for the divert action.
 - Infeasible divert actions produce structured diagnostics.
 - Existing non-divert lost-link policy behavior remains stable.
 - Divert routing composes with existing YAML-configured mission, vehicle,
-  terrain, wind, geofence, and landing-zone features.
+  terrain, wind, geofence, landing-zone, resource, and link features.
 
 ## Out of Scope
 
