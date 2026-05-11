@@ -14,9 +14,9 @@ from estimator import EstimateStatus, MissionEstimate
 from estimator.core.enums import FailureCode, WarningCode
 from estimator.core.results import EstimatorContextValue
 
-RESULT_ENVELOPE_SCHEMA_VERSION = "estimator-envelope.v4"
-MISSION_SCHEMA_VERSION = "mission.v4"
-VEHICLE_SCHEMA_VERSION = "vehicle.v2"
+RESULT_ENVELOPE_SCHEMA_VERSION = "estimator-envelope.v5"
+MISSION_SCHEMA_VERSION = "mission.v5"
+VEHICLE_SCHEMA_VERSION = "vehicle.v3"
 GEOFENCE_SCHEMA_VERSION = "geofence-geojson.v1"
 LANDING_ZONE_SCHEMA_VERSION = "landing-zone-geojson.v1"
 TERRAIN_SCHEMA_VERSION = "terrain-grid.v1"
@@ -30,6 +30,8 @@ _ASSUMPTIONS = [
     "Fidelity v1 uses geodesic leg-to-leg kinematics with no turn-arc dynamics or sub-segment wind sampling; fidelity v2 adds turn-arc geometry and sub-segment sampling.",
     "Fixed-wing circular loiter requires fidelity v2; it is unsupported in fidelity v1.",
     "Energy feasibility uses deterministic phase power values from the vehicle profile.",
+    "Explicit resource systems are evaluated after route expansion; when configured, they determine resource feasibility while result.energy remains the legacy battery-only energy view.",
+    "Communication-link feasibility is deterministic and uses configured static availability and range constraints only; live network calls are not performed.",
     "Static geofence feasibility uses 2D lon/lat route-segment geometry.",
     "Static landing-zone reachability uses straight-line geodesic distance and deterministic cruise-power divert energy.",
     "Landing-zone v1 excludes terrain, obstacles, dynamic availability, suitability scoring, and comms dependency.",
@@ -47,6 +49,14 @@ _TOTAL_FIELD_PATHS = [
 
 _ENERGY_FIELD_PATHS = [
     "result.energy",
+]
+
+_RESOURCE_FIELD_PATHS = [
+    "result.resource",
+]
+
+_LINK_FIELD_PATHS = [
+    "result.link",
 ]
 
 _GEOFENCE_FIELD_PATHS = [
@@ -68,6 +78,18 @@ _ENERGY_FAILURE_CODES = frozenset(
     }
 )
 
+_RESOURCE_FAILURE_CODES = frozenset(
+    {
+        FailureCode.RESOURCE_FEASIBILITY_FAILED,
+    }
+)
+
+_LINK_FAILURE_CODES = frozenset(
+    {
+        FailureCode.LINK_FEASIBILITY_FAILED,
+    }
+)
+
 _GEOFENCE_FAILURE_CODES = frozenset(
     {
         FailureCode.ROUTE_ENTERS_FORBIDDEN_ZONE,
@@ -84,7 +106,11 @@ _LANDING_ZONE_FAILURE_CODES = frozenset(
 )
 
 _STATIC_FEASIBILITY_FAILURE_CODES = (
-    _ENERGY_FAILURE_CODES | _GEOFENCE_FAILURE_CODES | _LANDING_ZONE_FAILURE_CODES
+    _ENERGY_FAILURE_CODES
+    | _RESOURCE_FAILURE_CODES
+    | _LINK_FAILURE_CODES
+    | _GEOFENCE_FAILURE_CODES
+    | _LANDING_ZONE_FAILURE_CODES
 )
 
 
@@ -263,6 +289,16 @@ def _static_feasibility_result_validity(result: MissionEstimate) -> ResultValidi
 
     artifact_requirements = (
         (True, result.energy is not None, _ENERGY_FIELD_PATHS),
+        (
+            result.failure.code in _RESOURCE_FAILURE_CODES,
+            result.resource is not None,
+            _RESOURCE_FIELD_PATHS,
+        ),
+        (
+            result.failure.code in _LINK_FAILURE_CODES,
+            result.link is not None,
+            _LINK_FIELD_PATHS,
+        ),
         (
             result.failure.code in _GEOFENCE_FAILURE_CODES,
             result.geofence is not None,

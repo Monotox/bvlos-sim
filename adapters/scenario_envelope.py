@@ -18,7 +18,7 @@ from estimator.core.scenario import (
     TimelinePoint,
 )
 
-SCENARIO_REPORT_SCHEMA_VERSION = "scenario-report.v1"
+SCENARIO_REPORT_SCHEMA_VERSION = "scenario-report.v2"
 SCENARIO_INPUT_SCHEMA_VERSION = "scenario.v1"
 
 

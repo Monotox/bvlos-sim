@@ -9,6 +9,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from schemas.resource_link import ResourceSystemConfig
 from schemas.vehicle_capabilities import VehicleCapabilities
 from schemas.vehicle_energy import EnergyModel, FailsafeProfile
 from schemas.vehicle_enums import AutopilotStack, VehicleClass
@@ -80,6 +81,13 @@ class VehicleProfile(BaseModel):
     mass: MassProfile
     performance: PerformanceProfile
     energy: EnergyModel
+    resource_systems: list[ResourceSystemConfig] = Field(
+        default_factory=list,
+        description=(
+            "Optional generalized resource systems. When omitted, the estimator "
+            "uses vehicle.energy as the legacy onboard battery resource."
+        ),
+    )
     failsafe: FailsafeProfile = Field(default_factory=FailsafeProfile)
     capabilities: VehicleCapabilities | None = Field(
         default=None,
@@ -112,6 +120,7 @@ __all__ = [
     "FailsafeProfile",
     "MassProfile",
     "PerformanceProfile",
+    "ResourceSystemConfig",
     "SitlProfile",
     "VehicleCapabilities",
     "VehicleClass",

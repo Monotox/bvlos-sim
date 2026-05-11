@@ -33,7 +33,7 @@ def test_cli_success_json_output_is_deterministic_and_complete(tmp_path: Path) -
     assert first.stdout == second.stdout
 
     envelope = json.loads(first.stdout)
-    assert envelope["schema_version"] == "estimator-envelope.v4"
+    assert envelope["schema_version"] == "estimator-envelope.v5"
     assert envelope["tool_version"] == "0.2.0"
     assert envelope["status"] == "success"
     assert envelope["result_validity"]["is_complete"] is True

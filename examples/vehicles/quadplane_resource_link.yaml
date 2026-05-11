@@ -1,0 +1,57 @@
+vehicle_id: quadplane_resource_link
+display_name: QuadPlane Resource/Link Example
+vehicle_class: vtol
+mav_type: MAV_TYPE_VTOL_QUADROTOR
+autopilot: ardupilot
+
+mass:
+  empty_kg: 8.0
+  max_payload_kg: 2.0
+  max_takeoff_kg: 12.0
+
+performance:
+  cruise_speed_mps: 18.0
+  hover_speed_mps: 5.0
+  max_speed_mps: 25.0
+  climb_rate_mps: 3.0
+  descent_rate_mps: 2.0
+  turn_radius_m: 80.0
+  max_wind_mps: 10.0
+  max_crab_angle_deg: 35.0
+  max_station_keep_wind_mps: 8.0
+
+energy:
+  battery_capacity_wh: 900.0
+  reserve_percent_default: 25.0
+  cruise_power_w: 450.0
+  hover_power_w: 1200.0
+  climb_power_w: 1500.0
+
+resource_systems:
+  - resource_id: fiber-power-primary
+    kind: external_power
+    delivery: optical_fiber
+    priority: 0
+    continuous_power_w: 2000.0
+    max_tether_length_m: 2500.0
+    max_route_time_s: 900.0
+  - resource_id: onboard-battery-backup
+    kind: onboard_battery
+    priority: 1
+
+failsafe:
+  low_battery_warn_percent: 30
+  low_battery_abort_percent: 25
+  emergency_land_percent: 10
+
+capabilities:
+  hover: true
+  forward_flight: true
+
+sitl:
+  backend: ardupilot
+  frame: quadplane
+
+metadata:
+  calibration_status: placeholder_values
+  notes: Demonstrates explicit resource systems while retaining legacy energy fields.

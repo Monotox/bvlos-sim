@@ -134,6 +134,74 @@ class EnergyEstimate(BaseModel):
     legs: list[EnergyLegEstimate] = Field(default_factory=list)
 
 
+class ResourceSystemEstimate(BaseModel):
+    """Per-resource deterministic feasibility result."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    resource_id: str
+    kind: str
+    priority: int
+    is_feasible: bool
+    demand_energy_wh: float
+    available_energy_wh: float | None = None
+    reserve_threshold_wh: float | None = None
+    reserve_after_resource_wh: float | None = None
+    peak_power_w: float
+    available_power_w: float | None = None
+    route_distance_m: float
+    max_route_distance_m: float | None = None
+    route_time_s: float
+    max_route_time_s: float | None = None
+    max_observed_home_distance_m: float
+    max_tether_length_m: float | None = None
+    limiting_reason: str | None = None
+
+
+class ResourceEstimate(BaseModel):
+    """Mission-level deterministic resource feasibility result."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    is_feasible: bool
+    selected_resource_id: str | None = None
+    total_demand_wh: float
+    peak_power_w: float
+    route_distance_m: float
+    route_time_s: float
+    max_observed_home_distance_m: float
+    systems: list[ResourceSystemEstimate] = Field(default_factory=list)
+
+
+class LinkSystemEstimate(BaseModel):
+    """Per-link deterministic feasibility result."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    link_id: str
+    kind: str
+    required: bool
+    priority: int
+    is_feasible: bool
+    availability: str
+    max_range_m: float | None = None
+    max_observed_range_m: float
+    limiting_reason: str | None = None
+
+
+class LinkEstimate(BaseModel):
+    """Mission-level deterministic communication-link feasibility result."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    is_feasible: bool
+    selected_link_id: str | None = None
+    required_link_count: int
+    available_link_count: int
+    max_observed_range_m: float
+    systems: list[LinkSystemEstimate] = Field(default_factory=list)
+
+
 class GeofenceConflict(BaseModel):
     """Route-vs-geofence conflict record."""
 
@@ -212,6 +280,8 @@ class MissionEstimate(BaseModel):
     totals_are_partial: bool
     legs: list[LegEstimate] = Field(default_factory=list)
     energy: EnergyEstimate | None = None
+    resource: ResourceEstimate | None = None
+    link: LinkEstimate | None = None
     geofence: GeofenceEstimate | None = None
     landing_zone: LandingZoneEstimate | None = None
     warnings: list[EstimatorWarning] = Field(default_factory=list)

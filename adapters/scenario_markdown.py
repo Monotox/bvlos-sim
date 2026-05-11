@@ -132,6 +132,34 @@ def _render_energy_section(envelope: ScenarioResultEnvelope) -> Lines:
     return _section("Energy Feasibility", body)
 
 
+def _render_resource_section(envelope: ScenarioResultEnvelope) -> Lines:
+    resource = envelope.estimate.resource if envelope.estimate else None
+    if resource is None:
+        return []
+    body = [
+        f"- Feasible: `{str(resource.is_feasible).lower()}`",
+        f"- Selected resource: `{resource.selected_resource_id}`",
+        f"- Total demand Wh: `{resource.total_demand_wh}`",
+        f"- Peak power W: `{resource.peak_power_w}`",
+        f"- Systems: `{len(resource.systems)}`",
+    ]
+    return _section("Resource Feasibility", body)
+
+
+def _render_link_section(envelope: ScenarioResultEnvelope) -> Lines:
+    link = envelope.estimate.link if envelope.estimate else None
+    if link is None:
+        return []
+    body = [
+        f"- Feasible: `{str(link.is_feasible).lower()}`",
+        f"- Selected link: `{link.selected_link_id}`",
+        f"- Required links: `{link.required_link_count}`",
+        f"- Available links: `{link.available_link_count}`",
+        f"- Systems: `{len(link.systems)}`",
+    ]
+    return _section("Link Feasibility", body)
+
+
 def _render_geofence_section(envelope: ScenarioResultEnvelope) -> Lines:
     geofence = envelope.estimate.geofence if envelope.estimate else None
     if geofence is None:
@@ -181,6 +209,8 @@ _SECTION_RENDERERS: list[SectionRenderer] = [
     _render_provenance,
     _render_estimate_summary,
     _render_energy_section,
+    _render_resource_section,
+    _render_link_section,
     _render_geofence_section,
     _render_landing_zone_section,
 ]

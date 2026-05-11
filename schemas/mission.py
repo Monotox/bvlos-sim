@@ -12,6 +12,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from schemas.resource_link import LinkSystemConfig
+
 
 class AltitudeReference(StrEnum):
     """Altitude reference frame for mission authoring and simulation."""
@@ -419,6 +421,13 @@ class MissionPlan(BaseModel):
     constraints: MissionConstraints
     assets: MissionAssets = Field(default_factory=MissionAssets)
     policy: MissionPolicyRef = Field(default_factory=MissionPolicyRef)
+    link_systems: list[LinkSystemConfig] = Field(
+        default_factory=list,
+        description=(
+            "Optional deterministic communication-link systems evaluated for "
+            "mission feasibility. No live network calls are made."
+        ),
+    )
     estimation: MissionEstimation | None = Field(
         default=None,
         description="Optional persisted estimator settings used when runtime options are absent.",

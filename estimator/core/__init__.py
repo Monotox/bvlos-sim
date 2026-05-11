@@ -44,7 +44,11 @@ from estimator.core.results import (
     LandingZoneEstimate,
     LandingZoneStateReachability,
     LegEstimate,
+    LinkEstimate,
+    LinkSystemEstimate,
     MissionEstimate,
+    ResourceEstimate,
+    ResourceSystemEstimate,
     WindVector,
 )
 
@@ -79,7 +83,11 @@ __all__ = [
     "LandingZoneStateReachability",
     "LegPhase",
     "LegEstimate",
+    "LinkEstimate",
+    "LinkSystemEstimate",
     "MissionEstimate",
+    "ResourceEstimate",
+    "ResourceSystemEstimate",
     "SpeedSource",
     "UnsupportedEstimatorFeatureError",
     "WarningCode",
