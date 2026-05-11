@@ -41,6 +41,17 @@ Implementation note:
 - JSON output is canonical and deterministic.
 - Failed and partial results are impossible to confuse with complete success.
 
+## Integrated Surfaces
+
+- Mission and vehicle YAML/JSON are loaded through `bvlos-sim estimate`.
+- The command composes with mission asset references for geofences,
+  landing zones, terrain grids, and wind grids.
+- Canonical JSON and Markdown outputs use the same envelope construction path
+  as golden fixture tests.
+- CLI exit codes remain part of the public contract and are covered by tests.
+- The package-root estimator API remains the core execution surface used by
+  adapters rather than embedding estimation logic in the CLI.
+
 ## Out of Scope
 
 - Energy feasibility.

@@ -8,7 +8,8 @@ Add deterministic energy and reserve checks without expanding geometry scope.
 
 ## Current Gap
 
-Distance/time estimation exists, but no energy feasibility or reserve-at-landing logic is implemented.
+This ticket is complete. Energy feasibility and reserve-at-landing results are
+part of the estimator and scenario outputs.
 
 ## Scope
 
@@ -44,6 +45,19 @@ Distance/time estimation exists, but no energy feasibility or reserve-at-landing
 - Mission reserve is an optional override; vehicle reserve default is used when the mission omits it.
 - Energy feasibility failures keep kinematic totals complete when the full route was already estimated.
 - JSON envelope versions were bumped to `estimator-envelope.v2`, `mission.v2`, and `vehicle.v2` because input semantics and result shape changed.
+
+## Integrated Surfaces
+
+- Vehicle YAML defines battery capacity, usable energy policy, reserve default,
+  and phase energy parameters.
+- Mission YAML can override reserve requirements with
+  `constraints.min_landing_reserve_percent`.
+- `estimate` and `scenario` outputs include `result.energy` /
+  `estimate.energy` fields in JSON and Markdown.
+- Energy assertions are available through scenario field assertions such as
+  `estimate.energy.is_feasible`.
+- Energy behavior composes with terrain, wind, geofence, landing-zone, and
+  fidelity-v2 route expansion.
 
 ## Out of Scope
 

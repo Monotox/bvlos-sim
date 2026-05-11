@@ -14,7 +14,7 @@ The current `v0.2.0` release implements Phases 1 through 4, plus Tickets 032 and
 - terrain-referenced altitude execution
 - continuous spatiotemporal wind grid
 
-The test suite currently passes with 304 tests.
+The test suite currently passes with 307 tests.
 
 bvlos-sim remains an engineering validation tool. It is not a flight-safety
 system, operational approval tool, or complete BVLOS compliance system.
@@ -83,15 +83,15 @@ Estimator limitations:
 
 Scenario limitations:
 
-- `divert` policy outcomes record the target ID but do not compute a divert route
-- no dynamic landing-zone availability model
+- no dynamic landing-zone availability model (Ticket 034)
+- `divert` policy outcomes record the target ID but do not compute a divert route (Ticket 035)
 
 Platform limitations:
 
 - no SITL adapter yet
 - no REST API
 - no web UI
-- no UTM/U-space integration
+- no live comms, UTM/U-space, Remote ID, or traffic integrations
 - no batch import/export workflows
 - no real-world calibration pipeline
 
@@ -163,9 +163,59 @@ Delivered:
 Exit criterion: improved fidelity modes are available without breaking v1
 contracts.
 
+### Phase 4.5: Environmental Model Extensions
+
+Status: implemented.
+
+Delivered:
+
+- Ticket 032: terrain-referenced altitude execution
+- Ticket 033: continuous spatiotemporal wind grid
+- mission YAML asset integration for terrain and wind-grid files
+- terrain and wind examples
+- CLI, envelope, Markdown, and fixture coverage
+
+Exit criterion: terrain and wind-grid inputs can be used through the same
+mission YAML and `estimate` command path as existing deterministic features.
+
+### Phase 4.6: Scenario Contingency Model Gaps
+
+Status: planned.
+
+Scope:
+
+- Ticket 034: dynamic landing-zone availability
+- Ticket 035: computed divert routing
+- integration with scenario YAML, mission assets, terrain, wind, geofences,
+  landing zones, and existing scenario reports
+
+Exit criterion: contingency outcomes can use the same configured environment
+and feasibility features as baseline mission estimation.
+
+### Phase 4.7: Uncertainty Modeling
+
+Status: planned.
+
+Scope:
+
+- Ticket 036: Monte Carlo uncertainty modeling
+- YAML-configured uncertainty inputs
+- explicit opt-in CLI/API execution path
+- JSON/Markdown uncertainty reports that preserve deterministic baseline output
+
+Exit criterion: uncertainty analysis composes with existing mission, vehicle,
+terrain, wind, geofence, landing-zone, energy, and scenario behavior without
+changing deterministic defaults.
+
 ### Phase 5: SITL Integration
 
 Status: planned.
+
+Prerequisites:
+
+- Ticket 034: Dynamic Landing-Zone Availability
+- Ticket 035: Computed Divert Routing
+- Ticket 036: Monte Carlo Uncertainty Modeling
 
 Scope:
 
@@ -174,6 +224,7 @@ Scope:
 - telemetry recorder
 - policy command execution through MAVLink
 - replay and evidence bundle generation
+- comparison against existing deterministic `scenario` outputs
 
 Exit criterion: a scenario can be executed against ArduPilot SITL with recorded
 evidence.
@@ -188,6 +239,7 @@ Scope:
 - web map UI for route, phases, warnings, failures, and timeline playback
 - consistent JSON and Markdown report outputs
 - optional PDF/report export after report contracts stabilize
+- shared execution path with `estimate` and `scenario`
 
 Exit criterion: users can run missions and scenarios from UI or API with
 consistent outputs.
@@ -203,6 +255,8 @@ Scope:
 - batch-run support
 - performance profiling
 - report comparison and diff tooling
+- batch manifests referencing existing mission, vehicle, scenario, terrain,
+  wind, geofence, and landing-zone files
 
 Exit criterion: teams can import external plans, run batches, and compare
 outputs efficiently.
@@ -214,6 +268,7 @@ Status: planned.
 Scope:
 
 - UTM/U-space integration seams
+- live comms, Remote ID, and traffic-observation seams
 - operational intent and conformance check interfaces
 - schema migration guidance
 - reproducibility and evidence standards

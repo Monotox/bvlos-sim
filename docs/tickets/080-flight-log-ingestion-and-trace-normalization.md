@@ -27,10 +27,22 @@ The simulator has no real-flight data ingestion layer. There is no normalized fl
   - missing fields
 - Store normalized traces as versioned artifacts.
 
+## Integration Requirements
+
+- Normalized traces must reference existing mission and vehicle YAML where a
+  matching planned flight is available.
+- Trace artifacts should be consumable by validation tooling without changing
+  `estimate` or `scenario` input schemas.
+- Add examples that pair a mission, vehicle, terrain, wind, and trace artifact
+  for validation workflows.
+- Preserve provenance linking raw logs, parsed traces, tool versions, and
+  mission/scenario inputs.
+
 ## Acceptance Criteria
 
 - At least one real log format can be ingested into a deterministic internal trace model.
 - The normalized trace format is documented and versioned.
+- Ingested traces can be used alongside existing estimator and scenario outputs.
 
 ## Out of Scope
 

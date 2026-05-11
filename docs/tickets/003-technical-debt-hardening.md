@@ -68,6 +68,17 @@ Follow-up hardening completed after the initial package-boundary cleanup:
 - No schema field is silently accepted without a clear implemented meaning, explicit rejection, or documented reserved status.
 - README, roadmap, and ticket backlog reflect the actual current architecture and test status.
 
+## Integrated Surfaces
+
+- Hardening work applies across schemas, estimator execution, scenario
+  execution, adapters, examples, docs, and golden fixtures.
+- Accepted YAML fields are either implemented, explicitly reserved, or rejected
+  through schema/runtime validation.
+- Public Python imports are centralized through the package-root `estimator`
+  API while adapter concerns remain in `adapters/`.
+- CLI error handling preserves deterministic envelopes for estimate and
+  scenario commands.
+
 ## Out of Scope
 
 - New estimator capabilities or new mission feature support.

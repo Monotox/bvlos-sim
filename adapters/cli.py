@@ -1,7 +1,10 @@
 """Typer CLI adapter for estimator execution."""
 
+from collections.abc import Callable
+from dataclasses import dataclass
 from enum import IntEnum
 from pathlib import Path
+from typing import TypeVar
 
 import typer
 from pydantic import ValidationError
@@ -43,15 +46,21 @@ from estimator import (
     EstimatorFailure,
     FailureKind,
     FidelityMode,
+    GeofenceZone,
+    GridTerrainProvider,
     LayeredWindProvider,
+    LandingZone,
     MissionEstimate,
     ScenarioStatus,
+    SpatiotemporalWindProvider,
     WindLayer,
     run_scenario,
     try_estimate_mission_distance_time,
 )
+from schemas import MissionPlan
 
 StaticAssetLoadError = GeofenceLoadError | LandingZoneLoadError | TerrainGridLoadError | WindGridLoadError
+LoadedAssetT = TypeVar("LoadedAssetT")
 
 app = typer.Typer(name="bvlos-sim", add_completion=False, no_args_is_help=True)
 
@@ -73,6 +82,43 @@ class ScenarioExitCode(IntEnum):
 
 class OutputWriteError(OSError):
     """Raised when the CLI cannot write rendered output."""
+
+
+@dataclass
+class MissionAssetBundle:
+    """Loaded optional mission assets plus their input provenance."""
+
+    terrain_provider: GridTerrainProvider | None = None
+    terrain_document: InputDocument | None = None
+    wind_provider: SpatiotemporalWindProvider | None = None
+    wind_grid_document: InputDocument | None = None
+    geofences: list[GeofenceZone] | None = None
+    geofence_document: InputDocument | None = None
+    landing_zones: list[LandingZone] | None = None
+    landing_zone_document: InputDocument | None = None
+
+    def envelope_inputs(
+        self,
+        *,
+        mission_document: InputDocument,
+        vehicle_document: InputDocument,
+    ) -> EnvelopeInputs:
+        return EnvelopeInputs(
+            mission=mission_document,
+            vehicle=vehicle_document,
+            geofences=self.geofence_document,
+            landing_zones=self.landing_zone_document,
+            terrain=self.terrain_document,
+            wind_grid=self.wind_grid_document,
+        )
+
+    def known_documents(self) -> dict[str, InputDocument | None]:
+        return {
+            "geofences": self.geofence_document,
+            "landing_zones": self.landing_zone_document,
+            "terrain": self.terrain_document,
+            "wind_grid": self.wind_grid_document,
+        }
 
 
 @app.callback()
@@ -203,15 +249,52 @@ def _resolve_asset_path(path: Path, *, mission_path: Path) -> Path:
     return mission_path.parent / path
 
 
+def _load_optional_asset(
+    path: Path | None,
+    *,
+    mission_path: Path,
+    loader: Callable[[Path], tuple[LoadedAssetT, InputDocument]],
+) -> tuple[LoadedAssetT | None, InputDocument | None]:
+    if path is None:
+        return None, None
+    return loader(_resolve_asset_path(path, mission_path=mission_path))
+
+
+def _populate_mission_assets(
+    bundle: MissionAssetBundle,
+    *,
+    mission_model: MissionPlan,
+    mission_document: InputDocument,
+) -> None:
+    mission_path = mission_document.path
+    bundle.terrain_provider, bundle.terrain_document = _load_optional_asset(
+        mission_model.assets.terrain_file,
+        mission_path=mission_path,
+        loader=load_terrain_grid,
+    )
+    bundle.wind_provider, bundle.wind_grid_document = _load_optional_asset(
+        mission_model.assets.wind_grid_file,
+        mission_path=mission_path,
+        loader=load_wind_grid,
+    )
+    bundle.geofences, bundle.geofence_document = _load_optional_asset(
+        mission_model.assets.geofences_file,
+        mission_path=mission_path,
+        loader=load_geofences,
+    )
+    bundle.landing_zones, bundle.landing_zone_document = _load_optional_asset(
+        mission_model.assets.landing_zones_file,
+        mission_path=mission_path,
+        loader=load_landing_zones,
+    )
+
+
 def _envelope_inputs_for_static_asset_error(
     error: StaticAssetLoadError,
     *,
     mission_document: InputDocument | None,
     vehicle_document: InputDocument | None,
-    geofence_document: InputDocument | None,
-    landing_zone_document: InputDocument | None,
-    terrain_document: InputDocument | None,
-    wind_grid_document: InputDocument | None,
+    mission_assets: MissionAssetBundle,
 ) -> EnvelopeInputs | None:
     if mission_document is None or vehicle_document is None:
         return None
@@ -222,23 +305,37 @@ def _envelope_inputs_for_static_asset_error(
         geofences=(
             error.document
             if isinstance(error, GeofenceLoadError)
-            else geofence_document
+            else mission_assets.geofence_document
         ),
         landing_zones=(
             error.document
             if isinstance(error, LandingZoneLoadError)
-            else landing_zone_document
+            else mission_assets.landing_zone_document
         ),
         terrain=(
             error.document
             if isinstance(error, TerrainGridLoadError)
-            else terrain_document
+            else mission_assets.terrain_document
         ),
         wind_grid=(
             error.document
             if isinstance(error, WindGridLoadError)
-            else wind_grid_document
+            else mission_assets.wind_grid_document
         ),
+    )
+
+
+def _input_error_for_geojson_asset_error(
+    error: GeofenceLoadError | LandingZoneLoadError,
+) -> InputLoadError:
+    input_name = "geofences" if isinstance(error, GeofenceLoadError) else "landing_zones"
+    return InputLoadError(
+        str(error),
+        input_name=input_name,
+        path=error.path,
+        stage=InputLoadStage.SCHEMA_VALIDATION,
+        details=error.failure.context,
+        document=error.document,
     )
 
 
@@ -299,63 +396,33 @@ def estimate(
 
     mission_document: InputDocument | None = None
     vehicle_document: InputDocument | None = None
-    geofence_document: InputDocument | None = None
-    landing_zone_document: InputDocument | None = None
-    terrain_document: InputDocument | None = None
-    wind_grid_document: InputDocument | None = None
+    mission_assets = MissionAssetBundle()
     envelope_inputs: EnvelopeInputs | None = None
     try:
         options = _build_estimation_options(fidelity, max_segment_length_m)
         wind_provider = LayeredWindProvider(_parse_wind_layers(wind_layer)) if wind_layer else None
         mission_model, mission_document = load_mission(mission)
         vehicle_model, vehicle_document = load_vehicle(vehicle)
-        terrain_provider = None
-        if mission_model.assets.terrain_file is not None:
-            terrain_path = _resolve_asset_path(
-                mission_model.assets.terrain_file,
-                mission_path=mission_document.path,
-            )
-            terrain_provider, terrain_document = load_terrain_grid(terrain_path)
-        asset_wind_provider = None
-        if mission_model.assets.wind_grid_file is not None:
-            wind_grid_path = _resolve_asset_path(
-                mission_model.assets.wind_grid_file,
-                mission_path=mission_document.path,
-            )
-            asset_wind_provider, wind_grid_document = load_wind_grid(wind_grid_path)
+        _populate_mission_assets(
+            mission_assets,
+            mission_model=mission_model,
+            mission_document=mission_document,
+        )
         # CLI --wind-layer takes precedence over mission asset wind grid
         if wind_provider is None:
-            wind_provider = asset_wind_provider
-        geofences = None
-        if mission_model.assets.geofences_file is not None:
-            geofence_path = _resolve_asset_path(
-                mission_model.assets.geofences_file,
-                mission_path=mission_document.path,
-            )
-            geofences, geofence_document = load_geofences(geofence_path)
-        landing_zones = None
-        if mission_model.assets.landing_zones_file is not None:
-            landing_zone_path = _resolve_asset_path(
-                mission_model.assets.landing_zones_file,
-                mission_path=mission_document.path,
-            )
-            landing_zones, landing_zone_document = load_landing_zones(landing_zone_path)
-        envelope_inputs = EnvelopeInputs(
-            mission=mission_document,
-            vehicle=vehicle_document,
-            geofences=geofence_document,
-            landing_zones=landing_zone_document,
-            terrain=terrain_document,
-            wind_grid=wind_grid_document,
+            wind_provider = mission_assets.wind_provider
+        envelope_inputs = mission_assets.envelope_inputs(
+            mission_document=mission_document,
+            vehicle_document=vehicle_document,
         )
         result = try_estimate_mission_distance_time(
             mission_model,
             vehicle_model,
             options=options,
             wind_provider=wind_provider,
-            terrain_provider=terrain_provider,
-            geofences=geofences,
-            landing_zones=landing_zones,
+            terrain_provider=mission_assets.terrain_provider,
+            geofences=mission_assets.geofences,
+            landing_zones=mission_assets.landing_zones,
         )
         envelope = build_estimator_envelope(
             result=result,
@@ -387,10 +454,7 @@ def estimate(
             exc,
             mission_document=mission_document,
             vehicle_document=vehicle_document,
-            geofence_document=geofence_document,
-            landing_zone_document=landing_zone_document,
-            terrain_document=terrain_document,
-            wind_grid_document=wind_grid_document,
+            mission_assets=mission_assets,
         )
         if asset_error_inputs is not None:
             envelope_inputs = asset_error_inputs
@@ -464,6 +528,7 @@ def scenario(
     scenario_document: InputDocument | None = None
     mission_document: InputDocument | None = None
     vehicle_document: InputDocument | None = None
+    mission_assets = MissionAssetBundle()
     scenario_id = "<unknown>"
 
     try:
@@ -480,12 +545,30 @@ def scenario(
         mission_model, mission_document = load_mission(mission_path)
         vehicle_model, vehicle_document = load_vehicle(vehicle_path)
 
-        result = run_scenario(scenario_plan, mission_model, vehicle_model)
+        _populate_mission_assets(
+            mission_assets,
+            mission_model=mission_model,
+            mission_document=mission_document,
+        )
+
+        result = run_scenario(
+            scenario_plan,
+            mission_model,
+            vehicle_model,
+            wind_provider=mission_assets.wind_provider,
+            terrain_provider=mission_assets.terrain_provider,
+            geofences=mission_assets.geofences,
+            landing_zones=mission_assets.landing_zones,
+        )
         envelope = build_scenario_envelope(
             result=result,
             scenario_document=scenario_document,
             mission_document=mission_document,
             vehicle_document=vehicle_document,
+            geofence_document=mission_assets.geofence_document,
+            landing_zone_document=mission_assets.landing_zone_document,
+            terrain_document=mission_assets.terrain_document,
+            wind_grid_document=mission_assets.wind_grid_document,
         )
         _write_output(_render_scenario_output(format, envelope), output)
         exit_code = (
@@ -501,6 +584,28 @@ def scenario(
             scenario_document=scenario_document,
             mission_document=mission_document,
             vehicle_document=vehicle_document,
+            known_documents=mission_assets.known_documents(),
+        )
+        try:
+            _write_output(_render_scenario_output(format, envelope), output)
+        except OutputWriteError as write_exc:
+            _emit_scenario_internal_error(
+                output_format=format,
+                scenario_id=scenario_id,
+                scenario_document=scenario_document,
+                mission_document=mission_document,
+                vehicle_document=vehicle_document,
+            )
+            raise typer.Exit(code=int(ScenarioExitCode.INTERNAL_ERROR)) from write_exc
+        raise typer.Exit(code=int(ScenarioExitCode.INVALID_INPUT)) from exc
+    except (GeofenceLoadError, LandingZoneLoadError) as exc:
+        envelope = build_scenario_invalid_input_envelope(
+            scenario_id=scenario_id,
+            error=_input_error_for_geojson_asset_error(exc),
+            scenario_document=scenario_document,
+            mission_document=mission_document,
+            vehicle_document=vehicle_document,
+            known_documents=mission_assets.known_documents(),
         )
         try:
             _write_output(_render_scenario_output(format, envelope), output)

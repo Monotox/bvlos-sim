@@ -9,9 +9,9 @@ estimator outputs deterministic and auditable.
 
 ## Current Gap
 
-Terrain-referenced altitude inputs are rejected as unsupported. The estimator
-does not load terrain data, resolve ground elevation along a route, or report
-terrain-derived altitude assumptions.
+This ticket is complete. Terrain-referenced altitude inputs are resolved through
+offline terrain providers, and terrain-derived metadata is reported in estimator
+outputs.
 
 ## Scope
 
@@ -45,6 +45,18 @@ terrain-derived altitude assumptions.
 - `examples/terrain/flat_polder.yaml` example grid
 - Golden fixture scenario `tests/fixtures/golden/terrain/`
 - 19 new tests in `tests/test_terrain_altitude.py`
+
+## Integrated Surfaces
+
+- Mission YAML uses `assets.terrain_file` to reference terrain grids.
+- Terrain examples live under `examples/terrain/`.
+- The `estimate` and `scenario` CLI commands load terrain assets through the
+  same mission YAML path used by library callers.
+- Terrain behavior composes with vehicle YAML, mission route actions, geofence
+  checks, landing-zone checks, wind providers, result envelopes, Markdown
+  reports, and golden fixtures.
+- Scenario reports include terrain asset provenance when a scenario references
+  a mission that uses `assets.terrain_file`.
 
 ## Out of Scope
 

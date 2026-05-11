@@ -9,9 +9,9 @@ beyond the current constant, altitude-layered, and scenario wind-change models.
 
 ## Current Gap
 
-Wind can be constant, altitude-banded, or changed at scenario event times. There
-is no continuous spatial or temporal wind grid and no adapter for gridded
-weather products.
+This ticket is complete. Wind can be constant, altitude-banded, changed at
+scenario event times, or supplied through a deterministic spatiotemporal grid
+asset.
 
 ## Scope
 
@@ -43,6 +43,20 @@ weather products.
 - `examples/wind/pipeline_wind_grid.yaml` example grid
 - Golden fixture scenario `tests/fixtures/golden/spatiotemporal_wind/`
 - 22 new tests in `tests/test_wind_spatiotemporal.py`
+
+## Integrated Surfaces
+
+- Mission YAML uses `assets.wind_grid_file` to reference offline wind grids.
+- Wind examples live under `examples/wind/`.
+- The `estimate` and `scenario` CLI commands load wind-grid assets through the
+  same mission YAML path used by library callers.
+- Wind-grid behavior composes with vehicle YAML, mission route actions, terrain
+  assets, geofence checks, landing-zone checks, scenario wind changes, result
+  envelopes, Markdown reports, and golden fixtures.
+- Scenario initial wind settings override mission wind-grid assets when set;
+  otherwise scenarios can inherit `assets.wind_grid_file` from their referenced
+  mission. `wind_change` events can still replace the active wind provider at
+  deterministic timeline triggers.
 
 ## Out of Scope
 

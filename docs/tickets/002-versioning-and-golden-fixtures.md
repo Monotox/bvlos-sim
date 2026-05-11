@@ -32,6 +32,16 @@ Implemented in:
   - partial estimate
 - Add compatibility test harness comparing current outputs to stored golden fixtures.
 
+## Integrated Surfaces
+
+- Golden fixtures cover estimator JSON and Markdown reports.
+- Scenario report golden fixtures cover deterministic scenario envelopes and
+  Markdown rendering.
+- Contract tests exercise adapters on top of package-root APIs so public output
+  changes are caught without freezing internal implementation details.
+- Versioning policy applies to mission, vehicle, scenario, envelope, terrain,
+  wind-grid, geofence, and landing-zone public surfaces.
+
 ## Acceptance Criteria
 
 - Golden output tests fail on unintended contract changes.
