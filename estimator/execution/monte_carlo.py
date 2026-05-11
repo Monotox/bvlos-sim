@@ -28,16 +28,18 @@ def _stats(values: list[float]) -> SampledOutputStats | None:
     if n == 1:
         v = values[0]
         return SampledOutputStats(count=1, mean=v, std=0.0, min=v, p5=v, p50=v, p95=v, max=v)
+    min_val = min(values)
+    max_val = max(values)
     quantiles = stats_module.quantiles(values, n=20)
     return SampledOutputStats(
         count=n,
         mean=stats_module.mean(values),
         std=stats_module.stdev(values),
-        min=min(values),
-        p5=quantiles[0],
+        min=min_val,
+        p5=max(quantiles[0], min_val),
         p50=stats_module.median(values),
-        p95=quantiles[18],
-        max=max(values),
+        p95=min(quantiles[18], max_val),
+        max=max_val,
     )
 
 
