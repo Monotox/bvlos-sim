@@ -75,12 +75,6 @@ path rather than through isolated examples. Current validation includes:
 
 - No SITL integration yet: Tickets 040-043.
 - No REST API or UI: Ticket 050.
-- Generalized resource and link feasibility abstraction: Ticket 034, implemented.
-- Monte Carlo uncertainty modeling: Ticket 037, implemented.
-- Terrain-referenced altitude execution: Ticket 032, implemented.
-- Continuous spatial and temporal wind grid support: Ticket 033, implemented.
-- Dynamic landing-zone availability via scenario `landing_zone_unavailable` events: Ticket 035, implemented.
-- Computed divert route estimates on `CommsLinkPolicyOutcome.divert_estimate`: Ticket 036, implemented.
 - No bank-angle model or Dubins path optimization for transit, turn, and divert
   path segments: Ticket 038.
 - Vertical-only movement does not add 3D slant path distance: Ticket 038.
