@@ -29,3 +29,7 @@ and this project adheres to semantic versioning once public releases begin.
 - Computed divert route estimates on `CommsLinkPolicyOutcome.divert_estimate` when a `lost_link` event fires with a `divert` policy and landing zones are configured; estimate includes geodesic distance, TAS-based transit time, cruise-power energy, reserve after divert, and feasibility flag.
 - `DivertRouteEstimate` model exported from `estimator` package root.
 - `estimator/execution/divert.py` with `compute_divert_estimate` as the deterministic divert route computation function.
+- Monte Carlo uncertainty analysis via new `sample` CLI command and `run_monte_carlo` Python API; configurable via `uncertainty.v1` YAML with seeded reproducibility and per-parameter distributions (`normal`, `uniform`) for wind, cruise speed, cruise power, and battery capacity.
+- `uncertainty-report.v1` JSON envelope and Markdown rendering for uncertainty run outputs.
+- `MonteCarloResult` and `SampledOutputStats` result models exported from `estimator` package root.
+- `UncertaintyPlan`, `UncertaintyParameters`, `NormalDistribution`, `UniformDistribution` schemas exported from `schemas` package root.

@@ -39,6 +39,13 @@ from adapters.scenario_envelope import (
 from adapters.scenario_io import load_scenario, resolve_scenario_asset_path
 from adapters.scenario_markdown import render_scenario_markdown
 from adapters.terrain_grid import TerrainGridLoadError, load_terrain_grid
+from adapters.uncertainty_envelope import (
+    UncertaintyResultEnvelope,
+    build_uncertainty_envelope,
+    render_uncertainty_envelope_json,
+)
+from adapters.uncertainty_io import load_uncertainty_plan, resolve_uncertainty_asset_path
+from adapters.uncertainty_markdown import render_uncertainty_markdown
 from adapters.wind_grid import WindGridLoadError, load_wind_grid
 from estimator import (
     EstimateStatus,
@@ -57,6 +64,7 @@ from estimator import (
     run_scenario,
     try_estimate_mission_distance_time,
 )
+from estimator.execution.monte_carlo import run_monte_carlo
 from schemas import MissionPlan
 
 StaticAssetLoadError = GeofenceLoadError | LandingZoneLoadError | TerrainGridLoadError | WindGridLoadError
@@ -142,6 +150,15 @@ def _render_scenario_output(
     if output_format == OutputFormat.MARKDOWN:
         return render_scenario_markdown(envelope)
     return render_scenario_envelope_json(envelope)
+
+
+def _render_uncertainty_output(
+    output_format: OutputFormat,
+    envelope: UncertaintyResultEnvelope,
+) -> str:
+    if output_format == OutputFormat.MARKDOWN:
+        return render_uncertainty_markdown(envelope)
+    return render_uncertainty_envelope_json(envelope)
 
 
 def _write_output(rendered: str, output: Path | None) -> None:
@@ -630,3 +647,65 @@ def scenario(
             vehicle_document=vehicle_document,
         )
         raise typer.Exit(code=int(ScenarioExitCode.INTERNAL_ERROR)) from exc
+
+
+@app.command()
+def sample(
+    uncertainty_file: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True),
+    format: OutputFormat = typer.Option(OutputFormat.JSON, "--format"),
+    output: Path | None = typer.Option(None, "--output", "-o"),
+) -> None:
+    """Run a seeded Monte Carlo uncertainty analysis and emit an uncertainty report."""
+
+    uncertainty_document = None
+    mission_document = None
+    vehicle_document = None
+    mission_assets = MissionAssetBundle()
+
+    try:
+        plan, uncertainty_document = load_uncertainty_plan(uncertainty_file)
+
+        mission_path = resolve_uncertainty_asset_path(
+            plan.mission_file, uncertainty_path=uncertainty_file
+        )
+        vehicle_path = resolve_uncertainty_asset_path(
+            plan.vehicle_file, uncertainty_path=uncertainty_file
+        )
+
+        mission_model, mission_document = load_mission(mission_path)
+        vehicle_model, vehicle_document = load_vehicle(vehicle_path)
+
+        _populate_mission_assets(
+            mission_assets,
+            mission_model=mission_model,
+            mission_document=mission_document,
+        )
+
+        result = run_monte_carlo(
+            plan,
+            mission_model,
+            vehicle_model,
+            wind_provider=mission_assets.wind_provider,
+            terrain_provider=mission_assets.terrain_provider,
+            geofences=mission_assets.geofences,
+            landing_zones=mission_assets.landing_zones,
+        )
+        envelope = build_uncertainty_envelope(
+            result=result,
+            uncertainty_document=uncertainty_document,
+            mission_document=mission_document,
+            vehicle_document=vehicle_document,
+        )
+        _write_output(_render_uncertainty_output(format, envelope), output)
+        raise typer.Exit(code=int(CliExitCode.SUCCESS))
+    except InputLoadError as exc:
+        typer.echo(f"Input error: {exc}", err=True)
+        raise typer.Exit(code=int(CliExitCode.INVALID_INPUT)) from exc
+    except OutputWriteError as exc:
+        typer.echo(f"Output write error: {exc}", err=True)
+        raise typer.Exit(code=int(CliExitCode.INTERNAL_ERROR)) from exc
+    except typer.Exit:
+        raise
+    except Exception as exc:
+        typer.echo(f"Internal error: {exc}", err=True)
+        raise typer.Exit(code=int(CliExitCode.INTERNAL_ERROR)) from exc

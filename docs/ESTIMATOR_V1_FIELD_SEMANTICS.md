@@ -278,6 +278,39 @@ When the target zone is not found in the configured landing zones, or when energ
 is not available, `divert_estimate` is populated with `is_feasible=False` and a
 descriptive `infeasible_reason`.
 
+## Uncertainty Plan Fields Used At Runtime
+
+Uncertainty files are consumed by the `sample` CLI command:
+
+- `schema_version`
+- `uncertainty_id`
+- `mission_file`
+- `vehicle_file`
+- `samples`
+- `seed`
+- `parameters`
+
+Parameter distributions (each may be `null` to hold the parameter at its deterministic value):
+
+- `parameters.wind_east_mps.kind` / `mean` / `std` / `low` / `high`
+- `parameters.wind_north_mps.kind` / `mean` / `std` / `low` / `high`
+- `parameters.cruise_speed_mps.kind` / `mean` / `std` / `low` / `high`
+- `parameters.cruise_power_w.kind` / `mean` / `std` / `low` / `high`
+- `parameters.battery_capacity_wh.kind` / `mean` / `std` / `low` / `high`
+
+Supported distribution kinds: `normal` (requires `mean` and `std > 0`), `uniform` (requires `low < high`).
+
+## Monte Carlo Sampling Semantics
+
+- Wind sampling (`wind_east_mps`, `wind_north_mps`) overrides the mission wind provider with a `ConstantWindProvider` for each sample. Spatiotemporal and layered wind providers are not used in sampled runs when wind parameters are specified.
+- Cruise speed sampling overrides `mission.defaults.cruise_speed_mps` for each sample.
+- Cruise power sampling overrides `vehicle.energy.cruise_power_w` for each sample.
+- Battery capacity sampling overrides `vehicle.energy.battery_capacity_wh` for each sample.
+- Terrain, geofences, and landing zones are used unchanged across all samples.
+- The baseline estimate is computed once before sampling with unmodified mission, vehicle, and wind provider.
+- Sampling is deterministic for a given `seed`, `samples`, and parameter configuration.
+- `feasibility_rate` is the fraction of completed samples where `energy.is_feasible` is `True`. It is `None` when no completed sample produced an energy estimate.
+
 ## Update Rule
 
 When a non-operative field becomes operative, update all of the following in the

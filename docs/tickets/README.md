@@ -23,7 +23,8 @@ The current codebase includes:
 - package-root public Python API
 - dynamic landing-zone availability via scenario `landing_zone_unavailable` events
 - computed divert route estimates on `CommsLinkPolicyOutcome.divert_estimate` (distance, time, energy, reserve, feasibility)
-- passing estimator/schema/CLI/scenario test suite with 338 tests
+- Monte Carlo uncertainty sampling via `uncertainty.v1` YAML and `sample` CLI command; seeded reproducible runs varying wind, cruise speed, cruise power, and battery capacity
+- passing estimator/schema/CLI/scenario test suite with 384 tests
 
 ## Implemented Integration Validation
 
@@ -57,7 +58,7 @@ path rather than through isolated examples. Current validation includes:
 13. [034-resource-and-link-feasibility-abstractions.md](./034-resource-and-link-feasibility-abstractions.md) - planned
 14. [035-dynamic-landing-zone-availability.md](./035-dynamic-landing-zone-availability.md) - implemented
 15. [036-computed-divert-routing.md](./036-computed-divert-routing.md) - implemented
-16. [037-monte-carlo-uncertainty-modeling.md](./037-monte-carlo-uncertainty-modeling.md) - planned
+16. [037-monte-carlo-uncertainty-modeling.md](./037-monte-carlo-uncertainty-modeling.md) - implemented
 17. [040-sitl-ardupilot-first.md](./040-sitl-ardupilot-first.md) - planned
 18. [050-user-interfaces-and-service-adapters.md](./050-user-interfaces-and-service-adapters.md) - planned
 19. [060-import-export-and-batch-workflows.md](./060-import-export-and-batch-workflows.md) - planned
@@ -69,7 +70,7 @@ path rather than through isolated examples. Current validation includes:
 - No SITL integration yet: Ticket 040.
 - No REST API or UI: Ticket 050.
 - No generalized resource and link feasibility abstraction: Ticket 034.
-- No Monte Carlo uncertainty modeling: Ticket 037.
+- Monte Carlo uncertainty modeling: Ticket 037, implemented.
 - Terrain-referenced altitude execution: Ticket 032, implemented.
 - Continuous spatial and temporal wind grid support: Ticket 033, implemented.
 - Dynamic landing-zone availability via scenario `landing_zone_unavailable` events: Ticket 035, implemented.
