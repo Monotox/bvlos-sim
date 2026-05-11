@@ -20,3 +20,6 @@ and this project adheres to semantic versioning once public releases begin.
 - Turn-arc dynamics in fidelity v2.
 - Fixed-wing circular loiter in fidelity v2.
 - Full YAML configurability for mission estimation and scenario initial conditions.
+- Terrain-referenced altitude execution using an offline uniform elevation grid (`assets.terrain_file`).
+- Spatiotemporal wind grid with quadrilinear interpolation (`assets.wind_grid_file`).
+- Integrated example combining terrain, wind-grid, geofences, landing zones, energy, and fidelity v2.

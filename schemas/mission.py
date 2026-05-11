@@ -308,8 +308,10 @@ class RouteItem(BaseModel):
         default=None,
         gt=0,
         description=(
-            "Optional loiter radius. Accepted for interoperability, but "
-            "station-keep loiter in estimator v1 ignores this value."
+            "Optional loiter radius. Accepted for interoperability and schema "
+            "stability, but always ignored by the estimator. Fidelity v2 "
+            "fixed-wing circular loiter uses vehicle.performance.turn_radius_m "
+            "instead."
         ),
     )
     metadata: dict[str, Any] = Field(
