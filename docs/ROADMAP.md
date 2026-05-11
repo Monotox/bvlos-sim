@@ -92,15 +92,17 @@ Interfaces and contracts:
 
 Estimator limitations:
 
-- no bank-angle model for divert path (divert uses straight-line geodesic)
+- no bank-angle model or Dubins path optimization for transit legs and divert
+  routing — fidelity v2 turn arcs use a circular arc approximation and divert
+  routing uses straight-line geodesic distance (Ticket 038)
 - no generalized resource/link feasibility model beyond battery-oriented energy
   fields and scenario lost-link events (Ticket 034)
-- no bank-angle model or Dubins path optimization
-- vertical-only movement does not add 3D slant path distance
+- vertical-only movement does not add 3D slant path distance (Ticket 038)
 
 Scenario limitations:
 
-- no bank-angle model or Dubins path optimization (divert routing uses straight-line geodesic)
+- divert routing uses straight-line geodesic distance with no bank-angle
+  constraint or heading continuity (Ticket 038)
 
 Platform limitations:
 
@@ -240,6 +242,22 @@ Scope:
 Exit criterion: uncertainty analysis composes with existing mission, vehicle,
 terrain, wind, geofence, landing-zone, resource, link, energy, and scenario
 behavior without changing deterministic defaults.
+
+### Phase 4.9: Bank-Angle Model and Dubins Path Optimization
+
+Status: planned.
+
+Scope:
+
+- Ticket 038: bank-angle model and Dubins path optimization
+- replace straight-line geodesic divert distance with Dubins path distance
+- replace fidelity v2 turn-arc approximation with proper entry/exit heading
+  constraints
+- optional: add 3D slant path distance for vertical legs
+
+Exit criterion: horizontal path planning accounts for bank-angle constraints
+and heading continuity across transit, turn, and divert segments without
+changing fidelity v1 behavior or existing public result field names.
 
 ### Phase 5: SITL Integration
 

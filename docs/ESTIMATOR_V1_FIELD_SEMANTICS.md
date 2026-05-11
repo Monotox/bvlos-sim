@@ -210,6 +210,9 @@ Fidelity v2:
 - turn arc has zero net displacement
 - fixed-wing `loiter_time` is modeled as circular loiter
 - hover-capable vehicles continue to use station-keep loiter
+- turn arcs use a circular arc path-length approximation
+  (`turn_radius_m * abs(delta_heading_rad)`) and do not enforce Dubins-path
+  entry/exit heading constraints between segments (Ticket 038)
 
 Result metadata field `estimator_version` records the actual fidelity used:
 `"v1"` or `"v2"`.
@@ -265,10 +268,11 @@ Divert routing is informational. It does not change the overall mission
 estimate status. The `divert_estimate.is_feasible` field indicates whether the
 planned divert leg has sufficient energy reserve.
 
-Divert route estimates use no wind correction, no geofence intersection, and no
-terrain avoidance on the divert leg. TAS is taken from
-`mission.defaults.cruise_speed_mps` if set; otherwise from
-`vehicle.performance.cruise_speed_mps`.
+Divert route estimates use no wind correction, no geofence intersection, no
+terrain avoidance, and no bank-angle constraint on the divert leg. Distance is
+straight-line geodesic; heading continuity and turn cost are not modeled
+(Ticket 038). TAS is taken from `mission.defaults.cruise_speed_mps` if set;
+otherwise from `vehicle.performance.cruise_speed_mps`.
 
 `CommsLinkPolicyOutcome.divert_estimate` is `None` when:
 - the policy action is not `divert`
