@@ -1,13 +1,11 @@
 """Canonical result envelope for scenario runner CLI outputs."""
 
 import json
-import tomllib
-from importlib import metadata as importlib_metadata
-from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
 from adapters.envelope import DeterminismMetadata, ProvenanceInput
+from adapters.version import tool_version
 from adapters.io import InputDocument, InputLoadError
 from estimator.core.results import MissionEstimate
 from estimator.core.scenario import (
@@ -53,21 +51,6 @@ class ScenarioResultEnvelope(BaseModel):
     event_outcomes: list[ScenarioEventOutcome]
     assertion_results: list[ScenarioAssertionResult]
     estimate: MissionEstimate | None = None
-
-
-# ---------------------------------------------------------------------------
-# Tool version
-# ---------------------------------------------------------------------------
-
-
-def _tool_version() -> str:
-    try:
-        return importlib_metadata.version("bvlos-sim")
-    except importlib_metadata.PackageNotFoundError:
-        pyproject_path = Path(__file__).resolve().parent.parent / "pyproject.toml"
-        with pyproject_path.open("rb") as handle:
-            data = tomllib.load(handle)
-        return str(data["project"]["version"])
 
 
 # ---------------------------------------------------------------------------
@@ -147,7 +130,7 @@ def _base_envelope(
 ) -> ScenarioResultEnvelope:
     return ScenarioResultEnvelope(
         schema_version=SCENARIO_REPORT_SCHEMA_VERSION,
-        tool_version=_tool_version(),
+        tool_version=tool_version(),
         scenario_schema_version=SCENARIO_INPUT_SCHEMA_VERSION,
         scenario_id=scenario_id,
         status=status,
