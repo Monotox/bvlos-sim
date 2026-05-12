@@ -37,10 +37,11 @@ The current codebase includes:
 - deterministic scenario execution with timeline events and assertions
 - scenario `wind_change` events with scalar or altitude-banded wind payloads
 - lost-link policy outcomes for `rtl`, `land`, `loiter`, and `divert`
-- computed straight-line divert estimates for divert policy outcomes
+- computed Dubins divert estimates for divert policy outcomes
 - Monte Carlo uncertainty sampling through the `sample` CLI command
+- contract-only SITL evidence bundles through the `sitl` CLI command
 - canonical JSON envelopes and optional Markdown reports
-- CLI commands for estimator, scenario, and uncertainty workflows
+- CLI commands for estimator, scenario, uncertainty, and SITL contract workflows
 - golden fixture tests for stable public output contracts
 
 ## Primary Workflows
@@ -107,6 +108,8 @@ Current output contracts:
 
 - `estimator-envelope.v5`: canonical estimator JSON envelope
 - `scenario-report.v2`: canonical scenario JSON envelope
+- `uncertainty-report.v1`: canonical uncertainty JSON envelope
+- `sitl-evidence.v1`: canonical SITL evidence bundle
 - Markdown reports for estimator and scenario outputs
 
 JSON rendering is deterministic and sorted, and representative outputs are
@@ -177,11 +180,16 @@ yet run a live autopilot or physics simulator.
 
 Known limitations are deliberate for the current release:
 
-- no SITL integration yet
-- no REST API or UI
-- no bank-angle model or Dubins path optimization
-- vertical-only movement does not add 3D slant path distance
-- no live comms, UTM, Remote ID, or traffic integrations
+- no live SITL integration yet; the evidence contract and no-op adapter
+  boundary are implemented, with ArduPilot live execution tracked by Tickets
+  041-043
+- no PX4 SITL adapter yet; Ticket 045
+- no REST API or UI; Ticket 050
+- no batch import/export workflows or report diff tooling; Ticket 060
+- long-distance Dubins divert still uses a planar approximation pending a
+  geodesic solver; Ticket 044
+- no live comms, UTM, Remote ID, or traffic integrations; Tickets 070 and 071
+- no real-world calibration pipeline; Tickets 080-084
 
 See [ROADMAP.md](./ROADMAP.md) for planned expansion.
 
@@ -210,10 +218,11 @@ scenario assertions, and reproducible reporting.
 
 ## Development Direction
 
-The next major project area is SITL integration, starting with ArduPilot. The
-longer-term roadmap includes API/UI surfaces, import/export workflows, batch
-operations, operational integration seams, and real-world validation and
-calibration from flight logs.
+The next major project area is live SITL integration behind the existing
+evidence contract, starting with ArduPilot and tracking PX4 as a separate
+adapter ticket. The longer-term roadmap includes API/UI surfaces,
+import/export workflows, batch operations, operational integration, and
+real-world validation and calibration from flight logs.
 
 The project should continue to prioritize:
 
@@ -228,6 +237,8 @@ The project should continue to prioritize:
 - [USAGE.md](./USAGE.md): CLI and Python API usage
 - [ROADMAP.md](./ROADMAP.md): implementation status and planned phases
 - [VERSIONING_POLICY.md](./VERSIONING_POLICY.md): public contract rules
+- [SITL_ADAPTER_CONTRACT.md](./SITL_ADAPTER_CONTRACT.md): SITL evidence and
+  adapter boundary
 - [ESTIMATOR_V1_FIELD_SEMANTICS.md](./ESTIMATOR_V1_FIELD_SEMANTICS.md): operative and non-operative fields
 - [CODE_STYLE.md](./CODE_STYLE.md): contribution style and architecture rules
 - [tickets/README.md](./tickets/README.md): execution backlog

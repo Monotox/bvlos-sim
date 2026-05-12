@@ -48,5 +48,5 @@ deterministic SITL run setup.
 - Telemetry normalization beyond minimal run-state monitoring.
 - Scenario policy command execution.
 - Expected-vs-observed comparison reports.
-- PX4 support.
+- PX4 support (Ticket 045).
 - Real aircraft or hardware integration.

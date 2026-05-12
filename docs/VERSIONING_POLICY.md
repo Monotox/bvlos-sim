@@ -11,10 +11,13 @@ Current public contracts:
 - mission input schema: `mission.v5`
 - vehicle input schema: `vehicle.v3`
 - scenario input schema: `scenario.v1`
+- uncertainty input schema: `uncertainty.v1`
 - geofence input schema: `geofence-geojson.v1`
 - landing-zone input schema: `landing-zone-geojson.v1`
 - estimator JSON envelope: `estimator-envelope.v5`
 - scenario JSON envelope: `scenario-report.v2`
+- uncertainty JSON envelope: `uncertainty-report.v1`
+- SITL evidence bundle: `sitl-evidence.v1`
 - CLI exit-code semantics
 - supported Markdown report shape covered by golden fixtures
 
@@ -52,6 +55,7 @@ Structured models use strict validation and reject unknown fields:
 - scenario schema objects
 - estimator result-envelope objects
 - scenario result-envelope objects
+- SITL evidence-bundle objects
 
 Free-form maps are explicit exceptions:
 

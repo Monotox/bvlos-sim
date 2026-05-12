@@ -3,8 +3,8 @@ scenario_id: pipeline-demo-divert-routing
 description: >
   Computed divert routing example. A lost-link event fires at wp1 with a divert
   policy targeting demo_landing_zone_wp1. The scenario runner computes a
-  deterministic straight-line divert route estimate (distance, transit time,
-  energy cost, and reserve after divert) and attaches it to the policy outcome.
+  deterministic Dubins divert route estimate (distance, transit time, energy
+  cost, and reserve after divert) and attaches it to the policy outcome.
   The full asset stack is exercised: terrain, wind-grid, geofences, and the
   static landing-zone file.
 mission_file: ../missions/pipeline_demo_001_integrated.yaml
@@ -27,9 +27,10 @@ events:
     trigger_route_item_id: wp1
     description: >
       Link loss resolved at wp1. After a 30-second loiter the divert action
-      fires. The runner computes geodesic distance to demo_landing_zone_wp1,
-      TAS-based transit time, cruise-power energy cost, and reserve remaining
-      after completing the divert leg.
+      fires. The runner computes bank-angle-constrained path distance to
+      demo_landing_zone_wp1 when heading and turn-radius inputs are available,
+      then reports TAS-based transit time, cruise-power energy cost, and
+      reserve remaining after completing the divert leg.
   - event_id: end
     kind: observe
     trigger: at_mission_end
