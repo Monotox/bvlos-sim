@@ -29,7 +29,8 @@ The current codebase includes:
 - fidelity v2 tangent-point offset subtraction on transit legs adjacent to TURN_ARC legs for true Dubins-path total distance
 - 3D slant path distance for takeoff and landing-transit legs (`path_distance_m = vertical_distance_m`)
 - `DUBINS_DIVERT_PLANAR_APPROXIMATION_LIMIT` warning on divert estimates exceeding 50 km geodesic distance
-- passing estimator/schema/CLI/scenario test suite with 427 tests
+- SITL adapter contract and `sitl-evidence.v1` evidence schema
+- passing estimator/schema/CLI/scenario test suite with 435 tests
 
 ## Implemented Integration Validation
 
@@ -67,20 +68,24 @@ path rather than through isolated examples. Current validation includes:
 16. [037-monte-carlo-uncertainty-modeling.md](./037-monte-carlo-uncertainty-modeling.md) - implemented
 17. [038-bank-angle-and-dubins-path-optimization.md](./038-bank-angle-and-dubins-path-optimization.md) - implemented
 18. [039-path-planning-model-gaps.md](./039-path-planning-model-gaps.md) - implemented
-19. [040-sitl-adapter-contract-and-evidence-schema.md](./040-sitl-adapter-contract-and-evidence-schema.md) - planned
+19. [040-sitl-adapter-contract-and-evidence-schema.md](./040-sitl-adapter-contract-and-evidence-schema.md) - implemented
 20. [041-ardupilot-sitl-launch-and-mission-upload.md](./041-ardupilot-sitl-launch-and-mission-upload.md) - planned
 21. [042-sitl-telemetry-recorder-and-evidence-bundle.md](./042-sitl-telemetry-recorder-and-evidence-bundle.md) - planned
 22. [043-sitl-scenario-comparison-report.md](./043-sitl-scenario-comparison-report.md) - planned
 23. [044-geodesic-dubins-divert.md](./044-geodesic-dubins-divert.md) - planned
-24. [050-user-interfaces-and-service-adapters.md](./050-user-interfaces-and-service-adapters.md) - planned
-24. [060-import-export-and-batch-workflows.md](./060-import-export-and-batch-workflows.md) - planned
-25. [070-operational-integration-seams.md](./070-operational-integration-seams.md) - planned
-26. [071-live-comms-remote-id-and-traffic-integrations.md](./071-live-comms-remote-id-and-traffic-integrations.md) - planned
+24. [045-px4-sitl-adapter.md](./045-px4-sitl-adapter.md) - planned
+25. [050-user-interfaces-and-service-adapters.md](./050-user-interfaces-and-service-adapters.md) - planned
+26. [060-import-export-and-batch-workflows.md](./060-import-export-and-batch-workflows.md) - planned
+27. [070-operational-integration-seams.md](./070-operational-integration-seams.md) - planned
+28. [071-live-comms-remote-id-and-traffic-integrations.md](./071-live-comms-remote-id-and-traffic-integrations.md) - planned
 
 ## Limitation Coverage and Status
 
-- No SITL integration yet: Tickets 040-043.
+- SITL adapter contract and evidence schema: Ticket 040, implemented.
+- No live ArduPilot SITL integration yet: Tickets 041-043.
+- No PX4 SITL adapter yet: Ticket 045.
 - No REST API or UI: Ticket 050.
+- No batch import/export workflows or report diff tooling: Ticket 060.
 - Ticket 038 implemented: Dubins path solver for bank-angle-constrained divert
   routing; fidelity v2 turn arc uses the exact Dubins solution for same-position
   heading changes.
@@ -92,6 +97,7 @@ path rather than through isolated examples. Current validation includes:
   threshold): Ticket 044.
 - No live comms, UTM/U-space, Remote ID, or traffic integrations: Tickets 070
   and 071.
+- No real-world calibration pipeline: Tickets 080-084.
 
 ## Validation and Calibration Track
 
@@ -120,8 +126,8 @@ through the established surfaces:
   landing-zone YAML/JSON schemas
 - examples under `examples/missions`, `examples/vehicles`,
   `examples/scenarios`, `examples/terrain`, and `examples/wind`
-- existing CLI commands such as `estimate` and `scenario`, or adapter commands
-  that reuse the same core execution path
+- existing CLI commands such as `estimate`, `scenario`, `sample`, and `sitl`, or
+  adapter commands that reuse the same core execution path
 - canonical JSON envelopes, Markdown reports, golden fixtures, and regression
   tests
 - package-root Python APIs and existing estimator/scenario execution contracts

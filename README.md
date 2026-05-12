@@ -63,6 +63,8 @@ The current codebase includes:
 - deterministic mission distance/time estimation
 - estimator CLI command surface (`estimate`)
 - scenario CLI command surface (`scenario`)
+- uncertainty CLI command surface (`sample`)
+- SITL evidence contract CLI command surface (`sitl`)
 - canonical JSON envelopes and optional Markdown reports
 - deterministic energy feasibility and reserve-at-landing output
 - resource-system feasibility for onboard battery, external power, and hybrid power configurations
@@ -74,11 +76,15 @@ The current codebase includes:
 - layered wind, optional sub-segment sampling, turn-arc dynamics, and fixed-wing circular loiter
 - terrain-referenced altitude using an offline uniform elevation grid
 - spatiotemporal wind grid with quadrilinear interpolation (offline 4D wind data)
+- Dubins divert routing and path-planning gap diagnostics
+- seeded Monte Carlo uncertainty analysis
 - documented schema/versioning policy with golden contract fixtures
+- `sitl-evidence.v1` contract for later SITL telemetry and comparison work
 - passing test suite
 
-The next roadmap areas are bank-angle path optimization and SITL integration.
-See [docs/ROADMAP.md](./docs/ROADMAP.md) for the full roadmap and known
+The next roadmap area is live ArduPilot SITL integration behind the existing
+evidence contract, with PX4 SITL tracked as a separate adapter ticket. See
+[docs/ROADMAP.md](./docs/ROADMAP.md) for the full roadmap and known
 limitations.
 
 ## Documentation
@@ -98,6 +104,9 @@ limitations.
 - [Versioning policy](./docs/VERSIONING_POLICY.md)
   Public contract surfaces, compatibility rules, and golden fixture expectations.
 
+- [SITL adapter contract](./docs/SITL_ADAPTER_CONTRACT.md)
+  Evidence schema, CLI shape, and live-adapter dependency boundaries.
+
 - [Contribution style](./docs/CODE_STYLE.md)
   Technical rules for package boundaries, output contracts, validation, testing, and docs.
 
@@ -110,7 +119,7 @@ limitations.
   CLI, file loading, result envelope building, and Markdown rendering adapters.
 
 - `schemas/`
-  Mission, vehicle, and scenario input models.
+  Mission, vehicle, scenario, uncertainty, resource/link, and SITL evidence models.
 
 - `estimator/`
   Deterministic estimator package:

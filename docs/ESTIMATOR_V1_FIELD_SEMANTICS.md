@@ -177,7 +177,8 @@ Vehicle:
 - `resource_systems[].delivery`
 - `resource_systems[].metadata`
 - `failsafe.*`
-- `sitl.*`
+- `sitl.*` (ignored by the deterministic estimator; the `sitl` CLI may copy
+  these fields into `sitl-evidence.v1` simulator metadata)
 - `metadata`
 
 Scenario:

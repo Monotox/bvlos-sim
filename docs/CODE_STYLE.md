@@ -41,8 +41,11 @@ Treat these as stable:
 - `mission.v5`
 - `vehicle.v3`
 - `scenario.v1`
+- `uncertainty.v1`
 - `estimator-envelope.v5`
 - `scenario-report.v2`
+- `uncertainty-report.v1`
+- `sitl-evidence.v1`
 - `geofence-geojson.v1`
 - `landing-zone-geojson.v1`
 - CLI exit-code semantics

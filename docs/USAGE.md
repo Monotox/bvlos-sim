@@ -19,11 +19,18 @@ uv run bvlos-sim --help
 
 ## CLI Commands
 
-bvlos-sim exposes three commands:
+bvlos-sim exposes four commands:
 
 - `estimate`: run deterministic mission estimation and static feasibility checks
 - `scenario`: run deterministic scenario events and assertions
 - `sample`: run seeded Monte Carlo uncertainty sampling
+- `sitl`: build a contract-only SITL evidence bundle from an existing scenario
+
+Mission-scoped functionality is exposed through `estimate` by mission and
+vehicle YAML: fidelity settings, terrain, wind grids, geofences, landing zones,
+resource systems, communication links, energy feasibility, and route geometry.
+Scenario events, uncertainty sampling, and SITL evidence use `scenario`,
+`sample`, and `sitl` because they require separate versioned input contracts.
 
 Command help:
 
@@ -31,6 +38,7 @@ Command help:
 uv run bvlos-sim estimate --help
 uv run bvlos-sim scenario --help
 uv run bvlos-sim sample --help
+uv run bvlos-sim sitl --help
 ```
 
 ## Mission Estimation
@@ -121,6 +129,30 @@ uv run bvlos-sim scenario \
 
 Skipped or unsupported assertions do not fail the scenario unless another
 assertion fails.
+
+## SITL Evidence Contract
+
+Ticket 040 adds a contract-only `sitl` command. It reuses an existing
+`scenario.v1` file, runs the deterministic scenario output as expected behavior,
+and emits a `sitl-evidence.v1` bundle. It does not launch ArduPilot, upload a
+mission, record telemetry, or compare observed simulator behavior.
+
+```bash
+uv run bvlos-sim sitl \
+  examples/scenarios/pipeline_demo_001_integrated_scenario.yaml \
+  --output /tmp/sitl-evidence.json
+```
+
+The no-op contract adapter writes `status: contract_only`, includes mission,
+vehicle, scenario, and loaded asset references, embeds the deterministic
+scenario report, and leaves telemetry and command-log artifact lists empty for
+Tickets 041-043 to populate.
+
+### SITL Exit Codes
+
+- `0`: evidence bundle written
+- `11`: invalid input
+- `13`: internal or output-write error
 
 ### Scenario Events
 
@@ -579,8 +611,13 @@ The estimator CLI emits `estimator-envelope.v5`.
 
 The scenario CLI emits `scenario-report.v2`.
 
-Both JSON outputs are canonical, deterministic, and regression-tested with
-golden fixtures. Markdown output is supported for human-readable reports.
+The sample CLI emits `uncertainty-report.v1`.
+
+The SITL contract command emits `sitl-evidence.v1`.
+
+Estimator and scenario JSON outputs are canonical, deterministic, and
+regression-tested with golden fixtures. Markdown output is supported for
+human-readable estimator and scenario reports.
 
 ## Verification
 

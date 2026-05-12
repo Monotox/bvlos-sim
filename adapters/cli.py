@@ -38,6 +38,7 @@ from adapters.scenario_envelope import (
 )
 from adapters.scenario_io import load_scenario, resolve_scenario_asset_path
 from adapters.scenario_markdown import render_scenario_markdown
+from adapters.sitl_evidence import build_sitl_evidence_bundle, render_sitl_evidence_json
 from adapters.terrain_grid import TerrainGridLoadError, load_terrain_grid
 from adapters.uncertainty_envelope import (
     UncertaintyResultEnvelope,
@@ -58,6 +59,7 @@ from estimator import (
     LayeredWindProvider,
     LandingZone,
     MissionEstimate,
+    ScenarioResult,
     ScenarioStatus,
     SpatiotemporalWindProvider,
     WindLayer,
@@ -65,7 +67,7 @@ from estimator import (
     try_estimate_mission_distance_time,
 )
 from estimator.execution.monte_carlo import run_monte_carlo
-from schemas import MissionPlan
+from schemas import MissionPlan, ScenarioPlan, VehicleProfile
 
 StaticAssetLoadError = GeofenceLoadError | LandingZoneLoadError | TerrainGridLoadError | WindGridLoadError
 LoadedAssetT = TypeVar("LoadedAssetT")
@@ -86,6 +88,15 @@ class ScenarioExitCode(IntEnum):
     FAILED = 10
     INVALID_INPUT = 11
     INTERNAL_ERROR = 13
+
+
+_FAILURE_KIND_EXIT_CODES = {
+    FailureKind.INFEASIBLE: CliExitCode.INFEASIBLE,
+    FailureKind.UNSUPPORTED: CliExitCode.UNSUPPORTED,
+}
+_FAILURE_KIND_STATUSES = {
+    FailureKind.INFEASIBLE: EstimateStatus.INFEASIBLE,
+}
 
 
 class OutputWriteError(OSError):
@@ -174,19 +185,14 @@ def _write_output(rendered: str, output: Path | None) -> None:
 def _exit_code_for_result(result: MissionEstimate) -> CliExitCode:
     if result.status == EstimateStatus.SUCCESS:
         return CliExitCode.SUCCESS
-    if result.failure is None:
+    failure = result.failure
+    if failure is None:
         return CliExitCode.INTERNAL_ERROR
-    if result.failure.kind == FailureKind.INFEASIBLE:
-        return CliExitCode.INFEASIBLE
-    if result.failure.kind == FailureKind.UNSUPPORTED:
-        return CliExitCode.UNSUPPORTED
-    return CliExitCode.INVALID_INPUT
+    return _FAILURE_KIND_EXIT_CODES.get(failure.kind, CliExitCode.INVALID_INPUT)
 
 
 def _status_for_failure_kind(kind: FailureKind) -> EstimateStatus:
-    if kind == FailureKind.INFEASIBLE:
-        return EstimateStatus.INFEASIBLE
-    return EstimateStatus.ERROR
+    return _FAILURE_KIND_STATUSES.get(kind, EstimateStatus.ERROR)
 
 
 def _empty_failed_result(failure: EstimatorFailure) -> MissionEstimate:
@@ -534,6 +540,67 @@ def _emit_scenario_internal_error(
     _write_output(_render_scenario_output(output_format, internal_envelope), None)
 
 
+def _resolve_scenario_input_paths(
+    scenario_plan: ScenarioPlan,
+    *,
+    scenario_file: Path,
+) -> tuple[Path, Path]:
+    return (
+        resolve_scenario_asset_path(
+            scenario_plan.mission_file,
+            scenario_path=scenario_file,
+        ),
+        resolve_scenario_asset_path(
+            scenario_plan.vehicle_file,
+            scenario_path=scenario_file,
+        ),
+    )
+
+
+def _run_scenario_with_assets(
+    *,
+    scenario_plan: ScenarioPlan,
+    mission_model: MissionPlan,
+    vehicle_model: VehicleProfile,
+    mission_assets: MissionAssetBundle,
+) -> ScenarioResult:
+    return run_scenario(
+        scenario_plan,
+        mission_model,
+        vehicle_model,
+        wind_provider=mission_assets.wind_provider,
+        terrain_provider=mission_assets.terrain_provider,
+        geofences=mission_assets.geofences,
+        landing_zones=mission_assets.landing_zones,
+    )
+
+
+def _build_scenario_result_envelope(
+    *,
+    result: ScenarioResult,
+    scenario_document: InputDocument,
+    mission_document: InputDocument,
+    vehicle_document: InputDocument,
+    mission_assets: MissionAssetBundle,
+) -> ScenarioResultEnvelope:
+    return build_scenario_envelope(
+        result=result,
+        scenario_document=scenario_document,
+        mission_document=mission_document,
+        vehicle_document=vehicle_document,
+        geofence_document=mission_assets.geofence_document,
+        landing_zone_document=mission_assets.landing_zone_document,
+        terrain_document=mission_assets.terrain_document,
+        wind_grid_document=mission_assets.wind_grid_document,
+    )
+
+
+def _scenario_exit_code_for_result(result: ScenarioResult) -> ScenarioExitCode:
+    if result.status == ScenarioStatus.PASSED:
+        return ScenarioExitCode.PASSED
+    return ScenarioExitCode.FAILED
+
+
 @app.command()
 def scenario(
     scenario_file: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True),
@@ -552,13 +619,10 @@ def scenario(
         scenario_plan, scenario_document = load_scenario(scenario_file)
         scenario_id = scenario_plan.scenario_id
 
-        mission_path = resolve_scenario_asset_path(
-            scenario_plan.mission_file, scenario_path=scenario_file
+        mission_path, vehicle_path = _resolve_scenario_input_paths(
+            scenario_plan,
+            scenario_file=scenario_file,
         )
-        vehicle_path = resolve_scenario_asset_path(
-            scenario_plan.vehicle_file, scenario_path=scenario_file
-        )
-
         mission_model, mission_document = load_mission(mission_path)
         vehicle_model, vehicle_document = load_vehicle(vehicle_path)
 
@@ -568,32 +632,21 @@ def scenario(
             mission_document=mission_document,
         )
 
-        result = run_scenario(
-            scenario_plan,
-            mission_model,
-            vehicle_model,
-            wind_provider=mission_assets.wind_provider,
-            terrain_provider=mission_assets.terrain_provider,
-            geofences=mission_assets.geofences,
-            landing_zones=mission_assets.landing_zones,
+        result = _run_scenario_with_assets(
+            scenario_plan=scenario_plan,
+            mission_model=mission_model,
+            vehicle_model=vehicle_model,
+            mission_assets=mission_assets,
         )
-        envelope = build_scenario_envelope(
+        envelope = _build_scenario_result_envelope(
             result=result,
             scenario_document=scenario_document,
             mission_document=mission_document,
             vehicle_document=vehicle_document,
-            geofence_document=mission_assets.geofence_document,
-            landing_zone_document=mission_assets.landing_zone_document,
-            terrain_document=mission_assets.terrain_document,
-            wind_grid_document=mission_assets.wind_grid_document,
+            mission_assets=mission_assets,
         )
         _write_output(_render_scenario_output(format, envelope), output)
-        exit_code = (
-            ScenarioExitCode.PASSED
-            if result.status == ScenarioStatus.PASSED
-            else ScenarioExitCode.FAILED
-        )
-        raise typer.Exit(code=int(exit_code))
+        raise typer.Exit(code=int(_scenario_exit_code_for_result(result)))
     except InputLoadError as exc:
         envelope = build_scenario_invalid_input_envelope(
             scenario_id=scenario_id,
@@ -699,6 +752,70 @@ def sample(
         _write_output(_render_uncertainty_output(format, envelope), output)
         raise typer.Exit(code=int(CliExitCode.SUCCESS))
     except InputLoadError as exc:
+        typer.echo(f"Input error: {exc}", err=True)
+        raise typer.Exit(code=int(CliExitCode.INVALID_INPUT)) from exc
+    except OutputWriteError as exc:
+        typer.echo(f"Output write error: {exc}", err=True)
+        raise typer.Exit(code=int(CliExitCode.INTERNAL_ERROR)) from exc
+    except typer.Exit:
+        raise
+    except Exception as exc:
+        typer.echo(f"Internal error: {exc}", err=True)
+        raise typer.Exit(code=int(CliExitCode.INTERNAL_ERROR)) from exc
+
+
+@app.command()
+def sitl(
+    scenario_file: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True),
+    output: Path | None = typer.Option(None, "--output", "-o"),
+) -> None:
+    """Build a contract-only SITL evidence bundle for an existing scenario."""
+
+    try:
+        scenario_plan, scenario_document = load_scenario(scenario_file)
+        mission_path, vehicle_path = _resolve_scenario_input_paths(
+            scenario_plan,
+            scenario_file=scenario_file,
+        )
+        mission_model, mission_document = load_mission(mission_path)
+        vehicle_model, vehicle_document = load_vehicle(vehicle_path)
+        mission_assets = MissionAssetBundle()
+        _populate_mission_assets(
+            mission_assets,
+            mission_model=mission_model,
+            mission_document=mission_document,
+        )
+        scenario_result = _run_scenario_with_assets(
+            scenario_plan=scenario_plan,
+            mission_model=mission_model,
+            vehicle_model=vehicle_model,
+            mission_assets=mission_assets,
+        )
+        scenario_envelope = _build_scenario_result_envelope(
+            result=scenario_result,
+            scenario_document=scenario_document,
+            mission_document=mission_document,
+            vehicle_document=vehicle_document,
+            mission_assets=mission_assets,
+        )
+        evidence = build_sitl_evidence_bundle(
+            evidence_id=f"{scenario_plan.scenario_id}-sitl-contract",
+            scenario_envelope=scenario_envelope,
+            scenario_document=scenario_document,
+            mission_document=mission_document,
+            vehicle_document=vehicle_document,
+            vehicle=vehicle_model,
+            geofence_document=mission_assets.geofence_document,
+            landing_zone_document=mission_assets.landing_zone_document,
+            terrain_document=mission_assets.terrain_document,
+            wind_grid_document=mission_assets.wind_grid_document,
+        )
+        _write_output(render_sitl_evidence_json(evidence), output)
+        raise typer.Exit(code=int(CliExitCode.SUCCESS))
+    except InputLoadError as exc:
+        typer.echo(f"Input error: {exc}", err=True)
+        raise typer.Exit(code=int(CliExitCode.INVALID_INPUT)) from exc
+    except (GeofenceLoadError, LandingZoneLoadError, TerrainGridLoadError, WindGridLoadError) as exc:
         typer.echo(f"Input error: {exc}", err=True)
         raise typer.Exit(code=int(CliExitCode.INVALID_INPUT)) from exc
     except OutputWriteError as exc:

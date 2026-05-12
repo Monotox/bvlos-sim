@@ -6,7 +6,7 @@ toward a broader BVLOS simulation platform.
 ## Current Status
 
 The current codebase implements Phases 1 through 4.10, plus Tickets 032, 033,
-034, 035, 036, 037, 038, and 039:
+034, 035, 036, 037, 038, 039, and 040:
 
 - estimator hardening
 - static feasibility checks
@@ -20,8 +20,9 @@ The current codebase implements Phases 1 through 4.10, plus Tickets 032, 033,
 - Monte Carlo uncertainty analysis via `uncertainty.v1` YAML and `sample` CLI command
 - Dubins path solver and bank-angle-constrained divert distance
 - fidelity v2 tangent-point offset subtraction, 3D slant path for vertical legs, and Dubins divert planar limit warning
+- SITL adapter contract and `sitl-evidence.v1` evidence schema
 
-The test suite currently passes with 427 tests.
+The test suite currently passes with 435 tests.
 
 bvlos-sim remains an engineering validation tool. It is not a flight-safety
 system, operational approval tool, or complete BVLOS compliance system.
@@ -88,9 +89,11 @@ Interfaces and contracts:
 - `estimate` CLI command
 - `scenario` CLI command
 - `sample` CLI command
+- `sitl` CLI command for contract-only SITL evidence bundles
 - canonical estimator JSON envelope (`estimator-envelope.v5`)
 - canonical scenario JSON envelope (`scenario-report.v2`)
 - canonical uncertainty JSON envelope (`uncertainty-report.v1`)
+- canonical SITL evidence bundle (`sitl-evidence.v1`)
 - Markdown rendering for estimator, scenario, and uncertainty reports
 - golden fixture regression tests
 
@@ -106,12 +109,15 @@ Scenario limitations:
 
 Platform limitations:
 
-- no SITL adapter yet
-- no REST API
-- no web UI
-- no live comms, UTM/U-space, Remote ID, or traffic integrations
-- no batch import/export workflows
-- no real-world calibration pipeline
+- no live ArduPilot SITL adapter yet; Tickets 041-043 build on the Ticket 040
+  evidence schema and no-op adapter boundary
+- no PX4 SITL adapter yet; Ticket 045
+- no REST API; Ticket 050
+- no web UI; Ticket 050
+- no live comms, UTM/U-space, Remote ID, or traffic integrations; Tickets 070
+  and 071
+- no batch import/export workflows; Ticket 060
+- no real-world calibration pipeline; Tickets 080-084
 
 ## Phase Plan
 
@@ -309,7 +315,7 @@ warning is no longer emitted for correctly handled distances.
 
 ### Phase 5: SITL Integration
 
-Status: planned.
+Status: partially implemented.
 
 Prerequisites:
 
@@ -320,16 +326,19 @@ Prerequisites:
 
 Scope:
 
-- Ticket 040: SITL adapter contract and evidence schema
+- Ticket 040: SITL adapter contract and evidence schema — implemented
 - Ticket 041: ArduPilot SITL launch and mission upload
 - Ticket 042: SITL telemetry recorder and evidence bundle
 - Ticket 043: SITL scenario comparison report
+- Ticket 045: PX4 SITL adapter
 - adapter-local ArduPilot and MAVLink dependencies that stay outside core
   estimator/scenario execution
+- adapter-local PX4 dependencies that stay outside core estimator/scenario
+  execution
 - comparison against existing deterministic `scenario` outputs
 
-Exit criterion: a scenario can be executed against ArduPilot SITL with recorded
-evidence.
+Exit criterion: a scenario can be executed against supported SITL adapters with
+recorded evidence while preserving the deterministic core execution path.
 
 ### Phase 6: Product Surfaces
 
