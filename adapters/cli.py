@@ -69,7 +69,7 @@ from estimator import (
 from estimator.execution.monte_carlo import run_monte_carlo
 from schemas import MissionPlan, ScenarioPlan, VehicleProfile
 
-StaticAssetLoadError = GeofenceLoadError | LandingZoneLoadError | TerrainGridLoadError | WindGridLoadError
+GeoJsonAssetLoadError = GeofenceLoadError | LandingZoneLoadError
 LoadedAssetT = TypeVar("LoadedAssetT")
 
 app = typer.Typer(name="bvlos-sim", add_completion=False, no_args_is_help=True)
@@ -313,7 +313,7 @@ def _populate_mission_assets(
 
 
 def _envelope_inputs_for_static_asset_error(
-    error: StaticAssetLoadError,
+    error: GeoJsonAssetLoadError,
     *,
     mission_document: InputDocument | None,
     vehicle_document: InputDocument | None,
@@ -335,16 +335,8 @@ def _envelope_inputs_for_static_asset_error(
             if isinstance(error, LandingZoneLoadError)
             else mission_assets.landing_zone_document
         ),
-        terrain=(
-            error.document
-            if isinstance(error, TerrainGridLoadError)
-            else mission_assets.terrain_document
-        ),
-        wind_grid=(
-            error.document
-            if isinstance(error, WindGridLoadError)
-            else mission_assets.wind_grid_document
-        ),
+        terrain=mission_assets.terrain_document,
+        wind_grid=mission_assets.wind_grid_document,
     )
 
 

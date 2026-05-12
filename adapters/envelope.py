@@ -1,15 +1,13 @@
 """Canonical result envelope for estimator CLI outputs."""
 
 import json
-import tomllib
 from dataclasses import dataclass
 from enum import StrEnum
-from importlib import metadata as importlib_metadata
-from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from adapters.io import InputDocument, InputLoadError
+from adapters.version import tool_version
 from estimator import EstimateStatus, MissionEstimate
 from estimator.core.enums import FailureCode, WarningCode
 from estimator.core.results import EstimatorContextValue
@@ -214,16 +212,6 @@ class EnvelopeInputs:
     landing_zones: InputDocument | None = None
     terrain: InputDocument | None = None
     wind_grid: InputDocument | None = None
-
-
-def _tool_version() -> str:
-    try:
-        return importlib_metadata.version("bvlos-sim")
-    except importlib_metadata.PackageNotFoundError:
-        pyproject_path = Path(__file__).resolve().parent.parent / "pyproject.toml"
-        with pyproject_path.open("rb") as handle:
-            data = tomllib.load(handle)
-        return str(data["project"]["version"])
 
 
 def _build_provenance(inputs: EnvelopeInputs) -> Provenance:
@@ -436,7 +424,7 @@ def _build_envelope(
 ) -> EstimatorResultEnvelope:
     return EstimatorResultEnvelope(
         schema_version=RESULT_ENVELOPE_SCHEMA_VERSION,
-        tool_version=_tool_version(),
+        tool_version=tool_version(),
         input_schema_versions=_input_schema_versions(),
         status=status,
         diagnostics=diagnostics,
