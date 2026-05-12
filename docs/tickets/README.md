@@ -87,12 +87,6 @@ path rather than through isolated examples. Current validation includes:
 - No PX4 SITL adapter yet: Tickets 045 (launch/upload) and 046 (telemetry/evidence).
 - No REST API or UI: Ticket 050.
 - No batch import/export workflows or report diff tooling: Ticket 060.
-- Ticket 038 implemented: Dubins path solver for bank-angle-constrained divert
-  routing; fidelity v2 turn arc uses the exact Dubins solution for same-position
-  heading changes.
-- Ticket 039 implemented: fidelity v2 tangent-point offset subtraction, 3D slant
-  path distance for vertical legs, and Dubins divert planar approximation limit
-  warning (50 km threshold).
 - Dubins divert uses a planar East-North approximation; accurate within a
   fraction of a percent for distances under 50 km (warning emitted beyond that
   threshold): Ticket 044.
