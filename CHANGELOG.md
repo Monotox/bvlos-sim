@@ -44,3 +44,5 @@ and this project adheres to semantic versioning once public releases begin.
 - `result.resource` and `result.link` outputs in estimator and scenario reports, with structured diagnostics for resource and link infeasibility.
 - Scenario assertions for `estimate.resource.is_feasible` and `estimate.link.is_feasible`.
 - Integrated resource/link examples combining terrain, wind-grid, geofence, landing-zone, fidelity v2, scenario policies, and existing CLI paths.
+- `sitl-evidence.v1` evidence bundle schema for SITL adapter runs, including input artifacts, expected deterministic outputs, simulator metadata, and observed telemetry/command-log artifact references.
+- Contract-only `sitl` CLI command that builds a no-op SITL evidence bundle from existing scenario YAML without launching a live simulator.

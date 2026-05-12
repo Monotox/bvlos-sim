@@ -1,5 +1,9 @@
 # Ticket 040: SITL Adapter Contract and Evidence Schema
 
+## Status
+
+Implemented.
+
 ## Goal
 
 Define the deterministic adapter boundary, CLI shape, and evidence artifact
@@ -8,9 +12,9 @@ core estimator or scenario runner.
 
 ## Current Gap
 
-There is no SITL adapter contract, no versioned evidence bundle format, and no
-clear boundary between deterministic expected behavior and simulator-observed
-behavior.
+Before this ticket, there was no SITL adapter contract, no versioned evidence
+bundle format, and no clear boundary between deterministic expected behavior
+and simulator-observed behavior.
 
 Ticket 040 previously covered adapter design, ArduPilot startup, MAVLink
 mission execution, telemetry recording, policy command execution, and comparison
@@ -58,6 +62,20 @@ tickets.
 - Core estimator and scenario tests remain independent of live simulator
   dependencies.
 
+## Implementation Notes
+
+- `schemas.sitl` defines the `sitl-evidence.v1` bundle schema, artifact
+  references, simulator metadata, expected-output payloads, and observed
+  telemetry/command artifact slots.
+- `adapters.sitl_evidence` defines the adapter boundary plus a no-op
+  `NoopSitlAdapter` used to prove the contract without live simulator
+  dependencies.
+- The `sitl` CLI command loads an existing `scenario.v1`, runs the deterministic
+  scenario report as expected behavior, and emits a contract-only evidence
+  bundle.
+- Live ArduPilot launch, MAVLink upload, telemetry recording, command execution,
+  and comparison metrics remain in Tickets 041-043.
+
 ## Out of Scope
 
 - Launching ArduPilot SITL.
@@ -65,5 +83,5 @@ tickets.
 - Telemetry recording.
 - Policy command execution.
 - Expected-vs-observed comparison metrics.
-- PX4 support.
+- PX4 support (Ticket 045).
 - Real aircraft or hardware integration.

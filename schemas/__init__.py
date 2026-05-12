@@ -1,4 +1,4 @@
-"""Public schema models for mission, vehicle, scenario, and uncertainty configuration."""
+"""Public schema models for mission, vehicle, scenario, uncertainty, and SITL configuration."""
 
 from schemas.uncertainty import (
     NormalDistribution,
@@ -36,6 +36,16 @@ from schemas.scenario import (
     ScenarioInitialConditions,
     ScenarioPlan,
     ScenarioTriggerKind,
+)
+from schemas.sitl import (
+    SitlAdapterKind,
+    SitlArtifactReference,
+    SitlArtifactRole,
+    SitlEvidenceBundle,
+    SitlEvidenceStatus,
+    SitlExpectedOutputs,
+    SitlObservedArtifacts,
+    SitlSimulatorMetadata,
 )
 from schemas.vehicle import (
     AutopilotStack,
@@ -84,7 +94,15 @@ __all__ = [
     "ScenarioInitialConditions",
     "ScenarioPlan",
     "ScenarioTriggerKind",
+    "SitlAdapterKind",
+    "SitlArtifactReference",
+    "SitlArtifactRole",
+    "SitlEvidenceBundle",
+    "SitlEvidenceStatus",
+    "SitlExpectedOutputs",
+    "SitlObservedArtifacts",
     "SitlProfile",
+    "SitlSimulatorMetadata",
     "VehicleCapabilities",
     "VehicleClass",
     "VehicleProfile",

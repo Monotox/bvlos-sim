@@ -6,7 +6,11 @@ from schemas.vehicle_enums import AutopilotStack
 
 
 class SitlProfile(BaseModel):
-    """Optional SITL backend settings reserved for later integration work."""
+    """Optional SITL backend settings used by adapter layers.
+
+    These fields are always ignored by the deterministic estimator. The SITL
+    evidence contract may copy them into simulator metadata.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
