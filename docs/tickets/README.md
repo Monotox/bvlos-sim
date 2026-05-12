@@ -73,8 +73,9 @@ path rather than through isolated examples. Current validation includes:
 21. [042-sitl-telemetry-recorder-and-evidence-bundle.md](./042-sitl-telemetry-recorder-and-evidence-bundle.md) - planned
 22. [043-sitl-scenario-comparison-report.md](./043-sitl-scenario-comparison-report.md) - planned
 23. [044-geodesic-dubins-divert.md](./044-geodesic-dubins-divert.md) - planned
-24. [045-px4-sitl-adapter.md](./045-px4-sitl-adapter.md) - planned
-25. [050-user-interfaces-and-service-adapters.md](./050-user-interfaces-and-service-adapters.md) - planned
+24. [045-px4-sitl-launch-and-mission-upload.md](./045-px4-sitl-launch-and-mission-upload.md) - planned
+25. [046-px4-sitl-telemetry-recorder-and-evidence-bundle.md](./046-px4-sitl-telemetry-recorder-and-evidence-bundle.md) - planned
+26. [050-user-interfaces-and-service-adapters.md](./050-user-interfaces-and-service-adapters.md) - planned
 26. [060-import-export-and-batch-workflows.md](./060-import-export-and-batch-workflows.md) - planned
 27. [070-operational-integration-seams.md](./070-operational-integration-seams.md) - planned
 28. [071-live-comms-remote-id-and-traffic-integrations.md](./071-live-comms-remote-id-and-traffic-integrations.md) - planned
@@ -83,7 +84,7 @@ path rather than through isolated examples. Current validation includes:
 
 - SITL adapter contract and evidence schema: Ticket 040, implemented.
 - No live ArduPilot SITL integration yet: Tickets 041-043.
-- No PX4 SITL adapter yet: Ticket 045.
+- No PX4 SITL adapter yet: Tickets 045 (launch/upload) and 046 (telemetry/evidence).
 - No REST API or UI: Ticket 050.
 - No batch import/export workflows or report diff tooling: Ticket 060.
 - Ticket 038 implemented: Dubins path solver for bank-angle-constrained divert

@@ -1,12 +1,10 @@
 """SITL adapter contract and evidence-bundle rendering."""
 
 import json
-import tomllib
 from dataclasses import dataclass
-from importlib import metadata as importlib_metadata
-from pathlib import Path
 from typing import Protocol
 
+from adapters.version import tool_version
 from adapters.envelope import (
     GEOFENCE_SCHEMA_VERSION,
     LANDING_ZONE_SCHEMA_VERSION,
@@ -79,16 +77,6 @@ class NoopSitlAdapter:
 
     def observed_artifacts(self) -> SitlObservedArtifacts:
         return SitlObservedArtifacts()
-
-
-def _tool_version() -> str:
-    try:
-        return importlib_metadata.version("bvlos-sim")
-    except importlib_metadata.PackageNotFoundError:
-        pyproject_path = Path(__file__).resolve().parent.parent / "pyproject.toml"
-        with pyproject_path.open("rb") as handle:
-            data = tomllib.load(handle)
-        return str(data["project"]["version"])
 
 
 def _document_reference(
@@ -188,7 +176,7 @@ def build_sitl_evidence_bundle(
         schema_version=SITL_EVIDENCE_SCHEMA_VERSION,
         evidence_id=evidence_id,
         status=SitlEvidenceStatus.CONTRACT_ONLY,
-        tool_version=_tool_version(),
+        tool_version=tool_version(),
         created_by="bvlos-sim sitl",
         inputs=_input_references(
             scenario_document=scenario_document,
@@ -217,7 +205,7 @@ def build_sitl_evidence_bundle(
         metadata={
             "contract_only": True,
             "live_dependencies_required": False,
-            "follow_on_tickets": "041-043",
+            "follow_on_tickets": "041-043, 045-046",
         },
     )
 
