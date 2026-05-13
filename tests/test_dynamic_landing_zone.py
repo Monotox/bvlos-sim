@@ -222,7 +222,10 @@ def test_lz_unavailability_partial_schedule_affects_only_later_states() -> None:
 
 
 def test_result_validity_scope_full_mission_when_all_zones_unavailable() -> None:
-    from adapters.envelope import _build_result_validity, ResultScope
+    from pathlib import Path as _Path
+
+    from adapters.envelope import EnvelopeInputs, build_estimator_envelope
+    from adapters.io import InputDocument
 
     mission = make_mission()
     mission.route = [mission.route[1]]
@@ -240,13 +243,16 @@ def test_result_validity_scope_full_mission_when_all_zones_unavailable() -> None
         lz_unavailability=schedule,
     )
 
-    # ALL_LANDING_ZONES_UNAVAILABLE is in _LANDING_ZONE_FAILURE_CODES:
-    # the full route ran and all result fields are populated → is_complete=True,
-    # is_valid_for_full_mission=True (failure is a feasibility verdict, not missing data).
-    validity = _build_result_validity(result)
-    assert validity.scope == ResultScope.FULL_MISSION
-    assert validity.is_complete is True
-    assert validity.is_valid_for_full_mission is True
+    # ALL_LANDING_ZONES_UNAVAILABLE: the full route was evaluated (feasibility verdict,
+    # not missing data). result_validity must report scope=full_mission and is_complete=True.
+    fake_doc = InputDocument(path=_Path("/fake/x.yaml"), format="yaml", sha256="0" * 64)
+    envelope = build_estimator_envelope(
+        result=result,
+        inputs=EnvelopeInputs(mission=fake_doc, vehicle=fake_doc),
+    )
+    assert envelope.result_validity.scope == "full_mission"
+    assert envelope.result_validity.is_complete is True
+    assert envelope.result_validity.is_valid_for_full_mission is True
 
 
 # ---------------------------------------------------------------------------

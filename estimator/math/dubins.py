@@ -17,8 +17,6 @@ Reference:
 
 import math
 
-_TWO_PI = 2.0 * math.pi
-
 
 def _right_center(x: float, y: float, theta: float, r: float) -> tuple[float, float]:
     """Centre of the minimum-radius right turn circle at pose (x, y, theta)."""
@@ -52,7 +50,7 @@ def _rs_path_length(
     phi = math.acos(r / d)
     alpha_exit = math.atan2(dy, dx) + phi
     alpha_start = math.atan2(y1 - cy, x1 - cx)
-    arc_angle = (alpha_start - alpha_exit) % _TWO_PI
+    arc_angle = (alpha_start - alpha_exit) % math.tau
     straight = math.sqrt(d * d - r * r)
     return r * arc_angle + straight
 
@@ -78,7 +76,7 @@ def _ls_path_length(
     phi = math.acos(r / d)
     alpha_exit = math.atan2(dy, dx) - phi
     alpha_start = math.atan2(y1 - cy, x1 - cx)
-    arc_angle = (alpha_exit - alpha_start) % _TWO_PI
+    arc_angle = (alpha_exit - alpha_start) % math.tau
     straight = math.sqrt(d * d - r * r)
     return r * arc_angle + straight
 

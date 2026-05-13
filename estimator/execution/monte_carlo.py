@@ -163,7 +163,7 @@ def _apply_vehicle_overrides(
 ) -> VehicleProfile:
     if cruise_power_w is None and battery_capacity_wh is None:
         return vehicle
-    energy_updates: dict = {}
+    energy_updates: dict[str, float] = {}
     if cruise_power_w is not None:
         energy_updates["cruise_power_w"] = cruise_power_w
     if battery_capacity_wh is not None:

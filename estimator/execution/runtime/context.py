@@ -79,7 +79,8 @@ class EstimationContext:
             )
         )
 
-    def wind_speed(self, wind: WindVector) -> float:
+    @staticmethod
+    def wind_speed(wind: WindVector) -> float:
         return sqrt(wind.wind_east_mps**2 + wind.wind_north_mps**2)
 
     def fail(

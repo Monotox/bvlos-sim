@@ -125,12 +125,15 @@ class TimeVaryingWindProvider:
         self._changes: tuple[TimedWindChange, ...] = tuple(
             sorted(changes, key=lambda c: c.effective_elapsed_time_s)
         )
+        self._change_times: tuple[float, ...] = tuple(
+            c.effective_elapsed_time_s for c in self._changes
+        )
 
     def _provider_for_elapsed_time(self, elapsed_time_s: float) -> WindProvider:
-        for change in reversed(self._changes):
-            if elapsed_time_s >= change.effective_elapsed_time_s:
-                return change.provider
-        return self._base_provider
+        idx = bisect.bisect_right(self._change_times, elapsed_time_s) - 1
+        if idx < 0:
+            return self._base_provider
+        return self._changes[idx].provider
 
     def wind_at(
         self,
