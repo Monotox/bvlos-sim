@@ -364,16 +364,23 @@ def _write_internal_error_envelope(
 ) -> None:
     envelope = build_internal_error_envelope(error=error, inputs=inputs)
     rendered = _render_output(output_format, envelope)
-    destinations: list[Path | None] = [output] if retry_requested_output else []
-    if output is not None:
-        destinations.append(None)
 
-    for destination in destinations:
+    # For unexpected exceptions, retry the originally requested output path first.
+    if retry_requested_output and output is not None:
         try:
-            _write_output(rendered, destination)
+            _write_output(rendered, output)
             return
         except OutputWriteError:
-            continue
+            pass
+
+    # Fall back to stdout: either output was stdout all along (output=None,
+    # retry=True), or a file write failed and we degrade to stdout.
+    if retry_requested_output or output is not None:
+        try:
+            _write_output(rendered, None)
+            return
+        except OutputWriteError:
+            pass
 
     typer.echo("Failed to write estimator output.", err=True)
 

@@ -6,39 +6,8 @@ from estimator import (
     SpatiotemporalWindProvider,
     estimate_mission_distance_time,
 )
-from estimator.environment.wind import _interp_index, _lerp, wind_provider_id
+from estimator.environment.wind import wind_provider_id
 from tests.helpers import make_mission, make_vehicle
-
-# --- _lerp and _interp_index unit tests ---
-
-def test_lerp_at_zero() -> None:
-    assert _lerp(10.0, 20.0, 0.0) == pytest.approx(10.0)
-
-def test_lerp_at_one() -> None:
-    assert _lerp(10.0, 20.0, 1.0) == pytest.approx(20.0)
-
-def test_lerp_at_midpoint() -> None:
-    assert _lerp(10.0, 20.0, 0.5) == pytest.approx(15.0)
-
-def test_interp_index_inside() -> None:
-    i, t = _interp_index((0.0, 100.0, 500.0), 50.0)
-    assert i == 0
-    assert t == pytest.approx(0.5)
-
-def test_interp_index_at_boundary() -> None:
-    i, t = _interp_index((0.0, 100.0, 500.0), 100.0)
-    assert i == 1
-    assert t == pytest.approx(0.0)
-
-def test_interp_index_clamps_below() -> None:
-    i, t = _interp_index((0.0, 100.0), -50.0)
-    assert i == 0
-    assert t == pytest.approx(0.0)
-
-def test_interp_index_clamps_above() -> None:
-    i, t = _interp_index((0.0, 100.0), 200.0)
-    assert i == 0
-    assert t == pytest.approx(1.0)
 
 
 # --- SpatiotemporalWindProvider ---
@@ -127,6 +96,30 @@ def test_wind_clamps_outside_lat_lon_bounds() -> None:
     assert wind.wind_east_mps == pytest.approx(2.0)
 
 
+def test_wind_interpolates_linearly_at_time_midpoint() -> None:
+    """At exactly t=300s (midpoint of [0, 600]), wind should be the exact average."""
+    # values[t_idx][alt_idx][lat_idx][lon_idx] = [east, north]
+    cell_t0 = [2.0, 0.0]
+    lat_row_t0 = [cell_t0, cell_t0]           # 2 lon entries
+    alt_slice_t0 = [lat_row_t0, lat_row_t0]   # 2 lat rows
+    t_snap_t0 = [alt_slice_t0, alt_slice_t0]  # 2 alt bands
+
+    cell_t1 = [6.0, 0.0]
+    lat_row_t1 = [cell_t1, cell_t1]
+    alt_slice_t1 = [lat_row_t1, lat_row_t1]
+    t_snap_t1 = [alt_slice_t1, alt_slice_t1]
+
+    provider = SpatiotemporalWindProvider(
+        time_s=[0.0, 600.0],
+        altitude_m=[0.0, 200.0],
+        lat=[52.0, 52.01],
+        lon=[4.0, 4.01],
+        values=[t_snap_t0, t_snap_t1],
+    )
+    wind = provider.wind_at(52.005, 4.005, 100.0, 300.0)
+    assert wind.wind_east_mps == pytest.approx(4.0)
+
+
 def test_spatiotemporal_wind_changes_estimation_time() -> None:
     """Estimation with spatiotemporal wind should differ from zero-wind baseline."""
     mission = make_mission()
@@ -174,8 +167,9 @@ def test_load_wind_grid_from_yaml(tmp_path) -> None:
     provider, doc = load_wind_grid(grid_file)
     assert provider.provider_id == "spatiotemporal_grid"
     assert doc.format == "yaml"
+    # At altitude midpoint between 0 m (east=2.0) and 200 m (east=3.0), east ≈ 2.5
     wind = provider.wind_at(52.005, 4.005, 100.0, 300.0)
-    assert isinstance(wind.wind_east_mps, float)
+    assert wind.wind_east_mps == pytest.approx(2.5)
 
 
 def test_load_wind_grid_non_mapping_raises(tmp_path) -> None:

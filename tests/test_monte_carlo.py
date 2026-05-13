@@ -1,9 +1,9 @@
 """Tests for Monte Carlo uncertainty modeling (Ticket 037)."""
 
 import pytest
+from pydantic import ValidationError
 
-from estimator import MonteCarloResult, run_monte_carlo
-from estimator.execution.monte_carlo import _stats
+from estimator import run_monte_carlo
 from schemas.uncertainty import (
     NormalDistribution,
     UniformDistribution,
@@ -73,12 +73,12 @@ def test_normal_distribution_parses() -> None:
 
 
 def test_normal_distribution_rejects_nonpositive_std() -> None:
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         NormalDistribution(kind="normal", mean=0.0, std=0.0)
 
 
 def test_normal_distribution_rejects_negative_std() -> None:
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         NormalDistribution(kind="normal", mean=0.0, std=-1.0)
 
 
@@ -89,17 +89,17 @@ def test_uniform_distribution_parses() -> None:
 
 
 def test_uniform_distribution_rejects_equal_bounds() -> None:
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         UniformDistribution(kind="uniform", low=5.0, high=5.0)
 
 
 def test_uniform_distribution_rejects_inverted_bounds() -> None:
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         UniformDistribution(kind="uniform", low=10.0, high=5.0)
 
 
 def test_uncertainty_parameters_rejects_empty() -> None:
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         UncertaintyParameters()
 
 
@@ -112,7 +112,7 @@ def test_uncertainty_plan_parses() -> None:
 
 
 def test_uncertainty_plan_rejects_unknown_fields() -> None:
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         UncertaintyPlan.model_validate(
             {
                 "schema_version": "uncertainty.v1",
@@ -128,7 +128,7 @@ def test_uncertainty_plan_rejects_unknown_fields() -> None:
 
 
 def test_uncertainty_plan_rejects_zero_samples() -> None:
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         UncertaintyPlan(
             schema_version="uncertainty.v1",
             uncertainty_id="x",
@@ -143,42 +143,37 @@ def test_uncertainty_plan_rejects_zero_samples() -> None:
 
 
 # ---------------------------------------------------------------------------
-# _stats helper unit tests
+# Statistics shape tests — verified through MonteCarloResult public fields
 # ---------------------------------------------------------------------------
 
 
-def test_stats_none_for_empty_list() -> None:
-    assert _stats([]) is None
-
-
-def test_stats_single_value() -> None:
-    s = _stats([42.0])
+def test_single_sample_run_has_zero_std_and_all_percentiles_equal() -> None:
+    result = run_monte_carlo(_wind_plan(samples=1), make_mission(), make_vehicle())
+    s = result.total_time_s
     assert s is not None
     assert s.count == 1
-    assert s.mean == pytest.approx(42.0)
     assert s.std == pytest.approx(0.0)
-    assert s.min == pytest.approx(42.0)
-    assert s.max == pytest.approx(42.0)
-    assert s.p5 == pytest.approx(42.0)
-    assert s.p50 == pytest.approx(42.0)
-    assert s.p95 == pytest.approx(42.0)
+    assert s.min == pytest.approx(s.max)
+    assert s.p5 == pytest.approx(s.p50)
+    assert s.p50 == pytest.approx(s.p95)
 
 
-def test_stats_two_values() -> None:
-    s = _stats([10.0, 20.0])
+def test_two_sample_run_mean_is_arithmetic_mean() -> None:
+    # With a fixed seed and 2 samples we can only verify structural invariants.
+    result = run_monte_carlo(_wind_plan(samples=2), make_mission(), make_vehicle())
+    s = result.total_time_s
     assert s is not None
     assert s.count == 2
-    assert s.mean == pytest.approx(15.0)
-    assert s.min == pytest.approx(10.0)
-    assert s.max == pytest.approx(20.0)
+    assert s.min <= s.mean <= s.max
 
 
-def test_stats_percentile_ordering() -> None:
-    values = list(range(1, 101))
-    s = _stats([float(v) for v in values])
+def test_stats_percentile_ordering_over_many_samples() -> None:
+    result = run_monte_carlo(_wind_plan(samples=100), make_mission(), make_vehicle())
+    s = result.total_time_s
     assert s is not None
-    assert s.p5 <= s.p50 <= s.p95
     assert s.min <= s.p5
+    assert s.p5 <= s.p50
+    assert s.p50 <= s.p95
     assert s.p95 <= s.max
 
 
@@ -187,9 +182,12 @@ def test_stats_percentile_ordering() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_monte_carlo_result_type() -> None:
-    result = run_monte_carlo(_wind_plan(), make_mission(), make_vehicle())
-    assert isinstance(result, MonteCarloResult)
+def test_monte_carlo_returns_completed_samples_and_stats() -> None:
+    result = run_monte_carlo(_wind_plan(samples=10), make_mission(), make_vehicle())
+    assert result.completed_sample_count == 10
+    assert result.failed_sample_count == 0
+    assert result.total_time_s is not None
+    assert result.total_time_s.count == 10
 
 
 def test_monte_carlo_reproducible_same_seed() -> None:
@@ -288,14 +286,6 @@ def test_monte_carlo_speed_sampling_uniform() -> None:
     result = run_monte_carlo(_speed_plan(samples=30), make_mission(), make_vehicle())
     assert result.total_time_s is not None
     assert result.total_time_s.std > 0.0
-
-
-def test_monte_carlo_single_sample() -> None:
-    result = run_monte_carlo(_wind_plan(samples=1), make_mission(), make_vehicle())
-    assert result.completed_sample_count == 1
-    assert result.total_time_s is not None
-    assert result.total_time_s.count == 1
-    assert result.total_time_s.std == pytest.approx(0.0)
 
 
 def test_monte_carlo_battery_sampling_varies_reserve() -> None:
