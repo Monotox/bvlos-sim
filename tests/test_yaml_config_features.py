@@ -275,8 +275,9 @@ def test_scenario_yaml_min_groundspeed_mps_propagated() -> None:
     """min_groundspeed_mps in scenario initial_conditions must reach the estimator."""
     plan = _make_scenario_plan(min_groundspeed_mps=12.0)
     result = run_scenario(plan, make_mission(), make_vehicle())
-    # If accepted and propagated, the result should succeed without schema error
     assert result.estimate is not None
+    # When a non-default min_groundspeed is set, the library-default marker must be absent.
+    assert "applied_default_min_groundspeed_mps" not in result.estimate.metadata
 
 
 # ---------------------------------------------------------------------------
@@ -285,19 +286,42 @@ def test_scenario_yaml_min_groundspeed_mps_propagated() -> None:
 
 
 def test_mission_yaml_max_segment_length_m_propagated() -> None:
-    """max_segment_length_m in mission estimation YAML must reach the estimator."""
-    mission = make_mission()
-    mission.estimation = MissionEstimation.model_validate(
-        {
-            "max_segment_length_m": 100.0,
-            "wind_layers": [
-                {"altitude_m": 0.0, "wind_east_mps": 5.0, "wind_north_mps": 0.0},
-                {"altitude_m": 200.0, "wind_east_mps": 8.0, "wind_north_mps": 0.0},
-            ],
-        }
+    """max_segment_length_m in mission estimation YAML must affect wind sampling.
+
+    A long leg climbing through a wind shear boundary will yield a different
+    total_time_s when sampled at 100 m intervals vs. at a single midpoint.
+    """
+    from schemas.mission import AltitudeReference, RouteItem, MissionAction
+
+    mission_coarse = make_mission()
+    mission_fine = make_mission()
+
+    # 5 km east leg crossing a strong wind shear at 100 m amsl.
+    wp = RouteItem(
+        id="east-far",
+        action=MissionAction.WAYPOINT,
+        lat=52.0,
+        lon=4.073,
+        altitude_reference=AltitudeReference.AMSL,
+        altitude_m=200.0,
     )
-    result = estimate_mission_distance_time(mission, make_vehicle())
-    assert result is not None
+    layers = [
+        {"altitude_m": 0.0, "wind_east_mps": -8.0, "wind_north_mps": 0.0},
+        {"altitude_m": 120.0, "wind_east_mps": 8.0, "wind_north_mps": 0.0},
+    ]
+    # coarse: one sample per leg (no max_segment_length_m)
+    mission_coarse.route = [wp]
+    mission_coarse.estimation = MissionEstimation.model_validate({"wind_layers": layers})
+    # fine: sample every 50 m
+    mission_fine.route = [wp]
+    mission_fine.estimation = MissionEstimation.model_validate(
+        {"max_segment_length_m": 50.0, "wind_layers": layers}
+    )
+
+    result_coarse = estimate_mission_distance_time(mission_coarse, make_vehicle())
+    result_fine = estimate_mission_distance_time(mission_fine, make_vehicle())
+    # Dense sub-segment sampling should produce a different total time than a single sample.
+    assert result_coarse.total_time_s != result_fine.total_time_s
 
 
 def test_example_yaml_files_round_trip_through_loaders_and_runtime() -> None:

@@ -64,7 +64,13 @@ def derive_capabilities(vehicle: VehicleProfile) -> Capabilities:
             source=CapabilitySource.EXPLICIT,
         )
 
-    hover, forward_flight = _DERIVED_CAPABILITIES[vehicle.vehicle_class]
+    caps = _DERIVED_CAPABILITIES.get(vehicle.vehicle_class)
+    if caps is None:
+        raise ValueError(
+            f"No derived capabilities defined for vehicle_class={vehicle.vehicle_class!r}. "
+            "Add an entry to _DERIVED_CAPABILITIES or set explicit capabilities on the vehicle."
+        )
+    hover, forward_flight = caps
     return Capabilities(
         hover=hover,
         forward_flight=forward_flight,
