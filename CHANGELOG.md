@@ -46,3 +46,4 @@ and this project adheres to semantic versioning once public releases begin.
 - Integrated resource/link examples combining terrain, wind-grid, geofence, landing-zone, fidelity v2, scenario policies, and existing CLI paths.
 - `sitl-evidence.v1` evidence bundle schema for SITL adapter runs, including input artifacts, expected deterministic outputs, simulator metadata, and observed telemetry/command-log artifact references.
 - Contract-only `sitl` CLI command that builds a no-op SITL evidence bundle from existing scenario YAML without launching a live simulator.
+- ArduPilot SITL artifact recorder for telemetry, command logs, simulator events, and adapter events, with completed `sitl-evidence.v1` bundles when observed artifacts are present.

@@ -6,7 +6,7 @@ toward a broader BVLOS simulation platform.
 ## Current Status
 
 The current codebase implements Phases 1 through 4.10, plus Tickets 032, 033,
-034, 035, 036, 037, 038, 039, and 040:
+034, 035, 036, 037, 038, 039, 040, 041, and 042:
 
 - estimator hardening
 - static feasibility checks
@@ -21,8 +21,10 @@ The current codebase implements Phases 1 through 4.10, plus Tickets 032, 033,
 - Dubins path solver and bank-angle-constrained divert distance
 - fidelity v2 tangent-point offset subtraction, 3D slant path for vertical legs, and Dubins divert planar limit warning
 - SITL adapter contract and `sitl-evidence.v1` evidence schema
+- connect-mode ArduPilot SITL mission upload
+- SITL telemetry, command-log, simulator-log, and adapter-log artifacts
 
-The test suite currently passes with 435 tests.
+The test suite currently passes with 452 tests.
 
 bvlos-sim remains an engineering validation tool. It is not a flight-safety
 system, operational approval tool, or complete BVLOS compliance system.
@@ -94,6 +96,7 @@ Interfaces and contracts:
 - canonical scenario JSON envelope (`scenario-report.v2`)
 - canonical uncertainty JSON envelope (`uncertainty-report.v1`)
 - canonical SITL evidence bundle (`sitl-evidence.v1`)
+- ArduPilot SITL telemetry artifact recorder for completed evidence bundles
 - Markdown rendering for estimator, scenario, and uncertainty reports
 - golden fixture regression tests
 
@@ -109,8 +112,9 @@ Scenario limitations:
 
 Platform limitations:
 
-- ArduPilot SITL connect/upload support is implemented in Ticket 041; telemetry
-  evidence and comparison reporting remain in Tickets 042-043
+- ArduPilot SITL connect/upload support is implemented in Ticket 041 and
+  telemetry evidence is implemented in Ticket 042; comparison reporting remains
+  in Ticket 043
 - no PX4 SITL adapter yet; Tickets 045 (launch/upload) and 046 (telemetry/evidence)
 - no REST API; Ticket 050
 - no web UI; Ticket 050
@@ -327,8 +331,8 @@ Prerequisites:
 Scope:
 
 - Ticket 040: SITL adapter contract and evidence schema — implemented
-- Ticket 041: ArduPilot SITL launch and mission upload â€” implemented
-- Ticket 042: SITL telemetry recorder and evidence bundle
+- Ticket 041: ArduPilot SITL launch and mission upload - implemented
+- Ticket 042: SITL telemetry recorder and evidence bundle - implemented
 - Ticket 043: SITL scenario comparison report
 - Ticket 045: PX4 SITL launch and mission upload
 - Ticket 046: PX4 SITL telemetry recorder and evidence bundle

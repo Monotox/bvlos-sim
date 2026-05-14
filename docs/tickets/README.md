@@ -31,7 +31,9 @@ The current codebase includes:
 - `DUBINS_DIVERT_PLANAR_APPROXIMATION_LIMIT` warning on divert estimates exceeding 50 km geodesic distance
 - SITL adapter contract and `sitl-evidence.v1` evidence schema
 - connect-mode ArduPilot SITL adapter with MAVLink mission upload support
-- passing estimator/schema/CLI/scenario test suite with 435 tests
+- SITL telemetry, command, simulator, and adapter artifact recording for
+  ArduPilot evidence bundles
+- passing estimator/schema/CLI/scenario test suite with 452 tests
 
 ## Implemented Integration Validation
 
@@ -71,7 +73,7 @@ path rather than through isolated examples. Current validation includes:
 18. [039-path-planning-model-gaps.md](./039-path-planning-model-gaps.md) - implemented
 19. [040-sitl-adapter-contract-and-evidence-schema.md](./040-sitl-adapter-contract-and-evidence-schema.md) - implemented
 20. [041-ardupilot-sitl-launch-and-mission-upload.md](./041-ardupilot-sitl-launch-and-mission-upload.md) - implemented
-21. [042-sitl-telemetry-recorder-and-evidence-bundle.md](./042-sitl-telemetry-recorder-and-evidence-bundle.md) - planned
+21. [042-sitl-telemetry-recorder-and-evidence-bundle.md](./042-sitl-telemetry-recorder-and-evidence-bundle.md) - implemented
 22. [043-sitl-scenario-comparison-report.md](./043-sitl-scenario-comparison-report.md) - planned
 23. [044-geodesic-dubins-divert.md](./044-geodesic-dubins-divert.md) - planned
 24. [045-px4-sitl-launch-and-mission-upload.md](./045-px4-sitl-launch-and-mission-upload.md) - planned
@@ -85,8 +87,8 @@ path rather than through isolated examples. Current validation includes:
 
 - SITL adapter contract and evidence schema: Ticket 040, implemented.
 - ArduPilot SITL connect/upload integration: Ticket 041, implemented.
-- ArduPilot SITL telemetry evidence and comparison reporting remain planned:
-  Tickets 042-043.
+- ArduPilot SITL telemetry evidence: Ticket 042, implemented.
+- SITL comparison reporting remains planned: Ticket 043.
 - No PX4 SITL adapter yet: Tickets 045 (launch/upload) and 046 (telemetry/evidence).
 - No REST API or UI: Ticket 050.
 - No batch import/export workflows or report diff tooling: Ticket 060.

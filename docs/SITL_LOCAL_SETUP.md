@@ -127,6 +127,19 @@ For ArduPlane, use port `5770` in the same checks.
   ArduPilot already binds the standard TCP ports internally. The launcher uses
   `--no-mavproxy`.
 
+## Artifact layout and retention
+
+Live SITL adapter runs can write a self-contained artifact directory for the
+evidence bundle. The ArduPilot adapter writes deterministic JSON files named
+`telemetry.json`, `command_log.json`, `simulator_log.json`, and
+`adapter_log.json`. Each artifact reference in `sitl-evidence.v1` includes the
+path, role, format, schema version, and SHA-256 checksum.
+
+Artifact directories are caller-managed local files. Keep them with the
+corresponding mission, vehicle, and scenario inputs when preserving validation
+evidence, or remove them after short-lived smoke tests. The project does not
+upload, rotate, or prune SITL artifacts automatically.
+
 ## Default CI behaviour
 
 Live ArduPilot SITL is optional for bvlos-sim. Default development and CI tests

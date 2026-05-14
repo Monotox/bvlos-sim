@@ -19,6 +19,7 @@ from adapters.scenario_envelope import (
     SCENARIO_REPORT_SCHEMA_VERSION,
     ScenarioResultEnvelope,
 )
+from adapters.uncertainty_envelope import UNCERTAINTY_INPUT_SCHEMA_VERSION
 from schemas.vehicle import VehicleProfile
 from schemas.sitl import (
     SitlAdapterKind,
@@ -100,12 +101,14 @@ def _optional_document_references(
     landing_zone_document: InputDocument | None,
     terrain_document: InputDocument | None,
     wind_grid_document: InputDocument | None,
+    uncertainty_document: InputDocument | None,
 ) -> list[SitlArtifactReference]:
     optional_documents = (
         (geofence_document, SitlArtifactRole.GEOFENCES, GEOFENCE_SCHEMA_VERSION),
         (landing_zone_document, SitlArtifactRole.LANDING_ZONES, LANDING_ZONE_SCHEMA_VERSION),
         (terrain_document, SitlArtifactRole.TERRAIN, TERRAIN_SCHEMA_VERSION),
         (wind_grid_document, SitlArtifactRole.WIND_GRID, WIND_GRID_SCHEMA_VERSION),
+        (uncertainty_document, SitlArtifactRole.UNCERTAINTY, UNCERTAINTY_INPUT_SCHEMA_VERSION),
     )
     return [
         _document_reference(document, role=role, schema_version=schema_version)
@@ -123,6 +126,7 @@ def _input_references(
     landing_zone_document: InputDocument | None,
     terrain_document: InputDocument | None,
     wind_grid_document: InputDocument | None,
+    uncertainty_document: InputDocument | None,
 ) -> list[SitlArtifactReference]:
     return [
         _document_reference(
@@ -145,8 +149,20 @@ def _input_references(
             landing_zone_document=landing_zone_document,
             terrain_document=terrain_document,
             wind_grid_document=wind_grid_document,
+            uncertainty_document=uncertainty_document,
         ),
     ]
+
+
+def _evidence_status(observed: SitlObservedArtifacts) -> SitlEvidenceStatus:
+    if (
+        observed.telemetry
+        or observed.command_logs
+        or observed.simulator_logs
+        or observed.adapter_logs
+    ):
+        return SitlEvidenceStatus.COMPLETED
+    return SitlEvidenceStatus.CONTRACT_ONLY
 
 
 def build_sitl_evidence_bundle(
@@ -161,12 +177,15 @@ def build_sitl_evidence_bundle(
     landing_zone_document: InputDocument | None = None,
     terrain_document: InputDocument | None = None,
     wind_grid_document: InputDocument | None = None,
+    uncertainty_document: InputDocument | None = None,
     adapter: SitlAdapter | None = None,
 ) -> SitlEvidenceBundle:
     """Build a deterministic SITL evidence bundle from existing scenario outputs."""
 
     resolved_adapter = adapter or NoopSitlAdapter()
     scenario_payload = scenario_envelope.model_dump(mode="json")
+    observed = resolved_adapter.observed_artifacts()
+    status = _evidence_status(observed)
     estimate_payload = (
         scenario_envelope.estimate.model_dump(mode="json")
         if scenario_envelope.estimate is not None
@@ -175,7 +194,7 @@ def build_sitl_evidence_bundle(
     return SitlEvidenceBundle(
         schema_version=SITL_EVIDENCE_SCHEMA_VERSION,
         evidence_id=evidence_id,
-        status=SitlEvidenceStatus.CONTRACT_ONLY,
+        status=status,
         tool_version=tool_version(),
         created_by="bvlos-sim sitl",
         inputs=_input_references(
@@ -186,6 +205,7 @@ def build_sitl_evidence_bundle(
             landing_zone_document=landing_zone_document,
             terrain_document=terrain_document,
             wind_grid_document=wind_grid_document,
+            uncertainty_document=uncertainty_document,
         ),
         expected=SitlExpectedOutputs(
             scenario_report=scenario_payload,
@@ -201,10 +221,10 @@ def build_sitl_evidence_bundle(
             ],
         ),
         simulator=resolved_adapter.simulator_metadata(vehicle),
-        observed=resolved_adapter.observed_artifacts(),
+        observed=observed,
         metadata={
-            "contract_only": True,
-            "live_dependencies_required": False,
+            "contract_only": status == SitlEvidenceStatus.CONTRACT_ONLY,
+            "live_dependencies_required": status == SitlEvidenceStatus.COMPLETED,
             "follow_on_tickets": "041-043, 045-046",
         },
     )

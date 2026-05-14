@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import StrEnum
+from pathlib import Path
 
 
 @dataclass(frozen=True)
@@ -13,6 +14,7 @@ class ArduPilotSitlConfig:
     connection_timeout_s: float = 30.0
     mission_upload_timeout_s: float = 60.0
     arm_timeout_s: float = 30.0
+    artifact_dir: Path | None = None
 
 
 @dataclass(frozen=True)

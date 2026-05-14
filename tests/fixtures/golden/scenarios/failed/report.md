@@ -8,7 +8,7 @@
 ## Assertion Results
 
 - `estimate-succeeds` `passed`: Estimate status is 'success' (success).
-- `time-too-short` `failed`: 'estimate.total_time_s' field_lt 10.0 not satisfied (actual: 169.820275172818).
+- `time-too-short` `failed`: 'estimate.total_time_s' field_lt 10.0 not satisfied (actual: 169.82027517283754).
 - `unsupported-field` `unsupported`: Assertion is not supported: Field path 'estimate.unknown_field' is not supported in scenario.v1. See docs for supported field paths.
 - `policy-action` `passed`: Policy action for event 'link-lost' is 'rtl' as expected.
 
@@ -41,20 +41,20 @@
 
 ## Estimate Summary
 
-- Horizontal distance m: `707.0645448969212`
+- Horizontal distance m: `707.0645448997484`
 - Vertical distance m: `240.0`
-- Path distance m: `787.0645448969212`
-- Time s: `169.820275172818`
+- Path distance m: `787.0645448997484`
+- Time s: `169.82027517283754`
 - Legs: `5`
 
 ## Energy Feasibility
 
 - Feasible: `true`
-- Total energy Wh: `41.50531217438002`
+- Total energy Wh: `41.50531217438247`
 - Battery capacity Wh: `900.0`
 - Usable energy Wh: `675.0`
 - Reserve threshold percent: `25.0`
 - Reserve threshold Wh: `225.0`
-- Reserve at landing Wh: `858.49468782562`
-- Reserve at landing percent: `95.38829864729111`
+- Reserve at landing Wh: `858.4946878256176`
+- Reserve at landing percent: `95.38829864729084`
 - Energy legs: `5`
