@@ -1,0 +1,67 @@
+# ArduPilot SITL container for bvlos-sim local development.
+# Verified commit: 6e37731eef65b485994ae5109f03c518bc73853f
+# Build:   podman build -t bvlos-sitl sitl/
+# Run:     podman run --rm -it -p 5760:5760 -p 5770:5770 bvlos-sitl
+# Launch:  podman exec <ctr> /opt/ardupilot/sitl/launch.sh copter
+
+FROM docker.io/library/ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONDONTWRITEBYTECODE=1
+
+RUN apt-get update \
+    && apt-get install -y \
+        git \
+        python3 \
+        python3-pip \
+        python3-dev \
+        gcc \
+        g++ \
+        make \
+        cmake \
+        libxml2-dev \
+        libxslt1-dev \
+        net-tools \
+        iproute2 \
+        wget \
+        curl \
+        sudo \
+        lsb-release \
+        netcat-openbsd \
+        ccache \
+        gawk \
+        valgrind \
+        screen \
+        python-is-python3 \
+        libcsfml-dev \
+        libsfml-dev \
+        python3-wxgtk4.0 \
+        xterm \
+        lcov \
+        gcovr \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip3 install --no-cache-dir \
+        pymavlink==2.4.49 \
+        MAVProxy==1.8.74
+
+RUN git clone https://github.com/ArduPilot/ardupilot.git /opt/ardupilot \
+    && cd /opt/ardupilot \
+    && git checkout 6e37731eef65b485994ae5109f03c518bc73853f \
+    && git submodule update --init --recursive
+
+RUN cd /opt/ardupilot \
+    && python3 waf configure --board sitl \
+    && python3 waf copter \
+    && python3 waf plane
+
+RUN mkdir -p /opt/ardupilot/sitl
+COPY launch.sh /opt/ardupilot/sitl/launch.sh
+RUN chmod +x /opt/ardupilot/sitl/launch.sh
+
+EXPOSE 5760 5762 5763 5770 5772 5773
+EXPOSE 5501/udp 5511/udp
+
+WORKDIR /opt/ardupilot
+
+CMD ["/bin/sh", "-c", "printf '%s\n' 'bvlos-sim ArduPilot SITL image' '' 'Usage:' '  /opt/ardupilot/sitl/launch.sh copter' '  /opt/ardupilot/sitl/launch.sh plane' '' 'For exec workflow:' '  podman run --rm -d --name bvlos-sitl -p 5760:5760 -p 5770:5770 bvlos-sitl sleep infinity' '  podman exec -it bvlos-sitl /opt/ardupilot/sitl/launch.sh copter'"]
