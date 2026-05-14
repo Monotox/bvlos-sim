@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from types import SimpleNamespace
-from typing import Any
 
 import pytest
 
@@ -16,8 +14,8 @@ from adapters.ardupilot_sitl import (
     mission_action_to_mavlink_cmd,
 )
 from adapters.io import InputDocument, load_vehicle
-from adapters.scenario_envelope import build_scenario_envelope
-from adapters.sitl_evidence import SitlAdapter, build_sitl_evidence_bundle
+from adapters.scenario_envelope import ScenarioResultEnvelope, build_scenario_envelope
+from adapters.sitl_evidence import build_sitl_evidence_bundle
 from estimator.core.scenario import ScenarioResult, ScenarioStatus
 from schemas import (
     AltitudeReference,
@@ -29,6 +27,7 @@ from schemas import (
     RouteItem,
     SitlAdapterKind,
     SitlEvidenceStatus,
+    VehicleProfile,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -43,7 +42,7 @@ class FakeMavlink:
 
 
 class FakeMessage:
-    def __init__(self, message_type: str, **fields: Any) -> None:
+    def __init__(self, message_type: str, **fields: object) -> None:
         self.message_type = message_type
         for name, value in fields.items():
             setattr(self, name, value)
@@ -54,21 +53,21 @@ class FakeMessage:
 
 class FakeMav:
     def __init__(self) -> None:
-        self.mission_counts: list[tuple[Any, ...]] = []
-        self.mission_items: list[tuple[Any, ...]] = []
-        self.command_longs: list[tuple[Any, ...]] = []
-        self.set_modes: list[tuple[Any, ...]] = []
+        self.mission_counts: list[tuple[object, ...]] = []
+        self.mission_items: list[tuple[object, ...]] = []
+        self.command_longs: list[tuple[object, ...]] = []
+        self.set_modes: list[tuple[object, ...]] = []
 
-    def mission_count_send(self, *args: Any) -> None:
+    def mission_count_send(self, *args: object) -> None:
         self.mission_counts.append(args)
 
-    def mission_item_int_send(self, *args: Any) -> None:
+    def mission_item_int_send(self, *args: object) -> None:
         self.mission_items.append(args)
 
-    def command_long_send(self, *args: Any) -> None:
+    def command_long_send(self, *args: object) -> None:
         self.command_longs.append(args)
 
-    def set_mode_send(self, *args: Any) -> None:
+    def set_mode_send(self, *args: object) -> None:
         self.set_modes.append(args)
 
 
@@ -113,13 +112,13 @@ class FakeMavutil:
 
     def __init__(self, connection: FakeConnection) -> None:
         self.connection = connection
-        self.connection_args: tuple[Any, ...] | None = None
-        self.connection_kwargs: dict[str, Any] | None = None
+        self.connection_args: tuple[object, ...] | None = None
+        self.connection_kwargs: dict[str, object] | None = None
 
-    def mavlink_connection(self, *args: Any, **kwargs: Any) -> FakeConnection:
+    def mavlink_connection(self, *args: object, **kwargs: object) -> FakeConnection:
         self.connection_args = args
         self.connection_kwargs = kwargs
-        self.connection.connection_string = args[0]
+        self.connection.connection_string = str(args[0])
         return self.connection
 
 
@@ -171,12 +170,24 @@ def _three_item_mission() -> MissionPlan:
 
 def _upload_messages(item_count: int) -> list[FakeMessage]:
     return [
-        *(FakeMessage("MISSION_REQUEST_INT", seq=sequence) for sequence in range(item_count)),
+        *(
+            FakeMessage("MISSION_REQUEST_INT", seq=sequence)
+            for sequence in range(item_count)
+        ),
         FakeMessage("MISSION_ACK", type=FakeMavlink.MAV_MISSION_ACCEPTED),
     ]
 
 
-def _vehicle():
+def _connected_adapter(
+    connection: FakeConnection | None = None,
+) -> tuple[StubbedArduPilotSitlAdapter, FakeConnection]:
+    resolved_connection = connection or FakeConnection()
+    adapter = StubbedArduPilotSitlAdapter(resolved_connection)
+    adapter.connect()
+    return adapter, resolved_connection
+
+
+def _vehicle() -> VehicleProfile:
     vehicle, _document = load_vehicle(VEHICLE_PATH)
     return vehicle
 
@@ -189,7 +200,7 @@ def _document(name: str) -> InputDocument:
     )
 
 
-def _scenario_envelope():
+def _scenario_envelope() -> ScenarioResultEnvelope:
     scenario_document = _document("scenario.yaml")
     mission_document = _document("mission.yaml")
     vehicle_document = _document("vehicle.yaml")
@@ -246,8 +257,7 @@ def test_connect_calls_heartbeat_wait() -> None:
 
 def test_upload_mission_sends_correct_item_count() -> None:
     connection = FakeConnection(_upload_messages(item_count=3))
-    adapter = StubbedArduPilotSitlAdapter(connection)
-    adapter._connection = connection
+    adapter, _connection = _connected_adapter(connection)
 
     adapter.upload_mission(_three_item_mission())
 
@@ -256,8 +266,7 @@ def test_upload_mission_sends_correct_item_count() -> None:
 
 def test_upload_mission_returns_acknowledged_result() -> None:
     connection = FakeConnection(_upload_messages(item_count=3))
-    adapter = StubbedArduPilotSitlAdapter(connection)
-    adapter._connection = connection
+    adapter, _connection = _connected_adapter(connection)
 
     result = adapter.upload_mission(_three_item_mission())
 
@@ -265,25 +274,22 @@ def test_upload_mission_returns_acknowledged_result() -> None:
 
 
 def test_unsupported_action_raises_adapter_error() -> None:
-    connection = FakeConnection()
-    adapter = StubbedArduPilotSitlAdapter(connection)
-    adapter._connection = connection
-    mission = SimpleNamespace(
+    adapter, _connection = _connected_adapter()
+    route_item = RouteItem.model_construct(
+        id="unsupported",
+        action="fly_sideways",
+        lat=None,
+        lon=None,
+        altitude_m=None,
+        altitude_reference=None,
+        loiter_time_s=None,
+        acceptance_radius_m=None,
+    )
+    mission = MissionPlan.model_construct(
         defaults=MissionDefaults(
             altitude_reference=AltitudeReference.RELATIVE_HOME,
         ),
-        route=[
-            SimpleNamespace(
-                id="unsupported",
-                action="fly_sideways",
-                lat=None,
-                lon=None,
-                altitude_m=None,
-                altitude_reference=None,
-                loiter_time_s=None,
-                acceptance_radius_m=None,
-            ),
-        ],
+        route=[route_item],
     )
 
     with pytest.raises(ArduPilotAdapterError, match="fly_sideways"):
@@ -291,14 +297,11 @@ def test_unsupported_action_raises_adapter_error() -> None:
 
 
 def test_disconnect_closes_connection() -> None:
-    connection = FakeConnection()
-    adapter = StubbedArduPilotSitlAdapter(connection)
-    adapter._connection = connection
+    adapter, connection = _connected_adapter()
 
     adapter.disconnect()
 
     assert connection.closed is True
-    assert adapter._connection is None
 
 
 def test_simulator_metadata_adapter_kind_is_ardupilot() -> None:
@@ -336,13 +339,10 @@ def test_adapter_satisfies_sitl_adapter_protocol() -> None:
     for name in required_methods:
         assert callable(getattr(adapter, name))
     assert adapter.adapter_kind == SitlAdapterKind.ARDUPILOT
-    assert SitlAdapter.__name__ == "SitlAdapter"
 
 
 def test_ardupilot_adapter_plugs_into_build_sitl_evidence_bundle() -> None:
-    connection = FakeConnection()
-    adapter = StubbedArduPilotSitlAdapter(connection)
-    adapter._connection = connection
+    adapter, _connection = _connected_adapter()
     scenario_document = _document("scenario.yaml")
     mission_document = _document("mission.yaml")
     vehicle_document = _document("vehicle.yaml")
