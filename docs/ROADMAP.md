@@ -109,8 +109,8 @@ Scenario limitations:
 
 Platform limitations:
 
-- no live ArduPilot SITL adapter yet; Tickets 041-043 build on the Ticket 040
-  evidence schema and no-op adapter boundary
+- ArduPilot SITL connect/upload support is implemented in Ticket 041; telemetry
+  evidence and comparison reporting remain in Tickets 042-043
 - no PX4 SITL adapter yet; Tickets 045 (launch/upload) and 046 (telemetry/evidence)
 - no REST API; Ticket 050
 - no web UI; Ticket 050
@@ -327,7 +327,7 @@ Prerequisites:
 Scope:
 
 - Ticket 040: SITL adapter contract and evidence schema — implemented
-- Ticket 041: ArduPilot SITL launch and mission upload
+- Ticket 041: ArduPilot SITL launch and mission upload â€” implemented
 - Ticket 042: SITL telemetry recorder and evidence bundle
 - Ticket 043: SITL scenario comparison report
 - Ticket 045: PX4 SITL launch and mission upload

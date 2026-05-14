@@ -131,5 +131,5 @@ For ArduPlane, use port `5770` in the same checks.
 
 Live ArduPilot SITL is optional for bvlos-sim. Default development and CI tests
 continue to run without ArduPilot or host MAVLink tooling, for example with
-`uv run pytest`. A future optional SITL dependency group, such as
-`uv sync --group sitl`, should be used only for live adapter tests.
+`uv run pytest`. The optional SITL dependency group,
+`uv sync --group sitl`, is only needed for live adapter tests.

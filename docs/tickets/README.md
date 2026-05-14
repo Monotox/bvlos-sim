@@ -30,6 +30,7 @@ The current codebase includes:
 - 3D slant path distance for takeoff and landing-transit legs (`path_distance_m = vertical_distance_m`)
 - `DUBINS_DIVERT_PLANAR_APPROXIMATION_LIMIT` warning on divert estimates exceeding 50 km geodesic distance
 - SITL adapter contract and `sitl-evidence.v1` evidence schema
+- connect-mode ArduPilot SITL adapter with MAVLink mission upload support
 - passing estimator/schema/CLI/scenario test suite with 435 tests
 
 ## Implemented Integration Validation
@@ -69,7 +70,7 @@ path rather than through isolated examples. Current validation includes:
 17. [038-bank-angle-and-dubins-path-optimization.md](./038-bank-angle-and-dubins-path-optimization.md) - implemented
 18. [039-path-planning-model-gaps.md](./039-path-planning-model-gaps.md) - implemented
 19. [040-sitl-adapter-contract-and-evidence-schema.md](./040-sitl-adapter-contract-and-evidence-schema.md) - implemented
-20. [041-ardupilot-sitl-launch-and-mission-upload.md](./041-ardupilot-sitl-launch-and-mission-upload.md) - planned
+20. [041-ardupilot-sitl-launch-and-mission-upload.md](./041-ardupilot-sitl-launch-and-mission-upload.md) - implemented
 21. [042-sitl-telemetry-recorder-and-evidence-bundle.md](./042-sitl-telemetry-recorder-and-evidence-bundle.md) - planned
 22. [043-sitl-scenario-comparison-report.md](./043-sitl-scenario-comparison-report.md) - planned
 23. [044-geodesic-dubins-divert.md](./044-geodesic-dubins-divert.md) - planned
@@ -83,7 +84,9 @@ path rather than through isolated examples. Current validation includes:
 ## Limitation Coverage and Status
 
 - SITL adapter contract and evidence schema: Ticket 040, implemented.
-- No live ArduPilot SITL integration yet: Tickets 041-043.
+- ArduPilot SITL connect/upload integration: Ticket 041, implemented.
+- ArduPilot SITL telemetry evidence and comparison reporting remain planned:
+  Tickets 042-043.
 - No PX4 SITL adapter yet: Tickets 045 (launch/upload) and 046 (telemetry/evidence).
 - No REST API or UI: Ticket 050.
 - No batch import/export workflows or report diff tooling: Ticket 060.
