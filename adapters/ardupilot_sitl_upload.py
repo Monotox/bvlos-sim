@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from time import monotonic
 
@@ -23,6 +23,7 @@ from adapters.ardupilot_sitl_types import ArduPilotAdapterError
 @dataclass(frozen=True)
 class MissionUploadProtocol:
     timeout_s: float
+    command_recorder: Callable[[str, Mapping[str, object]], None] | None = None
 
     def upload(
         self,
@@ -44,6 +45,14 @@ class MissionUploadProtocol:
             connection.target_component,
             item_count,
             mission_type(mavlink),
+        )
+        self._record_command(
+            "MISSION_COUNT",
+            {
+                "target_system": connection.target_system,
+                "target_component": connection.target_component,
+                "item_count": item_count,
+            },
         )
 
     def _complete(
@@ -121,6 +130,24 @@ class MissionUploadProtocol:
             item.altitude_m,
             mission_type(mavlink),
         )
+        self._record_command(
+            "MISSION_ITEM_INT",
+            {
+                "target_system": connection.target_system,
+                "target_component": connection.target_component,
+                "sequence": sequence,
+                "frame": item.frame,
+                "command": item.command,
+                "latitude_int": item.latitude_int,
+                "longitude_int": item.longitude_int,
+                "altitude_m": item.altitude_m,
+            },
+        )
+
+    def _record_command(self, command: str, fields: Mapping[str, object]) -> None:
+        if self.command_recorder is None:
+            return
+        self.command_recorder(command, fields)
 
 
 __all__ = ["MissionUploadProtocol"]
