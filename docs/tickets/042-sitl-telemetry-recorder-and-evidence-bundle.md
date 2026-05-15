@@ -1,5 +1,9 @@
 # Ticket 042: SITL Telemetry Recorder and Evidence Bundle
 
+## Status
+
+Implemented.
+
 ## Goal
 
 Record ArduPilot SITL telemetry and command evidence into the versioned evidence
@@ -7,10 +11,10 @@ bundle defined by Ticket 040.
 
 ## Current Gap
 
-After a SITL mission can run, the project still needs replayable evidence:
-telemetry, command logs, timestamps, simulator metadata, input hashes, and tool
-versions. Without this layer, SITL execution cannot support deterministic
-comparison or release-quality debugging.
+After a SITL mission can run, the project needs replayable evidence: telemetry,
+command logs, timestamps, simulator metadata, input hashes, and tool versions.
+This ticket adds the artifact layer needed for later deterministic comparison
+and release-quality debugging.
 
 ## Scope
 
@@ -40,6 +44,19 @@ comparison or release-quality debugging.
   input provenance, and tool versions.
 - Synthetic telemetry tests prove deterministic serialization.
 - Missing or malformed telemetry produces explicit adapter diagnostics.
+
+## Implementation Notes
+
+- `adapters.sitl_artifacts` writes deterministic JSON artifacts for telemetry,
+  command logs, simulator events, and adapter events.
+- `ArduPilotSitlAdapter` can record telemetry from an existing MAVLink
+  connection into an artifact directory and reports the generated artifact
+  references through the Ticket 040 adapter boundary.
+- `build_sitl_evidence_bundle()` marks bundles with observed artifacts as
+  `completed` while preserving `contract_only` for no-op or pre-recording
+  adapter runs.
+- SITL input provenance now accepts an optional `uncertainty.v1` input
+  reference when a caller has one.
 
 ## Out of Scope
 

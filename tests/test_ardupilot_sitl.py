@@ -1,4 +1,4 @@
-"""Tests for the ArduPilot SITL adapter (Ticket 041)."""
+"""Tests for the ArduPilot SITL adapter."""
 
 from __future__ import annotations
 
@@ -327,6 +327,30 @@ def test_observed_artifacts_are_empty_in_ticket_041() -> None:
     assert observed.command_logs == []
     assert observed.simulator_logs == []
     assert observed.adapter_logs == []
+
+
+def test_adapter_records_telemetry_and_command_artifacts(tmp_path: Path) -> None:
+    connection = FakeConnection(_upload_messages(item_count=3))
+    adapter = StubbedArduPilotSitlAdapter(connection)
+    adapter.start_recording(tmp_path)
+    adapter.connect()
+    adapter.upload_mission(_three_item_mission())
+    connection.messages.append(FakeMessage("MISSION_CURRENT", seq=2))
+
+    observed = adapter.record_telemetry(sample_count=1)
+
+    assert observed.telemetry[0].path.endswith("telemetry.json")
+    assert observed.command_logs[0].path.endswith("command_log.json")
+    assert observed.simulator_logs[0].path.endswith("simulator_log.json")
+    assert observed.adapter_logs[0].path.endswith("adapter_log.json")
+
+
+def test_missing_telemetry_raises_explicit_adapter_error(tmp_path: Path) -> None:
+    adapter, _connection = _connected_adapter()
+    adapter.start_recording(tmp_path)
+
+    with pytest.raises(ArduPilotAdapterError, match="Timed out waiting"):
+        adapter.record_telemetry(sample_count=1, timeout_s=0.01)
 
 
 def test_adapter_satisfies_sitl_adapter_protocol() -> None:
