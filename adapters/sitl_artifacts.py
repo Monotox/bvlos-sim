@@ -56,6 +56,7 @@ class SitlArtifactRecorder:
         default=None,
         repr=False,
     )
+    _dirty: bool = field(init=False, default=True, repr=False)
 
     def record_telemetry_message(self, timestamp_s: float, message: object) -> None:
         self.telemetry_records.append(
@@ -65,13 +66,13 @@ class SitlArtifactRecorder:
                 "fields": _message_fields(message),
             }
         )
-        self._observed_artifacts = None
+        self._dirty = True
 
     def record_command(
         self,
         timestamp_s: float,
         command: str,
-        fields: Mapping[str, object] | None = None,
+        fields: Mapping[str, SitlArtifactValue] | None = None,
     ) -> None:
         self.command_records.append(
             {
@@ -80,13 +81,13 @@ class SitlArtifactRecorder:
                 "fields": _normalize_mapping(fields or {}),
             }
         )
-        self._observed_artifacts = None
+        self._dirty = True
 
     def record_simulator_event(
         self,
         timestamp_s: float,
         event: str,
-        fields: Mapping[str, object] | None = None,
+        fields: Mapping[str, SitlArtifactValue] | None = None,
     ) -> None:
         self.simulator_events.append(
             {
@@ -95,13 +96,13 @@ class SitlArtifactRecorder:
                 "fields": _normalize_mapping(fields or {}),
             }
         )
-        self._observed_artifacts = None
+        self._dirty = True
 
     def record_adapter_event(
         self,
         timestamp_s: float,
         event: str,
-        fields: Mapping[str, object] | None = None,
+        fields: Mapping[str, SitlArtifactValue] | None = None,
     ) -> None:
         self.adapter_events.append(
             {
@@ -110,14 +111,16 @@ class SitlArtifactRecorder:
                 "fields": _normalize_mapping(fields or {}),
             }
         )
-        self._observed_artifacts = None
+        self._dirty = True
 
     @property
     def observed(self) -> SitlObservedArtifacts | None:
+        if self._dirty:
+            return None
         return self._observed_artifacts
 
     def write(self) -> SitlObservedArtifacts:
-        if self._observed_artifacts is not None:
+        if self._observed_artifacts is not None and not self._dirty:
             return self._observed_artifacts
 
         self.artifact_dir.mkdir(parents=True, exist_ok=True)
@@ -127,32 +130,58 @@ class SitlArtifactRecorder:
             simulator_log=self.artifact_dir / "simulator_log.json",
             adapter_log=self.artifact_dir / "adapter_log.json",
         )
-        _write_artifact(
+        telemetry = _write_artifact_reference(
             artifacts.telemetry,
             SITL_TELEMETRY_SCHEMA_VERSION,
             "records",
             self.telemetry_records,
+            role=SitlArtifactRole.TELEMETRY,
+            description="Normalized MAVLink telemetry records.",
         )
-        _write_artifact(
+        command_log = _write_artifact_reference(
             artifacts.command_log,
             SITL_COMMAND_LOG_SCHEMA_VERSION,
             "commands",
             self.command_records,
+            role=SitlArtifactRole.COMMAND_LOG,
+            description="MAVLink commands emitted by the adapter.",
         )
-        _write_artifact(
+        simulator_log = _write_artifact_reference(
             artifacts.simulator_log,
             SITL_SIMULATOR_LOG_SCHEMA_VERSION,
             "events",
             self.simulator_events,
+            role=SitlArtifactRole.SIMULATOR_LOG,
+            description="SITL simulator lifecycle events.",
         )
-        _write_artifact(
+        adapter_log = _write_artifact_reference(
             artifacts.adapter_log,
             SITL_ADAPTER_LOG_SCHEMA_VERSION,
             "events",
             self.adapter_events,
+            role=SitlArtifactRole.ADAPTER_LOG,
+            description="Adapter lifecycle events.",
         )
-        self._observed_artifacts = _observed_artifacts_for(artifacts)
+        observed = SitlObservedArtifacts(
+            telemetry=[telemetry] if telemetry is not None else [],
+            command_logs=[command_log] if command_log is not None else [],
+            simulator_logs=[simulator_log] if simulator_log is not None else [],
+            adapter_logs=[adapter_log] if adapter_log is not None else [],
+        )
+        self._cache_observed_artifacts(observed)
+        if self._observed_artifacts is None:
+            raise AssertionError("SITL artifact cache was not initialized")
         return self._observed_artifacts
+
+    def _cache_observed_artifacts(self, observed: SitlObservedArtifacts) -> None:
+        if self._observed_artifacts is None:
+            self._observed_artifacts = observed
+        else:
+            self._observed_artifacts.telemetry = observed.telemetry
+            self._observed_artifacts.command_logs = observed.command_logs
+            self._observed_artifacts.simulator_logs = observed.simulator_logs
+            self._observed_artifacts.adapter_logs = observed.adapter_logs
+        self._dirty = False
 
 
 def _message_type(message: object) -> str:
@@ -165,16 +194,27 @@ def _message_type(message: object) -> str:
     value = getattr(message, "message_type", None)
     if isinstance(value, str) and value:
         return value
-    raise SitlArtifactError("Telemetry message does not expose a MAVLink message type")
+    raise SitlArtifactError(
+        "Telemetry message does not expose a non-empty MAVLink message type "
+        "via get_type() or message_type",
+    )
 
 
 def _message_fields(message: object) -> dict[str, SitlArtifactValue]:
     to_dict = getattr(message, "to_dict", None)
     if callable(to_dict):
-        value = to_dict()
+        try:
+            value = to_dict()
+        except Exception as exc:
+            raise SitlArtifactError(
+                f"Telemetry message to_dict() failed: {exc}",
+            ) from exc
         if isinstance(value, Mapping):
             return _normalize_mapping(value)
-        raise SitlArtifactError("Telemetry message to_dict() did not return a mapping")
+        raise SitlArtifactError(
+            "Telemetry message to_dict() did not return a mapping "
+            f"(got {type(value).__name__})",
+        )
 
     public_fields = {
         name: value
@@ -186,7 +226,9 @@ def _message_fields(message: object) -> dict[str, SitlArtifactValue]:
     return _normalize_mapping(public_fields)
 
 
-def _normalize_mapping(mapping: Mapping[object, object]) -> dict[str, SitlArtifactValue]:
+def _normalize_mapping(
+    mapping: Mapping[object, object],
+) -> dict[str, SitlArtifactValue]:
     return {
         str(key): _normalize_value(value)
         for key, value in sorted(mapping.items(), key=lambda item: str(item[0]))
@@ -198,7 +240,7 @@ def _normalize_value(value: object) -> SitlArtifactValue:
         return value
     if isinstance(value, float):
         if not isfinite(value):
-            raise SitlArtifactError("Artifact field value is not finite")
+            raise SitlArtifactError(f"Artifact field value is not finite: {value!r}")
         return value
     if isinstance(value, Mapping):
         return _normalize_mapping(value)
@@ -225,40 +267,23 @@ def _write_artifact(
     )
 
 
-def _observed_artifacts_for(artifacts: SitlArtifactSet) -> SitlObservedArtifacts:
-    return SitlObservedArtifacts(
-        telemetry=[
-            _reference(
-                artifacts.telemetry,
-                role=SitlArtifactRole.TELEMETRY,
-                schema_version=SITL_TELEMETRY_SCHEMA_VERSION,
-                description="Normalized MAVLink telemetry records.",
-            )
-        ],
-        command_logs=[
-            _reference(
-                artifacts.command_log,
-                role=SitlArtifactRole.COMMAND_LOG,
-                schema_version=SITL_COMMAND_LOG_SCHEMA_VERSION,
-                description="MAVLink commands emitted by the adapter.",
-            )
-        ],
-        simulator_logs=[
-            _reference(
-                artifacts.simulator_log,
-                role=SitlArtifactRole.SIMULATOR_LOG,
-                schema_version=SITL_SIMULATOR_LOG_SCHEMA_VERSION,
-                description="SITL simulator lifecycle events.",
-            )
-        ],
-        adapter_logs=[
-            _reference(
-                artifacts.adapter_log,
-                role=SitlArtifactRole.ADAPTER_LOG,
-                schema_version=SITL_ADAPTER_LOG_SCHEMA_VERSION,
-                description="Adapter lifecycle events.",
-            )
-        ],
+def _write_artifact_reference(
+    path: Path,
+    schema_version: str,
+    payload_key: str,
+    payload: list[dict[str, SitlArtifactValue]],
+    *,
+    role: SitlArtifactRole,
+    description: str,
+) -> SitlArtifactReference | None:
+    if not payload:
+        return None
+    _write_artifact(path, schema_version, payload_key, payload)
+    return _reference(
+        path,
+        role=role,
+        schema_version=schema_version,
+        description=description,
     )
 
 
@@ -290,4 +315,6 @@ __all__ = [
     "SITL_TELEMETRY_SCHEMA_VERSION",
     "SitlArtifactError",
     "SitlArtifactRecorder",
+    "SitlArtifactSet",
+    "SitlArtifactValue",
 ]
