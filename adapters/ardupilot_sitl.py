@@ -153,9 +153,13 @@ class ArduPilotSitlAdapter:
             self._artifact_recorder.write()
 
     def start_recording(self, artifact_dir: Path) -> None:
+        if self._artifact_recorder is not None:
+            raise ArduPilotAdapterError("SITL artifact recording is already configured")
         self._artifact_recorder = SitlArtifactRecorder(artifact_dir=artifact_dir)
         self._record_adapter_event("adapter_initialized")
-        self._record_adapter_event("recording_started", {"artifact_dir": str(artifact_dir)})
+        self._record_adapter_event(
+            "recording_started", {"artifact_dir": str(artifact_dir)}
+        )
 
     def record_telemetry(
         self,
@@ -286,6 +290,7 @@ class ArduPilotSitlAdapter:
         if self._artifact_recorder is None:
             return
         self._artifact_recorder.record_adapter_event(monotonic(), event, fields or {})
+
 
 def _vehicle_autopilot(vehicle: VehicleProfile) -> str | None:
     if vehicle.autopilot is None:
