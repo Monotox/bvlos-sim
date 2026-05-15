@@ -112,6 +112,10 @@ class SitlArtifactRecorder:
         )
         self._observed_artifacts = None
 
+    @property
+    def observed(self) -> SitlObservedArtifacts | None:
+        return self._observed_artifacts
+
     def write(self) -> SitlObservedArtifacts:
         if self._observed_artifacts is not None:
             return self._observed_artifacts

@@ -68,3 +68,6 @@ include = ["adapters*", "estimator*", "schemas*"]
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+markers = [
+    "live_sitl: tests that require a running ArduPilot SITL container",
+]

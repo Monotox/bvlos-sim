@@ -64,8 +64,7 @@ class ArduPilotSitlAdapter:
         self._connection = None
         self._heartbeat = None
         self._mission_item_count = None
-        self._artifact_recorder = _artifact_recorder_for_config(self.config)
-        self._record_adapter_event("adapter_initialized")
+        self._artifact_recorder = None
 
     def connect(self) -> None:
         connection_string = self._connection_string()
@@ -138,7 +137,10 @@ class ArduPilotSitlAdapter:
         self._heartbeat = None
         if connection is None:
             return
-        connection.close()
+        artifacts_were_flushed = (
+            self._artifact_recorder is not None
+            and self._artifact_recorder.observed is not None
+        )
         self._record_simulator_event(
             "disconnected",
             {
@@ -146,9 +148,13 @@ class ArduPilotSitlAdapter:
                 "target_component": connection.target_component,
             },
         )
+        connection.close()
+        if artifacts_were_flushed and self._artifact_recorder is not None:
+            self._artifact_recorder.write()
 
     def start_recording(self, artifact_dir: Path) -> None:
         self._artifact_recorder = SitlArtifactRecorder(artifact_dir=artifact_dir)
+        self._record_adapter_event("adapter_initialized")
         self._record_adapter_event("recording_started", {"artifact_dir": str(artifact_dir)})
 
     def record_telemetry(
@@ -183,7 +189,7 @@ class ArduPilotSitlAdapter:
             adapter_kind=self.adapter_kind,
             adapter_id=self.adapter_id,
             adapter_version=self.adapter_version,
-            execution_mode="live_sitl" if connection is not None else "connect_only",
+            execution_mode=_execution_mode(connection, self._artifact_recorder),
             simulator_name="ArduPilot SITL",
             simulator_version=None,
             autopilot=_vehicle_autopilot(vehicle),
@@ -194,7 +200,10 @@ class ArduPilotSitlAdapter:
     def observed_artifacts(self) -> SitlObservedArtifacts:
         if self._artifact_recorder is None:
             return SitlObservedArtifacts()
-        return self._artifact_recorder.write()
+        cached = self._artifact_recorder.observed
+        if cached is None:
+            return SitlObservedArtifacts()
+        return cached
 
     def _mavutil(self) -> MavutilModule:
         try:
@@ -278,15 +287,6 @@ class ArduPilotSitlAdapter:
             return
         self._artifact_recorder.record_adapter_event(monotonic(), event, fields or {})
 
-
-def _artifact_recorder_for_config(
-    config: ArduPilotSitlConfig,
-) -> SitlArtifactRecorder | None:
-    if config.artifact_dir is None:
-        return None
-    return SitlArtifactRecorder(artifact_dir=config.artifact_dir)
-
-
 def _vehicle_autopilot(vehicle: VehicleProfile) -> str | None:
     if vehicle.autopilot is None:
         return None
@@ -309,8 +309,18 @@ def _connection_metadata(
         "connected": connection is not None,
         "target_system": _connection_target_system(connection),
         "target_component": _connection_target_component(connection),
-        "artifact_dir": str(config.artifact_dir) if config.artifact_dir else None,
     }
+
+
+def _execution_mode(
+    connection: MavConnection | None,
+    recorder: SitlArtifactRecorder | None,
+) -> str:
+    if connection is not None:
+        return "live_sitl"
+    if recorder is not None and recorder.observed is not None:
+        return "live_sitl"
+    return "connect_only"
 
 
 def _connection_target_system(connection: MavConnection | None) -> int | None:
