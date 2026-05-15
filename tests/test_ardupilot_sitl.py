@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from pathlib import Path
 
 import pytest
@@ -102,6 +104,8 @@ class FakeConnection:
 
     def close(self) -> None:
         self.closed = True
+        self.target_system = 0
+        self.target_component = 0
 
     def set_mode(self, mode: str) -> None:
         self.mode = mode
@@ -215,6 +219,10 @@ def _scenario_envelope() -> ScenarioResultEnvelope:
     )
 
 
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 def test_mission_action_to_mavlink_cmd_waypoint() -> None:
     assert mission_action_to_mavlink_cmd(MissionAction.WAYPOINT) == 16
 
@@ -304,6 +312,20 @@ def test_disconnect_closes_connection() -> None:
     assert connection.closed is True
 
 
+def test_disconnect_records_target_ids_before_closing(tmp_path: Path) -> None:
+    adapter, _connection = _connected_adapter()
+    adapter.start_recording(tmp_path)
+
+    adapter.disconnect()
+    observed = adapter.flush_artifacts()
+
+    simulator_log_path = Path(observed.simulator_logs[0].path)
+    events = json.loads(simulator_log_path.read_text(encoding="utf-8"))["events"]
+    disconnected = [event for event in events if event["event"] == "disconnected"]
+    assert disconnected[0]["fields"]["target_component"] == 1
+    assert disconnected[0]["fields"]["target_system"] == 1
+
+
 def test_simulator_metadata_adapter_kind_is_ardupilot() -> None:
     metadata = ArduPilotSitlAdapter().simulator_metadata(_vehicle())
 
@@ -329,6 +351,31 @@ def test_observed_artifacts_are_empty_in_ticket_041() -> None:
     assert observed.adapter_logs == []
 
 
+def test_observed_artifacts_before_write_does_not_create_files(tmp_path: Path) -> None:
+    adapter = ArduPilotSitlAdapter()
+    adapter.start_recording(tmp_path)
+
+    observed = adapter.observed_artifacts()
+
+    assert observed == type(observed)()
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_flush_artifacts_before_start_recording_raises_adapter_error() -> None:
+    adapter = ArduPilotSitlAdapter()
+
+    with pytest.raises(ArduPilotAdapterError, match="recording is not configured"):
+        adapter.flush_artifacts()
+
+
+def test_start_recording_twice_raises_adapter_error(tmp_path: Path) -> None:
+    adapter = ArduPilotSitlAdapter()
+    adapter.start_recording(tmp_path)
+
+    with pytest.raises(ArduPilotAdapterError, match="already configured"):
+        adapter.start_recording(tmp_path / "second")
+
+
 def test_adapter_records_telemetry_and_command_artifacts(tmp_path: Path) -> None:
     connection = FakeConnection(_upload_messages(item_count=3))
     adapter = StubbedArduPilotSitlAdapter(connection)
@@ -343,6 +390,25 @@ def test_adapter_records_telemetry_and_command_artifacts(tmp_path: Path) -> None
     assert observed.command_logs[0].path.endswith("command_log.json")
     assert observed.simulator_logs[0].path.endswith("simulator_log.json")
     assert observed.adapter_logs[0].path.endswith("adapter_log.json")
+
+
+def test_disconnect_refreshes_previously_returned_observed_hashes(
+    tmp_path: Path,
+) -> None:
+    connection = FakeConnection([FakeMessage("MISSION_CURRENT", seq=0)])
+    adapter = StubbedArduPilotSitlAdapter(connection)
+    adapter.start_recording(tmp_path)
+    adapter.connect()
+
+    observed = adapter.record_telemetry(sample_count=1)
+    simulator_log_path = Path(observed.simulator_logs[0].path)
+    original_hash = observed.simulator_logs[0].sha256
+    adapter.disconnect()
+
+    assert observed.simulator_logs[0].sha256 == _sha256(simulator_log_path)
+    assert observed.simulator_logs[0].sha256 != original_hash
+    events = json.loads(simulator_log_path.read_text(encoding="utf-8"))["events"]
+    assert [event["event"] for event in events] == ["connected", "disconnected"]
 
 
 def test_missing_telemetry_raises_explicit_adapter_error(tmp_path: Path) -> None:

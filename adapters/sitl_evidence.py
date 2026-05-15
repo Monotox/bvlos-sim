@@ -105,10 +105,18 @@ def _optional_document_references(
 ) -> list[SitlArtifactReference]:
     optional_documents = (
         (geofence_document, SitlArtifactRole.GEOFENCES, GEOFENCE_SCHEMA_VERSION),
-        (landing_zone_document, SitlArtifactRole.LANDING_ZONES, LANDING_ZONE_SCHEMA_VERSION),
+        (
+            landing_zone_document,
+            SitlArtifactRole.LANDING_ZONES,
+            LANDING_ZONE_SCHEMA_VERSION,
+        ),
         (terrain_document, SitlArtifactRole.TERRAIN, TERRAIN_SCHEMA_VERSION),
         (wind_grid_document, SitlArtifactRole.WIND_GRID, WIND_GRID_SCHEMA_VERSION),
-        (uncertainty_document, SitlArtifactRole.UNCERTAINTY, UNCERTAINTY_INPUT_SCHEMA_VERSION),
+        (
+            uncertainty_document,
+            SitlArtifactRole.UNCERTAINTY,
+            UNCERTAINTY_INPUT_SCHEMA_VERSION,
+        ),
     )
     return [
         _document_reference(document, role=role, schema_version=schema_version)
@@ -155,12 +163,7 @@ def _input_references(
 
 
 def _evidence_status(observed: SitlObservedArtifacts) -> SitlEvidenceStatus:
-    if (
-        observed.telemetry
-        or observed.command_logs
-        or observed.simulator_logs
-        or observed.adapter_logs
-    ):
+    if observed.telemetry:
         return SitlEvidenceStatus.COMPLETED
     return SitlEvidenceStatus.CONTRACT_ONLY
 
