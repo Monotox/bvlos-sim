@@ -54,8 +54,8 @@
 
 ## Estimate Summary
 
-- Horizontal distance m: `176.76731937210454`
+- Horizontal distance m: `176.76731936998286`
 - Vertical distance m: `120.0`
-- Path distance m: `176.76731937210454`
+- Path distance m: `176.76731936998286`
 - Time s: `40.0`
 - Legs: `1`

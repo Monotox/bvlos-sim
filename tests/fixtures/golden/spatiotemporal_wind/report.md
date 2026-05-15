@@ -48,20 +48,20 @@
 
 ## Estimate Summary
 
-- Horizontal distance m: `707.0645448997484`
+- Horizontal distance m: `707.0645448969212`
 - Vertical distance m: `240.0`
-- Path distance m: `787.0645448997484`
-- Time s: `169.06024195159733`
+- Path distance m: `787.0645448969212`
+- Time s: `169.06024195158028`
 - Legs: `5`
 
 ## Energy Feasibility
 
 - Feasible: `true`
-- Total energy Wh: `41.410308021727445`
+- Total energy Wh: `41.410308021725314`
 - Battery capacity Wh: `900.0`
 - Usable energy Wh: `675.0`
 - Reserve threshold percent: `25.0`
 - Reserve threshold Wh: `225.0`
-- Reserve at landing Wh: `858.5896919782725`
-- Reserve at landing percent: `95.39885466425251`
+- Reserve at landing Wh: `858.5896919782747`
+- Reserve at landing percent: `95.39885466425274`
 - Energy legs: `5`
