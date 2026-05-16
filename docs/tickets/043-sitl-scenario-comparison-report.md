@@ -13,7 +13,8 @@ unsupported comparisons.
 ## Implementation Status
 
 Implemented. The project now turns `sitl-evidence.v1` bundles into
-`sitl-comparison.v1` reports through adapter-level Python APIs.
+`sitl-comparison.v1` reports through `estimate --sitl-evidence` and
+adapter-level Python APIs.
 
 ## Scope
 
@@ -51,6 +52,21 @@ Adapter-level report construction and rendering live in `adapters/`:
 
 The implementation keeps helper builders private to the adapter layer. It does
 not import SITL comparison logic into schemas or estimator core modules.
+
+CLI rendering is available through the existing `estimate` command:
+
+```bash
+uv run bvlos-sim estimate \
+  examples/missions/pipeline_demo_001.yaml \
+  examples/vehicles/quadplane_v1.yaml \
+  --sitl-evidence /tmp/sitl-evidence.json \
+  --comparison-id pipeline-demo-sitl-comparison \
+  --position-tolerance-m 500 \
+  --output /tmp/sitl-comparison.json
+```
+
+The `estimate` path supports JSON and Markdown via `--format` and writes to
+stdout or `--output`, matching the normal estimator report workflow.
 
 ## Report Dimensions
 

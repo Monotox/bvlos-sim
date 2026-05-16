@@ -146,6 +146,20 @@ Ticket 043 adds `sitl-comparison.v1` reports over already-written evidence
 bundles. The comparison code reads artifact references from the evidence bundle
 and does not create telemetry files itself.
 
+Render a comparison report from a saved evidence bundle with the normal
+`estimate` output controls:
+
+```bash
+uv run bvlos-sim estimate \
+  examples/missions/pipeline_demo_001.yaml \
+  examples/vehicles/quadplane_v1.yaml \
+  --sitl-evidence /tmp/sitl-evidence.json \
+  --comparison-id local-sitl-comparison \
+  --output /tmp/sitl-comparison.json
+```
+
+The same report builder remains available as an adapter API:
+
 ```python
 from adapters.sitl_comparison import build_sitl_comparison_report
 from adapters.sitl_comparison import render_sitl_comparison_json

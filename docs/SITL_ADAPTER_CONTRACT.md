@@ -2,7 +2,8 @@
 
 This document defines the SITL boundary introduced by Ticket 040. The current
 implementation supports contract-only evidence bundles, ArduPilot connect/upload
-and telemetry recording, and adapter-level comparison reports.
+and telemetry recording, and comparison reports through the CLI and adapter
+APIs.
 
 ## Contract
 
@@ -42,10 +43,23 @@ uv run bvlos-sim sitl \
 The command reuses existing scenario inputs. There is no parallel SITL scenario
 format.
 
-## Comparison API
+## Comparison Reports
 
-Comparison report construction is currently a Python adapter API rather than a
-CLI command:
+Comparison reports can be rendered from an existing evidence bundle with the
+`estimate` command:
+
+```bash
+uv run bvlos-sim estimate \
+  examples/missions/pipeline_demo_001.yaml \
+  examples/vehicles/quadplane_v1.yaml \
+  --sitl-evidence /tmp/sitl-evidence.json \
+  --comparison-id pipeline-demo-sitl-comparison \
+  --output /tmp/sitl-comparison.json
+```
+
+The `estimate` command still accepts the normal `--format markdown` and
+`--output` options for this mode. Python adapter APIs expose the same report
+construction:
 
 ```python
 from adapters.sitl_comparison import build_sitl_comparison_report

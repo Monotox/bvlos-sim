@@ -25,7 +25,9 @@ from schemas import (
 
 FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "golden" / "scenarios" / "passed"
 REPO_ROOT = Path(__file__).resolve().parents[1]
-INTEGRATED_SCENARIO = REPO_ROOT / "examples/scenarios/pipeline_demo_001_integrated_scenario.yaml"
+INTEGRATED_SCENARIO = (
+    REPO_ROOT / "examples/scenarios/pipeline_demo_001_integrated_scenario.yaml"
+)
 
 runner = CliRunner()
 
@@ -100,7 +102,9 @@ def test_sitl_cli_emits_contract_only_evidence_bundle() -> None:
     payload = json.loads(result.output)
     assert payload["schema_version"] == SITL_EVIDENCE_SCHEMA_VERSION
     assert payload["status"] == "contract_only"
-    assert payload["expected"]["scenario_report"]["schema_version"] == "scenario-report.v2"
+    assert (
+        payload["expected"]["scenario_report"]["schema_version"] == "scenario-report.v2"
+    )
     assert payload["simulator"]["metadata"]["live_simulator_started"] is False
 
 
@@ -142,3 +146,90 @@ def test_sitl_cli_invalid_scenario_exits_invalid_input(tmp_path: Path) -> None:
     result = runner.invoke(app, ["sitl", str(bad_file)])
 
     assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+
+
+def test_estimate_cli_renders_sitl_comparison_from_evidence_bundle(
+    tmp_path: Path,
+) -> None:
+    evidence_path = tmp_path / "evidence.json"
+    evidence_path.write_text(
+        render_sitl_evidence_json(_build_bundle()), encoding="utf-8"
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "estimate",
+            str(FIXTURE_ROOT.parent.parent / "success" / "mission.yaml"),
+            str(FIXTURE_ROOT.parent.parent / "success" / "vehicle.yaml"),
+            "--sitl-evidence",
+            str(evidence_path),
+            "--comparison-id",
+            "estimate-comparison",
+        ],
+    )
+
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    payload = json.loads(result.output)
+    assert payload["schema_version"] == "sitl-comparison.v1"
+    assert payload["comparison_id"] == "estimate-comparison"
+    assert payload["evidence_id"] == "test-evidence"
+    assert payload["summary"] == "passed"
+    assert any(
+        item["dimension"] == "bundle_completeness" and item["outcome"] == "skipped"
+        for item in payload["items"]
+    )
+
+
+def test_estimate_cli_renders_sitl_comparison_markdown_from_evidence_bundle(
+    tmp_path: Path,
+) -> None:
+    evidence_path = tmp_path / "evidence.json"
+    evidence_path.write_text(
+        render_sitl_evidence_json(_build_bundle()), encoding="utf-8"
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "estimate",
+            str(FIXTURE_ROOT.parent.parent / "success" / "mission.yaml"),
+            str(FIXTURE_ROOT.parent.parent / "success" / "vehicle.yaml"),
+            "--sitl-evidence",
+            str(evidence_path),
+            "--format",
+            "markdown",
+        ],
+    )
+
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    assert "# SITL Comparison Report" in result.output
+    assert "- Evidence ID: `test-evidence`" in result.output
+
+
+def test_estimate_cli_invalid_sitl_comparison_id_exits_invalid_input(
+    tmp_path: Path,
+) -> None:
+    evidence_path = tmp_path / "evidence.json"
+    evidence_path.write_text(
+        render_sitl_evidence_json(_build_bundle()), encoding="utf-8"
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "estimate",
+            str(FIXTURE_ROOT.parent.parent / "success" / "mission.yaml"),
+            str(FIXTURE_ROOT.parent.parent / "success" / "vehicle.yaml"),
+            "--sitl-evidence",
+            str(evidence_path),
+            "--comparison-id",
+            "bad id",
+        ],
+    )
+
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+    payload = json.loads(result.output)
+    assert payload["status"] == "error"
+    assert payload["diagnostics"][0]["kind"] == "invalid_input"
+    assert payload["diagnostics"][0]["context"]["first_error_path"] == "comparison_id"

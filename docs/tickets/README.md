@@ -33,7 +33,8 @@ The current codebase includes:
 - connect-mode ArduPilot SITL adapter with MAVLink mission upload support
 - SITL telemetry, command, simulator, and adapter artifact recording for
   ArduPilot evidence bundles
-- SITL scenario comparison reports through `sitl-comparison.v1`
+- SITL scenario comparison reports through `sitl-comparison.v1` and
+  `estimate --sitl-evidence`
 - passing Linux estimator/schema/CLI/scenario/SITL comparison test suite with
   478 tests and 7 skipped live or environment-dependent tests
 
@@ -90,7 +91,8 @@ path rather than through isolated examples. Current validation includes:
 - SITL adapter contract and evidence schema: Ticket 040, implemented.
 - ArduPilot SITL connect/upload integration: Ticket 041, implemented.
 - ArduPilot SITL telemetry evidence: Ticket 042, implemented.
-- SITL comparison reporting: Ticket 043, implemented.
+- SITL comparison reporting through adapter APIs and `estimate --sitl-evidence`:
+  Ticket 043, implemented.
 - No PX4 SITL adapter yet: Tickets 045 (launch/upload) and 046 (telemetry/evidence).
 - No REST API or UI: Ticket 050.
 - No batch import/export workflows or report diff tooling: Ticket 060.
