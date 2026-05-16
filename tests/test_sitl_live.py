@@ -511,3 +511,95 @@ def test_full_evidence_bundle_has_completed_status(tmp_path: Path) -> None:
     assert bundle.simulator.execution_mode == "live_sitl"
     assert bundle.simulator.adapter_kind.value == "ardupilot"
     json.dumps(bundle.model_dump(mode="json"), sort_keys=True)
+
+
+@pytest.mark.live_sitl
+@requires_live_sitl
+@requires_copter_binary
+def test_comparison_report_from_live_evidence_bundle(tmp_path: Path) -> None:
+    """A full SITL run produces a comparison report with PASSED or DRIFTED summary."""
+
+    from adapters.ardupilot_sitl import ArduPilotSitlAdapter
+    from adapters.ardupilot_sitl_types import ArduPilotSitlConfig
+    from adapters.io import load_mission, load_vehicle
+    from adapters.scenario_envelope import build_scenario_envelope
+    from adapters.scenario_io import load_scenario
+    from adapters.sitl_comparison import (
+        build_sitl_comparison_report,
+        render_sitl_comparison_json,
+    )
+    from adapters.sitl_evidence import build_sitl_evidence_bundle
+    from estimator.execution.scenario import run_scenario
+    from schemas import SitlComparisonOutcome, SitlComparisonSummary
+
+    _launch_sitl_background("copter")
+    assert _port_open_in_container(COPTER_PORT), "SITL port not ready"
+    host = _require_host_port(COPTER_PORT)
+
+    scenario_path = (
+        _REPO_ROOT / "examples" / "scenarios" / "pipeline_demo_001_scenario.yaml"
+    )
+    scenario_plan, scenario_doc = load_scenario(scenario_path)
+    mission_path = scenario_path.parent / scenario_plan.mission_file
+    vehicle_path = scenario_path.parent / scenario_plan.vehicle_file
+    mission_model, mission_doc = load_mission(mission_path)
+    vehicle_model, vehicle_doc = load_vehicle(vehicle_path)
+
+    scenario_result = run_scenario(scenario_plan, mission_model, vehicle_model)
+    scenario_env = build_scenario_envelope(
+        result=scenario_result,
+        scenario_document=scenario_doc,
+        mission_document=mission_doc,
+        vehicle_document=vehicle_doc,
+    )
+
+    config = ArduPilotSitlConfig(host=host, port=COPTER_PORT)
+    adapter = ArduPilotSitlAdapter(config)
+    adapter.start_recording(tmp_path)
+    try:
+        adapter.connect()
+        adapter.upload_mission(mission_model)
+        adapter.record_telemetry(
+            sample_count=TELEMETRY_SAMPLE_COUNT,
+            timeout_s=10.0,
+        )
+    finally:
+        adapter.disconnect()
+
+    bundle = build_sitl_evidence_bundle(
+        evidence_id="comparison-live-test",
+        scenario_envelope=scenario_env,
+        scenario_document=scenario_doc,
+        mission_document=mission_doc,
+        vehicle_document=vehicle_doc,
+        vehicle=vehicle_model,
+        adapter=adapter,
+    )
+
+    report = build_sitl_comparison_report(
+        comparison_id="comparison-live-test-report",
+        bundle=bundle,
+    )
+
+    assert report.schema_version == "sitl-comparison.v1"
+    assert report.evidence_id == bundle.evidence_id
+    assert report.summary in {
+        SitlComparisonSummary.PASSED,
+        SitlComparisonSummary.DRIFTED,
+    }
+    assert any(
+        item.dimension == "bundle_completeness"
+        and item.outcome == SitlComparisonOutcome.MATCHED
+        for item in report.items
+    )
+    assert any(
+        item.dimension == "telemetry_record_count"
+        and item.outcome == SitlComparisonOutcome.MATCHED
+        for item in report.items
+    )
+    assert any(item.dimension == "mission_item_count" for item in report.items)
+
+    rendered = render_sitl_comparison_json(report)
+    parsed = json.loads(rendered)
+    assert parsed["schema_version"] == "sitl-comparison.v1"
+    assert parsed["summary"] in {"passed", "drifted"}

@@ -18,6 +18,7 @@ Current public contracts:
 - scenario JSON envelope: `scenario-report.v2`
 - uncertainty JSON envelope: `uncertainty-report.v1`
 - SITL evidence bundle: `sitl-evidence.v1`
+- SITL comparison report: `sitl-comparison.v1`
 - CLI exit-code semantics
 - supported Markdown report shape covered by golden fixtures
 
@@ -56,6 +57,7 @@ Structured models use strict validation and reject unknown fields:
 - estimator result-envelope objects
 - scenario result-envelope objects
 - SITL evidence-bundle objects
+- SITL comparison-report objects
 
 Free-form maps are explicit exceptions:
 

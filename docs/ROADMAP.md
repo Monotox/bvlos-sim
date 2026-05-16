@@ -6,7 +6,7 @@ toward a broader BVLOS simulation platform.
 ## Current Status
 
 The current codebase implements Phases 1 through 4.10, plus Tickets 032, 033,
-034, 035, 036, 037, 038, 039, 040, 041, and 042:
+034, 035, 036, 037, 038, 039, 040, 041, 042, and 043:
 
 - estimator hardening
 - static feasibility checks
@@ -23,8 +23,10 @@ The current codebase implements Phases 1 through 4.10, plus Tickets 032, 033,
 - SITL adapter contract and `sitl-evidence.v1` evidence schema
 - connect-mode ArduPilot SITL mission upload
 - SITL telemetry, command-log, simulator-log, and adapter-log artifacts
+- SITL comparison reports via `sitl-comparison.v1`
 
-The test suite currently passes with 452 tests.
+The Linux test suite currently passes with 478 tests and 7 skipped live or
+environment-dependent tests.
 
 bvlos-sim remains an engineering validation tool. It is not a flight-safety
 system, operational approval tool, or complete BVLOS compliance system.
@@ -96,7 +98,10 @@ Interfaces and contracts:
 - canonical scenario JSON envelope (`scenario-report.v2`)
 - canonical uncertainty JSON envelope (`uncertainty-report.v1`)
 - canonical SITL evidence bundle (`sitl-evidence.v1`)
+- canonical SITL comparison report (`sitl-comparison.v1`)
 - ArduPilot SITL telemetry artifact recorder for completed evidence bundles
+- SITL comparison report JSON and Markdown rendering through
+  `estimate --sitl-evidence` and adapter APIs
 - Markdown rendering for estimator, scenario, and uncertainty reports
 - golden fixture regression tests
 
@@ -112,9 +117,8 @@ Scenario limitations:
 
 Platform limitations:
 
-- ArduPilot SITL connect/upload support is implemented in Ticket 041 and
-  telemetry evidence is implemented in Ticket 042; comparison reporting remains
-  in Ticket 043
+- ArduPilot SITL connect/upload, telemetry evidence, and comparison reporting
+  are implemented through Tickets 041-043
 - no PX4 SITL adapter yet; Tickets 045 (launch/upload) and 046 (telemetry/evidence)
 - no REST API; Ticket 050
 - no web UI; Ticket 050
@@ -333,7 +337,7 @@ Scope:
 - Ticket 040: SITL adapter contract and evidence schema — implemented
 - Ticket 041: ArduPilot SITL launch and mission upload - implemented
 - Ticket 042: SITL telemetry recorder and evidence bundle - implemented
-- Ticket 043: SITL scenario comparison report
+- Ticket 043: SITL scenario comparison report - implemented
 - Ticket 045: PX4 SITL launch and mission upload
 - Ticket 046: PX4 SITL telemetry recorder and evidence bundle
 - adapter-local ArduPilot and MAVLink dependencies that stay outside core
@@ -343,7 +347,8 @@ Scope:
 - comparison against existing deterministic `scenario` outputs
 
 Exit criterion: a scenario can be executed against supported SITL adapters with
-recorded evidence while preserving the deterministic core execution path.
+recorded evidence and compared against deterministic scenario expectations
+while preserving the deterministic core execution path.
 
 ### Phase 6: Product Surfaces
 

@@ -38,14 +38,24 @@ from adapters.scenario_envelope import (
 )
 from adapters.scenario_io import load_scenario, resolve_scenario_asset_path
 from adapters.scenario_markdown import render_scenario_markdown
-from adapters.sitl_evidence import build_sitl_evidence_bundle, render_sitl_evidence_json
+from adapters.sitl_comparison import render_sitl_comparison_json
+from adapters.sitl_comparison_markdown import render_sitl_comparison_markdown
+from adapters.sitl_evidence import (
+    build_sitl_evidence_bundle,
+    compare_sitl_evidence_bundle,
+    render_sitl_evidence_json,
+)
+from adapters.sitl_evidence_io import load_sitl_evidence_bundle
 from adapters.terrain_grid import TerrainGridLoadError, load_terrain_grid
 from adapters.uncertainty_envelope import (
     UncertaintyResultEnvelope,
     build_uncertainty_envelope,
     render_uncertainty_envelope_json,
 )
-from adapters.uncertainty_io import load_uncertainty_plan, resolve_uncertainty_asset_path
+from adapters.uncertainty_io import (
+    load_uncertainty_plan,
+    resolve_uncertainty_asset_path,
+)
 from adapters.uncertainty_markdown import render_uncertainty_markdown
 from adapters.wind_grid import WindGridLoadError, load_wind_grid
 from estimator import (
@@ -170,6 +180,34 @@ def _render_uncertainty_output(
     if output_format == OutputFormat.MARKDOWN:
         return render_uncertainty_markdown(envelope)
     return render_uncertainty_envelope_json(envelope)
+
+
+def _render_sitl_comparison_output(
+    output_format: OutputFormat,
+    bundle_path: Path,
+    *,
+    comparison_id: str | None,
+    position_tolerance_m: float,
+) -> str:
+    bundle, _document = load_sitl_evidence_bundle(bundle_path)
+    try:
+        report = compare_sitl_evidence_bundle(
+            bundle,
+            comparison_id=comparison_id or f"{bundle.evidence_id}-comparison",
+            position_tolerance_m=position_tolerance_m,
+        )
+    except ValidationError as exc:
+        raise InputLoadError(
+            "SITL comparison report failed schema validation.",
+            input_name="sitl_comparison",
+            path=Path("--comparison-id"),
+            stage=InputLoadStage.SCHEMA_VALIDATION,
+            details=validation_error_summary(exc),
+        ) from exc
+
+    if output_format == OutputFormat.MARKDOWN:
+        return render_sitl_comparison_markdown(report)
+    return render_sitl_comparison_json(report)
 
 
 def _write_output(rendered: str, output: Path | None) -> None:
@@ -343,7 +381,9 @@ def _envelope_inputs_for_static_asset_error(
 def _input_error_for_geojson_asset_error(
     error: GeofenceLoadError | LandingZoneLoadError,
 ) -> InputLoadError:
-    input_name = "geofences" if isinstance(error, GeofenceLoadError) else "landing_zones"
+    input_name = (
+        "geofences" if isinstance(error, GeofenceLoadError) else "landing_zones"
+    )
     return InputLoadError(
         str(error),
         input_name=input_name,
@@ -391,6 +431,28 @@ def estimate(
     vehicle: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True),
     format: OutputFormat = typer.Option(OutputFormat.JSON, "--format"),
     output: Path | None = typer.Option(None, "--output", "-o"),
+    sitl_evidence: Path | None = typer.Option(
+        None,
+        "--sitl-evidence",
+        exists=True,
+        readable=True,
+        resolve_path=True,
+        help=(
+            "Render a SITL comparison report from an existing sitl-evidence.v1 "
+            "bundle instead of an estimator envelope."
+        ),
+    ),
+    comparison_id: str | None = typer.Option(
+        None,
+        "--comparison-id",
+        help="Comparison report identifier when --sitl-evidence is provided.",
+    ),
+    position_tolerance_m: float = typer.Option(
+        500.0,
+        "--position-tolerance-m",
+        min=0.0,
+        help="Position proximity tolerance in metres for SITL comparison reports.",
+    ),
     wind_layer: list[str] | None = typer.Option(
         None,
         "--wind-layer",
@@ -414,15 +476,29 @@ def estimate(
         ),
     ),
 ) -> None:
-    """Run the deterministic estimator and emit a stable result envelope."""
+    """Run the estimator or render a SITL comparison from evidence."""
 
     mission_document: InputDocument | None = None
     vehicle_document: InputDocument | None = None
     mission_assets = MissionAssetBundle()
     envelope_inputs: EnvelopeInputs | None = None
     try:
+        if sitl_evidence is not None:
+            _write_output(
+                _render_sitl_comparison_output(
+                    format,
+                    sitl_evidence,
+                    comparison_id=comparison_id,
+                    position_tolerance_m=position_tolerance_m,
+                ),
+                output,
+            )
+            raise typer.Exit(code=int(CliExitCode.SUCCESS))
+
         options = _build_estimation_options(fidelity, max_segment_length_m)
-        wind_provider = LayeredWindProvider(_parse_wind_layers(wind_layer)) if wind_layer else None
+        wind_provider = (
+            LayeredWindProvider(_parse_wind_layers(wind_layer)) if wind_layer else None
+        )
         mission_model, mission_document = load_mission(mission)
         vehicle_model, vehicle_document = load_vehicle(vehicle)
         _populate_mission_assets(
@@ -602,7 +678,9 @@ def _scenario_exit_code_for_result(result: ScenarioResult) -> ScenarioExitCode:
 
 @app.command()
 def scenario(
-    scenario_file: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True),
+    scenario_file: Path = typer.Argument(
+        ..., exists=True, readable=True, resolve_path=True
+    ),
     format: OutputFormat = typer.Option(OutputFormat.JSON, "--format"),
     output: Path | None = typer.Option(None, "--output", "-o"),
 ) -> None:
@@ -703,7 +781,9 @@ def scenario(
 
 @app.command()
 def sample(
-    uncertainty_file: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True),
+    uncertainty_file: Path = typer.Argument(
+        ..., exists=True, readable=True, resolve_path=True
+    ),
     format: OutputFormat = typer.Option(OutputFormat.JSON, "--format"),
     output: Path | None = typer.Option(None, "--output", "-o"),
 ) -> None:
@@ -765,7 +845,9 @@ def sample(
 
 @app.command()
 def sitl(
-    scenario_file: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True),
+    scenario_file: Path = typer.Argument(
+        ..., exists=True, readable=True, resolve_path=True
+    ),
     output: Path | None = typer.Option(None, "--output", "-o"),
 ) -> None:
     """Build a contract-only SITL evidence bundle for an existing scenario."""
@@ -814,7 +896,12 @@ def sitl(
     except InputLoadError as exc:
         typer.echo(f"Input error: {exc}", err=True)
         raise typer.Exit(code=int(CliExitCode.INVALID_INPUT)) from exc
-    except (GeofenceLoadError, LandingZoneLoadError, TerrainGridLoadError, WindGridLoadError) as exc:
+    except (
+        GeofenceLoadError,
+        LandingZoneLoadError,
+        TerrainGridLoadError,
+        WindGridLoadError,
+    ) as exc:
         typer.echo(f"Input error: {exc}", err=True)
         raise typer.Exit(code=int(CliExitCode.INVALID_INPUT)) from exc
     except OutputWriteError as exc:
