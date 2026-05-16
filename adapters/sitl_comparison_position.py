@@ -6,11 +6,11 @@ from dataclasses import dataclass, field
 from pyproj import Geod
 
 from adapters.sitl_comparison_artifacts import (
-    ArtifactRecord,
-    ArtifactRecords,
-    list_of_mappings,
+    _ArtifactRecord,
+    _ArtifactRecords,
+    _list_of_mappings,
 )
-from adapters.sitl_comparison_values import SitlComparisonValueCoercer
+from adapters.sitl_comparison_values import _SitlComparisonValueCoercer
 from schemas.sitl_comparison import SitlComparisonItem, SitlComparisonOutcome
 
 
@@ -35,18 +35,18 @@ class _PositionMatch:
 
 
 @dataclass(frozen=True)
-class SitlPositionProximityComparator:
+class _SitlPositionProximityComparator:
     """Compare expected timeline points with observed position telemetry."""
 
-    values: SitlComparisonValueCoercer = field(
-        default_factory=SitlComparisonValueCoercer,
+    values: _SitlComparisonValueCoercer = field(
+        default_factory=_SitlComparisonValueCoercer,
     )
     geod: Geod = field(default_factory=lambda: Geod(ellps="WGS84"))
 
     def items(
         self,
         scenario_report: Mapping[str, object],
-        telemetry: ArtifactRecords,
+        telemetry: _ArtifactRecords,
         tolerance_m: float,
     ) -> list[SitlComparisonItem]:
         positions = self._global_position_records(telemetry.records)
@@ -96,12 +96,12 @@ class SitlPositionProximityComparator:
     ) -> list[_TimelineTarget]:
         return [
             target
-            for point in list_of_mappings(scenario_report.get("timeline"))
+            for point in _list_of_mappings(scenario_report.get("timeline"))
             for target in (self._timeline_target(point),)
             if target is not None
         ]
 
-    def _timeline_target(self, point: ArtifactRecord) -> _TimelineTarget | None:
+    def _timeline_target(self, point: _ArtifactRecord) -> _TimelineTarget | None:
         index = self.values.integer_value(point.get("index"))
         lat = self.values.float_value(point.get("lat"))
         lon = self.values.float_value(point.get("lon"))
@@ -113,7 +113,7 @@ class SitlPositionProximityComparator:
 
     def _global_position_records(
         self,
-        telemetry_records: Sequence[ArtifactRecord],
+        telemetry_records: Sequence[_ArtifactRecord],
     ) -> list[_PositionObservation]:
         return [
             position
@@ -124,7 +124,7 @@ class SitlPositionProximityComparator:
 
     def _global_position_record(
         self,
-        record: ArtifactRecord,
+        record: _ArtifactRecord,
     ) -> _PositionObservation | None:
         if record.get("message_type") != "GLOBAL_POSITION_INT":
             return None
@@ -189,4 +189,4 @@ class SitlPositionProximityComparator:
         )
 
 
-__all__ = ["SitlPositionProximityComparator"]
+__all__: list[str] = []

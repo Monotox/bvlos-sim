@@ -4,13 +4,13 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 
 from adapters.sitl_comparison_artifacts import (
-    ArtifactRecords,
-    SitlArtifactLogReader,
-    first_record_with,
-    has_record_with,
-    list_of_mappings,
+    _ArtifactRecords,
+    _SitlArtifactLogReader,
+    _first_record_with,
+    _has_record_with,
+    _list_of_mappings,
 )
-from adapters.sitl_comparison_values import SitlComparisonValueCoercer
+from adapters.sitl_comparison_values import _SitlComparisonValueCoercer
 from schemas.sitl import SitlEvidenceBundle
 from schemas.sitl_comparison import SitlComparisonItem, SitlComparisonOutcome
 
@@ -18,22 +18,22 @@ _MISSION_COUNT_TOLERANCE = 2
 
 
 @dataclass(frozen=True)
-class SitlTelemetryComparisonBuilder:
+class _SitlTelemetryComparisonBuilder:
     """Build comparisons from observed telemetry and lifecycle logs."""
 
-    reader: SitlArtifactLogReader = field(default_factory=SitlArtifactLogReader)
-    values: SitlComparisonValueCoercer = field(
-        default_factory=SitlComparisonValueCoercer,
+    reader: _SitlArtifactLogReader = field(default_factory=_SitlArtifactLogReader)
+    values: _SitlComparisonValueCoercer = field(
+        default_factory=_SitlComparisonValueCoercer,
     )
 
-    def telemetry_records(self, bundle: SitlEvidenceBundle) -> ArtifactRecords:
+    def telemetry_records(self, bundle: SitlEvidenceBundle) -> _ArtifactRecords:
         return self.reader.records(bundle.observed.telemetry, "records")
 
     def items(
         self,
         bundle: SitlEvidenceBundle,
         scenario_report: Mapping[str, object],
-        telemetry: ArtifactRecords,
+        telemetry: _ArtifactRecords,
     ) -> list[SitlComparisonItem]:
         return [
             self._mission_item_count_item(bundle, scenario_report),
@@ -50,7 +50,7 @@ class SitlTelemetryComparisonBuilder:
     ) -> SitlComparisonItem:
         command_log = self.reader.records(bundle.observed.command_logs, "commands")
         expected = self._expected_mission_item_count(scenario_report)
-        record = first_record_with(command_log.records, "command", "MISSION_COUNT")
+        record = _first_record_with(command_log.records, "command", "MISSION_COUNT")
         if record is None:
             return self._missing_mission_count_item(
                 expected,
@@ -76,7 +76,7 @@ class SitlTelemetryComparisonBuilder:
         self,
         scenario_report: Mapping[str, object],
     ) -> int:
-        return max(0, len(list_of_mappings(scenario_report.get("timeline"))) - 1)
+        return max(0, len(_list_of_mappings(scenario_report.get("timeline"))) - 1)
 
     def _missing_mission_count_item(
         self,
@@ -105,7 +105,7 @@ class SitlTelemetryComparisonBuilder:
 
     def _telemetry_record_count_item(
         self,
-        telemetry: ArtifactRecords,
+        telemetry: _ArtifactRecords,
     ) -> SitlComparisonItem:
         count = len(telemetry.records)
         return SitlComparisonItem(
@@ -118,9 +118,9 @@ class SitlTelemetryComparisonBuilder:
 
     def _heartbeat_observed_item(
         self,
-        telemetry: ArtifactRecords,
+        telemetry: _ArtifactRecords,
     ) -> SitlComparisonItem:
-        found = has_record_with(telemetry.records, "message_type", "HEARTBEAT")
+        found = _has_record_with(telemetry.records, "message_type", "HEARTBEAT")
         return SitlComparisonItem(
             dimension="heartbeat_observed",
             outcome=self._presence_outcome(found),
@@ -153,7 +153,7 @@ class SitlTelemetryComparisonBuilder:
         bundle: SitlEvidenceBundle,
     ) -> SitlComparisonItem:
         simulator_log = self.reader.records(bundle.observed.simulator_logs, "events")
-        found = has_record_with(simulator_log.records, "event", "connected")
+        found = _has_record_with(simulator_log.records, "event", "connected")
         return SitlComparisonItem(
             dimension="simulator_lifecycle",
             outcome=self._presence_outcome(found),
@@ -183,4 +183,4 @@ class SitlTelemetryComparisonBuilder:
         return None if found else note
 
 
-__all__ = ["SitlTelemetryComparisonBuilder"]
+__all__: list[str] = []

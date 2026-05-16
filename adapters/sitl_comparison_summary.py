@@ -12,7 +12,7 @@ from schemas.sitl_comparison import (
 
 
 @dataclass(frozen=True)
-class SitlComparisonSummaryCalculator:
+class _SitlComparisonSummaryCalculator:
     """Reduce item outcomes to a report summary."""
 
     supported_outcomes: ClassVar[frozenset[SitlComparisonOutcome]] = frozenset(
@@ -52,4 +52,4 @@ class SitlComparisonSummaryCalculator:
         )
 
 
-__all__ = ["SitlComparisonSummaryCalculator"]
+__all__: list[str] = []

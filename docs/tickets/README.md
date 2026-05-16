@@ -33,7 +33,9 @@ The current codebase includes:
 - connect-mode ArduPilot SITL adapter with MAVLink mission upload support
 - SITL telemetry, command, simulator, and adapter artifact recording for
   ArduPilot evidence bundles
-- passing estimator/schema/CLI/scenario test suite with 452 tests
+- SITL scenario comparison reports through `sitl-comparison.v1`
+- passing Linux estimator/schema/CLI/scenario/SITL comparison test suite with
+  478 tests and 7 skipped live or environment-dependent tests
 
 ## Implemented Integration Validation
 
@@ -74,7 +76,7 @@ path rather than through isolated examples. Current validation includes:
 19. [040-sitl-adapter-contract-and-evidence-schema.md](./040-sitl-adapter-contract-and-evidence-schema.md) - implemented
 20. [041-ardupilot-sitl-launch-and-mission-upload.md](./041-ardupilot-sitl-launch-and-mission-upload.md) - implemented
 21. [042-sitl-telemetry-recorder-and-evidence-bundle.md](./042-sitl-telemetry-recorder-and-evidence-bundle.md) - implemented
-22. [043-sitl-scenario-comparison-report.md](./043-sitl-scenario-comparison-report.md) - planned
+22. [043-sitl-scenario-comparison-report.md](./043-sitl-scenario-comparison-report.md) - implemented
 23. [044-geodesic-dubins-divert.md](./044-geodesic-dubins-divert.md) - planned
 24. [045-px4-sitl-launch-and-mission-upload.md](./045-px4-sitl-launch-and-mission-upload.md) - planned
 25. [046-px4-sitl-telemetry-recorder-and-evidence-bundle.md](./046-px4-sitl-telemetry-recorder-and-evidence-bundle.md) - planned
@@ -88,7 +90,7 @@ path rather than through isolated examples. Current validation includes:
 - SITL adapter contract and evidence schema: Ticket 040, implemented.
 - ArduPilot SITL connect/upload integration: Ticket 041, implemented.
 - ArduPilot SITL telemetry evidence: Ticket 042, implemented.
-- SITL comparison reporting remains planned: Ticket 043.
+- SITL comparison reporting: Ticket 043, implemented.
 - No PX4 SITL adapter yet: Tickets 045 (launch/upload) and 046 (telemetry/evidence).
 - No REST API or UI: Ticket 050.
 - No batch import/export workflows or report diff tooling: Ticket 060.

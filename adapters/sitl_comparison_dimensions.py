@@ -3,9 +3,9 @@
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
-from adapters.sitl_comparison_expected import SitlExpectedComparisonBuilder
-from adapters.sitl_comparison_position import SitlPositionProximityComparator
-from adapters.sitl_comparison_telemetry import SitlTelemetryComparisonBuilder
+from adapters.sitl_comparison_expected import _SitlExpectedComparisonBuilder
+from adapters.sitl_comparison_position import _SitlPositionProximityComparator
+from adapters.sitl_comparison_telemetry import _SitlTelemetryComparisonBuilder
 from schemas.sitl import SitlEvidenceBundle, SitlEvidenceStatus
 from schemas.sitl_comparison import SitlComparisonItem, SitlComparisonOutcome
 
@@ -20,17 +20,17 @@ _TELEMETRY_DEPENDENT_DIMENSIONS = (
 
 
 @dataclass(frozen=True)
-class SitlComparisonDimensionBuilder:
+class _SitlComparisonDimensionBuilder:
     """Build ordered comparison items for a SITL evidence bundle."""
 
-    expected: SitlExpectedComparisonBuilder = field(
-        default_factory=SitlExpectedComparisonBuilder,
+    expected: _SitlExpectedComparisonBuilder = field(
+        default_factory=_SitlExpectedComparisonBuilder,
     )
-    telemetry: SitlTelemetryComparisonBuilder = field(
-        default_factory=SitlTelemetryComparisonBuilder,
+    telemetry: _SitlTelemetryComparisonBuilder = field(
+        default_factory=_SitlTelemetryComparisonBuilder,
     )
-    position: SitlPositionProximityComparator = field(
-        default_factory=SitlPositionProximityComparator,
+    position: _SitlPositionProximityComparator = field(
+        default_factory=_SitlPositionProximityComparator,
     )
 
     def items(
@@ -70,4 +70,4 @@ class SitlComparisonDimensionBuilder:
         ]
 
 
-__all__ = ["SitlComparisonDimensionBuilder"]
+__all__: list[str] = []

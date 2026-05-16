@@ -3,18 +3,18 @@
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
-from adapters.sitl_comparison_artifacts import ArtifactRecord, list_of_mappings
-from adapters.sitl_comparison_values import SitlComparisonValueCoercer
+from adapters.sitl_comparison_artifacts import _ArtifactRecord, _list_of_mappings
+from adapters.sitl_comparison_values import _SitlComparisonValueCoercer
 from schemas.sitl import SitlEvidenceBundle, SitlEvidenceStatus
 from schemas.sitl_comparison import SitlComparisonItem, SitlComparisonOutcome
 
 
 @dataclass(frozen=True)
-class SitlExpectedComparisonBuilder:
+class _SitlExpectedComparisonBuilder:
     """Build comparisons from deterministic expected outputs."""
 
-    values: SitlComparisonValueCoercer = field(
-        default_factory=SitlComparisonValueCoercer,
+    values: _SitlComparisonValueCoercer = field(
+        default_factory=_SitlComparisonValueCoercer,
     )
 
     def items(
@@ -55,14 +55,14 @@ class SitlExpectedComparisonBuilder:
     ) -> list[SitlComparisonItem]:
         return [
             self._scenario_assertion_item(assertion)
-            for assertion in list_of_mappings(
+            for assertion in _list_of_mappings(
                 scenario_report.get("assertion_results"),
             )
         ]
 
     def _scenario_assertion_item(
         self,
-        assertion: ArtifactRecord,
+        assertion: _ArtifactRecord,
     ) -> SitlComparisonItem:
         assertion_id = str(assertion.get("assertion_id", "unknown"))
         return SitlComparisonItem(
@@ -79,7 +79,7 @@ class SitlExpectedComparisonBuilder:
 
     def _assertion_outcome(
         self,
-        assertion: ArtifactRecord,
+        assertion: _ArtifactRecord,
     ) -> SitlComparisonOutcome:
         return (
             SitlComparisonOutcome.MATCHED
@@ -87,11 +87,11 @@ class SitlExpectedComparisonBuilder:
             else SitlComparisonOutcome.MISSING
         )
 
-    def _assertion_passed(self, assertion: ArtifactRecord) -> bool:
+    def _assertion_passed(self, assertion: _ArtifactRecord) -> bool:
         passed = assertion.get("passed")
         return (
             passed if isinstance(passed, bool) else assertion.get("outcome") == "passed"
         )
 
 
-__all__ = ["SitlExpectedComparisonBuilder"]
+__all__: list[str] = []

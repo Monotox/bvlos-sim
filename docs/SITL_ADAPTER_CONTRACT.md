@@ -1,9 +1,8 @@
 # SITL Adapter Contract
 
 This document defines the SITL boundary introduced by Ticket 040. The current
-implementation is contract-only: it creates a deterministic evidence bundle but
-does not launch ArduPilot, upload MAVLink missions, record telemetry, or compare
-observed simulator behavior.
+implementation supports contract-only evidence bundles, ArduPilot connect/upload
+and telemetry recording, and adapter-level comparison reports.
 
 ## Contract
 
@@ -16,9 +15,13 @@ The versioned evidence bundle is `sitl-evidence.v1`. It contains:
 - telemetry, command-log, simulator-log, and adapter-log artifact references
 - tool and adapter versions
 
-The current no-op adapter emits `status: contract_only` and leaves observed
-artifact lists empty. Later SITL tickets fill those lists without changing the
-initial bundle shape unnecessarily.
+The no-op adapter emits `status: contract_only` and leaves observed artifact
+lists empty. Live adapters can emit `status: completed` with telemetry,
+command-log, simulator-log, and adapter-log artifact references.
+
+The versioned comparison report is `sitl-comparison.v1`. It compares a
+`sitl-evidence.v1` bundle against the embedded deterministic scenario report and
+emits ordered comparison items plus a summary.
 
 ## CLI Shape
 
@@ -38,6 +41,27 @@ uv run bvlos-sim sitl \
 
 The command reuses existing scenario inputs. There is no parallel SITL scenario
 format.
+
+## Comparison API
+
+Comparison report construction is currently a Python adapter API rather than a
+CLI command:
+
+```python
+from adapters.sitl_comparison import build_sitl_comparison_report
+from adapters.sitl_comparison import render_sitl_comparison_json
+from adapters.sitl_comparison_markdown import render_sitl_comparison_markdown
+
+report = build_sitl_comparison_report(
+    comparison_id="pipeline-demo-sitl-comparison",
+    bundle=evidence_bundle,
+)
+json_report = render_sitl_comparison_json(report)
+markdown_report = render_sitl_comparison_markdown(report)
+```
+
+`adapters.sitl_evidence.compare_sitl_evidence_bundle(...)` provides the same
+comparison entry point from the evidence module.
 
 ## Adapter Boundary
 
@@ -63,9 +87,10 @@ Forbidden:
 ## Follow-On Tickets
 
 - Ticket 041 adds the concrete ArduPilot launch/connect and mission-upload
-  adapter behind this contract.
+  adapter behind this contract. Implemented.
 - Ticket 042 records telemetry and command artifacts into the evidence bundle.
-- Ticket 043 compares deterministic scenario expectations against SITL
-  evidence.
+  Implemented.
+- Ticket 043 compares deterministic scenario expectations against SITL evidence
+  through `sitl-comparison.v1`. Implemented.
 - Ticket 045 adds PX4 SITL support behind the same adapter and evidence
   contract.

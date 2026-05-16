@@ -5,7 +5,7 @@ from collections.abc import Mapping
 from schemas.sitl import SitlJsonValue
 
 
-class SitlComparisonValueCoercer:
+class _SitlComparisonValueCoercer:
     """Coerce loose artifact payload values into typed comparison values."""
 
     def json_value(self, value: object) -> SitlJsonValue:
@@ -48,4 +48,4 @@ class SitlComparisonValueCoercer:
                 return None
 
 
-__all__ = ["SitlComparisonValueCoercer"]
+__all__: list[str] = []

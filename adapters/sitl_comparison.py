@@ -3,8 +3,8 @@
 import json
 from dataclasses import dataclass, field
 
-from adapters.sitl_comparison_dimensions import SitlComparisonDimensionBuilder
-from adapters.sitl_comparison_summary import SitlComparisonSummaryCalculator
+from adapters.sitl_comparison_dimensions import _SitlComparisonDimensionBuilder
+from adapters.sitl_comparison_summary import _SitlComparisonSummaryCalculator
 from adapters.version import tool_version
 from schemas.sitl import SitlEvidenceBundle
 from schemas.sitl_comparison import (
@@ -14,14 +14,14 @@ from schemas.sitl_comparison import (
 
 
 @dataclass(frozen=True)
-class SitlComparisonReportBuilder:
+class _SitlComparisonReportBuilder:
     """Build deterministic SITL comparison reports."""
 
-    dimensions: SitlComparisonDimensionBuilder = field(
-        default_factory=SitlComparisonDimensionBuilder,
+    dimensions: _SitlComparisonDimensionBuilder = field(
+        default_factory=_SitlComparisonDimensionBuilder,
     )
-    summaries: SitlComparisonSummaryCalculator = field(
-        default_factory=SitlComparisonSummaryCalculator,
+    summaries: _SitlComparisonSummaryCalculator = field(
+        default_factory=_SitlComparisonSummaryCalculator,
     )
 
     def build(
@@ -52,7 +52,7 @@ def build_sitl_comparison_report(
 ) -> SitlComparisonReport:
     """Build a deterministic comparison report from a SITL evidence bundle."""
 
-    return SitlComparisonReportBuilder().build(
+    return _SitlComparisonReportBuilder().build(
         comparison_id=comparison_id,
         bundle=bundle,
         position_tolerance_m=position_tolerance_m,
@@ -68,7 +68,6 @@ def render_sitl_comparison_json(report: SitlComparisonReport) -> str:
 __all__ = [
     "SITL_COMPARISON_SCHEMA_VERSION",
     "SitlComparisonReport",
-    "SitlComparisonReportBuilder",
     "build_sitl_comparison_report",
     "render_sitl_comparison_json",
 ]

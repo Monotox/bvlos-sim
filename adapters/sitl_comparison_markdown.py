@@ -8,7 +8,7 @@ from schemas.sitl_comparison import SitlComparisonItem, SitlComparisonReport
 
 
 @dataclass(frozen=True)
-class SitlComparisonMarkdownRenderer:
+class _SitlComparisonMarkdownRenderer:
     """Render SITL comparison reports as Markdown."""
 
     max_cell_chars: int = 60
@@ -58,10 +58,9 @@ class SitlComparisonMarkdownRenderer:
 def render_sitl_comparison_markdown(report: SitlComparisonReport) -> str:
     """Render a SITL comparison report as Markdown."""
 
-    return SitlComparisonMarkdownRenderer().render(report)
+    return _SitlComparisonMarkdownRenderer().render(report)
 
 
 __all__ = [
-    "SitlComparisonMarkdownRenderer",
     "render_sitl_comparison_markdown",
 ]

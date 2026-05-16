@@ -132,10 +132,10 @@ assertion fails.
 
 ## SITL Evidence Contract
 
-Ticket 040 adds a contract-only `sitl` command. It reuses an existing
-`scenario.v1` file, runs the deterministic scenario output as expected behavior,
-and emits a `sitl-evidence.v1` bundle. It does not launch ArduPilot, upload a
-mission, record telemetry, or compare observed simulator behavior.
+The `sitl` command reuses an existing `scenario.v1` file, runs the deterministic
+scenario output as expected behavior, and emits a `sitl-evidence.v1` bundle.
+The CLI command is contract-only; live ArduPilot runs and comparison reports are
+available through adapter-level Python APIs and tests.
 
 ```bash
 uv run bvlos-sim sitl \
@@ -146,7 +146,31 @@ uv run bvlos-sim sitl \
 The no-op contract adapter writes `status: contract_only`, includes mission,
 vehicle, scenario, and loaded asset references, embeds the deterministic
 scenario report, and leaves telemetry and command-log artifact lists empty for
-Tickets 041-043 to populate.
+live adapters to populate.
+
+### SITL Comparison Reports
+
+`sitl-comparison.v1` reports compare a `sitl-evidence.v1` bundle against the
+embedded deterministic scenario report. Comparison report construction is a
+Python adapter API:
+
+```python
+from adapters.sitl_comparison import build_sitl_comparison_report
+from adapters.sitl_comparison import render_sitl_comparison_json
+from adapters.sitl_comparison_markdown import render_sitl_comparison_markdown
+
+report = build_sitl_comparison_report(
+    comparison_id="pipeline-demo-sitl-comparison",
+    bundle=evidence_bundle,
+)
+json_report = render_sitl_comparison_json(report)
+markdown_report = render_sitl_comparison_markdown(report)
+```
+
+Reports include deterministic scenario assertions, mission item count,
+telemetry record count, heartbeat presence, adapter lifecycle, simulator
+lifecycle, and position proximity when `GLOBAL_POSITION_INT` telemetry is
+available.
 
 ### SITL Exit Codes
 
@@ -615,9 +639,11 @@ The sample CLI emits `uncertainty-report.v1`.
 
 The SITL contract command emits `sitl-evidence.v1`.
 
+The SITL comparison API emits `sitl-comparison.v1`.
+
 Estimator and scenario JSON outputs are canonical, deterministic, and
 regression-tested with golden fixtures. Markdown output is supported for
-human-readable estimator and scenario reports.
+human-readable estimator, scenario, uncertainty, and SITL comparison reports.
 
 ## Verification
 

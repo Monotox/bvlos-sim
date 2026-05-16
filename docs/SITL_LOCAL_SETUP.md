@@ -140,6 +140,26 @@ corresponding mission, vehicle, and scenario inputs when preserving validation
 evidence, or remove them after short-lived smoke tests. The project does not
 upload, rotate, or prune SITL artifacts automatically.
 
+## Comparison reports
+
+Ticket 043 adds `sitl-comparison.v1` reports over already-written evidence
+bundles. The comparison code reads artifact references from the evidence bundle
+and does not create telemetry files itself.
+
+```python
+from adapters.sitl_comparison import build_sitl_comparison_report
+from adapters.sitl_comparison import render_sitl_comparison_json
+
+report = build_sitl_comparison_report(
+    comparison_id="local-sitl-comparison",
+    bundle=evidence_bundle,
+)
+json_report = render_sitl_comparison_json(report)
+```
+
+The default position tolerance is 500 m. Contract-only evidence bundles skip
+telemetry-dependent dimensions.
+
 ## Default CI behaviour
 
 Live ArduPilot SITL is optional for bvlos-sim. Default development and CI tests
