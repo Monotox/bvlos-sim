@@ -40,6 +40,8 @@ The current codebase includes:
 - computed Dubins divert estimates for divert policy outcomes
 - Monte Carlo uncertainty sampling through the `sample` CLI command
 - contract-only SITL evidence bundles through the `sitl` CLI command
+- ArduPilot SITL telemetry evidence and comparison reports through adapter APIs
+  and `estimate --sitl-evidence`
 - canonical JSON envelopes and optional Markdown reports
 - CLI commands for estimator, scenario, uncertainty, and SITL contract workflows
 - golden fixture tests for stable public output contracts
@@ -110,7 +112,9 @@ Current output contracts:
 - `scenario-report.v2`: canonical scenario JSON envelope
 - `uncertainty-report.v1`: canonical uncertainty JSON envelope
 - `sitl-evidence.v1`: canonical SITL evidence bundle
-- Markdown reports for estimator and scenario outputs
+- `sitl-comparison.v1`: canonical SITL comparison report
+- Markdown reports for estimator, scenario, uncertainty, and SITL comparison
+  outputs
 
 JSON rendering is deterministic and sorted, and representative outputs are
 covered by golden fixture tests.
@@ -180,10 +184,7 @@ yet run a live autopilot or physics simulator.
 
 Known limitations are deliberate for the current release:
 
-- no live SITL integration yet; the evidence contract and no-op adapter
-  boundary are implemented, with ArduPilot live execution tracked by Tickets
-  041-043
-- no PX4 SITL adapter yet; Ticket 045
+- no PX4 SITL adapter yet; Tickets 045 and 046
 - no REST API or UI; Ticket 050
 - no batch import/export workflows or report diff tooling; Ticket 060
 - long-distance Dubins divert still uses a planar approximation pending a
@@ -218,11 +219,11 @@ scenario assertions, and reproducible reporting.
 
 ## Development Direction
 
-The next major project area is live SITL integration behind the existing
-evidence contract, starting with ArduPilot and tracking PX4 as a separate
-adapter ticket. The longer-term roadmap includes API/UI surfaces,
-import/export workflows, batch operations, operational integration, and
-real-world validation and calibration from flight logs.
+The next major project area is broadening simulator and product surfaces around
+the existing evidence and comparison contracts. PX4 remains a separate adapter
+track. The longer-term roadmap includes API/UI surfaces, import/export
+workflows, batch operations, operational integration, and real-world validation
+and calibration from flight logs.
 
 The project should continue to prioritize:
 

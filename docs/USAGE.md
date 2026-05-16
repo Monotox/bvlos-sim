@@ -21,7 +21,8 @@ uv run bvlos-sim --help
 
 bvlos-sim exposes four commands:
 
-- `estimate`: run deterministic mission estimation and static feasibility checks
+- `estimate`: run deterministic mission estimation and static feasibility checks,
+  or render a SITL comparison report from an existing evidence bundle
 - `scenario`: run deterministic scenario events and assertions
 - `sample`: run seeded Monte Carlo uncertainty sampling
 - `sitl`: build a contract-only SITL evidence bundle from an existing scenario
@@ -31,6 +32,8 @@ vehicle YAML: fidelity settings, terrain, wind grids, geofences, landing zones,
 resource systems, communication links, energy feasibility, and route geometry.
 Scenario events, uncertainty sampling, and SITL evidence use `scenario`,
 `sample`, and `sitl` because they require separate versioned input contracts.
+SITL comparison reports are exposed through `estimate --sitl-evidence` so the
+report keeps the same JSON, Markdown, and `--output` ergonomics as estimation.
 
 Command help:
 
@@ -132,10 +135,10 @@ assertion fails.
 
 ## SITL Evidence Contract
 
-Ticket 040 adds a contract-only `sitl` command. It reuses an existing
-`scenario.v1` file, runs the deterministic scenario output as expected behavior,
-and emits a `sitl-evidence.v1` bundle. It does not launch ArduPilot, upload a
-mission, record telemetry, or compare observed simulator behavior.
+The `sitl` command reuses an existing `scenario.v1` file, runs the deterministic
+scenario output as expected behavior, and emits a `sitl-evidence.v1` bundle.
+The CLI command is contract-only; live ArduPilot runs are available through
+adapter-level Python APIs and tests.
 
 ```bash
 uv run bvlos-sim sitl \
@@ -146,7 +149,55 @@ uv run bvlos-sim sitl \
 The no-op contract adapter writes `status: contract_only`, includes mission,
 vehicle, scenario, and loaded asset references, embeds the deterministic
 scenario report, and leaves telemetry and command-log artifact lists empty for
-Tickets 041-043 to populate.
+live adapters to populate.
+
+### SITL Comparison Reports
+
+`sitl-comparison.v1` reports compare a `sitl-evidence.v1` bundle against the
+embedded deterministic scenario report. Render one through `estimate` from an
+already-written evidence bundle:
+
+```bash
+uv run bvlos-sim estimate \
+  examples/missions/pipeline_demo_001.yaml \
+  examples/vehicles/quadplane_v1.yaml \
+  --sitl-evidence /tmp/sitl-evidence.json \
+  --comparison-id pipeline-demo-sitl-comparison \
+  --output /tmp/sitl-comparison.json
+```
+
+Write Markdown with the same entry point:
+
+```bash
+uv run bvlos-sim estimate \
+  examples/missions/pipeline_demo_001.yaml \
+  examples/vehicles/quadplane_v1.yaml \
+  --sitl-evidence /tmp/sitl-evidence.json \
+  --format markdown \
+  --output /tmp/sitl-comparison.md
+```
+
+The `estimate` command still requires mission and vehicle arguments for CLI
+shape consistency; the comparison payload is read from `--sitl-evidence`.
+Python adapter APIs expose the same report construction:
+
+```python
+from adapters.sitl_comparison import build_sitl_comparison_report
+from adapters.sitl_comparison import render_sitl_comparison_json
+from adapters.sitl_comparison_markdown import render_sitl_comparison_markdown
+
+report = build_sitl_comparison_report(
+    comparison_id="pipeline-demo-sitl-comparison",
+    bundle=evidence_bundle,
+)
+json_report = render_sitl_comparison_json(report)
+markdown_report = render_sitl_comparison_markdown(report)
+```
+
+Reports include deterministic scenario assertions, mission item count,
+telemetry record count, heartbeat presence, adapter lifecycle, simulator
+lifecycle, and position proximity when `GLOBAL_POSITION_INT` telemetry is
+available.
 
 ### SITL Exit Codes
 
@@ -615,9 +666,12 @@ The sample CLI emits `uncertainty-report.v1`.
 
 The SITL contract command emits `sitl-evidence.v1`.
 
+The `estimate --sitl-evidence` path and SITL comparison API emit
+`sitl-comparison.v1`.
+
 Estimator and scenario JSON outputs are canonical, deterministic, and
 regression-tested with golden fixtures. Markdown output is supported for
-human-readable estimator and scenario reports.
+human-readable estimator, scenario, uncertainty, and SITL comparison reports.
 
 ## Verification
 

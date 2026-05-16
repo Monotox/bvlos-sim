@@ -74,7 +74,7 @@ tickets.
   scenario report as expected behavior, and emits a contract-only evidence
   bundle.
 - Live ArduPilot launch, MAVLink upload, telemetry recording, command execution,
-  and comparison metrics remain in Tickets 041-043.
+  and comparison metrics were delivered by Tickets 041-043.
 
 ## Out of Scope
 
