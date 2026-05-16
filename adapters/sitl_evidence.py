@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from adapters.version import tool_version
+from adapters.sitl_comparison import build_sitl_comparison_report
 from adapters.envelope import (
     GEOFENCE_SCHEMA_VERSION,
     LANDING_ZONE_SCHEMA_VERSION,
@@ -31,6 +32,7 @@ from schemas.sitl import (
     SitlObservedArtifacts,
     SitlSimulatorMetadata,
 )
+from schemas.sitl_comparison import SitlComparisonReport
 
 SITL_EVIDENCE_SCHEMA_VERSION = "sitl-evidence.v1"
 NOOP_SITL_ADAPTER_ID = "noop-contract"
@@ -240,11 +242,27 @@ def render_sitl_evidence_json(bundle: SitlEvidenceBundle) -> str:
     return json.dumps(payload, indent=2, sort_keys=True) + "\n"
 
 
+def compare_sitl_evidence_bundle(
+    bundle: SitlEvidenceBundle,
+    *,
+    comparison_id: str,
+    position_tolerance_m: float = 500.0,
+) -> SitlComparisonReport:
+    """Build a comparison report from an evidence bundle."""
+
+    return build_sitl_comparison_report(
+        comparison_id=comparison_id,
+        bundle=bundle,
+        position_tolerance_m=position_tolerance_m,
+    )
+
+
 __all__ = [
     "NOOP_SITL_ADAPTER_ID",
     "SITL_EVIDENCE_SCHEMA_VERSION",
     "NoopSitlAdapter",
     "SitlAdapter",
     "build_sitl_evidence_bundle",
+    "compare_sitl_evidence_bundle",
     "render_sitl_evidence_json",
 ]

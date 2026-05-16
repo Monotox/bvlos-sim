@@ -47,6 +47,13 @@ from schemas.sitl import (
     SitlObservedArtifacts,
     SitlSimulatorMetadata,
 )
+from schemas.sitl_comparison import (
+    SITL_COMPARISON_SCHEMA_VERSION,
+    SitlComparisonItem,
+    SitlComparisonOutcome,
+    SitlComparisonReport,
+    SitlComparisonSummary,
+)
 from schemas.vehicle import (
     AutopilotStack,
     EnergyModel,
@@ -94,9 +101,14 @@ __all__ = [
     "ScenarioInitialConditions",
     "ScenarioPlan",
     "ScenarioTriggerKind",
+    "SITL_COMPARISON_SCHEMA_VERSION",
     "SitlAdapterKind",
     "SitlArtifactReference",
     "SitlArtifactRole",
+    "SitlComparisonItem",
+    "SitlComparisonOutcome",
+    "SitlComparisonReport",
+    "SitlComparisonSummary",
     "SitlEvidenceBundle",
     "SitlEvidenceStatus",
     "SitlExpectedOutputs",
