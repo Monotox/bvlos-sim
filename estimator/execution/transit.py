@@ -147,6 +147,8 @@ def _sub_segment_horizontal_time_s(
         # altitude from horizontal position: on climb-dominated legs the
         # aircraft hasn't gained as much altitude at each horizontal fraction
         # as a linear spatial interpolation would imply.
+        # Altitude at segment start, not midpoint — decouples altitude from
+        # horizontal position but means segment i=0 always samples at start_alt.
         alt_frac = min(1.0, total_s / vertical_time_s) if vertical_time_s > 0.0 else 1.0
         mid_alt = start_alt + (end_alt - start_alt) * alt_frac
         wind = _wind_at_fraction(
@@ -408,6 +410,13 @@ def _build_turn_arc_leg(
     tas_mps, _ = resolve_transit_tas(context, item, route_item_index=route_item_index)
     arc_time_s = arc.arc_length_m / tas_mps
 
+    arc_wind = context.wind_provider.wind_at(
+        lat=context.state.lat,
+        lon=context.state.lon,
+        altitude_amsl_m=context.state.alt_amsl_m,
+        elapsed_time_s=context.state.elapsed_time_s,
+    )
+
     return LegEstimate(
         leg_index=context.current_leg_index,
         route_item_index=route_item_index,
@@ -427,6 +436,9 @@ def _build_turn_arc_leg(
         time_s=arc_time_s,
         tas_mps=tas_mps,
         ground_track_deg=outgoing_track_deg,
+        wind_east_mps=arc_wind.wind_east_mps,
+        wind_north_mps=arc_wind.wind_north_mps,
+        wind_speed_mps=context.wind_speed(arc_wind),
     )
 
 

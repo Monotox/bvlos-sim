@@ -39,8 +39,10 @@ def solve_wind_triangle(
 ) -> WindTriangleSolution | None:
     """Solve wind-triangle for required heading and resulting groundspeed.
 
-    Returns None when no triangle solution exists.
+    Returns None when no triangle solution exists (including tas_mps == 0).
     """
+    if tas_mps == 0.0:
+        return None
 
     track_rad = radians(track_deg)
     track_e = sin(track_rad)

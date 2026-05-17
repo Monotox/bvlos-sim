@@ -60,6 +60,17 @@ def evaluate_energy_feasibility(
     if model_failure is not None:
         return EnergyEvaluation(energy=None, failure=model_failure)
 
+    if context.capabilities.hover and energy_model.hover_power_w is None:
+        return EnergyEvaluation(
+            energy=None,
+            failure=_mission_energy_failure(
+                kind=FailureKind.INVALID_INPUT,
+                code=FailureCode.MISSING_ENERGY_MODEL,
+                message="vehicle.energy.hover_power_w is required for hover-capable vehicles.",
+                context={"energy_field": "vehicle.energy.hover_power_w"},
+            ),
+        )
+
     threshold_percent, threshold_failure = _resolve_reserve_threshold_percent(context)
     if threshold_failure is not None:
         return EnergyEvaluation(energy=None, failure=threshold_failure)
