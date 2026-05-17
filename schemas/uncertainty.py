@@ -109,9 +109,15 @@ class UncertaintyPlan(BaseModel):
     schema_version: Literal["uncertainty.v1"] = Field(
         description="Schema version identifier."
     )
-    uncertainty_id: str = Field(description="Stable identifier for this uncertainty run.")
-    mission_file: str = Field(description="Path to the mission YAML file (relative to this file).")
-    vehicle_file: str = Field(description="Path to the vehicle YAML file (relative to this file).")
+    uncertainty_id: str = Field(
+        description="Stable identifier for this uncertainty run."
+    )
+    mission_file: str = Field(
+        description="Path to the mission YAML file (relative to this file)."
+    )
+    vehicle_file: str = Field(
+        description="Path to the vehicle YAML file (relative to this file)."
+    )
     samples: int = Field(
         ge=1,
         le=10_000,

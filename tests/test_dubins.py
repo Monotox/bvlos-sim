@@ -95,7 +95,12 @@ def test_symmetric_left_right_same_length() -> None:
 def test_dubins_path_no_less_than_straight_line() -> None:
     """Dubins path is never shorter than the straight-line distance."""
     r = 80.0
-    for target_e, target_n in [(500.0, 0.0), (0.0, 500.0), (-300.0, 400.0), (0.0, -200.0)]:
+    for target_e, target_n in [
+        (500.0, 0.0),
+        (0.0, 500.0),
+        (-300.0, 400.0),
+        (0.0, -200.0),
+    ]:
         straight = math.hypot(target_e, target_n)
         dubins = dubins_path_to_point_m(0.0, 0.0, 0.0, target_e, target_n, r)
         assert dubins >= straight - 1e-9, f"Dubins {dubins} < straight {straight}"
@@ -212,7 +217,9 @@ def test_divert_heading_directly_toward_target_equals_straight() -> None:
     )
 
     # Should be nearly identical (within turn arc resolution)
-    assert math.isclose(result_dubins.distance_m, result_straight.distance_m, rel_tol=1e-4)
+    assert math.isclose(
+        result_dubins.distance_m, result_straight.distance_m, rel_tol=1e-4
+    )
 
 
 def test_divert_heading_perpendicular_adds_turn_cost() -> None:
@@ -257,15 +264,25 @@ def test_divert_no_entry_heading_falls_back_to_straight_line() -> None:
     energy = _energy()
 
     r1 = compute_divert_estimate(
-        action_lat=52.0, action_lon=4.0, action_at_timeline_index=0,
-        target_zone_id="lz", landing_zones=[zone],
-        energy=energy, mission=mission, vehicle=vehicle,
+        action_lat=52.0,
+        action_lon=4.0,
+        action_at_timeline_index=0,
+        target_zone_id="lz",
+        landing_zones=[zone],
+        energy=energy,
+        mission=mission,
+        vehicle=vehicle,
         entry_heading_deg=None,
     )
     r2 = compute_divert_estimate(
-        action_lat=52.0, action_lon=4.0, action_at_timeline_index=0,
-        target_zone_id="lz", landing_zones=[zone],
-        energy=energy, mission=mission, vehicle=vehicle,
+        action_lat=52.0,
+        action_lon=4.0,
+        action_at_timeline_index=0,
+        target_zone_id="lz",
+        landing_zones=[zone],
+        energy=energy,
+        mission=mission,
+        vehicle=vehicle,
     )
     assert r1.distance_m == r2.distance_m
 
@@ -279,16 +296,26 @@ def test_divert_no_turn_radius_falls_back_to_straight_line() -> None:
     energy = _energy()
 
     result = compute_divert_estimate(
-        action_lat=52.0, action_lon=4.0, action_at_timeline_index=0,
-        target_zone_id="lz", landing_zones=[zone],
-        energy=energy, mission=mission, vehicle=vehicle,
+        action_lat=52.0,
+        action_lon=4.0,
+        action_at_timeline_index=0,
+        target_zone_id="lz",
+        landing_zones=[zone],
+        energy=energy,
+        mission=mission,
+        vehicle=vehicle,
         entry_heading_deg=180.0,  # heading provided but radius is None
     )
 
     result_no_heading = compute_divert_estimate(
-        action_lat=52.0, action_lon=4.0, action_at_timeline_index=0,
-        target_zone_id="lz", landing_zones=[zone],
-        energy=energy, mission=mission, vehicle=vehicle,
+        action_lat=52.0,
+        action_lon=4.0,
+        action_at_timeline_index=0,
+        target_zone_id="lz",
+        landing_zones=[zone],
+        energy=energy,
+        mission=mission,
+        vehicle=vehicle,
         entry_heading_deg=None,
     )
 

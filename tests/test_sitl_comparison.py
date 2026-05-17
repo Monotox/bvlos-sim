@@ -7,12 +7,12 @@ import pytest
 from pydantic import ValidationError
 from pyproj import Geod
 
-from adapters.sitl_comparison import (
+from adapters.sitl.comparison import (
     build_sitl_comparison_report,
     render_sitl_comparison_json,
 )
-from adapters.sitl_comparison_markdown import render_sitl_comparison_markdown
-from adapters.sitl_evidence import compare_sitl_evidence_bundle
+from adapters.sitl.comparison_markdown import render_sitl_comparison_markdown
+from adapters.sitl.evidence import compare_sitl_evidence_bundle
 from schemas import (
     SitlAdapterKind,
     SitlArtifactReference,

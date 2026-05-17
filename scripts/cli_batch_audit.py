@@ -167,7 +167,8 @@ def _scenario_payload(
         "vehicle_file": vehicle_file,
         "initial_conditions": initial_conditions or {},
         "events": events or [],
-        "assertions": assertions or [{"assertion_id": "estimate-ok", "kind": "estimate_succeeds"}],
+        "assertions": assertions
+        or [{"assertion_id": "estimate-ok", "kind": "estimate_succeeds"}],
     }
 
 
@@ -208,12 +209,16 @@ def _expect_json_field(path: str, expected: Any) -> CaseCheck:
 def _expect_markdown(prefix: str) -> CaseCheck:
     def check(result: CommandResult) -> None:
         if not result.stdout.startswith(prefix):
-            raise AssertionError(f"expected markdown prefix {prefix!r}, got {result.stdout[:80]!r}")
+            raise AssertionError(
+                f"expected markdown prefix {prefix!r}, got {result.stdout[:80]!r}"
+            )
 
     return check
 
 
-def _expect_output_file(path: Path, *, kind: str, expected_status: str | None = None) -> CaseCheck:
+def _expect_output_file(
+    path: Path, *, kind: str, expected_status: str | None = None
+) -> CaseCheck:
     def check(result: CommandResult) -> None:
         if result.stdout:
             raise AssertionError(f"expected stdout to be empty, got {result.stdout!r}")
@@ -281,6 +286,26 @@ def _write_common_files(root: Path) -> dict[str, Path]:
     return paths
 
 
+def _write_contract_only_sitl_evidence(
+    scenario_path: Path,
+    evidence_path: Path,
+) -> Path:
+    completed = subprocess.run(
+        [sys.executable, "-m", "main", "sitl", str(scenario_path)],
+        cwd=REPO_ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if completed.returncode != SUCCESS:
+        raise RuntimeError(
+            "failed to build contract-only SITL evidence for CLI audit: "
+            f"stdout={completed.stdout!r} stderr={completed.stderr!r}"
+        )
+    evidence_path.write_text(completed.stdout, encoding="utf-8")
+    return evidence_path
+
+
 def _geofence_feature(kind: str = "forbidden") -> dict[str, Any]:
     return {
         "type": "Feature",
@@ -322,11 +347,15 @@ def _build_cases(root: Path) -> list[Case]:
 
     mission_with_fidelity_v2 = _payload_copy(_mission_payload())
     mission_with_fidelity_v2["estimation"] = {"fidelity": "v2"}
-    mission_fidelity_v2_path = _write_yaml(root / "mission-fidelity-v2.yaml", mission_with_fidelity_v2)
+    mission_fidelity_v2_path = _write_yaml(
+        root / "mission-fidelity-v2.yaml", mission_with_fidelity_v2
+    )
 
     mission_with_layers = _payload_copy(_mission_payload())
     mission_with_layers["estimation"] = {
-        "wind_layers": [{"altitude_m": 0.0, "wind_east_mps": 5.0, "wind_north_mps": 0.0}],
+        "wind_layers": [
+            {"altitude_m": 0.0, "wind_east_mps": 5.0, "wind_north_mps": 0.0}
+        ],
         "max_segment_length_m": 250.0,
     }
     mission_layers_path = _write_yaml(root / "mission-layers.yaml", mission_with_layers)
@@ -339,24 +368,34 @@ def _build_cases(root: Path) -> list[Case]:
 
     mission_unknown_key = _payload_copy(_mission_payload())
     mission_unknown_key["unexpected"] = True
-    mission_unknown_key_path = _write_yaml(root / "mission-unknown-key.yaml", mission_unknown_key)
+    mission_unknown_key_path = _write_yaml(
+        root / "mission-unknown-key.yaml", mission_unknown_key
+    )
 
     mission_profile_mismatch = _payload_copy(_mission_payload())
     mission_profile_mismatch["vehicle_profile"] = "different_vehicle"
-    mission_profile_mismatch_path = _write_yaml(root / "mission-profile-mismatch.yaml", mission_profile_mismatch)
+    mission_profile_mismatch_path = _write_yaml(
+        root / "mission-profile-mismatch.yaml", mission_profile_mismatch
+    )
 
     low_energy_vehicle = _payload_copy(_vehicle_payload())
     low_energy_vehicle["energy"]["battery_capacity_wh"] = 45.0
-    low_energy_vehicle_path = _write_yaml(root / "vehicle-low-energy.yaml", low_energy_vehicle)
+    low_energy_vehicle_path = _write_yaml(
+        root / "vehicle-low-energy.yaml", low_energy_vehicle
+    )
 
     fixed_wing_vehicle = _payload_copy(_vehicle_payload())
     fixed_wing_vehicle["vehicle_class"] = "fixed_wing"
     fixed_wing_vehicle["capabilities"] = {"hover": False, "forward_flight": True}
-    fixed_wing_vehicle_path = _write_yaml(root / "vehicle-fixed-wing.yaml", fixed_wing_vehicle)
+    fixed_wing_vehicle_path = _write_yaml(
+        root / "vehicle-fixed-wing.yaml", fixed_wing_vehicle
+    )
 
     loiter_only_mission = _payload_copy(_mission_payload())
     loiter_only_mission["route"] = [loiter_only_mission["route"][2]]
-    loiter_only_mission_path = _write_yaml(root / "mission-loiter-only.yaml", loiter_only_mission)
+    loiter_only_mission_path = _write_yaml(
+        root / "mission-loiter-only.yaml", loiter_only_mission
+    )
 
     infeasible_wind_mission = _payload_copy(_mission_payload())
     infeasible_wind_mission["route"] = [infeasible_wind_mission["route"][1]]
@@ -367,7 +406,9 @@ def _build_cases(root: Path) -> list[Case]:
         "wind_north_mps": 0.0,
         "min_groundspeed_mps": 3.0,
     }
-    infeasible_wind_mission_path = _write_yaml(root / "mission-infeasible-wind.yaml", infeasible_wind_mission)
+    infeasible_wind_mission_path = _write_yaml(
+        root / "mission-infeasible-wind.yaml", infeasible_wind_mission
+    )
 
     geofence_path = _write_json(
         root / "geofence.geojson",
@@ -376,7 +417,9 @@ def _build_cases(root: Path) -> list[Case]:
     mission_geofence = _payload_copy(_mission_payload())
     mission_geofence["assets"] = {"geofences_file": geofence_path.name}
     mission_geofence["route"] = [mission_geofence["route"][1]]
-    mission_geofence_path = _write_yaml(root / "mission-geofence.yaml", mission_geofence)
+    mission_geofence_path = _write_yaml(
+        root / "mission-geofence.yaml", mission_geofence
+    )
 
     geofence_bad_geometry = _write_json(
         root / "bad-geofence.geojson",
@@ -387,14 +430,19 @@ def _build_cases(root: Path) -> list[Case]:
                     "type": "Feature",
                     "id": "bad",
                     "properties": {"kind": "forbidden"},
-                    "geometry": {"type": "LineString", "coordinates": [[4.0, 52.0], [4.1, 52.1]]},
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": [[4.0, 52.0], [4.1, 52.1]],
+                    },
                 }
             ],
         },
     )
     mission_bad_geofence = _payload_copy(_mission_payload())
     mission_bad_geofence["assets"] = {"geofences_file": geofence_bad_geometry.name}
-    mission_bad_geofence_path = _write_yaml(root / "mission-bad-geofence.yaml", mission_bad_geofence)
+    mission_bad_geofence_path = _write_yaml(
+        root / "mission-bad-geofence.yaml", mission_bad_geofence
+    )
 
     landing_zone_path = _write_json(
         root / "landing-zones.geojson",
@@ -403,11 +451,16 @@ def _build_cases(root: Path) -> list[Case]:
     mission_landing_zone = _payload_copy(_mission_payload())
     mission_landing_zone["assets"] = {"landing_zones_file": landing_zone_path.name}
     mission_landing_zone["route"] = [mission_landing_zone["route"][1]]
-    mission_landing_zone_path = _write_yaml(root / "mission-landing-zone.yaml", mission_landing_zone)
+    mission_landing_zone_path = _write_yaml(
+        root / "mission-landing-zone.yaml", mission_landing_zone
+    )
 
     far_landing_zone_path = _write_json(
         root / "far-landing-zones.geojson",
-        {"type": "FeatureCollection", "features": [_landing_zone_feature(lon=5.0, lat=53.0)]},
+        {
+            "type": "FeatureCollection",
+            "features": [_landing_zone_feature(lon=5.0, lat=53.0)],
+        },
     )
     mission_no_lz = _payload_copy(_mission_payload())
     mission_no_lz["assets"] = {"landing_zones_file": far_landing_zone_path.name}
@@ -417,7 +470,9 @@ def _build_cases(root: Path) -> list[Case]:
 
     missing_asset_mission = _payload_copy(_mission_payload())
     missing_asset_mission["assets"] = {"geofences_file": "does-not-exist.geojson"}
-    missing_asset_mission_path = _write_yaml(root / "mission-missing-geofence.yaml", missing_asset_mission)
+    missing_asset_mission_path = _write_yaml(
+        root / "mission-missing-geofence.yaml", missing_asset_mission
+    )
 
     scenario_fail = _write_yaml(
         root / "scenario-fail.yaml",
@@ -494,7 +549,9 @@ def _build_cases(root: Path) -> list[Case]:
     scenario_policy_pass = _write_yaml(
         root / "scenario-policy-pass.yaml",
         _scenario_payload(
-            initial_conditions={"lost_link_policy": {"action": "rtl", "loiter_s": 30.0}},
+            initial_conditions={
+                "lost_link_policy": {"action": "rtl", "loiter_s": 30.0}
+            },
             events=[
                 {
                     "event_id": "lost-link",
@@ -516,7 +573,9 @@ def _build_cases(root: Path) -> list[Case]:
     scenario_policy_fail = _write_yaml(
         root / "scenario-policy-fail.yaml",
         _scenario_payload(
-            initial_conditions={"lost_link_policy": {"action": "rtl", "loiter_s": 30.0}},
+            initial_conditions={
+                "lost_link_policy": {"action": "rtl", "loiter_s": 30.0}
+            },
             events=[
                 {
                     "event_id": "lost-link",
@@ -534,6 +593,10 @@ def _build_cases(root: Path) -> list[Case]:
                 }
             ],
         ),
+    )
+    sitl_evidence_path = _write_contract_only_sitl_evidence(
+        paths["scenario"],
+        root / "sitl-evidence.json",
     )
 
     cases = [
@@ -556,13 +619,25 @@ def _build_cases(root: Path) -> list[Case]:
         ),
         Case(
             "estimate markdown stdout",
-            ["estimate", str(paths["mission"]), str(paths["vehicle"]), "--format", "markdown"],
+            [
+                "estimate",
+                str(paths["mission"]),
+                str(paths["vehicle"]),
+                "--format",
+                "markdown",
+            ],
             SUCCESS,
             _expect_markdown("# Estimator Report"),
         ),
         Case(
             "estimate json output file",
-            ["estimate", str(paths["mission"]), str(paths["vehicle"]), "--output", str(output_json)],
+            [
+                "estimate",
+                str(paths["mission"]),
+                str(paths["vehicle"]),
+                "--output",
+                str(output_json),
+            ],
             SUCCESS,
             _expect_output_file(output_json, kind="json", expected_status="success"),
         ),
@@ -582,24 +657,48 @@ def _build_cases(root: Path) -> list[Case]:
         ),
         Case(
             "estimate invalid format option",
-            ["estimate", str(paths["mission"]), str(paths["vehicle"]), "--format", "html"],
+            [
+                "estimate",
+                str(paths["mission"]),
+                str(paths["vehicle"]),
+                "--format",
+                "html",
+            ],
             USAGE_ERROR,
         ),
         Case(
             "estimate output path is directory",
-            ["estimate", str(paths["mission"]), str(paths["vehicle"]), "--output", str(output_dir)],
+            [
+                "estimate",
+                str(paths["mission"]),
+                str(paths["vehicle"]),
+                "--output",
+                str(output_dir),
+            ],
             INTERNAL_ERROR,
             _estimate_case_status("error"),
         ),
         Case(
             "estimate fidelity v2",
-            ["estimate", str(paths["mission"]), str(paths["vehicle"]), "--fidelity", "v2"],
+            [
+                "estimate",
+                str(paths["mission"]),
+                str(paths["vehicle"]),
+                "--fidelity",
+                "v2",
+            ],
             SUCCESS,
             _expect_json_field("result.metadata.estimator_version", "v2"),
         ),
         Case(
             "estimate explicit fidelity v1 overrides mission yaml v2",
-            ["estimate", str(mission_fidelity_v2_path), str(paths["vehicle"]), "--fidelity", "v1"],
+            [
+                "estimate",
+                str(mission_fidelity_v2_path),
+                str(paths["vehicle"]),
+                "--fidelity",
+                "v1",
+            ],
             SUCCESS,
             _expect_json_field("result.metadata.estimator_version", "v1"),
         ),
@@ -611,36 +710,72 @@ def _build_cases(root: Path) -> list[Case]:
         ),
         Case(
             "estimate invalid fidelity option",
-            ["estimate", str(paths["mission"]), str(paths["vehicle"]), "--fidelity", "v3"],
+            [
+                "estimate",
+                str(paths["mission"]),
+                str(paths["vehicle"]),
+                "--fidelity",
+                "v3",
+            ],
             USAGE_ERROR,
         ),
         Case(
             "estimate wind layer",
-            ["estimate", str(paths["mission"]), str(paths["vehicle"]), "--wind-layer", "0:2:0"],
+            [
+                "estimate",
+                str(paths["mission"]),
+                str(paths["vehicle"]),
+                "--wind-layer",
+                "0:2:0",
+            ],
             SUCCESS,
             _expect_json_field("result.metadata.wind_provider_id", "layered"),
         ),
         Case(
             "estimate malformed wind layer too few parts",
-            ["estimate", str(paths["mission"]), str(paths["vehicle"]), "--wind-layer", "0:2"],
+            [
+                "estimate",
+                str(paths["mission"]),
+                str(paths["vehicle"]),
+                "--wind-layer",
+                "0:2",
+            ],
             INVALID_INPUT,
             _estimate_case_status("error"),
         ),
         Case(
             "estimate malformed wind layer nonnumeric",
-            ["estimate", str(paths["mission"]), str(paths["vehicle"]), "--wind-layer", "0:east:0"],
+            [
+                "estimate",
+                str(paths["mission"]),
+                str(paths["vehicle"]),
+                "--wind-layer",
+                "0:east:0",
+            ],
             INVALID_INPUT,
             _estimate_case_status("error"),
         ),
         Case(
             "estimate max segment length zero",
-            ["estimate", str(paths["mission"]), str(paths["vehicle"]), "--max-segment-length-m", "0"],
+            [
+                "estimate",
+                str(paths["mission"]),
+                str(paths["vehicle"]),
+                "--max-segment-length-m",
+                "0",
+            ],
             INVALID_INPUT,
             _estimate_case_status("error"),
         ),
         Case(
             "estimate max segment length negative",
-            ["estimate", str(paths["mission"]), str(paths["vehicle"]), "--max-segment-length-m", "-1"],
+            [
+                "estimate",
+                str(paths["mission"]),
+                str(paths["vehicle"]),
+                "--max-segment-length-m",
+                "-1",
+            ],
             INVALID_INPUT,
             _estimate_case_status("error"),
         ),
@@ -711,7 +846,13 @@ def _build_cases(root: Path) -> list[Case]:
         ),
         Case(
             "estimate fixed-wing loiter supported in v2",
-            ["estimate", str(loiter_only_mission_path), str(fixed_wing_vehicle_path), "--fidelity", "v2"],
+            [
+                "estimate",
+                str(loiter_only_mission_path),
+                str(fixed_wing_vehicle_path),
+                "--fidelity",
+                "v2",
+            ],
             SUCCESS,
             _estimate_case_status("success"),
         ),
@@ -773,7 +914,9 @@ def _build_cases(root: Path) -> list[Case]:
             "scenario json output file",
             ["scenario", str(paths["scenario"]), "--output", str(scenario_output_json)],
             SUCCESS,
-            _expect_output_file(scenario_output_json, kind="json", expected_status="passed"),
+            _expect_output_file(
+                scenario_output_json, kind="json", expected_status="passed"
+            ),
         ),
         Case(
             "scenario markdown output file",
@@ -870,6 +1013,58 @@ def _build_cases(root: Path) -> list[Case]:
             INFEASIBLE,
             _scenario_status("failed"),
         ),
+        Case("sample help", ["sample", "--help"], SUCCESS),
+        Case("sample no args usage error", ["sample"], USAGE_ERROR),
+        Case(
+            "sample example yaml",
+            [
+                "sample",
+                str(
+                    Path(__file__).resolve().parents[1]
+                    / "examples/uncertainty/pipeline_demo_001_wind_uncertainty.yaml"
+                ),
+            ],
+            SUCCESS,
+        ),
+        Case(
+            "sample bad schema exits invalid input",
+            ["sample", str(scenario_bad_schema)],
+            INVALID_INPUT,
+        ),
+        Case("sitl help", ["sitl", "--help"], SUCCESS),
+        Case("sitl no args usage error", ["sitl"], USAGE_ERROR),
+        Case(
+            "sitl contract only",
+            ["sitl", str(paths["scenario"])],
+            SUCCESS,
+        ),
+        Case(
+            "sitl bad schema exits invalid input",
+            ["sitl", str(scenario_bad_schema)],
+            INVALID_INPUT,
+        ),
+        Case(
+            "sitl live missing artifact dir exits invalid input",
+            ["sitl", str(paths["scenario"]), "--live"],
+            INVALID_INPUT,
+        ),
+        Case("compare help", ["compare", "--help"], SUCCESS),
+        Case("compare no args usage error", ["compare"], USAGE_ERROR),
+        Case(
+            "compare contract only exits unsupported",
+            ["compare", str(sitl_evidence_path)],
+            UNSUPPORTED,
+        ),
+        Case(
+            "compare bad evidence exits invalid input",
+            ["compare", str(scenario_bad_yaml)],
+            INVALID_INPUT,
+        ),
+        Case(
+            "compare bad comparison id exits invalid input",
+            ["compare", str(sitl_evidence_path), "--comparison-id", "bad id"],
+            INVALID_INPUT,
+        ),
     ]
     return cases
 
@@ -909,7 +1104,9 @@ def _format_failure(case: Case, result: CommandResult, message: str) -> str:
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run a broad bvlos-sim CLI batch audit.")
+    parser = argparse.ArgumentParser(
+        description="Run a broad bvlos-sim CLI batch audit."
+    )
     parser.add_argument(
         "--command",
         nargs="+",
@@ -945,7 +1142,9 @@ def main() -> int:
 
         for index, case in enumerate(cases, start=1):
             if args.verbose:
-                print(f"[{index:02d}/{len(cases):02d}] {' '.join([*args.command, *case.args])}")
+                print(
+                    f"[{index:02d}/{len(cases):02d}] {' '.join([*args.command, *case.args])}"
+                )
             result = _run_case(args.command, case, env=env)
             try:
                 if result.returncode != case.expected_exit:

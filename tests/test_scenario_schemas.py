@@ -131,9 +131,7 @@ def test_initial_conditions_accept_link_systems() -> None:
 
 def test_at_route_item_without_trigger_route_item_id_rejected() -> None:
     with pytest.raises(ValidationError, match="trigger_route_item_id"):
-        ScenarioEvent.model_validate(
-            _make_event(trigger="at_route_item")
-        )
+        ScenarioEvent.model_validate(_make_event(trigger="at_route_item"))
 
 
 def test_at_route_item_with_trigger_route_item_id_accepted() -> None:
@@ -145,9 +143,7 @@ def test_at_route_item_with_trigger_route_item_id_accepted() -> None:
 
 def test_at_elapsed_time_without_trigger_elapsed_time_s_rejected() -> None:
     with pytest.raises(ValidationError, match="trigger_elapsed_time_s"):
-        ScenarioEvent.model_validate(
-            _make_event(trigger="at_elapsed_time")
-        )
+        ScenarioEvent.model_validate(_make_event(trigger="at_elapsed_time"))
 
 
 def test_at_elapsed_time_with_trigger_elapsed_time_s_accepted() -> None:
@@ -201,9 +197,7 @@ def test_wind_change_requires_wind_payload() -> None:
 
 def test_wind_change_rejects_partial_scalar_wind_payload() -> None:
     with pytest.raises(ValidationError, match="wind_east_mps and wind_north_mps"):
-        ScenarioEvent.model_validate(
-            _make_event(kind="wind_change", wind_east_mps=4.0)
-        )
+        ScenarioEvent.model_validate(_make_event(kind="wind_change", wind_east_mps=4.0))
 
 
 def test_wind_change_rejects_mixed_scalar_and_layered_payload() -> None:
@@ -257,7 +251,9 @@ def test_field_lt_with_all_params_accepted() -> None:
 
 
 def test_estimate_succeeds_without_field_path_accepted() -> None:
-    assertion = ScenarioAssertion.model_validate(_make_assertion(kind="estimate_succeeds"))
+    assertion = ScenarioAssertion.model_validate(
+        _make_assertion(kind="estimate_succeeds")
+    )
     assert assertion.kind == ScenarioAssertionKind.ESTIMATE_SUCCEEDS
     assert assertion.field_path is None
 

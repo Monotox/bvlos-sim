@@ -150,10 +150,7 @@ Render a comparison report from a saved evidence bundle with the normal
 `estimate` output controls:
 
 ```bash
-uv run bvlos-sim estimate \
-  examples/missions/pipeline_demo_001.yaml \
-  examples/vehicles/quadplane_v1.yaml \
-  --sitl-evidence /tmp/sitl-evidence.json \
+uv run bvlos-sim compare /tmp/sitl-evidence.json \
   --comparison-id local-sitl-comparison \
   --output /tmp/sitl-comparison.json
 ```
@@ -161,8 +158,8 @@ uv run bvlos-sim estimate \
 The same report builder remains available as an adapter API:
 
 ```python
-from adapters.sitl_comparison import build_sitl_comparison_report
-from adapters.sitl_comparison import render_sitl_comparison_json
+from adapters.sitl.comparison import build_sitl_comparison_report
+from adapters.sitl.comparison import render_sitl_comparison_json
 
 report = build_sitl_comparison_report(
     comparison_id="local-sitl-comparison",

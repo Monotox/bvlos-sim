@@ -80,7 +80,10 @@ def test_cli_markdown_can_write_to_file(tmp_path: Path) -> None:
 
 def test_cli_partial_invalid_result_is_marked_partial(tmp_path: Path) -> None:
     mission_payload = make_mission_payload()
-    mission_payload["route"] = [mission_payload["route"][1], mission_payload["route"][2]]
+    mission_payload["route"] = [
+        mission_payload["route"][1],
+        mission_payload["route"][2],
+    ]
     mission_payload["route"][1]["loiter_time_s"] = -1.0
 
     mission_path = tmp_path / "mission.yaml"
@@ -469,7 +472,13 @@ def test_cli_max_segment_length_m_zero_returns_invalid_input(tmp_path: Path) -> 
 
     result = runner.invoke(
         app,
-        ["estimate", str(mission_path), str(vehicle_path), "--max-segment-length-m", "0"],
+        [
+            "estimate",
+            str(mission_path),
+            str(vehicle_path),
+            "--max-segment-length-m",
+            "0",
+        ],
     )
 
     assert result.exit_code == int(CliExitCode.INVALID_INPUT)

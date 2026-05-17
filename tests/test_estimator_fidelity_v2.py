@@ -22,6 +22,7 @@ from tests.helpers import make_mission, make_vehicle
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _fw_vehicle():
     v = make_vehicle()
     v.vehicle_class = VehicleClass.FIXED_WING
@@ -64,6 +65,7 @@ def _make_turning_mission():
 # ---------------------------------------------------------------------------
 # Turn-arc math
 # ---------------------------------------------------------------------------
+
 
 def test_turn_arc_zero_change_gives_zero_arc_length() -> None:
     arc = compute_turn_arc_geometry(
@@ -109,16 +111,21 @@ def test_turn_arc_wraps_across_360() -> None:
 # v1/v2 fidelity separation – transit
 # ---------------------------------------------------------------------------
 
+
 def test_v1_produces_no_turn_arc_legs() -> None:
     mission = make_mission()
-    result = estimate_mission_distance_time(mission, make_vehicle(), options=_v1_options())
+    result = estimate_mission_distance_time(
+        mission, make_vehicle(), options=_v1_options()
+    )
     phases = {leg.phase for leg in result.legs}
     assert LegPhase.TURN_ARC not in phases
 
 
 def test_v2_injects_turn_arc_between_transit_legs() -> None:
     mission = _make_turning_mission()
-    result = estimate_mission_distance_time(mission, make_vehicle(), options=_v2_options())
+    result = estimate_mission_distance_time(
+        mission, make_vehicle(), options=_v2_options()
+    )
     phases = [leg.phase for leg in result.legs]
     assert LegPhase.TURN_ARC in phases
 
@@ -166,7 +173,9 @@ def test_v2_turn_arc_adds_to_total_path_distance() -> None:
 
 def test_v2_turn_arc_zero_displacement() -> None:
     mission = _make_turning_mission()
-    result = estimate_mission_distance_time(mission, make_vehicle(), options=_v2_options())
+    result = estimate_mission_distance_time(
+        mission, make_vehicle(), options=_v2_options()
+    )
     for leg in result.legs:
         if leg.phase != LegPhase.TURN_ARC:
             continue
@@ -179,7 +188,9 @@ def test_v2_turn_arc_zero_displacement() -> None:
 def test_v2_turn_arc_ground_track_equals_outgoing_direction() -> None:
     """ground_track_deg on a TURN_ARC must match the next transit's ground_track_deg."""
     mission = _make_turning_mission()
-    result = estimate_mission_distance_time(mission, make_vehicle(), options=_v2_options())
+    result = estimate_mission_distance_time(
+        mission, make_vehicle(), options=_v2_options()
+    )
     legs = result.legs
     for i, leg in enumerate(legs):
         if leg.phase != LegPhase.TURN_ARC:
@@ -214,9 +225,12 @@ def test_v1_and_v2_leg_count_differ_by_turn_arc_count() -> None:
 # v2 metadata
 # ---------------------------------------------------------------------------
 
+
 def test_v2_metadata_records_estimator_version() -> None:
     mission = make_mission()
-    result = estimate_mission_distance_time(mission, make_vehicle(), options=_v2_options())
+    result = estimate_mission_distance_time(
+        mission, make_vehicle(), options=_v2_options()
+    )
     assert result.metadata["estimator_version"] == "v2"
 
 
@@ -229,6 +243,7 @@ def test_v1_metadata_records_estimator_version() -> None:
 # ---------------------------------------------------------------------------
 # Fixed-wing circular loiter – v2
 # ---------------------------------------------------------------------------
+
 
 def test_fw_loiter_accepted_in_v2() -> None:
     mission = make_mission()
@@ -247,7 +262,9 @@ def test_fw_loiter_v1_still_rejected() -> None:
 
     with pytest.raises(UnsupportedEstimatorFeatureError) as exc_info:
         estimate_mission_distance_time(mission, vehicle, options=_v1_options())
-    assert exc_info.value.failure.code == FailureCode.UNSUPPORTED_LOITER_FOR_VEHICLE_CLASS
+    assert (
+        exc_info.value.failure.code == FailureCode.UNSUPPORTED_LOITER_FOR_VEHICLE_CLASS
+    )
 
 
 def test_fw_circular_loiter_path_distance_equals_tas_times_time() -> None:
@@ -318,6 +335,7 @@ def test_fw_circular_loiter_speed_source_is_cruise() -> None:
 # v2 VTOL loiter: hover-capable vehicles still use station-keep
 # ---------------------------------------------------------------------------
 
+
 def test_vtol_loiter_still_uses_station_keep_in_v2() -> None:
     mission = make_mission()
     mission.route = [mission.route[2]]
@@ -335,10 +353,13 @@ def test_vtol_loiter_still_uses_station_keep_in_v2() -> None:
 # No turn arc after loiter dwell
 # ---------------------------------------------------------------------------
 
+
 def test_no_turn_arc_injected_after_loiter_dwell() -> None:
     """After loiter dwell, last_track_deg is reset so no stale turn arc appears."""
     mission = make_mission()
-    result = estimate_mission_distance_time(mission, make_vehicle(), options=_v2_options())
+    result = estimate_mission_distance_time(
+        mission, make_vehicle(), options=_v2_options()
+    )
     legs = result.legs
     loiter_dwell_found = any(leg.phase == LegPhase.LOITER_DWELL for leg in legs)
     assert loiter_dwell_found
@@ -350,6 +371,7 @@ def test_no_turn_arc_injected_after_loiter_dwell() -> None:
 # ---------------------------------------------------------------------------
 # Energy model for FW circular loiter (uses cruise power, not hover power)
 # ---------------------------------------------------------------------------
+
 
 def test_fw_circular_loiter_dwell_uses_cruise_power_in_energy() -> None:
     from estimator import EnergyPowerSource, try_estimate_mission_distance_time
@@ -373,6 +395,7 @@ def test_fw_circular_loiter_dwell_uses_cruise_power_in_energy() -> None:
 # Straight leg gets no turn arc (collinear waypoints)
 # ---------------------------------------------------------------------------
 
+
 def test_collinear_waypoints_produce_no_turn_arc() -> None:
     """Two waypoints on the same bearing should not inject a TURN_ARC leg."""
     mission = make_mission()
@@ -382,6 +405,7 @@ def test_collinear_waypoints_produce_no_turn_arc() -> None:
     wp.lat = 52.01
     wp.lon = 4.0
     from schemas.mission import MissionAction, RouteItem
+
     wp2 = RouteItem(
         id="wp2",
         action=MissionAction.WAYPOINT,
@@ -391,6 +415,8 @@ def test_collinear_waypoints_produce_no_turn_arc() -> None:
     )
     mission.route = [wp, wp2]
 
-    result = estimate_mission_distance_time(mission, make_vehicle(), options=_v2_options())
+    result = estimate_mission_distance_time(
+        mission, make_vehicle(), options=_v2_options()
+    )
     turn_arcs = [leg for leg in result.legs if leg.phase == LegPhase.TURN_ARC]
     assert len(turn_arcs) == 0

@@ -67,7 +67,7 @@ tickets.
 - `schemas.sitl` defines the `sitl-evidence.v1` bundle schema, artifact
   references, simulator metadata, expected-output payloads, and observed
   telemetry/command artifact slots.
-- `adapters.sitl_evidence` defines the adapter boundary plus a no-op
+- `adapters.sitl.evidence` defines the adapter boundary plus a no-op
   `NoopSitlAdapter` used to prove the contract without live simulator
   dependencies.
 - The `sitl` CLI command loads an existing `scenario.v1`, runs the deterministic

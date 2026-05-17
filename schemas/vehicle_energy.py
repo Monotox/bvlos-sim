@@ -76,8 +76,7 @@ class FailsafeProfile(BaseModel):
             >= self.emergency_land_percent
         ):
             raise ValueError(
-                "battery thresholds must be ordered as "
-                "warn >= abort >= emergency land"
+                "battery thresholds must be ordered as warn >= abort >= emergency land"
             )
         return self
 

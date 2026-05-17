@@ -90,9 +90,12 @@ def build_uncertainty_envelope(
 
 def render_uncertainty_envelope_json(envelope: UncertaintyResultEnvelope) -> str:
     """Render the uncertainty envelope to canonical sorted JSON with a trailing newline."""
-    return json.dumps(
-        envelope.model_dump(mode="json"),
-        indent=2,
-        sort_keys=True,
-        ensure_ascii=False,
-    ) + "\n"
+    return (
+        json.dumps(
+            envelope.model_dump(mode="json"),
+            indent=2,
+            sort_keys=True,
+            ensure_ascii=False,
+        )
+        + "\n"
+    )

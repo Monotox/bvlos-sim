@@ -3,13 +3,14 @@
 import json
 from dataclasses import dataclass, field
 
-from adapters.sitl_comparison_dimensions import _SitlComparisonDimensionBuilder
-from adapters.sitl_comparison_summary import _SitlComparisonSummaryCalculator
+from adapters.sitl.comparison_dimensions import _SitlComparisonDimensionBuilder
+from adapters.sitl.comparison_summary import _SitlComparisonSummaryCalculator
 from adapters.version import tool_version
-from schemas.sitl import SitlEvidenceBundle
+from schemas.sitl import SitlEvidenceBundle, SitlEvidenceStatus
 from schemas.sitl_comparison import (
     SITL_COMPARISON_SCHEMA_VERSION,
     SitlComparisonReport,
+    SitlComparisonSummary,
 )
 
 
@@ -33,12 +34,17 @@ class _SitlComparisonReportBuilder:
     ) -> SitlComparisonReport:
         scenario_report = bundle.expected.scenario_report or {}
         items = self.dimensions.items(bundle, scenario_report, position_tolerance_m)
+        summary = (
+            SitlComparisonSummary.UNSUPPORTED
+            if bundle.status == SitlEvidenceStatus.CONTRACT_ONLY
+            else self.summaries.summary_for(items)
+        )
         return SitlComparisonReport(
             schema_version=SITL_COMPARISON_SCHEMA_VERSION,
             comparison_id=comparison_id,
             evidence_id=bundle.evidence_id,
             tool_version=tool_version(),
-            summary=self.summaries.summary_for(items),
+            summary=summary,
             items=items,
             metadata={"position_tolerance_m": position_tolerance_m},
         )

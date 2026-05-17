@@ -8,8 +8,8 @@ from pathlib import Path
 from time import monotonic
 from typing import ClassVar, cast
 
-from adapters.sitl_artifacts import SitlArtifactRecorder
-from adapters.ardupilot_sitl_mavlink import (
+from adapters.sitl.artifacts import SitlArtifactRecorder
+from adapters.sitl.ardupilot_mavlink import (
     RUN_STATE_MESSAGE_TYPES,
     MavConnection,
     MavutilModule,
@@ -18,7 +18,7 @@ from adapters.ardupilot_sitl_mavlink import (
     set_auto_mode,
     wait_for_armed_state_if_supported,
 )
-from adapters.ardupilot_sitl_mission import (
+from adapters.sitl.ardupilot_mission import (
     ALTITUDE_REFERENCE_TO_MAVLINK_FRAME,
     MISSION_ACTION_TO_MAVLINK_CMD,
     MissionLike,
@@ -26,13 +26,13 @@ from adapters.ardupilot_sitl_mission import (
     build_mission_items,
     mission_action_to_mavlink_cmd,
 )
-from adapters.ardupilot_sitl_types import (
+from adapters.sitl.ardupilot_types import (
     ArduPilotAdapterError,
     ArduPilotSitlConfig,
     MissionUploadResult,
     RunState,
 )
-from adapters.ardupilot_sitl_upload import MissionUploadProtocol
+from adapters.sitl.ardupilot_upload import MissionUploadProtocol
 from schemas.mission import MissionPlan
 from schemas.sitl import (
     SitlAdapterKind,

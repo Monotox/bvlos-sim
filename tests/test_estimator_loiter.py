@@ -73,4 +73,6 @@ def test_fixed_wing_loiter_time_is_rejected() -> None:
     with pytest.raises(UnsupportedEstimatorFeatureError) as exc_info:
         estimate_mission_distance_time(mission, vehicle)
 
-    assert exc_info.value.failure.code == FailureCode.UNSUPPORTED_LOITER_FOR_VEHICLE_CLASS
+    assert (
+        exc_info.value.failure.code == FailureCode.UNSUPPORTED_LOITER_FOR_VEHICLE_CLASS
+    )

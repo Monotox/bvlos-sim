@@ -303,7 +303,9 @@ def test_example_vehicle_yaml_matches_schema() -> None:
 
 
 def test_example_mission_yaml_matches_schema() -> None:
-    payload = yaml.safe_load((ROOT / "examples/missions/pipeline_demo_001.yaml").read_text())
+    payload = yaml.safe_load(
+        (ROOT / "examples/missions/pipeline_demo_001.yaml").read_text()
+    )
 
     mission = MissionPlan.model_validate(payload)
 

@@ -266,9 +266,7 @@ def _resolve_invalid_input_documents(
         documents[error.input_name] = error.document
 
     return {
-        name: document
-        for name, document in documents.items()
-        if document is not None
+        name: document for name, document in documents.items() if document is not None
     }
 
 
@@ -490,7 +488,9 @@ def build_internal_error_envelope(
     provenance = (
         _build_provenance(inputs)
         if inputs is not None
-        else Provenance(estimator_api="estimator.try_estimate_mission_distance_time", inputs={})
+        else Provenance(
+            estimator_api="estimator.try_estimate_mission_distance_time", inputs={}
+        )
     )
     return _build_envelope(
         status=EstimateStatus.ERROR,

@@ -19,7 +19,9 @@ _ALTITUDE_RESOLVERS = {
 }
 
 
-def _effective_terrain_position(context: EstimationContext, item: RouteItem) -> tuple[float, float]:
+def _effective_terrain_position(
+    context: EstimationContext, item: RouteItem
+) -> tuple[float, float]:
     if item.lat is not None and item.lon is not None:
         return item.lat, item.lon
     return context.mission.planned_home.lat, context.mission.planned_home.lon

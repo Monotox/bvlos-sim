@@ -78,7 +78,9 @@ def compute_vertical_time(
             invalid_message="climb_rate_mps must be greater than zero for climbing legs.",
             vertical_delta=vertical_delta,
         )
-        return VerticalProfile(vertical_delta, vertical_distance, vertical_distance / climb_rate)
+        return VerticalProfile(
+            vertical_delta, vertical_distance, vertical_distance / climb_rate
+        )
 
     descent_rate = _resolve_vertical_rate(
         context,

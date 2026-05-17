@@ -91,7 +91,9 @@ def _detect_format(path: Path, *, input_name: str) -> str:
     )
 
 
-def read_and_parse_document(path: Path, *, input_name: str) -> tuple[Any, InputDocument]:
+def read_and_parse_document(
+    path: Path, *, input_name: str
+) -> tuple[Any, InputDocument]:
     try:
         raw_bytes = path.read_bytes()
     except OSError as exc:

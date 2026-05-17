@@ -46,7 +46,9 @@ _FIELD_RESOLVERS: dict[str, FieldResolver] = {
     "estimate.total_horizontal_distance_m": lambda e: e.total_horizontal_distance_m,
     "estimate.total_vertical_distance_m": lambda e: e.total_vertical_distance_m,
     "estimate.total_path_distance_m": lambda e: e.total_path_distance_m,
-    "estimate.energy.is_feasible": lambda e: e.energy.is_feasible if e.energy is not None else None,
+    "estimate.energy.is_feasible": lambda e: (
+        e.energy.is_feasible if e.energy is not None else None
+    ),
     "estimate.energy.reserve_at_landing_percent": lambda e: (
         e.energy.reserve_at_landing_percent if e.energy is not None else None
     ),
@@ -147,9 +149,7 @@ def _skipped(assertion: ScenarioAssertion, message: str) -> ScenarioAssertionRes
     )
 
 
-def _unsupported(
-    assertion: ScenarioAssertion, reason: str
-) -> ScenarioAssertionResult:
+def _unsupported(assertion: ScenarioAssertion, reason: str) -> ScenarioAssertionResult:
     return ScenarioAssertionResult(
         assertion_id=assertion.assertion_id,
         kind=assertion.kind,
@@ -169,7 +169,9 @@ def _evaluate_estimate_succeeds(
     assertion: ScenarioAssertion, estimate: MissionEstimate | None
 ) -> ScenarioAssertionResult:
     if estimate is None:
-        return _failed(assertion, "Estimate is None; estimation did not produce a result.")
+        return _failed(
+            assertion, "Estimate is None; estimation did not produce a result."
+        )
     if estimate.status == EstimateStatus.SUCCESS:
         return _passed(assertion, f"Estimate status is '{estimate.status}' (success).")
     return _failed(
@@ -185,9 +187,13 @@ def _evaluate_estimate_fails(
     assertion: ScenarioAssertion, estimate: MissionEstimate | None
 ) -> ScenarioAssertionResult:
     if estimate is None:
-        return _passed(assertion, "Estimate is None; estimation did not produce a result.")
+        return _passed(
+            assertion, "Estimate is None; estimation did not produce a result."
+        )
     if estimate.status != EstimateStatus.SUCCESS:
-        return _passed(assertion, f"Estimate status is '{estimate.status}' (not success).")
+        return _passed(
+            assertion, f"Estimate status is '{estimate.status}' (not success)."
+        )
     return _failed(
         assertion,
         "Estimate status is 'success', expected a non-success status.",

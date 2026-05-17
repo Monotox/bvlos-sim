@@ -67,7 +67,9 @@ def evaluate_energy_feasibility(
     hover_capable = context.capabilities.hover
     energy_legs: list[EnergyLegEstimate] = []
     for leg in context.route_legs:
-        power, failure = _resolve_leg_power(energy_model, leg, hover_capable=hover_capable)
+        power, failure = _resolve_leg_power(
+            energy_model, leg, hover_capable=hover_capable
+        )
         if failure is not None:
             return EnergyEvaluation(energy=None, failure=failure)
 

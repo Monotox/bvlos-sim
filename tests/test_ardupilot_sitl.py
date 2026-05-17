@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from adapters.ardupilot_sitl import (
+from adapters.sitl.ardupilot import (
     ArduPilotAdapterError,
     ArduPilotSitlAdapter,
     MissionUploadResult,
@@ -17,7 +17,7 @@ from adapters.ardupilot_sitl import (
 )
 from adapters.io import InputDocument, load_vehicle
 from adapters.scenario_envelope import ScenarioResultEnvelope, build_scenario_envelope
-from adapters.sitl_evidence import build_sitl_evidence_bundle
+from adapters.sitl.evidence import build_sitl_evidence_bundle
 from estimator.core.scenario import ScenarioResult, ScenarioStatus
 from schemas import (
     AltitudeReference,

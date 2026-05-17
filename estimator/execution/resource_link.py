@@ -343,7 +343,9 @@ def _selected_feasible_resource(
     feasible_systems = [system for system in systems if system.is_feasible]
     if not feasible_systems:
         return None
-    return min(feasible_systems, key=lambda system: (system.priority, system.resource_id))
+    return min(
+        feasible_systems, key=lambda system: (system.priority, system.resource_id)
+    )
 
 
 def _resource_failure(resource: ResourceEstimate) -> EstimatorFailure:

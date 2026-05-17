@@ -11,6 +11,10 @@ This guide covers the supported CLI and Python API workflows for bvlos-sim.
 uv sync
 ```
 
+Mission, vehicle, scenario, and uncertainty files may be `.yaml`, `.yml`, or
+`.json`. Relative asset paths are resolved from the referencing file's
+directory.
+
 Verify the CLI:
 
 ```bash
@@ -19,21 +23,29 @@ uv run bvlos-sim --help
 
 ## CLI Commands
 
-bvlos-sim exposes four commands:
+bvlos-sim exposes five commands:
 
-- `estimate`: run deterministic mission estimation and static feasibility checks,
-  or render a SITL comparison report from an existing evidence bundle
+- `estimate`: run deterministic mission estimation and static feasibility checks
 - `scenario`: run deterministic scenario events and assertions
 - `sample`: run seeded Monte Carlo uncertainty sampling
-- `sitl`: build a contract-only SITL evidence bundle from an existing scenario
+- `sitl`: build a contract-only or live SITL evidence bundle from an existing scenario
+- `compare`: compare a SITL evidence bundle against deterministic scenario expectations
+
+| Command | Exit 0 | Exit 10 | Exit 11 | Exit 12 | Exit 13 |
+|---------|--------|---------|---------|---------|---------|
+| estimate | success | infeasible | invalid input | unsupported | internal error |
+| scenario | passed | failed | invalid input | - | internal error |
+| sample | success | - | invalid input | - | internal error |
+| sitl | success | - | invalid input | - | internal/write error |
+| compare | passed | drifted/failed | invalid input | unsupported (contract-only) | internal/write error |
 
 Mission-scoped functionality is exposed through `estimate` by mission and
 vehicle YAML: fidelity settings, terrain, wind grids, geofences, landing zones,
 resource systems, communication links, energy feasibility, and route geometry.
 Scenario events, uncertainty sampling, and SITL evidence use `scenario`,
 `sample`, and `sitl` because they require separate versioned input contracts.
-SITL comparison reports are exposed through `estimate --sitl-evidence` so the
-report keeps the same JSON, Markdown, and `--output` ergonomics as estimation.
+SITL comparison reports are exposed through `compare` so evidence review has a
+dedicated command with JSON, Markdown, and `--output` support.
 
 Command help:
 
@@ -42,6 +54,7 @@ uv run bvlos-sim estimate --help
 uv run bvlos-sim scenario --help
 uv run bvlos-sim sample --help
 uv run bvlos-sim sitl --help
+uv run bvlos-sim compare --help
 ```
 
 ## Mission Estimation
@@ -74,14 +87,6 @@ uv run bvlos-sim estimate \
   --format markdown \
   --output /tmp/bvlos-report.md
 ```
-
-### Estimator Exit Codes
-
-- `0`: success
-- `10`: infeasible
-- `11`: invalid input
-- `12`: unsupported input
-- `13`: internal error
 
 ## Scenario Execution
 
@@ -133,78 +138,6 @@ uv run bvlos-sim scenario \
 Skipped or unsupported assertions do not fail the scenario unless another
 assertion fails.
 
-## SITL Evidence Contract
-
-The `sitl` command reuses an existing `scenario.v1` file, runs the deterministic
-scenario output as expected behavior, and emits a `sitl-evidence.v1` bundle.
-The CLI command is contract-only; live ArduPilot runs are available through
-adapter-level Python APIs and tests.
-
-```bash
-uv run bvlos-sim sitl \
-  examples/scenarios/pipeline_demo_001_integrated_scenario.yaml \
-  --output /tmp/sitl-evidence.json
-```
-
-The no-op contract adapter writes `status: contract_only`, includes mission,
-vehicle, scenario, and loaded asset references, embeds the deterministic
-scenario report, and leaves telemetry and command-log artifact lists empty for
-live adapters to populate.
-
-### SITL Comparison Reports
-
-`sitl-comparison.v1` reports compare a `sitl-evidence.v1` bundle against the
-embedded deterministic scenario report. Render one through `estimate` from an
-already-written evidence bundle:
-
-```bash
-uv run bvlos-sim estimate \
-  examples/missions/pipeline_demo_001.yaml \
-  examples/vehicles/quadplane_v1.yaml \
-  --sitl-evidence /tmp/sitl-evidence.json \
-  --comparison-id pipeline-demo-sitl-comparison \
-  --output /tmp/sitl-comparison.json
-```
-
-Write Markdown with the same entry point:
-
-```bash
-uv run bvlos-sim estimate \
-  examples/missions/pipeline_demo_001.yaml \
-  examples/vehicles/quadplane_v1.yaml \
-  --sitl-evidence /tmp/sitl-evidence.json \
-  --format markdown \
-  --output /tmp/sitl-comparison.md
-```
-
-The `estimate` command still requires mission and vehicle arguments for CLI
-shape consistency; the comparison payload is read from `--sitl-evidence`.
-Python adapter APIs expose the same report construction:
-
-```python
-from adapters.sitl_comparison import build_sitl_comparison_report
-from adapters.sitl_comparison import render_sitl_comparison_json
-from adapters.sitl_comparison_markdown import render_sitl_comparison_markdown
-
-report = build_sitl_comparison_report(
-    comparison_id="pipeline-demo-sitl-comparison",
-    bundle=evidence_bundle,
-)
-json_report = render_sitl_comparison_json(report)
-markdown_report = render_sitl_comparison_markdown(report)
-```
-
-Reports include deterministic scenario assertions, mission item count,
-telemetry record count, heartbeat presence, adapter lifecycle, simulator
-lifecycle, and position proximity when `GLOBAL_POSITION_INT` telemetry is
-available.
-
-### SITL Exit Codes
-
-- `0`: evidence bundle written
-- `11`: invalid input
-- `13`: internal or output-write error
-
 ### Scenario Events
 
 Supported event kinds:
@@ -242,59 +175,149 @@ events:
         wind_north_mps: -1.0
 ```
 
-## Input Files
+## Monte Carlo Sampling
 
-Mission, vehicle, and scenario inputs may be:
+The `sample` command runs a seeded uncertainty plan and emits
+`uncertainty-report.v1`. Use it when wind, speed, power, or other configured
+inputs need distribution bounds rather than a single deterministic estimate.
 
-- `.yaml`
-- `.yml`
-- `.json`
+```bash
+uv run bvlos-sim sample \
+  examples/uncertainty/pipeline_demo_001_wind_uncertainty.yaml \
+  --format json \
+  --output /tmp/uncertainty.json
+```
 
-Unsupported extensions are rejected as invalid input.
+Write Markdown:
 
-Relative asset paths are resolved from the file that references them:
+```bash
+uv run bvlos-sim sample \
+  examples/uncertainty/pipeline_demo_001_wind_uncertainty.yaml \
+  --format markdown \
+  --output /tmp/uncertainty-report.md
+```
 
-- mission assets are resolved from the mission file directory
-- scenario `mission_file` and `vehicle_file` are resolved from the scenario file directory
-- the `scenario` command loads mission-referenced terrain, wind-grid,
-  geofence, and landing-zone assets before executing scenario events and
-  assertions
+The `seed` in the uncertainty YAML makes repeated runs reproducible for the same
+sample count and distributions. `feasibility_rate` is the fraction of completed
+samples that remained feasible; values below the team's go/no-go threshold
+should be treated as operational risk, even when the deterministic estimate
+passes. Percentile fields such as `p95` describe tail behavior: for
+reserve-at-landing, low-end percentiles are usually the operational concern; for
+time or energy use, high-end percentiles show the conservative planning bound.
+
+## SITL Evidence Contract
+
+The `sitl` command reuses an existing `scenario.v1` file, runs the deterministic
+scenario output as expected behavior, and emits a `sitl-evidence.v1` bundle.
+By default it is contract-only. Add `--live` to connect to a running ArduPilot
+SITL instance, upload the mission, record telemetry, and emit a completed
+evidence bundle.
+
+### Contract-Only Evidence
+
+```bash
+uv run bvlos-sim sitl \
+  examples/scenarios/pipeline_demo_001_integrated_scenario.yaml \
+  --format json \
+  --output /tmp/sitl-evidence.json
+```
+
+Write a Markdown evidence summary:
+
+```bash
+uv run bvlos-sim sitl \
+  examples/scenarios/pipeline_demo_001_integrated_scenario.yaml \
+  --format markdown \
+  --output /tmp/sitl-evidence.md
+```
+
+The no-op contract adapter writes `status: contract_only`, includes mission,
+vehicle, scenario, and loaded asset references, embeds the deterministic
+scenario report, and leaves telemetry and command-log artifact lists empty for
+live adapters to populate.
+
+### Live SITL Evidence
+
+For a running ArduPilot SITL endpoint, `--live` requires an artifact directory.
+The directory is created if it does not exist and receives `telemetry.json`,
+`command_log.json`, `simulator_log.json`, and `adapter_log.json`.
+Live recording emits progress lines to stderr for connection, mission upload,
+telemetry recording, and evidence writing; stdout remains JSON-safe unless
+`--output` is used.
+
+```bash
+uv run bvlos-sim sitl \
+  examples/scenarios/pipeline_demo_001_scenario.yaml \
+  --live \
+  --host 127.0.0.1 \
+  --port 5760 \
+  --artifact-dir /tmp/bvlos-artifacts \
+  --telemetry-samples 20 \
+  --telemetry-timeout-s 30.0 \
+  --output /tmp/sitl-evidence.json
+```
+
+### SITL Comparison Reports
+
+`sitl-comparison.v1` reports compare a `sitl-evidence.v1` bundle against the
+embedded deterministic scenario report. Render one through `compare` from an
+already-written evidence bundle:
+
+If `--comparison-id` is omitted, `compare` generates the identifier as
+`<evidence_id>-comparison`.
+
+`compare` requires a completed `sitl-evidence.v1` bundle (produced with
+`sitl --live`). Comparing a contract-only bundle (produced without `--live`)
+exits 12 with `"summary": "unsupported"` -- this is expected and means no live
+artifacts are available to compare against.
+
+```bash
+uv run bvlos-sim compare /tmp/sitl-evidence.json \
+  --comparison-id pipeline-demo-sitl-comparison \
+  --output /tmp/sitl-comparison.json
+```
+
+Write Markdown with the same entry point:
+
+```bash
+uv run bvlos-sim compare /tmp/sitl-evidence.json \
+  --format markdown \
+  --output /tmp/sitl-comparison.md
+```
+
+`compare` exits `0` only when the summary is `passed`. A `drifted` or `failed`
+summary exits `10`, and an `unsupported` summary exits `12`. The JSON or
+Markdown report remains the source of detail for which comparison dimension
+changed.
+
+Python adapter APIs expose the same report construction:
+
+```python
+from adapters.sitl.comparison import build_sitl_comparison_report
+from adapters.sitl.comparison import render_sitl_comparison_json
+from adapters.sitl.comparison_markdown import render_sitl_comparison_markdown
+
+report = build_sitl_comparison_report(
+    comparison_id="pipeline-demo-sitl-comparison",
+    bundle=evidence_bundle,
+)
+json_report = render_sitl_comparison_json(report)
+markdown_report = render_sitl_comparison_markdown(report)
+```
+
+Reports include deterministic scenario assertions, mission item count,
+telemetry record count, heartbeat presence, adapter lifecycle, simulator
+lifecycle, and position proximity when `GLOBAL_POSITION_INT` telemetry is
+available.
 
 ## Resource and Link Feasibility
 
-Explicit resource systems are configured on vehicle YAML:
-
-```yaml
-resource_systems:
-  - resource_id: fiber-power-primary
-    kind: external_power
-    delivery: optical_fiber
-    continuous_power_w: 2000.0
-    max_tether_length_m: 2500.0
-```
-
-Communication-link systems are configured on mission YAML:
-
-```yaml
-link_systems:
-  - link_id: mesh-primary
-    kind: mesh_network
-    max_range_m: 5000.0
-  - link_id: starlink-backup
-    kind: starlink
-    priority: 1
-    max_range_m: 100000.0
-```
-
-Scenario `initial_conditions.link_systems` replaces mission link systems for
-that scenario run. Reports expose `result.resource` and `result.link`, and
-scenario assertions can use `estimate.resource.is_feasible` and
-`estimate.link.is_feasible`.
-
-Existing battery-only vehicle files do not need changes. To make the legacy
-battery budget explicit, add an `onboard_battery` resource system and omit
-`battery_capacity_wh` / `reserve_percent` on the resource entry to reuse
-`vehicle.energy` and the mission reserve policy.
+Resource systems are configured on vehicle YAML, and communication-link systems
+are configured on mission YAML. Scenario `initial_conditions.link_systems`
+replaces mission link systems for that scenario run. Reports expose
+`result.resource` and `result.link`, and scenario assertions can use
+`estimate.resource.is_feasible` and `estimate.link.is_feasible`. Existing
+battery-only vehicle files do not need changes.
 
 ## Estimator Options
 
@@ -409,22 +432,6 @@ estimation:
 
 Values must be greater than zero.
 
-### Combined CLI Options
-
-```bash
-uv run bvlos-sim estimate \
-  examples/missions/pipeline_demo_001.yaml \
-  examples/vehicles/quadplane_v1.yaml \
-  --fidelity v2 \
-  --wind-layer "0:2.0:0.0" \
-  --wind-layer "500:6.0:-1.0" \
-  --max-segment-length-m 500
-```
-
-If runtime options are used while mission `wind_layers` are present and no
-explicit wind provider is supplied, the estimator records that the mission
-layers were ignored in result metadata.
-
 ### Terrain-Referenced Altitude
 
 Route items with `altitude_reference: terrain` resolve their altitude above the
@@ -527,21 +534,78 @@ the mission's `assets.wind_grid_file`.
 
 See `examples/wind/pipeline_wind_grid.yaml` for a working example grid.
 
+## Flight Team Workflow
+
+A typical evidence workflow keeps deterministic checks and live SITL artifacts
+separate, then compares them explicitly:
+
+```bash
+# 1. Pre-flight estimate
+uv run bvlos-sim estimate \
+  examples/missions/pipeline_demo_001.yaml \
+  examples/vehicles/quadplane_v1.yaml \
+  --output /tmp/estimate.json
+
+# 2. Scenario assertions
+uv run bvlos-sim scenario \
+  examples/scenarios/pipeline_demo_001_scenario.yaml \
+  --output /tmp/scenario.json
+
+# 3. Monte Carlo bounds
+uv run bvlos-sim sample \
+  examples/uncertainty/pipeline_demo_001_wind_uncertainty.yaml \
+  --output /tmp/uncertainty.json
+
+# 4. Live SITL validation
+uv run bvlos-sim sitl \
+  examples/scenarios/pipeline_demo_001_scenario.yaml \
+  --live --host 127.0.0.1 --port 5760 \
+  --artifact-dir /tmp/bvlos-artifacts \
+  --output /tmp/sitl-evidence.json
+
+uv run bvlos-sim compare /tmp/sitl-evidence.json \
+  --comparison-id pipeline-demo-live \
+  --output /tmp/sitl-comparison.json
+```
+
+For automated pipelines, treat each step independently -- do not short-circuit
+on `estimate` infeasibility before running `scenario` and `sample`, since each
+command produces independent evidence. A recommended CI pattern:
+
+```bash
+uv run bvlos-sim estimate ... --output /tmp/estimate.json
+ESTIMATE_EXIT=$?
+uv run bvlos-sim scenario ... --output /tmp/scenario.json
+SCENARIO_EXIT=$?
+uv run bvlos-sim sample ... --output /tmp/uncertainty.json
+```
+
+Each command produces independent evidence. An infeasible `estimate` (exit 10)
+is a pre-flight stop. A `scenario` failure (exit 10) means an assertion failed.
+`compare` exiting 10 (`drifted`/`failed`) requires reviewing the changed
+dimensions; exit 12 (`unsupported`) means the bundle is contract-only and
+`sitl --live` must be run first.
+
+Interpret the workflow outputs in order. A successful `estimate` means the
+static mission model is feasible under deterministic assumptions; an infeasible
+estimate is a pre-flight stop. A `scenario` failure means an assertion or policy
+expectation failed and should be resolved before live validation. In `sample`,
+a low `feasibility_rate` or weak tail reserve means uncertainty has eroded the
+deterministic margin. For `compare`, `passed` means live SITL artifacts agreed
+with the embedded expectations for supported dimensions; `drifted` means review
+the changed dimensions, usually mission upload count, telemetry presence,
+adapter lifecycle, or position proximity, before treating the run as evidence.
+
 ## Python API
 
 Use the package-root imports for stable caller code:
 
 ```python
-from estimator import ConstantElevationProvider
 from estimator import EstimationOptions
 from estimator import FidelityMode
-from estimator import GridTerrainProvider
 from estimator import LayeredWindProvider
-from estimator import SpatiotemporalWindProvider
-from estimator import TerrainProvider
 from estimator import WindLayer
 from estimator import estimate_mission_distance_time
-from estimator import run_scenario
 ```
 
 Layered wind example:
@@ -563,85 +627,15 @@ result = estimate_mission_distance_time(
 )
 ```
 
-Scenario execution can receive the same providers and static domain inputs as
-mission estimation:
-
-```python
-result = run_scenario(
-    scenario,
-    mission,
-    vehicle,
-    wind_provider=wind_provider,
-    terrain_provider=terrain_provider,
-    geofences=geofences,
-    landing_zones=landing_zones,
-)
-```
-
-Terrain example:
-
-```python
-from adapters.terrain_grid import load_terrain_grid
-
-terrain_provider, _ = load_terrain_grid(Path("terrain/flat_polder.yaml"))
-
-result = estimate_mission_distance_time(
-    mission,
-    vehicle,
-    terrain_provider=terrain_provider,
-)
-```
-
-Or with a constant elevation (useful when ground elevation is uniform):
-
-```python
-provider = ConstantElevationProvider(elevation_m=10.0)
-
-result = estimate_mission_distance_time(
-    mission,
-    vehicle,
-    terrain_provider=provider,
-)
-```
-
-Spatiotemporal wind grid example:
-
-```python
-from adapters.wind_grid import load_wind_grid
-
-wind_provider, _ = load_wind_grid(Path("wind/pipeline_wind_grid.yaml"))
-
-result = estimate_mission_distance_time(
-    mission,
-    vehicle,
-    wind_provider=wind_provider,
-)
-```
-
-Scenario example:
-
-```python
-result = run_scenario(scenario, mission, vehicle)
-```
+Terrain, wind-grid, geofence, landing-zone, and scenario execution APIs accept
+the same provider objects used by the CLI loaders.
 
 Monte Carlo uncertainty example:
 
+See `examples/uncertainty/` for complete uncertainty plan YAML files.
+
 ```python
 from estimator import run_monte_carlo
-from schemas.uncertainty import UncertaintyPlan, UncertaintyParameters, NormalDistribution
-
-plan = UncertaintyPlan(
-    schema_version="uncertainty.v1",
-    uncertainty_id="my-run",
-    mission_file="mission.yaml",
-    vehicle_file="vehicle.yaml",
-    samples=200,
-    seed=42,
-    parameters=UncertaintyParameters(
-        wind_east_mps=NormalDistribution(kind="normal", mean=0.0, std=2.0),
-        wind_north_mps=NormalDistribution(kind="normal", mean=0.0, std=2.0),
-    ),
-)
 
 mc_result = run_monte_carlo(plan, mission, vehicle)
 print(mc_result.feasibility_rate)
@@ -652,8 +646,8 @@ print(mc_result.total_time_s.p95)
 Or via the `sample` CLI command:
 
 ```bash
-bvlos-sim sample examples/uncertainty/pipeline_demo_001_wind_uncertainty.yaml
-bvlos-sim sample examples/uncertainty/pipeline_demo_001_wind_uncertainty.yaml --format markdown
+uv run bvlos-sim sample examples/uncertainty/pipeline_demo_001_wind_uncertainty.yaml
+uv run bvlos-sim sample examples/uncertainty/pipeline_demo_001_wind_uncertainty.yaml --format markdown
 ```
 
 ## Output Contracts
@@ -666,8 +660,7 @@ The sample CLI emits `uncertainty-report.v1`.
 
 The SITL contract command emits `sitl-evidence.v1`.
 
-The `estimate --sitl-evidence` path and SITL comparison API emit
-`sitl-comparison.v1`.
+The compare CLI and SITL comparison API emit `sitl-comparison.v1`.
 
 Estimator and scenario JSON outputs are canonical, deterministic, and
 regression-tested with golden fixtures. Markdown output is supported for
@@ -675,20 +668,8 @@ human-readable estimator, scenario, uncertainty, and SITL comparison reports.
 
 ## Verification
 
-Run the linter:
-
 ```bash
 uv run ruff check .
-```
-
-Run all tests:
-
-```bash
 uv run pytest
-```
-
-Run targeted CLI tests:
-
-```bash
-uv run pytest tests/test_cli.py tests/test_scenario_cli.py
+uv run pytest tests/test_cli.py tests/test_scenario_cli.py  # CLI subset
 ```

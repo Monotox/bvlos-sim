@@ -36,8 +36,12 @@ def _v2_options(**kwargs):
 def _right_angle_mission():
     """Two waypoints that force a ~90° right turn at wp1."""
     mission = make_mission()
-    wp1 = RouteItem(id="north", action=MissionAction.WAYPOINT, lat=52.01, lon=4.0, altitude_m=120.0)
-    wp2 = RouteItem(id="east", action=MissionAction.WAYPOINT, lat=52.01, lon=4.02, altitude_m=120.0)
+    wp1 = RouteItem(
+        id="north", action=MissionAction.WAYPOINT, lat=52.01, lon=4.0, altitude_m=120.0
+    )
+    wp2 = RouteItem(
+        id="east", action=MissionAction.WAYPOINT, lat=52.01, lon=4.02, altitude_m=120.0
+    )
     mission.route = [wp1, wp2]
     return mission
 
@@ -123,7 +127,9 @@ def test_v2_total_path_less_than_v1_plus_raw_arc_total() -> None:
     vehicle = make_vehicle()
     r_v1 = estimate_mission_distance_time(mission, vehicle, options=_v1_options())
     r_v2 = estimate_mission_distance_time(mission, vehicle, options=_v2_options())
-    arc_total = sum(leg.path_distance_m for leg in r_v2.legs if leg.phase == LegPhase.TURN_ARC)
+    arc_total = sum(
+        leg.path_distance_m for leg in r_v2.legs if leg.phase == LegPhase.TURN_ARC
+    )
     assert r_v2.total_path_distance_m < r_v1.total_path_distance_m + arc_total
 
 
@@ -161,18 +167,34 @@ def test_v2_no_tangent_offset_without_turn_radius() -> None:
     for leg in result.legs:
         assert leg.phase != LegPhase.TURN_ARC
         if leg.phase in (LegPhase.TRANSIT, LegPhase.RTL_TRANSIT):
-            assert math.isclose(leg.path_distance_m, leg.horizontal_distance_m, rel_tol=1e-12)
+            assert math.isclose(
+                leg.path_distance_m, leg.horizontal_distance_m, rel_tol=1e-12
+            )
 
 
 def test_v2_tangent_offset_does_not_make_path_distance_negative() -> None:
     """Even for very sharp turns or short legs, path_distance_m is clamped to 0."""
     mission = make_mission()
     # Very short segment (1 cm north) then sharp turn — offset will exceed segment length
-    wp1 = RouteItem(id="near", action=MissionAction.WAYPOINT, lat=52.00001, lon=4.0, altitude_m=120.0)
-    wp2 = RouteItem(id="east", action=MissionAction.WAYPOINT, lat=52.00001, lon=4.02, altitude_m=120.0)
+    wp1 = RouteItem(
+        id="near",
+        action=MissionAction.WAYPOINT,
+        lat=52.00001,
+        lon=4.0,
+        altitude_m=120.0,
+    )
+    wp2 = RouteItem(
+        id="east",
+        action=MissionAction.WAYPOINT,
+        lat=52.00001,
+        lon=4.02,
+        altitude_m=120.0,
+    )
     mission.route = [wp1, wp2]
 
-    result = estimate_mission_distance_time(mission, make_vehicle(), options=_v2_options())
+    result = estimate_mission_distance_time(
+        mission, make_vehicle(), options=_v2_options()
+    )
     for leg in result.legs:
         assert leg.path_distance_m >= 0.0, f"Negative path_distance_m on {leg.phase}"
 
@@ -239,7 +261,9 @@ def test_vertical_leg_total_path_distance_includes_slant() -> None:
 
     result = estimate_mission_distance_time(mission, make_vehicle())
     vertical_leg = next(leg for leg in result.legs if leg.horizontal_distance_m == 0.0)
-    assert vertical_leg.path_distance_m == pytest.approx(vertical_leg.vertical_distance_m)
+    assert vertical_leg.path_distance_m == pytest.approx(
+        vertical_leg.vertical_distance_m
+    )
     assert math.isclose(
         result.total_path_distance_m,
         sum(leg.path_distance_m for leg in result.legs),
@@ -256,8 +280,12 @@ def test_v1_and_v2_agree_on_vertical_leg_slant_path() -> None:
     wp.altitude_m = 60.0
     mission.route = [wp]
 
-    r_v1 = estimate_mission_distance_time(mission, make_vehicle(), options=_v1_options())
-    r_v2 = estimate_mission_distance_time(mission, make_vehicle(), options=_v2_options())
+    r_v1 = estimate_mission_distance_time(
+        mission, make_vehicle(), options=_v1_options()
+    )
+    r_v2 = estimate_mission_distance_time(
+        mission, make_vehicle(), options=_v2_options()
+    )
 
     assert math.isclose(
         r_v1.legs[0].path_distance_m, r_v2.legs[0].path_distance_m, rel_tol=1e-12

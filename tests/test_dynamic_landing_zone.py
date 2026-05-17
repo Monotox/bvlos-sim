@@ -104,7 +104,9 @@ def test_landing_zone_unavailable_event_rejects_missing_ids() -> None:
 def test_unavailable_zone_ids_rejected_on_non_lz_event() -> None:
     from pydantic import ValidationError
 
-    with pytest.raises(ValidationError, match="only valid for landing_zone_unavailable"):
+    with pytest.raises(
+        ValidationError, match="only valid for landing_zone_unavailable"
+    ):
         _scenario(
             events=[
                 {
@@ -147,7 +149,9 @@ def test_lz_unavailability_all_zones_unavailable_at_all_states() -> None:
     zone = _point_zone("lz1", lat=52.001, lon=4.002)
 
     n_legs = len(
-        try_estimate_mission_distance_time(mission, make_vehicle(), landing_zones=[zone]).legs
+        try_estimate_mission_distance_time(
+            mission, make_vehicle(), landing_zones=[zone]
+        ).legs
     )
     schedule = [frozenset({"lz1"})] * n_legs
 
@@ -232,7 +236,9 @@ def test_result_validity_scope_full_mission_when_all_zones_unavailable() -> None
     zone = _point_zone("lz1", lat=52.001, lon=4.002)
 
     n_legs = len(
-        try_estimate_mission_distance_time(mission, make_vehicle(), landing_zones=[zone]).legs
+        try_estimate_mission_distance_time(
+            mission, make_vehicle(), landing_zones=[zone]
+        ).legs
     )
     schedule = [frozenset({"lz1"})] * n_legs
 

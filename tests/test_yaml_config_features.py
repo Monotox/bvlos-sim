@@ -146,8 +146,12 @@ def test_mission_yaml_fidelity_v2_activates_turn_arcs() -> None:
     mission = make_mission()
     mission.estimation = MissionEstimation.model_validate({"fidelity": "v2"})
     # Two waypoints with a clear ~90° heading change
-    wp1 = RouteItem(id="north", action=MissionAction.WAYPOINT, lat=52.01, lon=4.0, altitude_m=120.0)
-    wp2 = RouteItem(id="east", action=MissionAction.WAYPOINT, lat=52.01, lon=4.02, altitude_m=120.0)
+    wp1 = RouteItem(
+        id="north", action=MissionAction.WAYPOINT, lat=52.01, lon=4.0, altitude_m=120.0
+    )
+    wp2 = RouteItem(
+        id="east", action=MissionAction.WAYPOINT, lat=52.01, lon=4.02, altitude_m=120.0
+    )
     mission.route = [wp1, wp2, mission.route[-1]]
 
     result = estimate_mission_distance_time(mission, make_vehicle())
@@ -215,7 +219,9 @@ def test_mission_yaml_wind_layers_runtime_options_override() -> None:
     )
     r_no_layers = estimate_mission_distance_time(make_mission(), make_vehicle())
 
-    assert math.isclose(r_overridden.total_time_s, r_no_layers.total_time_s, rel_tol=1e-6)
+    assert math.isclose(
+        r_overridden.total_time_s, r_no_layers.total_time_s, rel_tol=1e-6
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -228,8 +234,12 @@ def test_scenario_yaml_fidelity_v2_activates_turn_arcs() -> None:
     from schemas.mission import MissionAction, RouteItem
 
     mission = make_mission()
-    wp1 = RouteItem(id="north", action=MissionAction.WAYPOINT, lat=52.01, lon=4.0, altitude_m=120.0)
-    wp2 = RouteItem(id="east", action=MissionAction.WAYPOINT, lat=52.01, lon=4.02, altitude_m=120.0)
+    wp1 = RouteItem(
+        id="north", action=MissionAction.WAYPOINT, lat=52.01, lon=4.0, altitude_m=120.0
+    )
+    wp2 = RouteItem(
+        id="east", action=MissionAction.WAYPOINT, lat=52.01, lon=4.02, altitude_m=120.0
+    )
     mission.route = [wp1, wp2, mission.route[-1]]
 
     plan = _make_scenario_plan(fidelity="v2")
@@ -311,7 +321,9 @@ def test_mission_yaml_max_segment_length_m_propagated() -> None:
     ]
     # coarse: one sample per leg (no max_segment_length_m)
     mission_coarse.route = [wp]
-    mission_coarse.estimation = MissionEstimation.model_validate({"wind_layers": layers})
+    mission_coarse.estimation = MissionEstimation.model_validate(
+        {"wind_layers": layers}
+    )
     # fine: sample every 50 m
     mission_fine.route = [wp]
     mission_fine.estimation = MissionEstimation.model_validate(

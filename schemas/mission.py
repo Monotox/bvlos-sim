@@ -144,7 +144,9 @@ class PlannedHome(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     lat: float = Field(ge=-90, le=90, description="Home latitude in decimal degrees.")
-    lon: float = Field(ge=-180, le=180, description="Home longitude in decimal degrees.")
+    lon: float = Field(
+        ge=-180, le=180, description="Home longitude in decimal degrees."
+    )
     altitude_amsl_m: float = Field(description="Home altitude above mean sea level.")
 
 

@@ -285,7 +285,8 @@ def build_forward_transit_leg(
             context=base_context | {"groundspeed_mps": solution.groundspeed_mps},
         ),
         TransitConstraintCheck(
-            violated=solution.groundspeed_mps < context.resolved_options.min_groundspeed_mps,
+            violated=solution.groundspeed_mps
+            < context.resolved_options.min_groundspeed_mps,
             code=FailureCode.GROUNDSPEED_BELOW_MIN,
             message="Solved groundspeed is below min_groundspeed_mps.",
             context=base_context
@@ -331,12 +332,16 @@ def build_forward_transit_leg(
             triggered=(
                 context.resolved_options.min_groundspeed_mps > 0
                 and solution.groundspeed_mps
-                < (GROUNDSPEED_WARNING_MARGIN * context.resolved_options.min_groundspeed_mps)
+                < (
+                    GROUNDSPEED_WARNING_MARGIN
+                    * context.resolved_options.min_groundspeed_mps
+                )
             ),
             code=WarningCode.LOW_GROUNDSPEED_MARGIN,
         ),
         TransitWarningCheck(
-            triggered=abs(solution.crab_angle_deg) > (CRAB_ANGLE_WARNING_MARGIN * context.max_crab_angle_deg),
+            triggered=abs(solution.crab_angle_deg)
+            > (CRAB_ANGLE_WARNING_MARGIN * context.max_crab_angle_deg),
             code=WarningCode.HIGH_CRAB_MARGIN,
         ),
     )
@@ -474,7 +479,11 @@ def append_transit_leg(
                 if len(context.route_legs) >= 2:
                     prev = context.route_legs[-2]
                     context.route_legs[-2] = prev.model_copy(
-                        update={"path_distance_m": max(0.0, prev.path_distance_m - tangent_offset_m)}
+                        update={
+                            "path_distance_m": max(
+                                0.0, prev.path_distance_m - tangent_offset_m
+                            )
+                        }
                     )
 
     context.append_leg(

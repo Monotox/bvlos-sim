@@ -3,14 +3,14 @@
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
-from adapters.sitl_comparison_artifacts import (
+from adapters.sitl.comparison_artifacts import (
     _ArtifactRecords,
     _SitlArtifactLogReader,
     _first_record_with,
     _has_record_with,
     _list_of_mappings,
 )
-from adapters.sitl_comparison_values import _SitlComparisonValueCoercer
+from adapters.sitl.comparison_values import _SitlComparisonValueCoercer
 from schemas.sitl import SitlEvidenceBundle
 from schemas.sitl_comparison import SitlComparisonItem, SitlComparisonOutcome
 
