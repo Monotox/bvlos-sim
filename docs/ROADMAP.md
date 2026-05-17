@@ -25,7 +25,7 @@ The current codebase implements Phases 1 through 4.10, plus Tickets 032, 033,
 - SITL telemetry, command-log, simulator-log, and adapter-log artifacts
 - SITL comparison reports via `sitl-comparison.v1`
 
-The Linux test suite currently passes with 491 tests and 9 skipped live or
+The Linux test suite currently passes with 506 tests and 9 skipped live or
 environment-dependent tests.
 
 bvlos-sim remains an engineering validation tool. It is not a flight-safety
@@ -363,7 +363,39 @@ Scope:
 Exit criterion: users can run missions and scenarios from UI or API with
 consistent outputs.
 
-### Phase 7: Import, Export, and Batch Workflows
+### Phase 7: Stochastic State Propagation
+
+Status: planned.
+
+Scope:
+
+- Ticket 047: stochastic state propagation for path-dependent risk —
+  time-stepped propagator carrying a belief state (position, energy, wind
+  estimate) forward; Gaussian EKF-style representation; per-step
+  `p_reserve_violation`; `stochastic.v1` input schema; `propagate` CLI;
+  `stochastic-envelope.v1` output contract
+- Ticket 048: closed-loop observation model and twin-state architecture —
+  separate true state (physics) from estimated state (autopilot EKF belief);
+  synthetic GPS, battery-meter, and airspeed sensor models; EKF predict/update
+  cycle; policy decisions made from estimated state; `estimation_error_timeline`
+  output; `SensorProfile` added to `VehicleProfile`
+- Ticket 049: stochastic closed-loop control — tracking controller model
+  (cross-track/along-track error regulator) connecting EKF estimated state back
+  to true trajectory; path-length excess and energy feedback; `ControllerProfile`
+  added to `VehicleProfile`; `cross_track_timeline` output
+- Ticket 050: contingency trigger probability derived from the twin-state and
+  cross-track timeline
+- Ticket 051: SITL telemetry replay to condition the belief state
+  retrospectively and validate the controller model against observed tracks
+
+Exit criterion: the simulator can report the probability of reserve violation
+at any point mid-flight, not only at landing; path-dependent uncertainty
+accumulates correctly across legs; estimation error feeds back through the
+autopilot controller into actual trajectory deviation and reserve consumption;
+the propagation path composes with all existing wind, terrain, and energy
+models without changing deterministic defaults.
+
+### Phase 8: Import, Export, and Batch Workflows
 
 Status: planned.
 
@@ -380,7 +412,7 @@ Scope:
 Exit criterion: teams can import external plans, run batches, and compare
 outputs efficiently.
 
-### Phase 8: Operational Integration
+### Phase 9: Operational Integration
 
 Status: planned.
 
