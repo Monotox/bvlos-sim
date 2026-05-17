@@ -659,6 +659,8 @@ def test_sitl_cli_live_produces_completed_evidence_bundle(tmp_path: Path) -> Non
     assert result.returncode == 0, (
         f"CLI failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
     )
+    assert "[sitl] Connecting" in result.stderr
+    assert "[sitl] Recording telemetry" in result.stderr
     bundle = json.loads(output_path.read_text(encoding="utf-8"))
     assert bundle["schema_version"] == "sitl-evidence.v1"
     assert bundle["status"] == "completed"
@@ -666,7 +668,6 @@ def test_sitl_cli_live_produces_completed_evidence_bundle(tmp_path: Path) -> Non
     assert bundle["observed"]["command_logs"], (
         "live bundle must have command log artifacts"
     )
-    assert artifact_dir.exists(), "artifact_dir must be created"
     assert (artifact_dir / "telemetry.json").exists()
     assert (artifact_dir / "command_log.json").exists()
 
@@ -733,7 +734,9 @@ def test_compare_cli_on_live_evidence_bundle(tmp_path: Path) -> None:
         timeout=30,
         cwd=str(_REPO_ROOT),
     )
-    assert result.returncode == 0, result.stderr
+    assert result.returncode in {0, 10}, result.stderr
     report = json.loads(comparison_path.read_text(encoding="utf-8"))
     assert report["schema_version"] == "sitl-comparison.v1"
     assert report["summary"] in {"passed", "drifted"}
+    expected_returncode = 0 if report["summary"] == "passed" else 10
+    assert result.returncode == expected_returncode

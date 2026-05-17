@@ -81,6 +81,10 @@ Full usage details are in [docs/USAGE.md](./docs/USAGE.md).
 - `sitl`: build a contract-only or live SITL evidence bundle
 - `compare`: compare a SITL evidence bundle against deterministic scenario expectations
 
+`compare` exits `0` for a passing comparison and `10` for drifted, failed, or
+unsupported comparison summaries; inspect the report body for the changed
+dimensions.
+
 ## Status
 
 The current codebase includes:

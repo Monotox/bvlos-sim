@@ -134,6 +134,33 @@ uv run bvlos-sim scenario \
 Skipped or unsupported assertions do not fail the scenario unless another
 assertion fails.
 
+## Monte Carlo Sampling
+
+The `sample` command runs a seeded uncertainty plan and emits
+`uncertainty-report.v1`. Use it when wind, speed, power, or other configured
+inputs need distribution bounds rather than a single deterministic estimate.
+
+```bash
+uv run bvlos-sim sample \
+  examples/uncertainty/pipeline_demo_001_wind_uncertainty.yaml \
+  --format json \
+  --output /tmp/uncertainty.json
+```
+
+The `seed` in the uncertainty YAML makes repeated runs reproducible for the same
+sample count and distributions. `feasibility_rate` is the fraction of completed
+samples that remained feasible; values below the team's go/no-go threshold
+should be treated as operational risk, even when the deterministic estimate
+passes. Percentile fields such as `p95` describe tail behavior: for
+reserve-at-landing, low-end percentiles are usually the operational concern; for
+time or energy use, high-end percentiles show the conservative planning bound.
+
+### Sample Exit Codes
+
+- `0`: report written
+- `11`: invalid input
+- `13`: internal error
+
 ## SITL Evidence Contract
 
 The `sitl` command reuses an existing `scenario.v1` file, runs the deterministic
@@ -170,6 +197,9 @@ live adapters to populate.
 For a running ArduPilot SITL endpoint, `--live` requires an artifact directory.
 The directory is created if it does not exist and receives `telemetry.json`,
 `command_log.json`, `simulator_log.json`, and `adapter_log.json`.
+Live recording emits progress lines to stderr for connection, mission upload,
+telemetry recording, and evidence writing; stdout remains JSON-safe unless
+`--output` is used.
 
 ```bash
 uv run bvlos-sim sitl \
@@ -202,6 +232,11 @@ uv run bvlos-sim compare /tmp/sitl-evidence.json \
   --format markdown \
   --output /tmp/sitl-comparison.md
 ```
+
+`compare` exits `0` only when the summary is `passed`. A `drifted`, `failed`, or
+`unsupported` summary exits `10` so shell and CI workflows do not accidentally
+mark a drifted validation as passing. The JSON or Markdown report remains the
+source of detail for which comparison dimension changed.
 
 Python adapter APIs expose the same report construction:
 
@@ -584,6 +619,16 @@ uv run bvlos-sim compare /tmp/sitl-evidence.json \
   --comparison-id pipeline-demo-live \
   --output /tmp/sitl-comparison.json
 ```
+
+Interpret the workflow outputs in order. A successful `estimate` means the
+static mission model is feasible under deterministic assumptions; an infeasible
+estimate is a pre-flight stop. A `scenario` failure means an assertion or policy
+expectation failed and should be resolved before live validation. In `sample`,
+a low `feasibility_rate` or weak tail reserve means uncertainty has eroded the
+deterministic margin. For `compare`, `passed` means live SITL artifacts agreed
+with the embedded expectations for supported dimensions; `drifted` means review
+the changed dimensions, usually mission upload count, telemetry presence,
+adapter lifecycle, or position proximity, before treating the run as evidence.
 
 ## Python API
 

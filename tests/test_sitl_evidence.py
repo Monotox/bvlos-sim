@@ -63,6 +63,14 @@ def _build_bundle() -> SitlEvidenceBundle:
     )
 
 
+def _build_failed_assertion_bundle() -> SitlEvidenceBundle:
+    payload = _build_bundle().model_dump(mode="json")
+    assertion = payload["expected"]["scenario_report"]["assertion_results"][0]
+    assertion["passed"] = False
+    assertion["observed_value"] = "unexpected"
+    return SitlEvidenceBundle.model_validate(payload)
+
+
 def test_sitl_evidence_bundle_schema_validates_happy_path() -> None:
     bundle = _build_bundle()
 
@@ -218,6 +226,21 @@ def test_compare_command_writes_to_output_file(tmp_path: Path) -> None:
     assert result.output == ""
     payload = json.loads(output_path.read_text(encoding="utf-8"))
     assert payload["schema_version"] == "sitl-comparison.v1"
+
+
+def test_compare_command_exits_nonzero_when_summary_fails(tmp_path: Path) -> None:
+    evidence_path = tmp_path / "evidence.json"
+    evidence_path.write_text(
+        render_sitl_evidence_json(_build_failed_assertion_bundle()),
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(app, ["compare", str(evidence_path)])
+
+    assert result.exit_code == int(CliExitCode.INFEASIBLE)
+    payload = json.loads(result.output)
+    assert payload["schema_version"] == "sitl-comparison.v1"
+    assert payload["summary"] == SitlComparisonSummary.FAILED.value
 
 
 def test_compare_command_invalid_evidence_file(tmp_path: Path) -> None:

@@ -85,6 +85,7 @@ from schemas import (
     MissionPlan,
     ScenarioPlan,
     SitlComparisonReport,
+    SitlComparisonSummary,
     SitlEvidenceBundle,
     VehicleProfile,
 )
@@ -201,6 +202,12 @@ _SITL_EVIDENCE_RENDERERS: dict[OutputFormat, EvidenceRenderer] = {
     OutputFormat.JSON: render_sitl_evidence_json,
     OutputFormat.MARKDOWN: render_sitl_evidence_markdown,
 }
+_SITL_COMPARISON_EXIT_CODES = {
+    SitlComparisonSummary.PASSED: CliExitCode.SUCCESS,
+    SitlComparisonSummary.DRIFTED: CliExitCode.INFEASIBLE,
+    SitlComparisonSummary.FAILED: CliExitCode.INFEASIBLE,
+    SitlComparisonSummary.UNSUPPORTED: CliExitCode.INFEASIBLE,
+}
 
 
 def _render_output(
@@ -244,6 +251,10 @@ def _render_sitl_comparison_output(
     return _SITL_COMPARISON_RENDERERS[output_format](report)
 
 
+def _exit_code_for_comparison_report(report: SitlComparisonReport) -> CliExitCode:
+    return _SITL_COMPARISON_EXIT_CODES[report.summary]
+
+
 def _render_cli_error(message: str, command: str) -> str:
     return (
         json.dumps(
@@ -253,14 +264,9 @@ def _render_cli_error(message: str, command: str) -> str:
                 "message": message,
             },
             indent=2,
-            sort_keys=True,
         )
         + "\n"
     )
-
-
-def _echo_cli_error(message: str, command: str) -> None:
-    typer.echo(_render_cli_error(message, command), nl=False)
 
 
 def _exit_with_cli_error(
@@ -269,7 +275,7 @@ def _exit_with_cli_error(
     command: str,
     code: CliExitCode,
 ) -> NoReturn:
-    _echo_cli_error(message, command)
+    typer.echo(_render_cli_error(message, command), nl=False)
     raise typer.Exit(code=int(code))
 
 
@@ -687,7 +693,7 @@ def compare(
             position_tolerance_m=position_tolerance_m,
         )
         _write_output(_render_sitl_comparison_output(format, report), output)
-        raise typer.Exit(code=int(CliExitCode.SUCCESS))
+        raise typer.Exit(code=int(_exit_code_for_comparison_report(report)))
     except (InputLoadError, ValidationError) as exc:
         _exit_with_cli_error(
             str(exc),
@@ -1031,26 +1037,46 @@ def _load_sitl_scenario_context(scenario_file: Path) -> SitlScenarioContext:
     )
 
 
+def _emit_sitl_progress(message: str) -> None:
+    typer.echo(f"[sitl] {message}", err=True)
+
+
+def _emit_sitl_progress_if_live(
+    live_options: SitlLiveOptions | None,
+    message: str,
+) -> None:
+    if live_options is None:
+        return
+    _emit_sitl_progress(message)
+
+
 def _record_live_sitl_artifacts(
     mission_model: MissionPlan,
     options: SitlLiveOptions,
 ) -> SitlAdapter:
     from adapters.ardupilot_sitl import ArduPilotSitlAdapter
 
-    options.artifact_dir.mkdir(parents=True, exist_ok=True)
     adapter = ArduPilotSitlAdapter(
         ArduPilotSitlConfig(host=options.host, port=options.port)
     )
     adapter.start_recording(options.artifact_dir)
     try:
+        _emit_sitl_progress(f"Connecting to {options.host}:{options.port}...")
         adapter.connect()
+        _emit_sitl_progress(f"Uploading mission ({len(mission_model.route)} items)...")
         adapter.upload_mission(mission_model)
+        _emit_sitl_progress(
+            f"Recording telemetry ({options.telemetry_samples} samples)..."
+        )
         adapter.record_telemetry(
             sample_count=options.telemetry_samples,
             timeout_s=options.telemetry_timeout_s,
         )
     finally:
-        adapter.disconnect()
+        try:
+            adapter.disconnect()
+        except Exception:
+            pass
     return adapter
 
 
@@ -1135,7 +1161,7 @@ def sitl(
         help="Per-message receive timeout in seconds. Used only with --live.",
     ),
 ) -> None:
-    """Build a SITL evidence bundle. Add --live to run against ArduPilot SITL."""
+    """Build contract-only or live ArduPilot SITL evidence from a scenario."""
 
     live_options = _resolve_sitl_live_options(
         live=live,
@@ -1147,9 +1173,11 @@ def sitl(
     )
     try:
         context = _load_sitl_scenario_context(scenario_file)
+        adapter = _sitl_adapter_for_options(context, live_options)
+        _emit_sitl_progress_if_live(live_options, "Writing evidence bundle...")
         evidence = _build_sitl_evidence_from_context(
             context,
-            adapter=_sitl_adapter_for_options(context, live_options),
+            adapter=adapter,
             live_options=live_options,
         )
         _write_output(_render_sitl_evidence_output(format, evidence), output)
