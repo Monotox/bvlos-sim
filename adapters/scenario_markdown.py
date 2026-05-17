@@ -2,6 +2,7 @@
 
 from collections.abc import Callable
 
+from adapters.canonical_json import format_canonical_float
 from adapters.scenario_envelope import ScenarioResultEnvelope
 from estimator.core.scenario import (
     CommsLinkPolicyOutcome,
@@ -15,6 +16,10 @@ from estimator.core.scenario import (
 
 Lines = list[str]
 SectionRenderer = Callable[[ScenarioResultEnvelope], Lines]
+
+
+def _fmt(value: float) -> str:
+    return format_canonical_float(value)
 
 
 def _section(title: str, body: Lines) -> Lines:
@@ -120,13 +125,13 @@ def _render_energy_section(envelope: ScenarioResultEnvelope) -> Lines:
         return []
     body = [
         f"- Feasible: `{str(energy.is_feasible).lower()}`",
-        f"- Total energy Wh: `{energy.total_energy_wh}`",
-        f"- Battery capacity Wh: `{energy.battery_capacity_wh}`",
-        f"- Usable energy Wh: `{energy.usable_energy_wh}`",
-        f"- Reserve threshold percent: `{energy.reserve_threshold_percent}`",
-        f"- Reserve threshold Wh: `{energy.reserve_threshold_wh}`",
-        f"- Reserve at landing Wh: `{energy.reserve_at_landing_wh}`",
-        f"- Reserve at landing percent: `{energy.reserve_at_landing_percent}`",
+        f"- Total energy Wh: `{_fmt(energy.total_energy_wh)}`",
+        f"- Battery capacity Wh: `{_fmt(energy.battery_capacity_wh)}`",
+        f"- Usable energy Wh: `{_fmt(energy.usable_energy_wh)}`",
+        f"- Reserve threshold percent: `{_fmt(energy.reserve_threshold_percent)}`",
+        f"- Reserve threshold Wh: `{_fmt(energy.reserve_threshold_wh)}`",
+        f"- Reserve at landing Wh: `{_fmt(energy.reserve_at_landing_wh)}`",
+        f"- Reserve at landing percent: `{_fmt(energy.reserve_at_landing_percent)}`",
         f"- Energy legs: `{len(energy.legs)}`",
     ]
     return _section("Energy Feasibility", body)
@@ -139,8 +144,8 @@ def _render_resource_section(envelope: ScenarioResultEnvelope) -> Lines:
     body = [
         f"- Feasible: `{str(resource.is_feasible).lower()}`",
         f"- Selected resource: `{resource.selected_resource_id}`",
-        f"- Total demand Wh: `{resource.total_demand_wh}`",
-        f"- Peak power W: `{resource.peak_power_w}`",
+        f"- Total demand Wh: `{_fmt(resource.total_demand_wh)}`",
+        f"- Peak power W: `{_fmt(resource.peak_power_w)}`",
         f"- Systems: `{len(resource.systems)}`",
     ]
     return _section("Resource Feasibility", body)
@@ -181,8 +186,8 @@ def _render_landing_zone_section(envelope: ScenarioResultEnvelope) -> Lines:
         f"- Feasible: `{str(landing_zone.is_feasible).lower()}`",
         f"- Checked zones: `{landing_zone.checked_zone_count}`",
         f"- Checked states: `{landing_zone.checked_state_count}`",
-        f"- Max allowed distance m: `{landing_zone.max_allowed_distance_m}`",
-        f"- Reserve threshold Wh: `{landing_zone.reserve_threshold_wh}`",
+        f"- Max allowed distance m: `{_fmt(landing_zone.max_allowed_distance_m)}`",
+        f"- Reserve threshold Wh: `{_fmt(landing_zone.reserve_threshold_wh)}`",
     ]
     return _section("Landing-Zone Reachability", body)
 
@@ -192,10 +197,10 @@ def _render_estimate_summary(envelope: ScenarioResultEnvelope) -> Lines:
     if estimate is None:
         return []
     body = [
-        f"- Horizontal distance m: `{estimate.total_horizontal_distance_m}`",
-        f"- Vertical distance m: `{estimate.total_vertical_distance_m}`",
-        f"- Path distance m: `{estimate.total_path_distance_m}`",
-        f"- Time s: `{estimate.total_time_s}`",
+        f"- Horizontal distance m: `{_fmt(estimate.total_horizontal_distance_m)}`",
+        f"- Vertical distance m: `{_fmt(estimate.total_vertical_distance_m)}`",
+        f"- Path distance m: `{_fmt(estimate.total_path_distance_m)}`",
+        f"- Time s: `{_fmt(estimate.total_time_s)}`",
         f"- Legs: `{len(estimate.legs)}`",
     ]
     return _section("Estimate Summary", body)

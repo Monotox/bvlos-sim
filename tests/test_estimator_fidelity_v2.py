@@ -438,7 +438,9 @@ def test_fw_circular_loiter_energy_equals_cruise_power_times_time() -> None:
 
     assert result.failure is None
     assert result.energy is not None
-    dwell_energy = next(e for e in result.energy.legs if e.phase == LegPhase.LOITER_DWELL)
+    dwell_energy = next(
+        e for e in result.energy.legs if e.phase == LegPhase.LOITER_DWELL
+    )
     assert dwell_energy.power_source == EnergyPowerSource.CRUISE_POWER
     expected_wh = vehicle.energy.cruise_power_w * loiter_time_s / 3600.0
     assert math.isclose(dwell_energy.energy_wh, expected_wh, rel_tol=1e-9)

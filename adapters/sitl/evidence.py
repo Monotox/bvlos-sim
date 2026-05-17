@@ -1,11 +1,9 @@
 """SITL adapter contract and evidence-bundle rendering."""
 
-import json
 from dataclasses import dataclass
 from typing import Protocol
 
-from adapters.version import tool_version
-from adapters.sitl.comparison import build_sitl_comparison_report
+from adapters.canonical_json import render_canonical_json
 from adapters.envelope import (
     GEOFENCE_SCHEMA_VERSION,
     LANDING_ZONE_SCHEMA_VERSION,
@@ -20,7 +18,9 @@ from adapters.scenario_envelope import (
     SCENARIO_REPORT_SCHEMA_VERSION,
     ScenarioResultEnvelope,
 )
+from adapters.sitl.comparison import build_sitl_comparison_report
 from adapters.uncertainty_envelope import UNCERTAINTY_INPUT_SCHEMA_VERSION
+from adapters.version import tool_version
 from schemas.vehicle import VehicleProfile
 from schemas.sitl import (
     SitlAdapterKind,
@@ -239,7 +239,7 @@ def render_sitl_evidence_json(bundle: SitlEvidenceBundle) -> str:
     """Render a SITL evidence bundle as canonical deterministic JSON."""
 
     payload = bundle.model_dump(mode="json")
-    return json.dumps(payload, indent=2, sort_keys=True) + "\n"
+    return render_canonical_json(payload)
 
 
 def compare_sitl_evidence_bundle(
