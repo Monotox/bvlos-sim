@@ -11,7 +11,7 @@ from adapters.cli import CliExitCode, app
 from adapters.io import load_mission, load_vehicle
 from adapters.scenario_envelope import build_scenario_envelope
 from adapters.scenario_io import load_scenario, resolve_scenario_asset_path
-from adapters.sitl_evidence import (
+from adapters.sitl.evidence import (
     SITL_EVIDENCE_SCHEMA_VERSION,
     build_sitl_evidence_bundle,
     render_sitl_evidence_json,

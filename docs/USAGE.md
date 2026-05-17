@@ -293,9 +293,9 @@ changed.
 Python adapter APIs expose the same report construction:
 
 ```python
-from adapters.sitl_comparison import build_sitl_comparison_report
-from adapters.sitl_comparison import render_sitl_comparison_json
-from adapters.sitl_comparison_markdown import render_sitl_comparison_markdown
+from adapters.sitl.comparison import build_sitl_comparison_report
+from adapters.sitl.comparison import render_sitl_comparison_json
+from adapters.sitl.comparison_markdown import render_sitl_comparison_markdown
 
 report = build_sitl_comparison_report(
     comparison_id="pipeline-demo-sitl-comparison",
@@ -646,8 +646,8 @@ print(mc_result.total_time_s.p95)
 Or via the `sample` CLI command:
 
 ```bash
-bvlos-sim sample examples/uncertainty/pipeline_demo_001_wind_uncertainty.yaml
-bvlos-sim sample examples/uncertainty/pipeline_demo_001_wind_uncertainty.yaml --format markdown
+uv run bvlos-sim sample examples/uncertainty/pipeline_demo_001_wind_uncertainty.yaml
+uv run bvlos-sim sample examples/uncertainty/pipeline_demo_001_wind_uncertainty.yaml --format markdown
 ```
 
 ## Output Contracts

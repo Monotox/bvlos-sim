@@ -3,8 +3,8 @@
 import json
 from dataclasses import dataclass, field
 
-from adapters.sitl_comparison_dimensions import _SitlComparisonDimensionBuilder
-from adapters.sitl_comparison_summary import _SitlComparisonSummaryCalculator
+from adapters.sitl.comparison_dimensions import _SitlComparisonDimensionBuilder
+from adapters.sitl.comparison_summary import _SitlComparisonSummaryCalculator
 from adapters.version import tool_version
 from schemas.sitl import SitlEvidenceBundle, SitlEvidenceStatus
 from schemas.sitl_comparison import (

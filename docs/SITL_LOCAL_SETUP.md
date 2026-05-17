@@ -158,8 +158,8 @@ uv run bvlos-sim compare /tmp/sitl-evidence.json \
 The same report builder remains available as an adapter API:
 
 ```python
-from adapters.sitl_comparison import build_sitl_comparison_report
-from adapters.sitl_comparison import render_sitl_comparison_json
+from adapters.sitl.comparison import build_sitl_comparison_report
+from adapters.sitl.comparison import render_sitl_comparison_json
 
 report = build_sitl_comparison_report(
     comparison_id="local-sitl-comparison",

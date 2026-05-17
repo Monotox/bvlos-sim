@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Protocol, TypeVar, cast
 
-from adapters.ardupilot_sitl_types import ArduPilotAdapterError
+from adapters.sitl.ardupilot_types import ArduPilotAdapterError
 
 MAV_MISSION_ACCEPTED = 0
 MAV_MISSION_TYPE_MISSION = 0

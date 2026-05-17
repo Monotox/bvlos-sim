@@ -8,7 +8,7 @@ from typing import NoReturn
 import typer
 from pydantic import ValidationError
 
-from adapters.ardupilot_sitl_types import ArduPilotAdapterError
+from adapters.sitl.ardupilot_types import ArduPilotAdapterError
 from adapters.cli_sitl_support import (
     _build_sitl_evidence_from_context,
     _emit_sitl_progress,
@@ -54,8 +54,8 @@ from adapters.scenario_envelope import (
     build_scenario_invalid_input_envelope,
 )
 from adapters.scenario_io import load_scenario
-from adapters.sitl_evidence import compare_sitl_evidence_bundle
-from adapters.sitl_evidence_io import load_sitl_evidence_bundle
+from adapters.sitl.evidence import compare_sitl_evidence_bundle
+from adapters.sitl.evidence_io import load_sitl_evidence_bundle
 from adapters.terrain_grid import TerrainGridLoadError
 from adapters.uncertainty_envelope import (
     build_uncertainty_envelope,

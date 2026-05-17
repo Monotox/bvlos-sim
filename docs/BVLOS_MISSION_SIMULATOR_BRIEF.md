@@ -126,6 +126,8 @@ The codebase is intentionally split by responsibility:
 ```text
 adapters/
   CLI commands, file loading, envelope construction, Markdown rendering
+adapters/sitl/
+  ArduPilot SITL adapter, artifact recording, evidence building, comparison reports
 
 schemas/
   Pydantic input models for mission, vehicle, and scenario files

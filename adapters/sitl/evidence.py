@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from adapters.version import tool_version
-from adapters.sitl_comparison import build_sitl_comparison_report
+from adapters.sitl.comparison import build_sitl_comparison_report
 from adapters.envelope import (
     GEOFENCE_SCHEMA_VERSION,
     LANDING_ZONE_SCHEMA_VERSION,

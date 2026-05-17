@@ -6,7 +6,7 @@ from pathlib import Path
 
 import typer
 
-from adapters.ardupilot_sitl_types import ArduPilotSitlConfig
+from adapters.sitl.ardupilot_types import ArduPilotSitlConfig
 from adapters.cli_support import (
     MissionAssetBundle,
     SitlScenarioContext,
@@ -18,14 +18,14 @@ from adapters.cli_support import (
 from adapters.envelope import OutputFormat
 from adapters.io import load_mission, load_vehicle
 from adapters.scenario_io import load_scenario
-from adapters.sitl_comparison import render_sitl_comparison_json
-from adapters.sitl_comparison_markdown import render_sitl_comparison_markdown
-from adapters.sitl_evidence import (
+from adapters.sitl.comparison import render_sitl_comparison_json
+from adapters.sitl.comparison_markdown import render_sitl_comparison_markdown
+from adapters.sitl.evidence import (
     SitlAdapter,
     build_sitl_evidence_bundle,
     render_sitl_evidence_json,
 )
-from adapters.sitl_evidence_markdown import render_sitl_evidence_markdown
+from adapters.sitl.evidence_markdown import render_sitl_evidence_markdown
 from schemas import MissionPlan, SitlComparisonReport, SitlComparisonSummary
 from schemas import SitlEvidenceBundle
 
@@ -151,7 +151,7 @@ def _record_live_sitl_artifacts(
     mission_model: MissionPlan,
     options: SitlLiveOptions,
 ) -> SitlAdapter:
-    from adapters.ardupilot_sitl import ArduPilotSitlAdapter
+    from adapters.sitl.ardupilot import ArduPilotSitlAdapter
 
     adapter = ArduPilotSitlAdapter(
         ArduPilotSitlConfig(host=options.host, port=options.port)

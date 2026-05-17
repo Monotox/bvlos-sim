@@ -146,6 +146,7 @@ evidence contract, with PX4 SITL tracked as a separate adapter ticket. See
 
 - `adapters/`
   CLI, file loading, result envelope building, and Markdown rendering adapters.
+  - `sitl/` ArduPilot SITL adapter, artifact recording, evidence building, and comparison report logic.
 
 - `schemas/`
   Mission, vehicle, scenario, uncertainty, resource/link, and SITL evidence models.

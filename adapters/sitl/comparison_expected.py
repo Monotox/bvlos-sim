@@ -3,8 +3,8 @@
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
-from adapters.sitl_comparison_artifacts import _ArtifactRecord, _list_of_mappings
-from adapters.sitl_comparison_values import _SitlComparisonValueCoercer
+from adapters.sitl.comparison_artifacts import _ArtifactRecord, _list_of_mappings
+from adapters.sitl.comparison_values import _SitlComparisonValueCoercer
 from schemas.sitl import SitlEvidenceBundle, SitlEvidenceStatus
 from schemas.sitl_comparison import SitlComparisonItem, SitlComparisonOutcome
 

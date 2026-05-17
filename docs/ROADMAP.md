@@ -25,7 +25,7 @@ The current codebase implements Phases 1 through 4.10, plus Tickets 032, 033,
 - SITL telemetry, command-log, simulator-log, and adapter-log artifacts
 - SITL comparison reports via `sitl-comparison.v1`
 
-The Linux test suite currently passes with 478 tests and 7 skipped live or
+The Linux test suite currently passes with 491 tests and 9 skipped live or
 environment-dependent tests.
 
 bvlos-sim remains an engineering validation tool. It is not a flight-safety

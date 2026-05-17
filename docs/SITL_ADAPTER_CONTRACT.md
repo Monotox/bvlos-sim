@@ -58,9 +58,9 @@ The `compare` command accepts `--format markdown` and `--output`. Python
 adapter APIs expose the same report construction:
 
 ```python
-from adapters.sitl_comparison import build_sitl_comparison_report
-from adapters.sitl_comparison import render_sitl_comparison_json
-from adapters.sitl_comparison_markdown import render_sitl_comparison_markdown
+from adapters.sitl.comparison import build_sitl_comparison_report
+from adapters.sitl.comparison import render_sitl_comparison_json
+from adapters.sitl.comparison_markdown import render_sitl_comparison_markdown
 
 report = build_sitl_comparison_report(
     comparison_id="pipeline-demo-sitl-comparison",
@@ -70,7 +70,7 @@ json_report = render_sitl_comparison_json(report)
 markdown_report = render_sitl_comparison_markdown(report)
 ```
 
-`adapters.sitl_evidence.compare_sitl_evidence_bundle(...)` provides the same
+`adapters.sitl.evidence.compare_sitl_evidence_bundle(...)` provides the same
 comparison entry point from the evidence module.
 
 ## Adapter Boundary

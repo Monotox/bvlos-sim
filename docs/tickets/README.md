@@ -35,7 +35,7 @@ The current codebase includes:
   ArduPilot evidence bundles
 - SITL scenario comparison reports through `sitl-comparison.v1` and `compare`
 - passing Linux estimator/schema/CLI/scenario/SITL comparison test suite with
-  478 tests and 7 skipped live or environment-dependent tests
+  491 tests and 9 skipped live or environment-dependent tests
 
 ## Implemented Integration Validation
 

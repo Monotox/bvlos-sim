@@ -11,13 +11,13 @@ import pytest
 
 from adapters.io import InputDocument, load_vehicle
 from adapters.scenario_envelope import ScenarioResultEnvelope, build_scenario_envelope
-from adapters.sitl_artifacts import (
+from adapters.sitl.artifacts import (
     SITL_COMMAND_LOG_SCHEMA_VERSION,
     SITL_TELEMETRY_SCHEMA_VERSION,
     SitlArtifactError,
     SitlArtifactRecorder,
 )
-from adapters.sitl_evidence import build_sitl_evidence_bundle
+from adapters.sitl.evidence import build_sitl_evidence_bundle
 from estimator.core.scenario import ScenarioResult, ScenarioStatus
 from schemas import (
     SitlAdapterKind,

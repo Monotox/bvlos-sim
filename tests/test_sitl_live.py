@@ -360,8 +360,8 @@ def test_ardupilot_copter_sitl_launches_and_binds_port(tmp_path: Path) -> None:
 def test_adapter_connects_and_receives_heartbeat() -> None:
     """ArduPilotSitlAdapter connects to the container SITL and receives a heartbeat."""
 
-    from adapters.ardupilot_sitl import ArduPilotSitlAdapter
-    from adapters.ardupilot_sitl_types import ArduPilotSitlConfig
+    from adapters.sitl.ardupilot import ArduPilotSitlAdapter
+    from adapters.sitl.ardupilot_types import ArduPilotSitlConfig
 
     _launch_sitl_background("copter")
     assert _port_open_in_container(COPTER_PORT), "SITL port not ready"
@@ -384,8 +384,8 @@ def test_adapter_connects_and_receives_heartbeat() -> None:
 def test_adapter_uploads_mission_to_sitl(tmp_path: Path) -> None:
     """ArduPilotSitlAdapter uploads a mission to the live SITL without error."""
 
-    from adapters.ardupilot_sitl import ArduPilotSitlAdapter
-    from adapters.ardupilot_sitl_types import ArduPilotSitlConfig
+    from adapters.sitl.ardupilot import ArduPilotSitlAdapter
+    from adapters.sitl.ardupilot_types import ArduPilotSitlConfig
 
     _launch_sitl_background("copter")
     assert _port_open_in_container(COPTER_PORT), "SITL port not ready"
@@ -418,9 +418,9 @@ def test_adapter_uploads_mission_to_sitl(tmp_path: Path) -> None:
 def test_adapter_records_telemetry_from_live_sitl(tmp_path: Path) -> None:
     """Telemetry recording captures real MAVLink messages from ArduCopter SITL."""
 
-    from adapters.ardupilot_sitl import ArduPilotSitlAdapter
-    from adapters.ardupilot_sitl_mavlink import RUN_STATE_MESSAGE_TYPES
-    from adapters.ardupilot_sitl_types import ArduPilotSitlConfig
+    from adapters.sitl.ardupilot import ArduPilotSitlAdapter
+    from adapters.sitl.ardupilot_mavlink import RUN_STATE_MESSAGE_TYPES
+    from adapters.sitl.ardupilot_types import ArduPilotSitlConfig
 
     _launch_sitl_background("copter")
     assert _port_open_in_container(COPTER_PORT), "SITL port not ready"
@@ -458,12 +458,12 @@ def test_adapter_records_telemetry_from_live_sitl(tmp_path: Path) -> None:
 def test_full_evidence_bundle_has_completed_status(tmp_path: Path) -> None:
     """A full SITL run produces a COMPLETED evidence bundle."""
 
-    from adapters.ardupilot_sitl import ArduPilotSitlAdapter
-    from adapters.ardupilot_sitl_types import ArduPilotSitlConfig
+    from adapters.sitl.ardupilot import ArduPilotSitlAdapter
+    from adapters.sitl.ardupilot_types import ArduPilotSitlConfig
     from adapters.io import load_mission, load_vehicle
     from adapters.scenario_envelope import build_scenario_envelope
     from adapters.scenario_io import load_scenario
-    from adapters.sitl_evidence import build_sitl_evidence_bundle
+    from adapters.sitl.evidence import build_sitl_evidence_bundle
     from estimator.execution.scenario import run_scenario
     from schemas import SitlEvidenceStatus
 
@@ -527,16 +527,16 @@ def test_full_evidence_bundle_has_completed_status(tmp_path: Path) -> None:
 def test_comparison_report_from_live_evidence_bundle(tmp_path: Path) -> None:
     """A full SITL run produces a comparison report with PASSED or DRIFTED summary."""
 
-    from adapters.ardupilot_sitl import ArduPilotSitlAdapter
-    from adapters.ardupilot_sitl_types import ArduPilotSitlConfig
+    from adapters.sitl.ardupilot import ArduPilotSitlAdapter
+    from adapters.sitl.ardupilot_types import ArduPilotSitlConfig
     from adapters.io import load_mission, load_vehicle
     from adapters.scenario_envelope import build_scenario_envelope
     from adapters.scenario_io import load_scenario
-    from adapters.sitl_comparison import (
+    from adapters.sitl.comparison import (
         build_sitl_comparison_report,
         render_sitl_comparison_json,
     )
-    from adapters.sitl_evidence import build_sitl_evidence_bundle
+    from adapters.sitl.evidence import build_sitl_evidence_bundle
     from estimator.execution.scenario import run_scenario
     from schemas import SitlComparisonOutcome, SitlComparisonSummary
 

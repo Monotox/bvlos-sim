@@ -85,8 +85,8 @@ docs: document fidelity v2 YAML options
 
 The public contract surfaces must not change casually. These include:
 
-- schema versions such as `mission.v4`, `vehicle.v2`, and `scenario.v1`
-- canonical JSON envelopes such as `estimator-envelope.v4` and `scenario-report.v1`
+- schema versions such as `mission.v5`, `vehicle.v3`, and `scenario.v1`
+- canonical JSON envelopes such as `estimator-envelope.v5` and `scenario-report.v2`
 - CLI exit codes
 - documented package-root imports from `estimator`
 
