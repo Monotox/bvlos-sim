@@ -1,6 +1,6 @@
 [project]
 name = "bvlos-sim"
-version = "0.2.0"
+version = "0.22.0"
 description = "Open-source BVLOS mission validation and simulation tooling."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -64,6 +64,9 @@ py-modules = ["main"]
 
 [tool.setuptools.packages.find]
 include = ["adapters*", "estimator*", "schemas*"]
+
+[tool.ruff]
+include = ["adapters/**/*.py", "estimator/**/*.py", "schemas/**/*.py", "tests/**/*.py", "scripts/**/*.py"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

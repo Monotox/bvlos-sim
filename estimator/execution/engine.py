@@ -191,6 +191,14 @@ def try_estimate_mission_distance_time(
     landing_zones: Sequence[LandingZone] | None = None,
     lz_unavailability: list[frozenset[str]] | None = None,
 ) -> MissionEstimate:
+    """Run the estimator and return a result without raising on infeasibility.
+
+    Unlike ``estimate_mission_distance_time``, this function catches
+    ``EstimatorError`` and converts it into a ``MissionEstimate`` with
+    ``status=INFEASIBLE`` or ``status=ERROR`` and partial leg data.
+    Callers must inspect ``result.status`` before using the result — a
+    returned estimate is not guaranteed to represent a feasible mission.
+    """
     try:
         return estimate_mission_distance_time(
             mission,

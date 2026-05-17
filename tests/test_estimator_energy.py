@@ -100,7 +100,7 @@ def test_energy_capacity_exhaustion_returns_insufficient_energy() -> None:
     assert result.energy.total_energy_wh > result.energy.battery_capacity_wh
 
 
-def test_missing_phase_energy_model_fails_after_kinematics_are_complete() -> None:
+def test_missing_hover_power_detected_before_per_leg_energy_evaluation() -> None:
     vehicle = make_vehicle()
     setattr(vehicle.energy, "hover_power_w", None)
 
@@ -109,7 +109,7 @@ def test_missing_phase_energy_model_fails_after_kinematics_are_complete() -> Non
 
     error = exc_info.value
     assert error.failure.code == FailureCode.MISSING_ENERGY_MODEL
-    assert error.failure.leg_index is not None
+    assert "hover_power_w" in error.failure.message
     assert error.totals_are_partial is False
     assert error.energy is None
     assert len(error.partial_legs) > 0
@@ -127,3 +127,16 @@ def test_invalid_energy_policy_fails_after_kinematics_are_complete() -> None:
     assert result.totals_are_partial is False
     assert result.energy is None
     assert len(result.legs) > 0
+
+
+def test_hover_capable_vehicle_without_hover_power_fails_before_kinematics() -> None:
+    vehicle = make_vehicle()
+    assert vehicle.capabilities.hover is True
+    vehicle.energy = vehicle.energy.model_copy(update={"hover_power_w": None})
+
+    result = try_estimate_mission_distance_time(make_mission(), vehicle)
+
+    assert result.status == EstimateStatus.ERROR
+    assert result.failure is not None
+    assert result.failure.code == FailureCode.MISSING_ENERGY_MODEL
+    assert "hover_power_w" in result.failure.message

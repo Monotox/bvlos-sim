@@ -89,7 +89,7 @@ def resolve_transit_tas(
             route_item_id=item.id,
             context={"action": item.action.value},
         )
-    if tas_mps <= 0:
+    elif tas_mps <= 0:
         context.fail(
             kind=FailureKind.INVALID_INPUT,
             code=FailureCode.INVALID_SPEED_PROFILE,

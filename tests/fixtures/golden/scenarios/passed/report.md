@@ -3,7 +3,7 @@
 - Scenario: `pipeline-passed-v1`
 - Status: `passed`
 - Envelope schema: `scenario-report.v2`
-- Tool version: `0.2.0`
+- Tool version: `0.22.0`
 
 ## Assertion Results
 

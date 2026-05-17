@@ -616,3 +616,12 @@ def test_at_route_item_trigger_matches_first_occurrence() -> None:
     same_item_indices = [p.index for p in timeline if p.route_item_id == "loiter"]
     assert len(same_item_indices) >= 2
     assert transit_index == min(same_item_indices)
+
+
+def test_field_resolvers_and_supported_paths_are_in_sync() -> None:
+    from estimator.execution.scenario_assertions import (
+        _FIELD_RESOLVERS,
+        _SUPPORTED_FIELD_PATHS,
+    )
+
+    assert set(_FIELD_RESOLVERS.keys()) == _SUPPORTED_FIELD_PATHS
