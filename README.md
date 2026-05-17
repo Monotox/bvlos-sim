@@ -47,6 +47,23 @@ uv run bvlos-sim scenario \
   examples/scenarios/pipeline_demo_001_scenario.yaml
 ```
 
+Record live SITL evidence from a running ArduPilot container:
+
+```bash
+uv run bvlos-sim sitl examples/scenarios/pipeline_demo_001_scenario.yaml \
+  --live --host 127.0.0.1 --port 5760 \
+  --artifact-dir /tmp/bvlos-artifacts \
+  --output /tmp/evidence.json
+```
+
+Compare the evidence against deterministic expectations:
+
+```bash
+uv run bvlos-sim compare /tmp/evidence.json \
+  --comparison-id my-test-run \
+  --output /tmp/comparison.json
+```
+
 Run the checks:
 
 ```bash
@@ -56,6 +73,14 @@ uv run pytest
 
 Full usage details are in [docs/USAGE.md](./docs/USAGE.md).
 
+## Commands
+
+- `estimate`: run deterministic mission estimation and static feasibility checks
+- `scenario`: run deterministic scenario events and assertions
+- `sample`: run seeded Monte Carlo uncertainty sampling
+- `sitl`: build a contract-only or live SITL evidence bundle
+- `compare`: compare a SITL evidence bundle against deterministic scenario expectations
+
 ## Status
 
 The current codebase includes:
@@ -64,7 +89,8 @@ The current codebase includes:
 - estimator CLI command surface (`estimate`)
 - scenario CLI command surface (`scenario`)
 - uncertainty CLI command surface (`sample`)
-- SITL evidence contract CLI command surface (`sitl`)
+- SITL evidence CLI command surface (`sitl`)
+- SITL comparison CLI command surface (`compare`)
 - canonical JSON envelopes and optional Markdown reports
 - deterministic energy feasibility and reserve-at-landing output
 - resource-system feasibility for onboard battery, external power, and hybrid power configurations
@@ -79,13 +105,12 @@ The current codebase includes:
 - Dubins divert routing and path-planning gap diagnostics
 - seeded Monte Carlo uncertainty analysis
 - documented schema/versioning policy with golden contract fixtures
-- `sitl-evidence.v1` contract for later SITL telemetry and comparison work
+- `sitl-evidence.v1` and `sitl-comparison.v1` SITL validation contracts
 - passing test suite
 
-The next roadmap area is live ArduPilot SITL integration behind the existing
+The next roadmap area is broadening simulator adapters behind the existing
 evidence contract, with PX4 SITL tracked as a separate adapter ticket. See
-[docs/ROADMAP.md](./docs/ROADMAP.md) for the full roadmap and known
-limitations.
+[docs/ROADMAP.md](./docs/ROADMAP.md) for the full roadmap and known limitations.
 
 ## Documentation
 

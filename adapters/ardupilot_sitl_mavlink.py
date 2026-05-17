@@ -82,7 +82,9 @@ def message_sequence(message: object) -> int:
     try:
         return int(getattr(message, "seq"))
     except (AttributeError, TypeError, ValueError) as exc:
-        raise ArduPilotAdapterError("MAVLink mission request did not include seq") from exc
+        raise ArduPilotAdapterError(
+            "MAVLink mission request did not include seq"
+        ) from exc
 
 
 def raise_for_rejected_mission_ack(message: object, mavlink: object) -> None:

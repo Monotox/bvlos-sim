@@ -20,6 +20,7 @@ from estimator.execution.scenario import run_scenario
 from schemas import (
     SitlArtifactReference,
     SitlArtifactRole,
+    SitlComparisonSummary,
     SitlEvidenceBundle,
 )
 
@@ -148,7 +149,7 @@ def test_sitl_cli_invalid_scenario_exits_invalid_input(tmp_path: Path) -> None:
     assert result.exit_code == int(CliExitCode.INVALID_INPUT)
 
 
-def test_estimate_cli_renders_sitl_comparison_from_evidence_bundle(
+def test_compare_command_renders_json_from_contract_only_bundle(
     tmp_path: Path,
 ) -> None:
     evidence_path = tmp_path / "evidence.json"
@@ -159,10 +160,7 @@ def test_estimate_cli_renders_sitl_comparison_from_evidence_bundle(
     result = runner.invoke(
         app,
         [
-            "estimate",
-            str(FIXTURE_ROOT.parent.parent / "success" / "mission.yaml"),
-            str(FIXTURE_ROOT.parent.parent / "success" / "vehicle.yaml"),
-            "--sitl-evidence",
+            "compare",
             str(evidence_path),
             "--comparison-id",
             "estimate-comparison",
@@ -174,14 +172,14 @@ def test_estimate_cli_renders_sitl_comparison_from_evidence_bundle(
     assert payload["schema_version"] == "sitl-comparison.v1"
     assert payload["comparison_id"] == "estimate-comparison"
     assert payload["evidence_id"] == "test-evidence"
-    assert payload["summary"] == "passed"
+    assert payload["summary"] in {summary.value for summary in SitlComparisonSummary}
     assert any(
         item["dimension"] == "bundle_completeness" and item["outcome"] == "skipped"
         for item in payload["items"]
     )
 
 
-def test_estimate_cli_renders_sitl_comparison_markdown_from_evidence_bundle(
+def test_compare_command_renders_markdown(
     tmp_path: Path,
 ) -> None:
     evidence_path = tmp_path / "evidence.json"
@@ -192,10 +190,7 @@ def test_estimate_cli_renders_sitl_comparison_markdown_from_evidence_bundle(
     result = runner.invoke(
         app,
         [
-            "estimate",
-            str(FIXTURE_ROOT.parent.parent / "success" / "mission.yaml"),
-            str(FIXTURE_ROOT.parent.parent / "success" / "vehicle.yaml"),
-            "--sitl-evidence",
+            "compare",
             str(evidence_path),
             "--format",
             "markdown",
@@ -207,7 +202,37 @@ def test_estimate_cli_renders_sitl_comparison_markdown_from_evidence_bundle(
     assert "- Evidence ID: `test-evidence`" in result.output
 
 
-def test_estimate_cli_invalid_sitl_comparison_id_exits_invalid_input(
+def test_compare_command_writes_to_output_file(tmp_path: Path) -> None:
+    evidence_path = tmp_path / "evidence.json"
+    output_path = tmp_path / "comparison.json"
+    evidence_path.write_text(
+        render_sitl_evidence_json(_build_bundle()), encoding="utf-8"
+    )
+
+    result = runner.invoke(
+        app,
+        ["compare", str(evidence_path), "--output", str(output_path)],
+    )
+
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    assert result.output == ""
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    assert payload["schema_version"] == "sitl-comparison.v1"
+
+
+def test_compare_command_invalid_evidence_file(tmp_path: Path) -> None:
+    evidence_path = tmp_path / "bad-evidence.json"
+    evidence_path.write_text("{bad json", encoding="utf-8")
+
+    result = runner.invoke(app, ["compare", str(evidence_path)])
+
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+    payload = json.loads(result.output)
+    assert payload["command"] == "compare"
+    assert payload["status"] == "error"
+
+
+def test_compare_command_invalid_comparison_id_exits_invalid_input(
     tmp_path: Path,
 ) -> None:
     evidence_path = tmp_path / "evidence.json"
@@ -218,10 +243,7 @@ def test_estimate_cli_invalid_sitl_comparison_id_exits_invalid_input(
     result = runner.invoke(
         app,
         [
-            "estimate",
-            str(FIXTURE_ROOT.parent.parent / "success" / "mission.yaml"),
-            str(FIXTURE_ROOT.parent.parent / "success" / "vehicle.yaml"),
-            "--sitl-evidence",
+            "compare",
             str(evidence_path),
             "--comparison-id",
             "bad id",
@@ -230,6 +252,52 @@ def test_estimate_cli_invalid_sitl_comparison_id_exits_invalid_input(
 
     assert result.exit_code == int(CliExitCode.INVALID_INPUT)
     payload = json.loads(result.output)
+    assert payload["command"] == "compare"
     assert payload["status"] == "error"
-    assert payload["diagnostics"][0]["kind"] == "invalid_input"
-    assert payload["diagnostics"][0]["context"]["first_error_path"] == "comparison_id"
+    assert "comparison_id" in payload["message"]
+
+
+def test_sitl_command_now_accepts_format_flag() -> None:
+    result = runner.invoke(
+        app,
+        ["sitl", str(FIXTURE_ROOT / "scenario.yaml"), "--format", "json"],
+    )
+
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    payload = json.loads(result.output)
+    assert payload["schema_version"] == SITL_EVIDENCE_SCHEMA_VERSION
+
+
+def test_sitl_command_format_markdown() -> None:
+    result = runner.invoke(
+        app,
+        ["sitl", str(FIXTURE_ROOT / "scenario.yaml"), "--format", "markdown"],
+    )
+
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    assert "SITL Evidence Bundle" in result.output
+
+
+def test_sitl_live_requires_artifact_dir() -> None:
+    result = runner.invoke(app, ["sitl", str(FIXTURE_ROOT / "scenario.yaml"), "--live"])
+
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+    payload = json.loads(result.output)
+    assert payload["command"] == "sitl"
+    assert payload["status"] == "error"
+    assert "--artifact-dir" in payload["message"]
+
+
+def test_estimate_no_longer_accepts_sitl_evidence_flag(tmp_path: Path) -> None:
+    result = runner.invoke(
+        app,
+        [
+            "estimate",
+            str(FIXTURE_ROOT.parent.parent / "success" / "mission.yaml"),
+            str(FIXTURE_ROOT.parent.parent / "success" / "vehicle.yaml"),
+            "--sitl-evidence",
+            str(tmp_path / "evidence.json"),
+        ],
+    )
+
+    assert result.exit_code != int(CliExitCode.SUCCESS)

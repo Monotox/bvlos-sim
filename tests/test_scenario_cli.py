@@ -42,7 +42,9 @@ def test_missing_scenario_file_exits_nonzero(tmp_path: Path) -> None:
 
 def test_invalid_scenario_yaml_exits_11(tmp_path: Path) -> None:
     bad_file = tmp_path / "bad.yaml"
-    bad_file.write_text("{not valid scenario yaml: yes, but: wrong schema}", encoding="utf-8")
+    bad_file.write_text(
+        "{not valid scenario yaml: yes, but: wrong schema}", encoding="utf-8"
+    )
     result = _run(["scenario", str(bad_file)])
     assert result.exit_code == 11
 
@@ -78,7 +80,9 @@ def test_v2_example_scenario_runs_from_cli() -> None:
 
 
 def test_integrated_example_scenario_loads_mission_assets_from_cli() -> None:
-    scenario_path = REPO_ROOT / "examples/scenarios/pipeline_demo_001_integrated_scenario.yaml"
+    scenario_path = (
+        REPO_ROOT / "examples/scenarios/pipeline_demo_001_integrated_scenario.yaml"
+    )
 
     result = _run(["scenario", str(scenario_path)])
 
@@ -110,7 +114,9 @@ def test_integrated_example_scenario_loads_mission_assets_from_cli() -> None:
 
 
 def test_resource_link_example_scenario_runs_from_cli() -> None:
-    scenario_path = REPO_ROOT / "examples/scenarios/pipeline_demo_001_resource_link_scenario.yaml"
+    scenario_path = (
+        REPO_ROOT / "examples/scenarios/pipeline_demo_001_resource_link_scenario.yaml"
+    )
 
     result = _run(["scenario", str(scenario_path)])
 
@@ -181,7 +187,9 @@ def test_output_written_to_file(tmp_path: Path) -> None:
 
 
 def test_lz_availability_example_scenario_runs_from_cli() -> None:
-    scenario_path = REPO_ROOT / "examples/scenarios/pipeline_demo_001_lz_availability_scenario.yaml"
+    scenario_path = (
+        REPO_ROOT / "examples/scenarios/pipeline_demo_001_lz_availability_scenario.yaml"
+    )
 
     result = _run(["scenario", str(scenario_path)])
 
@@ -195,7 +203,9 @@ def test_lz_availability_example_scenario_runs_from_cli() -> None:
 
 
 def test_divert_routing_example_scenario_runs_from_cli() -> None:
-    scenario_path = REPO_ROOT / "examples/scenarios/pipeline_demo_001_divert_routing_scenario.yaml"
+    scenario_path = (
+        REPO_ROOT / "examples/scenarios/pipeline_demo_001_divert_routing_scenario.yaml"
+    )
 
     result = _run(["scenario", str(scenario_path)])
 

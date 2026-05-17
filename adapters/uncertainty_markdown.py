@@ -61,8 +61,10 @@ def render_uncertainty_markdown(envelope: UncertaintyResultEnvelope) -> str:
     lines.append(f"**Total Path Distance:** {_fmt(b.total_path_distance_m)} m  ")
     if b.energy is not None:
         lines.append(f"**Energy Feasible:** {str(b.energy.is_feasible).lower()}  ")
-        lines.append(f"**Reserve at Landing:** {_fmt(b.energy.reserve_at_landing_wh)} Wh "
-                     f"({_fmt(b.energy.reserve_at_landing_percent)}%)  ")
+        lines.append(
+            f"**Reserve at Landing:** {_fmt(b.energy.reserve_at_landing_wh)} Wh "
+            f"({_fmt(b.energy.reserve_at_landing_percent)}%)  "
+        )
     else:
         lines.append("**Energy:** not available  ")
 

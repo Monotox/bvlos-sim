@@ -171,4 +171,7 @@ def test_terrain_altitude_reference_is_unsupported() -> None:
     with pytest.raises(UnsupportedEstimatorFeatureError) as exc_info:
         estimate_mission_distance_time(mission, make_vehicle())
 
-    assert exc_info.value.failure.code == FailureCode.UNSUPPORTED_ALTITUDE_REFERENCE_TERRAIN
+    assert (
+        exc_info.value.failure.code
+        == FailureCode.UNSUPPORTED_ALTITUDE_REFERENCE_TERRAIN
+    )

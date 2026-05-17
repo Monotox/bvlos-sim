@@ -13,7 +13,12 @@ from estimator import (
 from estimator.core.scenario import ScenarioStatus
 from estimator.execution.scenario import run_scenario
 from schemas import LinkSystemConfig, ResourceSystemConfig, ScenarioPlan
-from tests.helpers import make_mission, make_mission_payload, make_vehicle, make_vehicle_payload
+from tests.helpers import (
+    make_mission,
+    make_mission_payload,
+    make_vehicle,
+    make_vehicle_payload,
+)
 
 runner = CliRunner()
 
@@ -67,7 +72,9 @@ def test_resource_failure_has_full_mission_result_validity(tmp_path: Path) -> No
 
     assert result.exit_code == int(CliExitCode.INFEASIBLE)
     envelope = json.loads(result.stdout)
-    assert envelope["diagnostics"][-1]["code"] == FailureCode.RESOURCE_FEASIBILITY_FAILED
+    assert (
+        envelope["diagnostics"][-1]["code"] == FailureCode.RESOURCE_FEASIBILITY_FAILED
+    )
     assert envelope["result_validity"]["scope"] == "full_mission"
     assert envelope["result_validity"]["is_complete"] is True
     assert envelope["result"]["resource"]["is_feasible"] is False

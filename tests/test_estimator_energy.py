@@ -39,7 +39,9 @@ def test_successful_estimate_includes_energy_breakdown_and_reserve() -> None:
     )
     assert math.isclose(
         result.energy.reserve_threshold_wh,
-        vehicle.energy.battery_capacity_wh * result.energy.reserve_threshold_percent / 100.0,
+        vehicle.energy.battery_capacity_wh
+        * result.energy.reserve_threshold_percent
+        / 100.0,
         rel_tol=1e-9,
     )
     assert math.isclose(

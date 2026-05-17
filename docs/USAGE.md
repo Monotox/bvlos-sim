@@ -19,21 +19,21 @@ uv run bvlos-sim --help
 
 ## CLI Commands
 
-bvlos-sim exposes four commands:
+bvlos-sim exposes five commands:
 
-- `estimate`: run deterministic mission estimation and static feasibility checks,
-  or render a SITL comparison report from an existing evidence bundle
+- `estimate`: run deterministic mission estimation and static feasibility checks
 - `scenario`: run deterministic scenario events and assertions
 - `sample`: run seeded Monte Carlo uncertainty sampling
-- `sitl`: build a contract-only SITL evidence bundle from an existing scenario
+- `sitl`: build a contract-only or live SITL evidence bundle from an existing scenario
+- `compare`: compare a SITL evidence bundle against deterministic scenario expectations
 
 Mission-scoped functionality is exposed through `estimate` by mission and
 vehicle YAML: fidelity settings, terrain, wind grids, geofences, landing zones,
 resource systems, communication links, energy feasibility, and route geometry.
 Scenario events, uncertainty sampling, and SITL evidence use `scenario`,
 `sample`, and `sitl` because they require separate versioned input contracts.
-SITL comparison reports are exposed through `estimate --sitl-evidence` so the
-report keeps the same JSON, Markdown, and `--output` ergonomics as estimation.
+SITL comparison reports are exposed through `compare` so evidence review has a
+dedicated command with JSON, Markdown, and `--output` support.
 
 Command help:
 
@@ -42,6 +42,7 @@ uv run bvlos-sim estimate --help
 uv run bvlos-sim scenario --help
 uv run bvlos-sim sample --help
 uv run bvlos-sim sitl --help
+uv run bvlos-sim compare --help
 ```
 
 ## Mission Estimation
@@ -137,13 +138,26 @@ assertion fails.
 
 The `sitl` command reuses an existing `scenario.v1` file, runs the deterministic
 scenario output as expected behavior, and emits a `sitl-evidence.v1` bundle.
-The CLI command is contract-only; live ArduPilot runs are available through
-adapter-level Python APIs and tests.
+By default it is contract-only. Add `--live` to connect to a running ArduPilot
+SITL instance, upload the mission, record telemetry, and emit a completed
+evidence bundle.
+
+### Contract-Only Evidence
 
 ```bash
 uv run bvlos-sim sitl \
   examples/scenarios/pipeline_demo_001_integrated_scenario.yaml \
+  --format json \
   --output /tmp/sitl-evidence.json
+```
+
+Write a Markdown evidence summary:
+
+```bash
+uv run bvlos-sim sitl \
+  examples/scenarios/pipeline_demo_001_integrated_scenario.yaml \
+  --format markdown \
+  --output /tmp/sitl-evidence.md
 ```
 
 The no-op contract adapter writes `status: contract_only`, includes mission,
@@ -151,17 +165,32 @@ vehicle, scenario, and loaded asset references, embeds the deterministic
 scenario report, and leaves telemetry and command-log artifact lists empty for
 live adapters to populate.
 
+### Live SITL Evidence
+
+For a running ArduPilot SITL endpoint, `--live` requires an artifact directory.
+The directory is created if it does not exist and receives `telemetry.json`,
+`command_log.json`, `simulator_log.json`, and `adapter_log.json`.
+
+```bash
+uv run bvlos-sim sitl \
+  examples/scenarios/pipeline_demo_001_scenario.yaml \
+  --live \
+  --host 127.0.0.1 \
+  --port 5760 \
+  --artifact-dir /tmp/bvlos-artifacts \
+  --telemetry-samples 20 \
+  --telemetry-timeout-s 30.0 \
+  --output /tmp/sitl-evidence.json
+```
+
 ### SITL Comparison Reports
 
 `sitl-comparison.v1` reports compare a `sitl-evidence.v1` bundle against the
-embedded deterministic scenario report. Render one through `estimate` from an
+embedded deterministic scenario report. Render one through `compare` from an
 already-written evidence bundle:
 
 ```bash
-uv run bvlos-sim estimate \
-  examples/missions/pipeline_demo_001.yaml \
-  examples/vehicles/quadplane_v1.yaml \
-  --sitl-evidence /tmp/sitl-evidence.json \
+uv run bvlos-sim compare /tmp/sitl-evidence.json \
   --comparison-id pipeline-demo-sitl-comparison \
   --output /tmp/sitl-comparison.json
 ```
@@ -169,16 +198,11 @@ uv run bvlos-sim estimate \
 Write Markdown with the same entry point:
 
 ```bash
-uv run bvlos-sim estimate \
-  examples/missions/pipeline_demo_001.yaml \
-  examples/vehicles/quadplane_v1.yaml \
-  --sitl-evidence /tmp/sitl-evidence.json \
+uv run bvlos-sim compare /tmp/sitl-evidence.json \
   --format markdown \
   --output /tmp/sitl-comparison.md
 ```
 
-The `estimate` command still requires mission and vehicle arguments for CLI
-shape consistency; the comparison payload is read from `--sitl-evidence`.
 Python adapter APIs expose the same report construction:
 
 ```python
@@ -527,6 +551,40 @@ the mission's `assets.wind_grid_file`.
 
 See `examples/wind/pipeline_wind_grid.yaml` for a working example grid.
 
+## Flight Team Workflow
+
+A typical evidence workflow keeps deterministic checks and live SITL artifacts
+separate, then compares them explicitly:
+
+```bash
+# 1. Pre-flight estimate
+uv run bvlos-sim estimate \
+  examples/missions/pipeline_demo_001.yaml \
+  examples/vehicles/quadplane_v1.yaml \
+  --output /tmp/estimate.json
+
+# 2. Scenario assertions
+uv run bvlos-sim scenario \
+  examples/scenarios/pipeline_demo_001_scenario.yaml \
+  --output /tmp/scenario.json
+
+# 3. Monte Carlo bounds
+uv run bvlos-sim sample \
+  examples/uncertainty/pipeline_demo_001_wind_uncertainty.yaml \
+  --output /tmp/uncertainty.json
+
+# 4. Live SITL validation
+uv run bvlos-sim sitl \
+  examples/scenarios/pipeline_demo_001_scenario.yaml \
+  --live --host 127.0.0.1 --port 5760 \
+  --artifact-dir /tmp/bvlos-artifacts \
+  --output /tmp/sitl-evidence.json
+
+uv run bvlos-sim compare /tmp/sitl-evidence.json \
+  --comparison-id pipeline-demo-live \
+  --output /tmp/sitl-comparison.json
+```
+
 ## Python API
 
 Use the package-root imports for stable caller code:
@@ -666,8 +724,7 @@ The sample CLI emits `uncertainty-report.v1`.
 
 The SITL contract command emits `sitl-evidence.v1`.
 
-The `estimate --sitl-evidence` path and SITL comparison API emit
-`sitl-comparison.v1`.
+The compare CLI and SITL comparison API emit `sitl-comparison.v1`.
 
 Estimator and scenario JSON outputs are canonical, deterministic, and
 regression-tested with golden fixtures. Markdown output is supported for

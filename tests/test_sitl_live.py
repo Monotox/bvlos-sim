@@ -37,6 +37,7 @@ TELEMETRY_SAMPLE_COUNT = 5
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _VEHICLE_PATH = _REPO_ROOT / "examples" / "vehicles" / "quadplane_v1.yaml"
 _PODMAN_ENV_VAR = "BVLOS_PODMAN"
+_UV_ENV_VAR = "BVLOS_UV"
 
 
 def _podman_executable() -> str | None:
@@ -52,6 +53,13 @@ def _podman_command(*args: str) -> list[str]:
 
 def _podman_available() -> bool:
     return _podman_executable() is not None
+
+
+def _uv_executable() -> str:
+    local_uv = _REPO_ROOT / ".venv" / "Scripts" / "uv.exe"
+    if local_uv.exists():
+        return str(local_uv)
+    return os.environ.get(_UV_ENV_VAR, "uv")
 
 
 def _container_running() -> bool:
@@ -603,3 +611,129 @@ def test_comparison_report_from_live_evidence_bundle(tmp_path: Path) -> None:
     parsed = json.loads(rendered)
     assert parsed["schema_version"] == "sitl-comparison.v1"
     assert parsed["summary"] in {"passed", "drifted"}
+
+
+@pytest.mark.live_sitl
+@requires_live_sitl
+@requires_copter_binary
+def test_sitl_cli_live_produces_completed_evidence_bundle(tmp_path: Path) -> None:
+    """bvlos-sim sitl --live produces a COMPLETED evidence bundle via the CLI."""
+
+    scenario_path = (
+        _REPO_ROOT / "examples" / "scenarios" / "pipeline_demo_001_scenario.yaml"
+    )
+    artifact_dir = tmp_path / "artifacts"
+    output_path = tmp_path / "evidence.json"
+
+    _launch_sitl_background("copter")
+    assert _port_open_in_container(COPTER_PORT), "SITL port not ready"
+    host = _require_host_port(COPTER_PORT)
+
+    result = subprocess.run(
+        [
+            _uv_executable(),
+            "run",
+            "bvlos-sim",
+            "sitl",
+            str(scenario_path),
+            "--live",
+            "--host",
+            host,
+            "--port",
+            str(COPTER_PORT),
+            "--artifact-dir",
+            str(artifact_dir),
+            "--telemetry-samples",
+            "5",
+            "--telemetry-timeout-s",
+            "15.0",
+            "--output",
+            str(output_path),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        cwd=str(_REPO_ROOT),
+    )
+
+    assert result.returncode == 0, (
+        f"CLI failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
+    )
+    bundle = json.loads(output_path.read_text(encoding="utf-8"))
+    assert bundle["schema_version"] == "sitl-evidence.v1"
+    assert bundle["status"] == "completed"
+    assert bundle["observed"]["telemetry"], "live bundle must have telemetry artifacts"
+    assert bundle["observed"]["command_logs"], (
+        "live bundle must have command log artifacts"
+    )
+    assert artifact_dir.exists(), "artifact_dir must be created"
+    assert (artifact_dir / "telemetry.json").exists()
+    assert (artifact_dir / "command_log.json").exists()
+
+
+@pytest.mark.live_sitl
+@requires_live_sitl
+@requires_copter_binary
+def test_compare_cli_on_live_evidence_bundle(tmp_path: Path) -> None:
+    """bvlos-sim compare produces a PASSED or DRIFTED report from a live bundle."""
+
+    scenario_path = (
+        _REPO_ROOT / "examples" / "scenarios" / "pipeline_demo_001_scenario.yaml"
+    )
+    artifact_dir = tmp_path / "artifacts"
+    evidence_path = tmp_path / "evidence.json"
+    comparison_path = tmp_path / "comparison.json"
+
+    _launch_sitl_background("copter")
+    assert _port_open_in_container(COPTER_PORT), "SITL port not ready"
+    host = _require_host_port(COPTER_PORT)
+
+    result = subprocess.run(
+        [
+            _uv_executable(),
+            "run",
+            "bvlos-sim",
+            "sitl",
+            str(scenario_path),
+            "--live",
+            "--host",
+            host,
+            "--port",
+            str(COPTER_PORT),
+            "--artifact-dir",
+            str(artifact_dir),
+            "--telemetry-samples",
+            "5",
+            "--telemetry-timeout-s",
+            "15.0",
+            "--output",
+            str(evidence_path),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        cwd=str(_REPO_ROOT),
+    )
+    assert result.returncode == 0, result.stderr
+
+    result = subprocess.run(
+        [
+            _uv_executable(),
+            "run",
+            "bvlos-sim",
+            "compare",
+            str(evidence_path),
+            "--comparison-id",
+            "live-cli-test",
+            "--output",
+            str(comparison_path),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        cwd=str(_REPO_ROOT),
+    )
+    assert result.returncode == 0, result.stderr
+    report = json.loads(comparison_path.read_text(encoding="utf-8"))
+    assert report["schema_version"] == "sitl-comparison.v1"
+    assert report["summary"] in {"passed", "drifted"}

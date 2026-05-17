@@ -40,7 +40,13 @@ class GeoJsonEntry:
 
 
 GeoJsonErrorFactory = Callable[
-    [str, Path, GeoJsonLoadStage, dict[str, EstimatorContextValue], InputDocument | None],
+    [
+        str,
+        Path,
+        GeoJsonLoadStage,
+        dict[str, EstimatorContextValue],
+        InputDocument | None,
+    ],
     Exception,
 ]
 UnsupportedGeometryErrorFactory = Callable[
@@ -386,7 +392,9 @@ def _entry_from_feature(
         invalid_geometry_error=invalid_geometry_error,
     )
     return GeoJsonEntry(
-        id=str(feature.get("id") or properties.get("id") or f"{default_id_prefix}-{index}"),
+        id=str(
+            feature.get("id") or properties.get("id") or f"{default_id_prefix}-{index}"
+        ),
         index=index,
         properties=properties,
         geometry=geometry,

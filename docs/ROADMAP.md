@@ -100,8 +100,8 @@ Interfaces and contracts:
 - canonical SITL evidence bundle (`sitl-evidence.v1`)
 - canonical SITL comparison report (`sitl-comparison.v1`)
 - ArduPilot SITL telemetry artifact recorder for completed evidence bundles
-- SITL comparison report JSON and Markdown rendering through
-  `estimate --sitl-evidence` and adapter APIs
+- SITL comparison report JSON and Markdown rendering through `compare` and
+  adapter APIs
 - Markdown rendering for estimator, scenario, and uncertainty reports
 - golden fixture regression tests
 

@@ -54,12 +54,16 @@ def test_layered_wind_tailwind_faster_than_headwind() -> None:
     mission = _flat_waypoint_mission()
     vehicle = make_vehicle()
     # Two providers with opposite winds
-    tail = LayeredWindProvider([
-        WindLayer(altitude_m=0.0, wind_east_mps=5.0, wind_north_mps=0.0),
-    ])
-    head = LayeredWindProvider([
-        WindLayer(altitude_m=0.0, wind_east_mps=-5.0, wind_north_mps=0.0),
-    ])
+    tail = LayeredWindProvider(
+        [
+            WindLayer(altitude_m=0.0, wind_east_mps=5.0, wind_north_mps=0.0),
+        ]
+    )
+    head = LayeredWindProvider(
+        [
+            WindLayer(altitude_m=0.0, wind_east_mps=-5.0, wind_north_mps=0.0),
+        ]
+    )
     r_tail = estimate_mission_distance_time(mission, vehicle, wind_provider=tail)
     r_head = estimate_mission_distance_time(mission, vehicle, wind_provider=head)
     assert r_tail.total_time_s < r_head.total_time_s
@@ -84,10 +88,12 @@ def test_layered_wind_sub_segment_changes_time_vs_constant_start_sample() -> Non
     vehicle = make_vehicle()
     # Below 100m: strong headwind; at/above 100m: calm.
     # The flight path crosses the boundary at ~47% of the leg.
-    provider = LayeredWindProvider([
-        WindLayer(altitude_m=0.0, wind_east_mps=-8.0, wind_north_mps=0.0),
-        WindLayer(altitude_m=100.0, wind_east_mps=0.0, wind_north_mps=0.0),
-    ])
+    provider = LayeredWindProvider(
+        [
+            WindLayer(altitude_m=0.0, wind_east_mps=-8.0, wind_north_mps=0.0),
+            WindLayer(altitude_m=100.0, wind_east_mps=0.0, wind_north_mps=0.0),
+        ]
+    )
     # v1: single sample at start (alt=12m, strong headwind) → gs≈12 m/s whole leg
     r_v1 = estimate_mission_distance_time(mission, vehicle, wind_provider=provider)
     # v2: sub-segments capture upper-half calm air → gs=20 m/s for later segments
@@ -190,7 +196,7 @@ def test_subsegment_altitude_interpolation_uses_time_not_spatial_fraction() -> N
     mission = make_mission()
     wp = mission.route[1]
     wp.lat = 52.0
-    wp.lon = 4.05      # ~3.4 km east of home; horizontal_time >> vertical_time
+    wp.lon = 4.05  # ~3.4 km east of home; horizontal_time >> vertical_time
     wp.altitude_reference = AltitudeReference.AMSL
     wp.altitude_m = 62.0  # 50m above home (12m amsl); climb completes in ~17s
     mission.route = [wp]
@@ -201,18 +207,26 @@ def test_subsegment_altitude_interpolation_uses_time_not_spatial_fraction() -> N
     boundary_alt = 62.0  # amsl — the target altitude
 
     # Headwind only below target altitude; calm at/above it.
-    provider_boundary = LayeredWindProvider([
-        WindLayer(altitude_m=0.0, wind_east_mps=headwind, wind_north_mps=0.0),
-        WindLayer(altitude_m=boundary_alt, wind_east_mps=0.0, wind_north_mps=0.0),
-    ])
+    provider_boundary = LayeredWindProvider(
+        [
+            WindLayer(altitude_m=0.0, wind_east_mps=headwind, wind_north_mps=0.0),
+            WindLayer(altitude_m=boundary_alt, wind_east_mps=0.0, wind_north_mps=0.0),
+        ]
+    )
     # Headwind at all altitudes (worst case).
-    provider_everywhere = LayeredWindProvider([
-        WindLayer(altitude_m=0.0, wind_east_mps=headwind, wind_north_mps=0.0),
-    ])
+    provider_everywhere = LayeredWindProvider(
+        [
+            WindLayer(altitude_m=0.0, wind_east_mps=headwind, wind_north_mps=0.0),
+        ]
+    )
 
     opts = EstimationOptions(max_segment_length_m=500.0)
-    r_boundary = estimate_mission_distance_time(mission, vehicle, options=opts, wind_provider=provider_boundary)
-    r_everywhere = estimate_mission_distance_time(mission, vehicle, options=opts, wind_provider=provider_everywhere)
+    r_boundary = estimate_mission_distance_time(
+        mission, vehicle, options=opts, wind_provider=provider_boundary
+    )
+    r_everywhere = estimate_mission_distance_time(
+        mission, vehicle, options=opts, wind_provider=provider_everywhere
+    )
 
     # With time-based altitude: only sub-seg 0 samples in the headwind zone.
     # The remaining 6/7 sub-segments are at the calm target altitude.

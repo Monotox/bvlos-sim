@@ -53,7 +53,9 @@ def _energy(
                 power_source=EnergyPowerSource.HOVER_POWER,
                 energy_wh=used_wh,
             )
-        ] if used_wh > 0 else [],
+        ]
+        if used_wh > 0
+        else [],
     )
 
 
@@ -225,7 +227,9 @@ def test_divert_estimate_action_at_index_uses_legs_up_to_that_point() -> None:
     zone = _point_zone("lz-near", lat=52.001, lon=4.001)
     capacity_wh = 900.0
     leg_wh = 100.0
-    energy = _energy(battery_capacity_wh=capacity_wh, reserve_percent=25.0, used_wh=leg_wh)
+    energy = _energy(
+        battery_capacity_wh=capacity_wh, reserve_percent=25.0, used_wh=leg_wh
+    )
 
     result = compute_divert_estimate(
         action_lat=52.0,
@@ -246,7 +250,9 @@ def test_divert_estimate_at_index_zero_uses_full_battery() -> None:
     vehicle = make_vehicle()
     zone = _point_zone("lz-near", lat=52.001, lon=4.001)
     capacity_wh = 900.0
-    energy = _energy(battery_capacity_wh=capacity_wh, reserve_percent=25.0, used_wh=50.0)
+    energy = _energy(
+        battery_capacity_wh=capacity_wh, reserve_percent=25.0, used_wh=50.0
+    )
 
     result = compute_divert_estimate(
         action_lat=52.0,
@@ -463,7 +469,9 @@ def test_divert_estimate_combined_with_lz_unavailability_events() -> None:
     near_zone = _point_zone("lz-near", lat=52.001, lon=4.001)
     other_zone = _point_zone("lz-other", lat=52.002, lon=4.002)
 
-    result = run_scenario(scenario, mission, vehicle, landing_zones=[near_zone, other_zone])
+    result = run_scenario(
+        scenario, mission, vehicle, landing_zones=[near_zone, other_zone]
+    )
 
     lost_link_outcome = next(
         o for o in result.event_outcomes if o.event_id == "link-lost"

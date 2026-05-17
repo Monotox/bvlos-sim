@@ -41,7 +41,8 @@ def _build_fixture_envelope(scenario: str) -> EstimatorResultEnvelope:
         wind_provider, wind_grid_doc = load_wind_grid(wind_grid_path)
 
     result = try_estimate_mission_distance_time(
-        mission, vehicle,
+        mission,
+        vehicle,
         terrain_provider=terrain_provider,
         wind_provider=wind_provider,
     )
@@ -64,7 +65,9 @@ def _render_fixture_markdown(scenario: str) -> str:
     return render_envelope_markdown(_build_fixture_envelope(scenario))
 
 
-@pytest.mark.parametrize("scenario", ["success", "partial", "infeasible", "terrain", "spatiotemporal_wind"])
+@pytest.mark.parametrize(
+    "scenario", ["success", "partial", "infeasible", "terrain", "spatiotemporal_wind"]
+)
 def test_canonical_json_matches_golden_fixture(scenario: str) -> None:
     rendered = _render_fixture_envelope(scenario)
     expected = (FIXTURE_ROOT / scenario / "envelope.json").read_text(encoding="utf-8")
@@ -72,7 +75,9 @@ def test_canonical_json_matches_golden_fixture(scenario: str) -> None:
     assert rendered == expected
 
 
-@pytest.mark.parametrize("scenario", ["success", "partial", "infeasible", "terrain", "spatiotemporal_wind"])
+@pytest.mark.parametrize(
+    "scenario", ["success", "partial", "infeasible", "terrain", "spatiotemporal_wind"]
+)
 def test_markdown_matches_golden_fixture(scenario: str) -> None:
     rendered = _render_fixture_markdown(scenario)
     expected = (FIXTURE_ROOT / scenario / "report.md").read_text(encoding="utf-8")
@@ -152,5 +157,7 @@ def test_internal_error_envelope_uses_stable_error_type_context() -> None:
     diagnostic = envelope.diagnostics[0]
 
     assert envelope.status == EstimateStatus.ERROR
-    assert diagnostic.message == "Unexpected internal error while running estimator CLI."
+    assert (
+        diagnostic.message == "Unexpected internal error while running estimator CLI."
+    )
     assert diagnostic.context == {"error_type": "RuntimeError"}

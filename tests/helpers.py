@@ -100,4 +100,3 @@ def make_vehicle() -> VehicleProfile:
 
 def make_mission() -> MissionPlan:
     return MissionPlan.model_validate(make_mission_payload())
-

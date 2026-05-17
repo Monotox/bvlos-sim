@@ -11,7 +11,11 @@ from estimator.environment.terrain import TerrainProvider
 from estimator.environment.wind import ConstantWindProvider, WindProvider
 from estimator.execution.engine import try_estimate_mission_distance_time
 from schemas.mission import MissionPlan
-from schemas.uncertainty import NormalDistribution, UncertaintyDistribution, UncertaintyPlan
+from schemas.uncertainty import (
+    NormalDistribution,
+    UncertaintyDistribution,
+    UncertaintyPlan,
+)
 from schemas.vehicle import VehicleProfile
 
 
@@ -27,7 +31,9 @@ def _stats(values: list[float]) -> SampledOutputStats | None:
         return None
     if n == 1:
         v = values[0]
-        return SampledOutputStats(count=1, mean=v, std=0.0, min=v, p5=v, p50=v, p95=v, max=v)
+        return SampledOutputStats(
+            count=1, mean=v, std=0.0, min=v, p5=v, p50=v, p95=v, max=v
+        )
     min_val = min(values)
     max_val = max(values)
     quantiles = stats_module.quantiles(values, n=20)
@@ -84,17 +90,31 @@ def run_monte_carlo(
     failed = 0
 
     for _ in range(plan.samples):
-        sampled_wind_east = _sample(rng, params.wind_east_mps) if params.wind_east_mps else None
-        sampled_wind_north = _sample(rng, params.wind_north_mps) if params.wind_north_mps else None
-        sampled_cruise_speed = _sample(rng, params.cruise_speed_mps) if params.cruise_speed_mps else None
-        sampled_cruise_power = _sample(rng, params.cruise_power_w) if params.cruise_power_w else None
-        sampled_battery_cap = _sample(rng, params.battery_capacity_wh) if params.battery_capacity_wh else None
+        sampled_wind_east = (
+            _sample(rng, params.wind_east_mps) if params.wind_east_mps else None
+        )
+        sampled_wind_north = (
+            _sample(rng, params.wind_north_mps) if params.wind_north_mps else None
+        )
+        sampled_cruise_speed = (
+            _sample(rng, params.cruise_speed_mps) if params.cruise_speed_mps else None
+        )
+        sampled_cruise_power = (
+            _sample(rng, params.cruise_power_w) if params.cruise_power_w else None
+        )
+        sampled_battery_cap = (
+            _sample(rng, params.battery_capacity_wh)
+            if params.battery_capacity_wh
+            else None
+        )
 
         sample_wind_provider = _build_sample_wind_provider(
             sampled_wind_east, sampled_wind_north, wind_provider
         )
         sample_mission = _apply_mission_overrides(mission, sampled_cruise_speed)
-        sample_vehicle = _apply_vehicle_overrides(vehicle, sampled_cruise_power, sampled_battery_cap)
+        sample_vehicle = _apply_vehicle_overrides(
+            vehicle, sampled_cruise_power, sampled_battery_cap
+        )
 
         try:
             result = try_estimate_mission_distance_time(
@@ -118,7 +138,9 @@ def run_monte_carlo(
                 feasible_count += 1
 
     completed = plan.samples - failed
-    feasibility_rate = feasible_count / energy_sample_count if energy_sample_count > 0 else None
+    feasibility_rate = (
+        feasible_count / energy_sample_count if energy_sample_count > 0 else None
+    )
 
     return MonteCarloResult(
         uncertainty_id=plan.uncertainty_id,
@@ -152,7 +174,9 @@ def _apply_mission_overrides(
 ) -> MissionPlan:
     if cruise_speed_mps is None:
         return mission
-    new_defaults = mission.defaults.model_copy(update={"cruise_speed_mps": cruise_speed_mps})
+    new_defaults = mission.defaults.model_copy(
+        update={"cruise_speed_mps": cruise_speed_mps}
+    )
     return mission.model_copy(update={"defaults": new_defaults})
 
 

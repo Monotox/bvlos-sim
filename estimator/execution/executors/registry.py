@@ -41,7 +41,9 @@ def _validate_executor_coverage() -> None:
         missing_executor_actions = sorted(
             action.value for action in supported_actions - registered_actions
         )
-        extra_schema_actions = sorted(action.value for action in schema_actions - supported_actions)
+        extra_schema_actions = sorted(
+            action.value for action in schema_actions - supported_actions
+        )
         extra_executor_actions = sorted(
             action.value for action in registered_actions - supported_actions
         )

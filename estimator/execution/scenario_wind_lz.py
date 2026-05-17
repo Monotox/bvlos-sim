@@ -19,7 +19,12 @@ from estimator.environment.wind import (
 )
 from estimator.execution.engine import try_estimate_mission_distance_time
 from schemas.mission import MissionPlan, WindLayerConfig
-from schemas.scenario import ScenarioEvent, ScenarioEventKind, ScenarioPlan, ScenarioTriggerKind
+from schemas.scenario import (
+    ScenarioEvent,
+    ScenarioEventKind,
+    ScenarioPlan,
+    ScenarioTriggerKind,
+)
 from schemas.vehicle import VehicleProfile
 
 _WIND_CHANGE_CONVERGENCE_TOLERANCE_S = 1e-6
@@ -42,7 +47,9 @@ def build_home_point(mission: MissionPlan) -> TimelinePoint:
     )
 
 
-def _leg_to_timeline_point(leg: LegEstimate, index: int, elapsed_s: float) -> TimelinePoint:
+def _leg_to_timeline_point(
+    leg: LegEstimate, index: int, elapsed_s: float
+) -> TimelinePoint:
     return TimelinePoint(
         index=index,
         elapsed_time_s=elapsed_s,
@@ -55,12 +62,16 @@ def _leg_to_timeline_point(leg: LegEstimate, index: int, elapsed_s: float) -> Ti
     )
 
 
-def build_timeline(mission: MissionPlan, estimate: MissionEstimate) -> list[TimelinePoint]:
+def build_timeline(
+    mission: MissionPlan, estimate: MissionEstimate
+) -> list[TimelinePoint]:
     points: list[TimelinePoint] = [build_home_point(mission)]
     elapsed_s = 0.0
     for leg in estimate.legs:
         elapsed_s += leg.time_s
-        points.append(_leg_to_timeline_point(leg, index=len(points), elapsed_s=elapsed_s))
+        points.append(
+            _leg_to_timeline_point(leg, index=len(points), elapsed_s=elapsed_s)
+        )
     return points
 
 
@@ -72,14 +83,16 @@ def build_timeline(mission: MissionPlan, estimate: MissionEstimate) -> list[Time
 def _build_layered_wind_provider(
     layers: Sequence[WindLayerConfig],
 ) -> LayeredWindProvider:
-    return LayeredWindProvider([
-        WindLayer(
-            altitude_m=layer.altitude_m,
-            wind_east_mps=layer.wind_east_mps,
-            wind_north_mps=layer.wind_north_mps,
-        )
-        for layer in layers
-    ])
+    return LayeredWindProvider(
+        [
+            WindLayer(
+                altitude_m=layer.altitude_m,
+                wind_east_mps=layer.wind_east_mps,
+                wind_north_mps=layer.wind_north_mps,
+            )
+            for layer in layers
+        ]
+    )
 
 
 def _build_initial_layered_wind_provider(
@@ -145,9 +158,7 @@ def resolve_at_route_item(
     return None
 
 
-def resolve_at_elapsed_time(
-    timeline: list[TimelinePoint], elapsed_s: float
-) -> int:
+def resolve_at_elapsed_time(timeline: list[TimelinePoint], elapsed_s: float) -> int:
     for point in timeline:
         if point.elapsed_time_s >= elapsed_s:
             return point.index
@@ -164,7 +175,9 @@ def resolve_trigger_index(
     if event.trigger == ScenarioTriggerKind.AT_ROUTE_ITEM:
         return resolve_at_route_item(timeline, cast(str, event.trigger_route_item_id))
     if event.trigger == ScenarioTriggerKind.AT_ELAPSED_TIME:
-        return resolve_at_elapsed_time(timeline, cast(float, event.trigger_elapsed_time_s))
+        return resolve_at_elapsed_time(
+            timeline, cast(float, event.trigger_elapsed_time_s)
+        )
     return None
 
 
@@ -271,8 +284,8 @@ def estimate_with_wind_changes(
             landing_zones=landing_zones,
         )
 
-    resolved_base_wind_provider = (
-        base_wind_provider or build_initial_wind_provider(scenario)
+    resolved_base_wind_provider = base_wind_provider or build_initial_wind_provider(
+        scenario
     )
     estimate = _estimate_for_wind_provider(
         mission,
@@ -370,7 +383,9 @@ def apply_lz_unavailability(
         return estimate
 
     timeline = build_timeline(mission, estimate)
-    schedule = _build_lz_unavailability_schedule(lz_events, timeline, len(estimate.legs))
+    schedule = _build_lz_unavailability_schedule(
+        lz_events, timeline, len(estimate.legs)
+    )
     if not any(schedule):
         return estimate
 

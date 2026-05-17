@@ -46,20 +46,16 @@ format.
 ## Comparison Reports
 
 Comparison reports can be rendered from an existing evidence bundle with the
-`estimate` command:
+`compare` command:
 
 ```bash
-uv run bvlos-sim estimate \
-  examples/missions/pipeline_demo_001.yaml \
-  examples/vehicles/quadplane_v1.yaml \
-  --sitl-evidence /tmp/sitl-evidence.json \
+uv run bvlos-sim compare /tmp/sitl-evidence.json \
   --comparison-id pipeline-demo-sitl-comparison \
   --output /tmp/sitl-comparison.json
 ```
 
-The `estimate` command still accepts the normal `--format markdown` and
-`--output` options for this mode. Python adapter APIs expose the same report
-construction:
+The `compare` command accepts `--format markdown` and `--output`. Python
+adapter APIs expose the same report construction:
 
 ```python
 from adapters.sitl_comparison import build_sitl_comparison_report

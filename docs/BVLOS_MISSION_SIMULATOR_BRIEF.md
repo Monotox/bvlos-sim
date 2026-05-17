@@ -41,7 +41,7 @@ The current codebase includes:
 - Monte Carlo uncertainty sampling through the `sample` CLI command
 - contract-only SITL evidence bundles through the `sitl` CLI command
 - ArduPilot SITL telemetry evidence and comparison reports through adapter APIs
-  and `estimate --sitl-evidence`
+  and the `sitl` / `compare` CLI commands
 - canonical JSON envelopes and optional Markdown reports
 - CLI commands for estimator, scenario, uncertainty, and SITL contract workflows
 - golden fixture tests for stable public output contracts

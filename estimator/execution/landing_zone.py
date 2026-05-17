@@ -85,11 +85,14 @@ def evaluate_landing_zone_reachability(
     for state_index, leg in enumerate(context.route_legs):
         unavailable_at_state: frozenset[str] = (
             unavailable_zone_ids_by_state[state_index]
-            if has_availability_filter and state_index < len(unavailable_zone_ids_by_state)
+            if has_availability_filter
+            and state_index < len(unavailable_zone_ids_by_state)
             else frozenset()
         )
         all_unavailable.update(unavailable_at_state)
-        available_zones = [z for z in compiled_zones if z.zone.id not in unavailable_at_state]
+        available_zones = [
+            z for z in compiled_zones if z.zone.id not in unavailable_at_state
+        ]
         state = _evaluate_state(
             context=context,
             energy=energy,
@@ -251,9 +254,7 @@ def _evaluate_state(
         reserve_after_divert_percent=reserve_after_divert_percent,
         reserve_ok=reserve_ok,
         code=(
-            None
-            if reserve_ok
-            else FailureCode.LANDING_ZONE_REACHABLE_BUT_BELOW_RESERVE
+            None if reserve_ok else FailureCode.LANDING_ZONE_REACHABLE_BUT_BELOW_RESERVE
         ),
         message=(
             None

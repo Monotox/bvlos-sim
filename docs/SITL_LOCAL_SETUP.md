@@ -150,10 +150,7 @@ Render a comparison report from a saved evidence bundle with the normal
 `estimate` output controls:
 
 ```bash
-uv run bvlos-sim estimate \
-  examples/missions/pipeline_demo_001.yaml \
-  examples/vehicles/quadplane_v1.yaml \
-  --sitl-evidence /tmp/sitl-evidence.json \
+uv run bvlos-sim compare /tmp/sitl-evidence.json \
   --comparison-id local-sitl-comparison \
   --output /tmp/sitl-comparison.json
 ```

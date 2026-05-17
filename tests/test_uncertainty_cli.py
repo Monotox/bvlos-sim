@@ -9,8 +9,12 @@ from adapters.cli import CliExitCode, app
 from adapters.uncertainty_envelope import UNCERTAINTY_REPORT_SCHEMA_VERSION
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-EXAMPLE_UNCERTAINTY = REPO_ROOT / "examples/uncertainty/pipeline_demo_001_wind_uncertainty.yaml"
-EXAMPLE_SPEED_UNCERTAINTY = REPO_ROOT / "examples/uncertainty/pipeline_demo_001_speed_uncertainty.yaml"
+EXAMPLE_UNCERTAINTY = (
+    REPO_ROOT / "examples/uncertainty/pipeline_demo_001_wind_uncertainty.yaml"
+)
+EXAMPLE_SPEED_UNCERTAINTY = (
+    REPO_ROOT / "examples/uncertainty/pipeline_demo_001_speed_uncertainty.yaml"
+)
 
 runner = CliRunner()
 
@@ -127,6 +131,18 @@ def test_sample_command_invalid_file_exits_invalid_input(tmp_path: Path) -> None
     bad_file.write_text("not_valid: true\nschema_version: wrong.v1\n", encoding="utf-8")
     result = _run(["sample", str(bad_file)])
     assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+
+
+def test_sample_invalid_input_emits_json_on_stdout(tmp_path: Path) -> None:
+    bad_file = tmp_path / "bad.yaml"
+    bad_file.write_text("schema_version: wrong.v1\n", encoding="utf-8")
+
+    result = _run(["sample", str(bad_file)])
+
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+    payload = json.loads(result.output)
+    assert payload["command"] == "sample"
+    assert payload["status"] == "error"
 
 
 def test_sample_command_missing_file_exits_nonzero() -> None:

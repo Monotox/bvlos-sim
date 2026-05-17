@@ -1,14 +1,16 @@
 """Typer CLI adapter for estimator execution."""
 
+import json
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import IntEnum
 from pathlib import Path
-from typing import TypeVar
+from typing import NoReturn, TypeVar
 
 import typer
 from pydantic import ValidationError
 
+from adapters.ardupilot_sitl_types import ArduPilotAdapterError, ArduPilotSitlConfig
 from adapters.envelope import (
     EnvelopeInputs,
     EstimatorResultEnvelope,
@@ -40,7 +42,9 @@ from adapters.scenario_io import load_scenario, resolve_scenario_asset_path
 from adapters.scenario_markdown import render_scenario_markdown
 from adapters.sitl_comparison import render_sitl_comparison_json
 from adapters.sitl_comparison_markdown import render_sitl_comparison_markdown
+from adapters.sitl_evidence_markdown import render_sitl_evidence_markdown
 from adapters.sitl_evidence import (
+    SitlAdapter,
     build_sitl_evidence_bundle,
     compare_sitl_evidence_bundle,
     render_sitl_evidence_json,
@@ -77,10 +81,18 @@ from estimator import (
     try_estimate_mission_distance_time,
 )
 from estimator.execution.monte_carlo import run_monte_carlo
-from schemas import MissionPlan, ScenarioPlan, VehicleProfile
+from schemas import (
+    MissionPlan,
+    ScenarioPlan,
+    SitlComparisonReport,
+    SitlEvidenceBundle,
+    VehicleProfile,
+)
 
 GeoJsonAssetLoadError = GeofenceLoadError | LandingZoneLoadError
 LoadedAssetT = TypeVar("LoadedAssetT")
+ComparisonRenderer = Callable[[SitlComparisonReport], str]
+EvidenceRenderer = Callable[[SitlEvidenceBundle], str]
 
 app = typer.Typer(name="bvlos-sim", add_completion=False, no_args_is_help=True)
 
@@ -111,6 +123,17 @@ _FAILURE_KIND_STATUSES = {
 
 class OutputWriteError(OSError):
     """Raised when the CLI cannot write rendered output."""
+
+
+@dataclass(frozen=True)
+class SitlLiveOptions:
+    """Live SITL connection and artifact recording options."""
+
+    host: str
+    port: int
+    artifact_dir: Path
+    telemetry_samples: int
+    telemetry_timeout_s: float
 
 
 @dataclass
@@ -150,9 +173,34 @@ class MissionAssetBundle:
         }
 
 
+@dataclass(frozen=True)
+class SitlScenarioContext:
+    """Loaded scenario inputs and deterministic expected output for SITL."""
+
+    scenario_plan: ScenarioPlan
+    scenario_document: InputDocument
+    mission_model: MissionPlan
+    mission_document: InputDocument
+    vehicle_model: VehicleProfile
+    vehicle_document: InputDocument
+    mission_assets: MissionAssetBundle
+    scenario_envelope: ScenarioResultEnvelope
+
+
 @app.callback()
 def main() -> None:
     """BVLOS simulator command group."""
+
+
+_SITL_COMPARISON_RENDERERS: dict[OutputFormat, ComparisonRenderer] = {
+    OutputFormat.JSON: render_sitl_comparison_json,
+    OutputFormat.MARKDOWN: render_sitl_comparison_markdown,
+}
+
+_SITL_EVIDENCE_RENDERERS: dict[OutputFormat, EvidenceRenderer] = {
+    OutputFormat.JSON: render_sitl_evidence_json,
+    OutputFormat.MARKDOWN: render_sitl_evidence_markdown,
+}
 
 
 def _render_output(
@@ -182,32 +230,47 @@ def _render_uncertainty_output(
     return render_uncertainty_envelope_json(envelope)
 
 
+def _render_sitl_evidence_output(
+    output_format: OutputFormat,
+    bundle: SitlEvidenceBundle,
+) -> str:
+    return _SITL_EVIDENCE_RENDERERS[output_format](bundle)
+
+
 def _render_sitl_comparison_output(
     output_format: OutputFormat,
-    bundle_path: Path,
-    *,
-    comparison_id: str | None,
-    position_tolerance_m: float,
+    report: SitlComparisonReport,
 ) -> str:
-    bundle, _document = load_sitl_evidence_bundle(bundle_path)
-    try:
-        report = compare_sitl_evidence_bundle(
-            bundle,
-            comparison_id=comparison_id or f"{bundle.evidence_id}-comparison",
-            position_tolerance_m=position_tolerance_m,
-        )
-    except ValidationError as exc:
-        raise InputLoadError(
-            "SITL comparison report failed schema validation.",
-            input_name="sitl_comparison",
-            path=Path("--comparison-id"),
-            stage=InputLoadStage.SCHEMA_VALIDATION,
-            details=validation_error_summary(exc),
-        ) from exc
+    return _SITL_COMPARISON_RENDERERS[output_format](report)
 
-    if output_format == OutputFormat.MARKDOWN:
-        return render_sitl_comparison_markdown(report)
-    return render_sitl_comparison_json(report)
+
+def _render_cli_error(message: str, command: str) -> str:
+    return (
+        json.dumps(
+            {
+                "command": command,
+                "status": "error",
+                "message": message,
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n"
+    )
+
+
+def _echo_cli_error(message: str, command: str) -> None:
+    typer.echo(_render_cli_error(message, command), nl=False)
+
+
+def _exit_with_cli_error(
+    message: str,
+    *,
+    command: str,
+    code: CliExitCode,
+) -> NoReturn:
+    _echo_cli_error(message, command)
+    raise typer.Exit(code=int(code))
 
 
 def _write_output(rendered: str, output: Path | None) -> None:
@@ -283,15 +346,22 @@ def _parse_wind_layers(raw: list[str]) -> list[WindLayer]:
     return [_parse_wind_layer_entry(i, entry) for i, entry in enumerate(raw)]
 
 
+def _has_estimation_options(
+    fidelity: FidelityMode | None,
+    max_segment_length_m: float | None,
+) -> bool:
+    return (fidelity, max_segment_length_m) != (None, None)
+
+
 def _build_estimation_options(
     fidelity: FidelityMode | None,
     max_segment_length_m: float | None,
 ) -> EstimationOptions | None:
-    if fidelity is None and max_segment_length_m is None:
+    if not _has_estimation_options(fidelity, max_segment_length_m):
         return None
     try:
         return EstimationOptions(
-            fidelity=FidelityMode.V1 if fidelity is None else fidelity,
+            fidelity=fidelity or FidelityMode.V1,
             max_segment_length_m=max_segment_length_m,
         )
     except ValidationError as exc:
@@ -357,7 +427,7 @@ def _envelope_inputs_for_static_asset_error(
     vehicle_document: InputDocument | None,
     mission_assets: MissionAssetBundle,
 ) -> EnvelopeInputs | None:
-    if mission_document is None or vehicle_document is None:
+    if None in (mission_document, vehicle_document):
         return None
 
     return EnvelopeInputs(
@@ -376,6 +446,22 @@ def _envelope_inputs_for_static_asset_error(
         terrain=mission_assets.terrain_document,
         wind_grid=mission_assets.wind_grid_document,
     )
+
+
+def _should_retry_requested_output(
+    *,
+    retry_requested_output: bool,
+    output: Path | None,
+) -> bool:
+    return all((retry_requested_output, output is not None))
+
+
+def _should_write_internal_error_to_stdout(
+    *,
+    retry_requested_output: bool,
+    output: Path | None,
+) -> bool:
+    return any((retry_requested_output, output is not None))
 
 
 def _input_error_for_geojson_asset_error(
@@ -406,7 +492,10 @@ def _write_internal_error_envelope(
     rendered = _render_output(output_format, envelope)
 
     # For unexpected exceptions, retry the originally requested output path first.
-    if retry_requested_output and output is not None:
+    if _should_retry_requested_output(
+        retry_requested_output=retry_requested_output,
+        output=output,
+    ):
         try:
             _write_output(rendered, output)
             return
@@ -415,7 +504,10 @@ def _write_internal_error_envelope(
 
     # Fall back to stdout: either output was stdout all along (output=None,
     # retry=True), or a file write failed and we degrade to stdout.
-    if retry_requested_output or output is not None:
+    if _should_write_internal_error_to_stdout(
+        retry_requested_output=retry_requested_output,
+        output=output,
+    ):
         try:
             _write_output(rendered, None)
             return
@@ -431,28 +523,6 @@ def estimate(
     vehicle: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True),
     format: OutputFormat = typer.Option(OutputFormat.JSON, "--format"),
     output: Path | None = typer.Option(None, "--output", "-o"),
-    sitl_evidence: Path | None = typer.Option(
-        None,
-        "--sitl-evidence",
-        exists=True,
-        readable=True,
-        resolve_path=True,
-        help=(
-            "Render a SITL comparison report from an existing sitl-evidence.v1 "
-            "bundle instead of an estimator envelope."
-        ),
-    ),
-    comparison_id: str | None = typer.Option(
-        None,
-        "--comparison-id",
-        help="Comparison report identifier when --sitl-evidence is provided.",
-    ),
-    position_tolerance_m: float = typer.Option(
-        500.0,
-        "--position-tolerance-m",
-        min=0.0,
-        help="Position proximity tolerance in metres for SITL comparison reports.",
-    ),
     wind_layer: list[str] | None = typer.Option(
         None,
         "--wind-layer",
@@ -476,25 +546,13 @@ def estimate(
         ),
     ),
 ) -> None:
-    """Run the estimator or render a SITL comparison from evidence."""
+    """Run deterministic mission estimation and static feasibility checks."""
 
     mission_document: InputDocument | None = None
     vehicle_document: InputDocument | None = None
     mission_assets = MissionAssetBundle()
     envelope_inputs: EnvelopeInputs | None = None
     try:
-        if sitl_evidence is not None:
-            _write_output(
-                _render_sitl_comparison_output(
-                    format,
-                    sitl_evidence,
-                    comparison_id=comparison_id,
-                    position_tolerance_m=position_tolerance_m,
-                ),
-                output,
-            )
-            raise typer.Exit(code=int(CliExitCode.SUCCESS))
-
         options = _build_estimation_options(fidelity, max_segment_length_m)
         wind_provider = (
             LayeredWindProvider(_parse_wind_layers(wind_layer)) if wind_layer else None
@@ -594,6 +652,62 @@ def estimate(
             retry_requested_output=True,
         )
         raise typer.Exit(code=int(CliExitCode.INTERNAL_ERROR)) from exc
+
+
+@app.command()
+def compare(
+    evidence: Path = typer.Argument(
+        ...,
+        exists=True,
+        readable=True,
+        resolve_path=True,
+        help="Path to a sitl-evidence.v1 JSON bundle.",
+    ),
+    comparison_id: str | None = typer.Option(
+        None,
+        "--comparison-id",
+        help="Stable comparison report identifier. Defaults to <evidence_id>-comparison.",
+    ),
+    position_tolerance_m: float = typer.Option(
+        500.0,
+        "--position-tolerance-m",
+        min=0.0,
+        help="Position proximity tolerance in metres.",
+    ),
+    format: OutputFormat = typer.Option(OutputFormat.JSON, "--format"),
+    output: Path | None = typer.Option(None, "--output", "-o"),
+) -> None:
+    """Compare a SITL evidence bundle against its embedded scenario expectations."""
+
+    try:
+        bundle, _document = load_sitl_evidence_bundle(evidence)
+        report = compare_sitl_evidence_bundle(
+            bundle,
+            comparison_id=comparison_id or f"{bundle.evidence_id}-comparison",
+            position_tolerance_m=position_tolerance_m,
+        )
+        _write_output(_render_sitl_comparison_output(format, report), output)
+        raise typer.Exit(code=int(CliExitCode.SUCCESS))
+    except (InputLoadError, ValidationError) as exc:
+        _exit_with_cli_error(
+            str(exc),
+            command="compare",
+            code=CliExitCode.INVALID_INPUT,
+        )
+    except OutputWriteError as exc:
+        _exit_with_cli_error(
+            str(exc),
+            command="compare",
+            code=CliExitCode.INTERNAL_ERROR,
+        )
+    except typer.Exit:
+        raise
+    except Exception as exc:
+        _exit_with_cli_error(
+            str(exc),
+            command="compare",
+            code=CliExitCode.INTERNAL_ERROR,
+        )
 
 
 def _emit_scenario_internal_error(
@@ -831,16 +945,151 @@ def sample(
         _write_output(_render_uncertainty_output(format, envelope), output)
         raise typer.Exit(code=int(CliExitCode.SUCCESS))
     except InputLoadError as exc:
-        typer.echo(f"Input error: {exc}", err=True)
-        raise typer.Exit(code=int(CliExitCode.INVALID_INPUT)) from exc
+        _exit_with_cli_error(
+            str(exc),
+            command="sample",
+            code=CliExitCode.INVALID_INPUT,
+        )
     except OutputWriteError as exc:
-        typer.echo(f"Output write error: {exc}", err=True)
-        raise typer.Exit(code=int(CliExitCode.INTERNAL_ERROR)) from exc
+        _exit_with_cli_error(
+            str(exc),
+            command="sample",
+            code=CliExitCode.INTERNAL_ERROR,
+        )
     except typer.Exit:
         raise
     except Exception as exc:
-        typer.echo(f"Internal error: {exc}", err=True)
-        raise typer.Exit(code=int(CliExitCode.INTERNAL_ERROR)) from exc
+        _exit_with_cli_error(
+            str(exc),
+            command="sample",
+            code=CliExitCode.INTERNAL_ERROR,
+        )
+
+
+def _resolve_sitl_live_options(
+    *,
+    live: bool,
+    host: str,
+    port: int,
+    artifact_dir: Path | None,
+    telemetry_samples: int,
+    telemetry_timeout_s: float,
+) -> SitlLiveOptions | None:
+    if not live:
+        return None
+    if artifact_dir is None:
+        _exit_with_cli_error(
+            "--artifact-dir is required when --live is specified.",
+            command="sitl",
+            code=CliExitCode.INVALID_INPUT,
+        )
+    return SitlLiveOptions(
+        host=host,
+        port=port,
+        artifact_dir=artifact_dir,
+        telemetry_samples=telemetry_samples,
+        telemetry_timeout_s=telemetry_timeout_s,
+    )
+
+
+def _load_sitl_scenario_context(scenario_file: Path) -> SitlScenarioContext:
+    scenario_plan, scenario_document = load_scenario(scenario_file)
+    mission_path, vehicle_path = _resolve_scenario_input_paths(
+        scenario_plan,
+        scenario_file=scenario_file,
+    )
+    mission_model, mission_document = load_mission(mission_path)
+    vehicle_model, vehicle_document = load_vehicle(vehicle_path)
+    mission_assets = MissionAssetBundle()
+    _populate_mission_assets(
+        mission_assets,
+        mission_model=mission_model,
+        mission_document=mission_document,
+    )
+    scenario_result = _run_scenario_with_assets(
+        scenario_plan=scenario_plan,
+        mission_model=mission_model,
+        vehicle_model=vehicle_model,
+        mission_assets=mission_assets,
+    )
+    scenario_envelope = _build_scenario_result_envelope(
+        result=scenario_result,
+        scenario_document=scenario_document,
+        mission_document=mission_document,
+        vehicle_document=vehicle_document,
+        mission_assets=mission_assets,
+    )
+    return SitlScenarioContext(
+        scenario_plan=scenario_plan,
+        scenario_document=scenario_document,
+        mission_model=mission_model,
+        mission_document=mission_document,
+        vehicle_model=vehicle_model,
+        vehicle_document=vehicle_document,
+        mission_assets=mission_assets,
+        scenario_envelope=scenario_envelope,
+    )
+
+
+def _record_live_sitl_artifacts(
+    mission_model: MissionPlan,
+    options: SitlLiveOptions,
+) -> SitlAdapter:
+    from adapters.ardupilot_sitl import ArduPilotSitlAdapter
+
+    options.artifact_dir.mkdir(parents=True, exist_ok=True)
+    adapter = ArduPilotSitlAdapter(
+        ArduPilotSitlConfig(host=options.host, port=options.port)
+    )
+    adapter.start_recording(options.artifact_dir)
+    try:
+        adapter.connect()
+        adapter.upload_mission(mission_model)
+        adapter.record_telemetry(
+            sample_count=options.telemetry_samples,
+            timeout_s=options.telemetry_timeout_s,
+        )
+    finally:
+        adapter.disconnect()
+    return adapter
+
+
+def _sitl_adapter_for_options(
+    context: SitlScenarioContext,
+    live_options: SitlLiveOptions | None,
+) -> SitlAdapter | None:
+    if live_options is None:
+        return None
+    return _record_live_sitl_artifacts(context.mission_model, live_options)
+
+
+def _sitl_evidence_id(
+    context: SitlScenarioContext,
+    live_options: SitlLiveOptions | None,
+) -> str:
+    suffix = "contract" if live_options is None else "live"
+    return f"{context.scenario_plan.scenario_id}-sitl-{suffix}"
+
+
+def _build_sitl_evidence_from_context(
+    context: SitlScenarioContext,
+    *,
+    adapter: SitlAdapter | None,
+    live_options: SitlLiveOptions | None,
+) -> SitlEvidenceBundle:
+    return build_sitl_evidence_bundle(
+        evidence_id=_sitl_evidence_id(context, live_options),
+        scenario_envelope=context.scenario_envelope,
+        scenario_document=context.scenario_document,
+        mission_document=context.mission_document,
+        vehicle_document=context.vehicle_document,
+        vehicle=context.vehicle_model,
+        geofence_document=context.mission_assets.geofence_document,
+        landing_zone_document=context.mission_assets.landing_zone_document,
+        terrain_document=context.mission_assets.terrain_document,
+        wind_grid_document=context.mission_assets.wind_grid_document,
+        adapter=adapter,
+    )
 
 
 @app.command()
@@ -849,66 +1098,96 @@ def sitl(
         ..., exists=True, readable=True, resolve_path=True
     ),
     output: Path | None = typer.Option(None, "--output", "-o"),
+    format: OutputFormat = typer.Option(OutputFormat.JSON, "--format"),
+    live: bool = typer.Option(
+        False,
+        "--live",
+        help="Connect to a running ArduPilot SITL and record telemetry.",
+    ),
+    host: str = typer.Option(
+        "127.0.0.1",
+        "--host",
+        help="ArduPilot SITL host. Used only with --live.",
+    ),
+    port: int = typer.Option(
+        5760,
+        "--port",
+        help="ArduPilot SITL TCP port. Used only with --live.",
+    ),
+    artifact_dir: Path | None = typer.Option(
+        None,
+        "--artifact-dir",
+        help=(
+            "Directory for SITL artifact files (telemetry.json, command_log.json, etc.). "
+            "Required with --live. Created if it does not exist."
+        ),
+    ),
+    telemetry_samples: int = typer.Option(
+        20,
+        "--telemetry-samples",
+        min=1,
+        help="Number of MAVLink messages to record. Used only with --live.",
+    ),
+    telemetry_timeout_s: float = typer.Option(
+        30.0,
+        "--telemetry-timeout-s",
+        min=1.0,
+        help="Per-message receive timeout in seconds. Used only with --live.",
+    ),
 ) -> None:
-    """Build a contract-only SITL evidence bundle for an existing scenario."""
+    """Build a SITL evidence bundle. Add --live to run against ArduPilot SITL."""
 
+    live_options = _resolve_sitl_live_options(
+        live=live,
+        host=host,
+        port=port,
+        artifact_dir=artifact_dir,
+        telemetry_samples=telemetry_samples,
+        telemetry_timeout_s=telemetry_timeout_s,
+    )
     try:
-        scenario_plan, scenario_document = load_scenario(scenario_file)
-        mission_path, vehicle_path = _resolve_scenario_input_paths(
-            scenario_plan,
-            scenario_file=scenario_file,
+        context = _load_sitl_scenario_context(scenario_file)
+        evidence = _build_sitl_evidence_from_context(
+            context,
+            adapter=_sitl_adapter_for_options(context, live_options),
+            live_options=live_options,
         )
-        mission_model, mission_document = load_mission(mission_path)
-        vehicle_model, vehicle_document = load_vehicle(vehicle_path)
-        mission_assets = MissionAssetBundle()
-        _populate_mission_assets(
-            mission_assets,
-            mission_model=mission_model,
-            mission_document=mission_document,
-        )
-        scenario_result = _run_scenario_with_assets(
-            scenario_plan=scenario_plan,
-            mission_model=mission_model,
-            vehicle_model=vehicle_model,
-            mission_assets=mission_assets,
-        )
-        scenario_envelope = _build_scenario_result_envelope(
-            result=scenario_result,
-            scenario_document=scenario_document,
-            mission_document=mission_document,
-            vehicle_document=vehicle_document,
-            mission_assets=mission_assets,
-        )
-        evidence = build_sitl_evidence_bundle(
-            evidence_id=f"{scenario_plan.scenario_id}-sitl-contract",
-            scenario_envelope=scenario_envelope,
-            scenario_document=scenario_document,
-            mission_document=mission_document,
-            vehicle_document=vehicle_document,
-            vehicle=vehicle_model,
-            geofence_document=mission_assets.geofence_document,
-            landing_zone_document=mission_assets.landing_zone_document,
-            terrain_document=mission_assets.terrain_document,
-            wind_grid_document=mission_assets.wind_grid_document,
-        )
-        _write_output(render_sitl_evidence_json(evidence), output)
+        _write_output(_render_sitl_evidence_output(format, evidence), output)
         raise typer.Exit(code=int(CliExitCode.SUCCESS))
     except InputLoadError as exc:
-        typer.echo(f"Input error: {exc}", err=True)
-        raise typer.Exit(code=int(CliExitCode.INVALID_INPUT)) from exc
+        _exit_with_cli_error(
+            str(exc),
+            command="sitl",
+            code=CliExitCode.INVALID_INPUT,
+        )
     except (
         GeofenceLoadError,
         LandingZoneLoadError,
         TerrainGridLoadError,
         WindGridLoadError,
     ) as exc:
-        typer.echo(f"Input error: {exc}", err=True)
-        raise typer.Exit(code=int(CliExitCode.INVALID_INPUT)) from exc
+        _exit_with_cli_error(
+            str(exc),
+            command="sitl",
+            code=CliExitCode.INVALID_INPUT,
+        )
+    except ArduPilotAdapterError as exc:
+        _exit_with_cli_error(
+            f"SITL adapter error: {exc}",
+            command="sitl",
+            code=CliExitCode.INTERNAL_ERROR,
+        )
     except OutputWriteError as exc:
-        typer.echo(f"Output write error: {exc}", err=True)
-        raise typer.Exit(code=int(CliExitCode.INTERNAL_ERROR)) from exc
+        _exit_with_cli_error(
+            str(exc),
+            command="sitl",
+            code=CliExitCode.INTERNAL_ERROR,
+        )
     except typer.Exit:
         raise
     except Exception as exc:
-        typer.echo(f"Internal error: {exc}", err=True)
-        raise typer.Exit(code=int(CliExitCode.INTERNAL_ERROR)) from exc
+        _exit_with_cli_error(
+            str(exc),
+            command="sitl",
+            code=CliExitCode.INTERNAL_ERROR,
+        )

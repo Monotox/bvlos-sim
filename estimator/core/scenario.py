@@ -54,7 +54,9 @@ class DivertRouteEstimate(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    target_zone_id: str = Field(description="ID of the landing zone targeted by the divert.")
+    target_zone_id: str = Field(
+        description="ID of the landing zone targeted by the divert."
+    )
     distance_m: float = Field(
         description=(
             "Divert path distance to the target zone in metres. "
@@ -62,7 +64,9 @@ class DivertRouteEstimate(BaseModel):
             "and vehicle turn radius are available; otherwise straight-line geodesic distance."
         )
     )
-    time_s: float = Field(description="Estimated divert transit time in seconds at cruise TAS.")
+    time_s: float = Field(
+        description="Estimated divert transit time in seconds at cruise TAS."
+    )
     energy_wh: float = Field(description="Estimated divert energy consumption in Wh.")
     energy_remaining_at_action_wh: float = Field(
         description="Battery energy remaining at the action execution point in Wh."
@@ -76,7 +80,9 @@ class DivertRouteEstimate(BaseModel):
     reserve_threshold_wh: float = Field(
         description="Reserve threshold in Wh that the divert must not breach."
     )
-    is_feasible: bool = Field(description="True if the divert reserve exceeds the reserve threshold.")
+    is_feasible: bool = Field(
+        description="True if the divert reserve exceeds the reserve threshold."
+    )
     infeasible_reason: str | None = Field(
         default=None,
         description="Human-readable reason when is_feasible is False.",
@@ -116,7 +122,9 @@ class CommsLinkPolicyOutcome(BaseModel):
         description="Timeline index of the nearest point at or after action_at_elapsed_s."
     )
     action_lat: float = Field(description="Vehicle latitude at action execution point.")
-    action_lon: float = Field(description="Vehicle longitude at action execution point.")
+    action_lon: float = Field(
+        description="Vehicle longitude at action execution point."
+    )
     action_altitude_amsl_m: float = Field(
         description="Vehicle altitude AMSL in metres at action execution point."
     )
