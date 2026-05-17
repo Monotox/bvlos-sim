@@ -463,14 +463,20 @@ def test_sitl_comparison_report_rejects_unknown_fields(tmp_path: Path) -> None:
         SitlComparisonReport.model_validate({**payload, "unexpected": True})
 
 
-def test_contract_only_bundle_skipped_dimensions_cover_telemetry_dependent_list() -> None:
+def test_contract_only_bundle_skipped_dimensions_cover_telemetry_dependent_list() -> (
+    None
+):
     from adapters.sitl.comparison_dimensions import _TELEMETRY_DEPENDENT_DIMENSIONS
 
     report = build_sitl_comparison_report(
         comparison_id="comparison-report",
         bundle=_contract_only_bundle(),
     )
-    skipped = {item.dimension for item in report.items if item.outcome == SitlComparisonOutcome.SKIPPED}
+    skipped = {
+        item.dimension
+        for item in report.items
+        if item.outcome == SitlComparisonOutcome.SKIPPED
+    }
 
     assert set(_TELEMETRY_DEPENDENT_DIMENSIONS) <= skipped
 

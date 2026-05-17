@@ -3,6 +3,7 @@
 import math
 
 import pytest
+from pyproj import Geod
 
 from estimator.math.dubins import (
     _ls_path_length,
@@ -14,6 +15,9 @@ from estimator.core.results import EnergyEstimate
 from estimator.core.landing_zone import LandingZone
 from tests.helpers import make_mission, make_vehicle
 
+_GEOD = Geod(ellps="WGS84")
+PointTuple = tuple[float, float]
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -23,6 +27,51 @@ from tests.helpers import make_mission, make_vehicle
 def _point_zone(zone_id: str, *, lat: float, lon: float) -> LandingZone:
     return LandingZone.model_validate(
         {"id": zone_id, "geometry": {"points": [{"lat": lat, "lon": lon}]}}
+    )
+
+
+def _polygon_zone(zone_id: str, points: list[tuple[float, float]]) -> LandingZone:
+    return LandingZone.model_validate(
+        {
+            "id": zone_id,
+            "geometry": {
+                "polygons": [
+                    {
+                        "exterior": [{"lat": lat, "lon": lon} for lat, lon in points],
+                    }
+                ]
+            },
+        }
+    )
+
+
+def _offset_point(lat: float, lon: float, east_m: float, north_m: float) -> PointTuple:
+    distance_m = math.hypot(east_m, north_m)
+    azimuth_deg = math.degrees(math.atan2(east_m, north_m))
+    target_lon, target_lat, _ = _GEOD.fwd(lon, lat, azimuth_deg, distance_m)
+    return target_lat, target_lon
+
+
+def _planar_dubins_distance(
+    *,
+    start_lat: float,
+    start_lon: float,
+    target_lat: float,
+    target_lon: float,
+    heading_deg: float,
+    turn_radius_m: float,
+) -> float:
+    fwd_az, _, dist_m = _GEOD.inv(start_lon, start_lat, target_lon, target_lat)
+    bearing_rad = math.radians(fwd_az)
+    target_e = dist_m * math.sin(bearing_rad)
+    target_n = dist_m * math.cos(bearing_rad)
+    return dubins_path_to_point_m(
+        0.0,
+        0.0,
+        math.radians(heading_deg),
+        target_e,
+        target_n,
+        turn_radius_m,
     )
 
 
@@ -321,6 +370,164 @@ def test_divert_no_turn_radius_falls_back_to_straight_line() -> None:
     )
 
     assert result.distance_m == pytest.approx(result_no_heading.distance_m, rel=1e-9)
+
+
+# ---------------------------------------------------------------------------
+# Geodesic Dubins
+# ---------------------------------------------------------------------------
+
+
+def test_geodesic_dubins_point_zone_equals_planar_for_short_distance() -> None:
+    mission = make_mission()
+    vehicle = make_vehicle()
+    turn_radius_m = vehicle.performance.turn_radius_m
+    assert turn_radius_m is not None
+    action_lat = 52.0
+    action_lon = 4.0
+    target_lat, target_lon = _offset_point(action_lat, action_lon, 250.0, 433.0)
+    zone = _point_zone("lz-short", lat=target_lat, lon=target_lon)
+    heading_deg = 30.0
+
+    result = compute_divert_estimate(
+        action_lat=action_lat,
+        action_lon=action_lon,
+        action_at_timeline_index=0,
+        target_zone_id="lz-short",
+        landing_zones=[zone],
+        energy=_energy(),
+        mission=mission,
+        vehicle=vehicle,
+        entry_heading_deg=heading_deg,
+    )
+
+    expected = _planar_dubins_distance(
+        start_lat=action_lat,
+        start_lon=action_lon,
+        target_lat=target_lat,
+        target_lon=target_lon,
+        heading_deg=heading_deg,
+        turn_radius_m=turn_radius_m,
+    )
+    assert result.distance_m == pytest.approx(expected, rel=0.01)
+
+
+def test_geodesic_dubins_polygon_zone_samples_boundary() -> None:
+    mission = make_mission()
+    vehicle = make_vehicle()
+    action_lat = 52.0
+    action_lon = 4.0
+    center_lat, center_lon = _offset_point(action_lat, action_lon, 0.0, 2_000.0)
+    boundary_offsets = [
+        (-250.0, 1_750.0),
+        (250.0, 1_750.0),
+        (250.0, 2_250.0),
+        (-250.0, 2_250.0),
+        (-250.0, 1_750.0),
+    ]
+    polygon = _polygon_zone(
+        "lz-square",
+        [
+            _offset_point(action_lat, action_lon, east, north)
+            for east, north in boundary_offsets
+        ],
+    )
+    centroid = _point_zone("lz-centroid", lat=center_lat, lon=center_lon)
+
+    boundary_result = compute_divert_estimate(
+        action_lat=action_lat,
+        action_lon=action_lon,
+        action_at_timeline_index=0,
+        target_zone_id="lz-square",
+        landing_zones=[polygon],
+        energy=_energy(),
+        mission=mission,
+        vehicle=vehicle,
+        entry_heading_deg=0.0,
+    )
+    centroid_result = compute_divert_estimate(
+        action_lat=action_lat,
+        action_lon=action_lon,
+        action_at_timeline_index=0,
+        target_zone_id="lz-centroid",
+        landing_zones=[centroid],
+        energy=_energy(),
+        mission=mission,
+        vehicle=vehicle,
+        entry_heading_deg=0.0,
+    )
+
+    assert boundary_result.distance_m < centroid_result.distance_m
+
+
+def test_geodesic_dubins_vehicle_inside_zone_returns_zero() -> None:
+    mission = make_mission()
+    vehicle = make_vehicle()
+    action_lat = 52.0
+    action_lon = 4.0
+    boundary_offsets = [
+        (-250.0, -250.0),
+        (250.0, -250.0),
+        (250.0, 250.0),
+        (-250.0, 250.0),
+        (-250.0, -250.0),
+    ]
+    polygon = _polygon_zone(
+        "lz-around",
+        [
+            _offset_point(action_lat, action_lon, east, north)
+            for east, north in boundary_offsets
+        ],
+    )
+
+    result = compute_divert_estimate(
+        action_lat=action_lat,
+        action_lon=action_lon,
+        action_at_timeline_index=0,
+        target_zone_id="lz-around",
+        landing_zones=[polygon],
+        energy=_energy(),
+        mission=mission,
+        vehicle=vehicle,
+        entry_heading_deg=90.0,
+    )
+
+    assert result.distance_m == 0.0
+
+
+def test_geodesic_dubins_heading_toward_target_approximates_geodesic() -> None:
+    mission = make_mission()
+    vehicle = make_vehicle()
+    action_lat = 52.0
+    action_lon = 4.0
+    target_lat, target_lon = _offset_point(action_lat, action_lon, 0.0, 10_000.0)
+    zone = _point_zone("lz-north", lat=target_lat, lon=target_lon)
+
+    straight_result = compute_divert_estimate(
+        action_lat=action_lat,
+        action_lon=action_lon,
+        action_at_timeline_index=0,
+        target_zone_id="lz-north",
+        landing_zones=[zone],
+        energy=_energy(),
+        mission=mission,
+        vehicle=vehicle,
+        entry_heading_deg=None,
+    )
+    dubins_result = compute_divert_estimate(
+        action_lat=action_lat,
+        action_lon=action_lon,
+        action_at_timeline_index=0,
+        target_zone_id="lz-north",
+        landing_zones=[zone],
+        energy=_energy(),
+        mission=mission,
+        vehicle=vehicle,
+        entry_heading_deg=0.0,
+    )
+
+    assert dubins_result.distance_m == pytest.approx(
+        straight_result.distance_m, rel=0.01
+    )
 
 
 # ---------------------------------------------------------------------------

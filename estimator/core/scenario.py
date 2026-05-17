@@ -89,12 +89,7 @@ class DivertRouteEstimate(BaseModel):
     )
     warnings: list[WarningCode] = Field(
         default_factory=list,
-        description=(
-            "Structured diagnostic warnings for this divert estimate. "
-            "DUBINS_DIVERT_PLANAR_APPROXIMATION_LIMIT is emitted when the geodesic "
-            "distance to the target zone exceeds 50 km and the Dubins planar "
-            "approximation may accumulate meaningful error."
-        ),
+        description="Structured diagnostic warnings for this divert estimate.",
     )
 
 

@@ -109,11 +109,11 @@ Interfaces and contracts:
 
 Estimator limitations:
 
-- no known path-planning model gaps remaining after Ticket 039
+- no known path-planning model gaps remaining after Ticket 044
 
 Scenario limitations:
 
-- divert Dubins path uses a planar East-North approximation; a `DUBINS_DIVERT_PLANAR_APPROXIMATION_LIMIT` warning is emitted when geodesic divert distance exceeds 50 km; not accurate for routes spanning hundreds of kilometres — Ticket 044
+- no known scenario path-planning model gaps remaining after Ticket 044
 
 Platform limitations:
 
@@ -297,25 +297,23 @@ Delivered:
   length through all waypoints
 - takeoff and landing-transit legs report `path_distance_m = vertical_distance_m`
   (3D slant path for purely vertical legs) in all fidelity modes
-- `DUBINS_DIVERT_PLANAR_APPROXIMATION_LIMIT` warning added to
-  `DivertRouteEstimate.warnings` when geodesic divert distance exceeds 50 km
+- `DUBINS_DIVERT_PLANAR_APPROXIMATION_LIMIT` warning added as an interim
+  diagnostic before Ticket 044 retired the warning emission
 
 Exit criterion: fidelity v2 total path distance equals the sum of
 offset-adjusted transit legs plus turn arc lengths; takeoff and land legs
-report correct 3D slant path distance; a diagnostic warning is emitted when
-Dubins divert distance exceeds the planar approximation accuracy limit.
+report correct 3D slant path distance.
 
 ### Phase 4.11: Geodesic Dubins Divert Path
 
-Status: planned.
+Status: implemented.
 
 Scope:
 
 - Ticket 044: geodesic Dubins divert path
-- replace the planar East-North Dubins solver with a geodesic formulation
-  accurate for divert distances up to hundreds of kilometres
-- remove or retire the `DUBINS_DIVERT_PLANAR_APPROXIMATION_LIMIT` warning once
-  the geodesic solver is operative for all distances
+- replaced the single-point planar Dubins target projection with geodesic-aware
+  target geometry boundary sampling
+- retired the `DUBINS_DIVERT_PLANAR_APPROXIMATION_LIMIT` warning emission
 
 Exit criterion: divert distance is accurate within 0.5 % of the true Dubins
 path length on the WGS-84 ellipsoid for routes up to 500 km; the planar limit

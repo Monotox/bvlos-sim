@@ -38,7 +38,7 @@
 - Static landing-zone reachability uses straight-line geodesic distance and deterministic cruise-power divert energy.
 - Landing-zone v1 excludes terrain, obstacles, dynamic availability, suitability scoring, and comms dependency.
 - Dynamic landing-zone availability is a scenario-only feature; availability changes are resolved deterministically against the scenario timeline and do not affect the estimate CLI.
-- Divert route estimates use Dubins path distance (bank-angle-constrained arc + straight) when entry heading and vehicle turn radius are known; otherwise straight-line geodesic distance. TAS-based transit time is used without wind correction or geofence intersection on the divert leg. The Dubins distance uses a planar East-North approximation; a DUBINS_DIVERT_PLANAR_APPROXIMATION_LIMIT warning is emitted when the geodesic divert distance exceeds 50 km.
+- Divert route estimates use geodesic-aware Dubins path distance (bank-angle-constrained arc + straight sampled to target geometry boundary points) when entry heading and vehicle turn radius are known; otherwise straight-line geodesic distance. TAS-based transit time is used without wind correction or geofence intersection on the divert leg.
 - Monte Carlo uncertainty sampling uses a seeded pseudo-random number generator; results are reproducible for a given seed, sample count, and uncertainty parameters. Wind sampling overrides any mission wind provider with a ConstantWindProvider per sample.
 
 ## Provenance
@@ -54,8 +54,8 @@
 
 ## Estimate Summary
 
-- Horizontal distance m: `176.76731936998286`
+- Horizontal distance m: `176.76731937210454`
 - Vertical distance m: `120.0`
-- Path distance m: `176.76731936998286`
+- Path distance m: `176.76731937210454`
 - Time s: `40.0`
 - Legs: `1`
