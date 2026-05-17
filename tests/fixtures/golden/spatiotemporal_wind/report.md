@@ -31,7 +31,7 @@
 - Static landing-zone reachability uses straight-line geodesic distance and deterministic cruise-power divert energy.
 - Landing-zone v1 excludes terrain, obstacles, dynamic availability, suitability scoring, and comms dependency.
 - Dynamic landing-zone availability is a scenario-only feature; availability changes are resolved deterministically against the scenario timeline and do not affect the estimate CLI.
-- Divert route estimates use Dubins path distance (bank-angle-constrained arc + straight) when entry heading and vehicle turn radius are known; otherwise straight-line geodesic distance. TAS-based transit time is used without wind correction or geofence intersection on the divert leg. The Dubins distance uses a planar East-North approximation; a DUBINS_DIVERT_PLANAR_APPROXIMATION_LIMIT warning is emitted when the geodesic divert distance exceeds 50 km.
+- Divert route estimates use geodesic-aware Dubins path distance (bank-angle-constrained arc + straight sampled to target geometry boundary points) when entry heading and vehicle turn radius are known; otherwise straight-line geodesic distance. TAS-based transit time is used without wind correction or geofence intersection on the divert leg.
 - Monte Carlo uncertainty sampling uses a seeded pseudo-random number generator; results are reproducible for a given seed, sample count, and uncertainty parameters. Wind sampling overrides any mission wind provider with a ConstantWindProvider per sample.
 
 ## Provenance
@@ -48,20 +48,20 @@
 
 ## Estimate Summary
 
-- Horizontal distance m: `707.0645448969212`
+- Horizontal distance m: `707.0645448997484`
 - Vertical distance m: `240.0`
-- Path distance m: `787.0645448969212`
-- Time s: `169.06024195158028`
+- Path distance m: `787.0645448997484`
+- Time s: `169.06024195159733`
 - Legs: `5`
 
 ## Energy Feasibility
 
 - Feasible: `true`
-- Total energy Wh: `41.410308021725314`
+- Total energy Wh: `41.410308021727445`
 - Battery capacity Wh: `900.0`
 - Usable energy Wh: `675.0`
 - Reserve threshold percent: `25.0`
 - Reserve threshold Wh: `225.0`
-- Reserve at landing Wh: `858.5896919782747`
-- Reserve at landing percent: `95.39885466425274`
+- Reserve at landing Wh: `858.5896919782725`
+- Reserve at landing percent: `95.39885466425251`
 - Energy legs: `5`

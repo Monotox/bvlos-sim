@@ -3,7 +3,7 @@
 Covers:
 - Fidelity v2 tangent-point offset subtraction on transit legs adjacent to turn arcs
 - 3D slant path distance for vertical-only (takeoff/landing-transit) legs
-- Dubins divert planar approximation limit warning
+- Retired Dubins divert planar approximation limit warning
 """
 
 import math
@@ -18,7 +18,6 @@ from estimator import (
     LegPhase,
     estimate_mission_distance_time,
 )
-from estimator.core.enums import WarningCode
 from estimator.core.results import EnergyEstimate
 from estimator.execution.divert import compute_divert_estimate
 from schemas.mission import MissionAction, RouteItem
@@ -293,12 +292,12 @@ def test_v1_and_v2_agree_on_vertical_leg_slant_path() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Dubins divert planar approximation limit warning
+# Retired Dubins divert planar approximation limit warning
 # ---------------------------------------------------------------------------
 
 
 def test_no_planar_warning_for_short_divert() -> None:
-    """No warning for a divert route well within the 50 km planar accuracy limit."""
+    """No warning for a short divert route."""
     mission = make_mission()
     vehicle = make_vehicle()
     zone = _point_zone("lz-near", lat=52.001, lon=4.001)
@@ -316,11 +315,11 @@ def test_no_planar_warning_for_short_divert() -> None:
     )
 
     assert isinstance(result, DivertRouteEstimate)
-    assert WarningCode.DUBINS_DIVERT_PLANAR_APPROXIMATION_LIMIT not in result.warnings
+    assert result.warnings == []
 
 
-def test_planar_warning_emitted_for_long_divert() -> None:
-    """DUBINS_DIVERT_PLANAR_APPROXIMATION_LIMIT is emitted when geodesic divert > 50 km."""
+def test_planar_warning_retired_for_long_divert() -> None:
+    """The planar warning is retired after geodesic-aware Dubins sampling."""
     mission = make_mission()
     vehicle = make_vehicle()
     # Target zone ~60° longitude away — well beyond 50 km at mid-latitudes
@@ -338,17 +337,16 @@ def test_planar_warning_emitted_for_long_divert() -> None:
         vehicle=vehicle,
     )
 
-    assert WarningCode.DUBINS_DIVERT_PLANAR_APPROXIMATION_LIMIT in result.warnings
+    assert result.warnings == []
 
 
-def test_planar_warning_applies_regardless_of_heading_availability() -> None:
-    """Warning is emitted even when falling back to straight-line distance."""
+def test_planar_warning_retired_regardless_of_heading_availability() -> None:
+    """Straight-line fallback does not emit the retired planar warning."""
     mission = make_mission()
     vehicle = make_vehicle()
     zone = _point_zone("lz-far", lat=52.0, lon=65.0)
     energy = _minimal_energy()
 
-    # No entry heading → straight-line fallback, but warning should still fire
     result = compute_divert_estimate(
         action_lat=52.0,
         action_lon=4.0,
@@ -361,7 +359,7 @@ def test_planar_warning_applies_regardless_of_heading_availability() -> None:
         entry_heading_deg=None,
     )
 
-    assert WarningCode.DUBINS_DIVERT_PLANAR_APPROXIMATION_LIMIT in result.warnings
+    assert result.warnings == []
 
 
 def test_divert_warnings_empty_by_default() -> None:
