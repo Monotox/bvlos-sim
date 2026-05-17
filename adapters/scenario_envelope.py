@@ -1,9 +1,8 @@
 """Canonical result envelope for scenario runner CLI outputs."""
 
-import json
-
 from pydantic import BaseModel, ConfigDict
 
+from adapters.canonical_json import render_canonical_json
 from adapters.envelope import DeterminismMetadata, ProvenanceInput
 from adapters.version import tool_version
 from adapters.io import InputDocument, InputLoadError
@@ -228,4 +227,4 @@ def build_scenario_internal_error_envelope(
 def render_scenario_envelope_json(envelope: ScenarioResultEnvelope) -> str:
     """Render the envelope as canonical deterministic JSON."""
     payload = envelope.model_dump(mode="json")
-    return json.dumps(payload, indent=2, sort_keys=True) + "\n"
+    return render_canonical_json(payload)

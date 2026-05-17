@@ -1,9 +1,8 @@
 """Canonical result envelope for Monte Carlo uncertainty CLI outputs."""
 
-import json
-
 from pydantic import BaseModel, ConfigDict
 
+from adapters.canonical_json import render_canonical_json
 from adapters.envelope import DeterminismMetadata, ProvenanceInput
 from adapters.version import tool_version
 from adapters.io import InputDocument
@@ -90,12 +89,4 @@ def build_uncertainty_envelope(
 
 def render_uncertainty_envelope_json(envelope: UncertaintyResultEnvelope) -> str:
     """Render the uncertainty envelope to canonical sorted JSON with a trailing newline."""
-    return (
-        json.dumps(
-            envelope.model_dump(mode="json"),
-            indent=2,
-            sort_keys=True,
-            ensure_ascii=False,
-        )
-        + "\n"
-    )
+    return render_canonical_json(envelope.model_dump(mode="json"), ensure_ascii=False)

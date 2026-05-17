@@ -89,7 +89,9 @@ def test_duplicate_assertion_ids_rejected() -> None:
     payload = _make_scenario_payload(assertions=assertions)
     with pytest.raises(ValidationError) as exc_info:
         ScenarioPlan.model_validate(payload)
-    assert any("assertion ids must be unique" in e["msg"] for e in exc_info.value.errors())
+    assert any(
+        "assertion ids must be unique" in e["msg"] for e in exc_info.value.errors()
+    )
 
 
 def test_unique_event_ids_accepted() -> None:
@@ -197,13 +199,17 @@ def test_wind_change_layered_wind_accepted() -> None:
 def test_wind_change_requires_wind_payload() -> None:
     with pytest.raises(ValidationError) as exc_info:
         ScenarioEvent.model_validate(_make_event(kind="wind_change"))
-    assert any("wind_east_mps and wind_north_mps" in e["msg"] for e in exc_info.value.errors())
+    assert any(
+        "wind_east_mps and wind_north_mps" in e["msg"] for e in exc_info.value.errors()
+    )
 
 
 def test_wind_change_rejects_partial_scalar_wind_payload() -> None:
     with pytest.raises(ValidationError) as exc_info:
         ScenarioEvent.model_validate(_make_event(kind="wind_change", wind_east_mps=4.0))
-    assert any("wind_east_mps and wind_north_mps" in e["msg"] for e in exc_info.value.errors())
+    assert any(
+        "wind_east_mps and wind_north_mps" in e["msg"] for e in exc_info.value.errors()
+    )
 
 
 def test_wind_change_rejects_mixed_scalar_and_layered_payload() -> None:
@@ -224,7 +230,9 @@ def test_wind_change_rejects_mixed_scalar_and_layered_payload() -> None:
 def test_non_wind_change_rejects_wind_payload() -> None:
     with pytest.raises(ValidationError) as exc_info:
         ScenarioEvent.model_validate(_make_event(wind_east_mps=4.0, wind_north_mps=0.0))
-    assert any("only valid for wind_change" in e["msg"] for e in exc_info.value.errors())
+    assert any(
+        "only valid for wind_change" in e["msg"] for e in exc_info.value.errors()
+    )
 
 
 # ---------------------------------------------------------------------------
