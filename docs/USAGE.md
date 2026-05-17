@@ -11,6 +11,10 @@ This guide covers the supported CLI and Python API workflows for bvlos-sim.
 uv sync
 ```
 
+Mission, vehicle, scenario, and uncertainty files may be `.yaml`, `.yml`, or
+`.json`. Relative asset paths are resolved from the referencing file's
+directory.
+
 Verify the CLI:
 
 ```bash
@@ -26,6 +30,14 @@ bvlos-sim exposes five commands:
 - `sample`: run seeded Monte Carlo uncertainty sampling
 - `sitl`: build a contract-only or live SITL evidence bundle from an existing scenario
 - `compare`: compare a SITL evidence bundle against deterministic scenario expectations
+
+| Command | Exit 0 | Exit 10 | Exit 11 | Exit 12 | Exit 13 |
+|---------|--------|---------|---------|---------|---------|
+| estimate | success | infeasible | invalid input | unsupported | internal error |
+| scenario | passed | failed | invalid input | - | internal error |
+| sample | success | - | invalid input | - | internal error |
+| sitl | success | - | invalid input | - | internal/write error |
+| compare | passed | drifted/failed | invalid input | unsupported (contract-only) | internal/write error |
 
 Mission-scoped functionality is exposed through `estimate` by mission and
 vehicle YAML: fidelity settings, terrain, wind grids, geofences, landing zones,
@@ -75,14 +87,6 @@ uv run bvlos-sim estimate \
   --format markdown \
   --output /tmp/bvlos-report.md
 ```
-
-### Estimator Exit Codes
-
-- `0`: success
-- `10`: infeasible
-- `11`: invalid input
-- `12`: unsupported input
-- `13`: internal error
 
 ## Scenario Execution
 
@@ -134,6 +138,43 @@ uv run bvlos-sim scenario \
 Skipped or unsupported assertions do not fail the scenario unless another
 assertion fails.
 
+### Scenario Events
+
+Supported event kinds:
+
+- `observe`: records that a timeline trigger fired
+- `lost_link`: records link-loss timing and evaluates `lost_link_policy` when configured
+- `wind_change`: changes the active wind from the trigger time onward
+
+`wind_change` events accept either scalar wind:
+
+```yaml
+events:
+  - event_id: wind-shift
+    kind: wind_change
+    trigger: at_elapsed_time
+    trigger_elapsed_time_s: 120.0
+    wind_east_mps: 4.0
+    wind_north_mps: -1.0
+```
+
+or altitude-banded wind layers:
+
+```yaml
+events:
+  - event_id: layered-wind
+    kind: wind_change
+    trigger: at_route_item
+    trigger_route_item_id: wp1
+    wind_layers:
+      - altitude_m: 0.0
+        wind_east_mps: 2.0
+        wind_north_mps: 0.0
+      - altitude_m: 120.0
+        wind_east_mps: 5.0
+        wind_north_mps: -1.0
+```
+
 ## Monte Carlo Sampling
 
 The `sample` command runs a seeded uncertainty plan and emits
@@ -147,6 +188,15 @@ uv run bvlos-sim sample \
   --output /tmp/uncertainty.json
 ```
 
+Write Markdown:
+
+```bash
+uv run bvlos-sim sample \
+  examples/uncertainty/pipeline_demo_001_wind_uncertainty.yaml \
+  --format markdown \
+  --output /tmp/uncertainty-report.md
+```
+
 The `seed` in the uncertainty YAML makes repeated runs reproducible for the same
 sample count and distributions. `feasibility_rate` is the fraction of completed
 samples that remained feasible; values below the team's go/no-go threshold
@@ -154,12 +204,6 @@ should be treated as operational risk, even when the deterministic estimate
 passes. Percentile fields such as `p95` describe tail behavior: for
 reserve-at-landing, low-end percentiles are usually the operational concern; for
 time or energy use, high-end percentiles show the conservative planning bound.
-
-### Sample Exit Codes
-
-- `0`: report written
-- `11`: invalid input
-- `13`: internal error
 
 ## SITL Evidence Contract
 
@@ -219,6 +263,9 @@ uv run bvlos-sim sitl \
 embedded deterministic scenario report. Render one through `compare` from an
 already-written evidence bundle:
 
+If `--comparison-id` is omitted, `compare` generates the identifier as
+`<evidence_id>-comparison`.
+
 `compare` requires a completed `sitl-evidence.v1` bundle (produced with
 `sitl --live`). Comparing a contract-only bundle (produced without `--live`)
 exits 12 with `"summary": "unsupported"` -- this is expected and means no live
@@ -263,112 +310,14 @@ telemetry record count, heartbeat presence, adapter lifecycle, simulator
 lifecycle, and position proximity when `GLOBAL_POSITION_INT` telemetry is
 available.
 
-### SITL Exit Codes
-
-- `0`: evidence bundle written
-- `11`: invalid input
-- `13`: internal or output-write error
-
-### Compare Exit Codes
-
-- `0`: comparison passed
-- `10`: comparison drifted or failed -- review the changed dimensions before
-  treating the run as evidence
-- `11`: invalid input (malformed evidence file or invalid comparison ID)
-- `12`: comparison not supported -- evidence bundle is contract-only; run
-  `sitl --live` first to produce a completed bundle
-- `13`: internal or output-write error
-
-### Scenario Events
-
-Supported event kinds:
-
-- `observe`: records that a timeline trigger fired
-- `lost_link`: records link-loss timing and evaluates `lost_link_policy` when configured
-- `wind_change`: changes the active wind from the trigger time onward
-
-`wind_change` events accept either scalar wind:
-
-```yaml
-events:
-  - event_id: wind-shift
-    kind: wind_change
-    trigger: at_elapsed_time
-    trigger_elapsed_time_s: 120.0
-    wind_east_mps: 4.0
-    wind_north_mps: -1.0
-```
-
-or altitude-banded wind layers:
-
-```yaml
-events:
-  - event_id: layered-wind
-    kind: wind_change
-    trigger: at_route_item
-    trigger_route_item_id: wp1
-    wind_layers:
-      - altitude_m: 0.0
-        wind_east_mps: 2.0
-        wind_north_mps: 0.0
-      - altitude_m: 120.0
-        wind_east_mps: 5.0
-        wind_north_mps: -1.0
-```
-
-## Input Files
-
-Mission, vehicle, and scenario inputs may be:
-
-- `.yaml`
-- `.yml`
-- `.json`
-
-Unsupported extensions are rejected as invalid input.
-
-Relative asset paths are resolved from the file that references them:
-
-- mission assets are resolved from the mission file directory
-- scenario `mission_file` and `vehicle_file` are resolved from the scenario file directory
-- the `scenario` command loads mission-referenced terrain, wind-grid,
-  geofence, and landing-zone assets before executing scenario events and
-  assertions
-
 ## Resource and Link Feasibility
 
-Explicit resource systems are configured on vehicle YAML:
-
-```yaml
-resource_systems:
-  - resource_id: fiber-power-primary
-    kind: external_power
-    delivery: optical_fiber
-    continuous_power_w: 2000.0
-    max_tether_length_m: 2500.0
-```
-
-Communication-link systems are configured on mission YAML:
-
-```yaml
-link_systems:
-  - link_id: mesh-primary
-    kind: mesh_network
-    max_range_m: 5000.0
-  - link_id: starlink-backup
-    kind: starlink
-    priority: 1
-    max_range_m: 100000.0
-```
-
-Scenario `initial_conditions.link_systems` replaces mission link systems for
-that scenario run. Reports expose `result.resource` and `result.link`, and
-scenario assertions can use `estimate.resource.is_feasible` and
-`estimate.link.is_feasible`.
-
-Existing battery-only vehicle files do not need changes. To make the legacy
-battery budget explicit, add an `onboard_battery` resource system and omit
-`battery_capacity_wh` / `reserve_percent` on the resource entry to reuse
-`vehicle.energy` and the mission reserve policy.
+Resource systems are configured on vehicle YAML, and communication-link systems
+are configured on mission YAML. Scenario `initial_conditions.link_systems`
+replaces mission link systems for that scenario run. Reports expose
+`result.resource` and `result.link`, and scenario assertions can use
+`estimate.resource.is_feasible` and `estimate.link.is_feasible`. Existing
+battery-only vehicle files do not need changes.
 
 ## Estimator Options
 
@@ -482,22 +431,6 @@ estimation:
 ```
 
 Values must be greater than zero.
-
-### Combined CLI Options
-
-```bash
-uv run bvlos-sim estimate \
-  examples/missions/pipeline_demo_001.yaml \
-  examples/vehicles/quadplane_v1.yaml \
-  --fidelity v2 \
-  --wind-layer "0:2.0:0.0" \
-  --wind-layer "500:6.0:-1.0" \
-  --max-segment-length-m 500
-```
-
-If runtime options are used while mission `wind_layers` are present and no
-explicit wind provider is supplied, the estimator records that the mission
-layers were ignored in result metadata.
 
 ### Terrain-Referenced Altitude
 
@@ -640,17 +573,18 @@ on `estimate` infeasibility before running `scenario` and `sample`, since each
 command produces independent evidence. A recommended CI pattern:
 
 ```bash
-bvlos-sim estimate ... --output /tmp/estimate.json
+uv run bvlos-sim estimate ... --output /tmp/estimate.json
 ESTIMATE_EXIT=$?
-bvlos-sim scenario ... --output /tmp/scenario.json
+uv run bvlos-sim scenario ... --output /tmp/scenario.json
 SCENARIO_EXIT=$?
-bvlos-sim sample ... --output /tmp/uncertainty.json
-# Collect all three outputs before deciding on go/no-go
-# estimate exit 10 = infeasible = pre-flight stop
-# scenario exit 10 = assertion failed
-# compare exit 10 = DRIFTED = review dimensions before treating as evidence
-# compare exit 12 = UNSUPPORTED = contract-only bundle, run sitl --live first
+uv run bvlos-sim sample ... --output /tmp/uncertainty.json
 ```
+
+Each command produces independent evidence. An infeasible `estimate` (exit 10)
+is a pre-flight stop. A `scenario` failure (exit 10) means an assertion failed.
+`compare` exiting 10 (`drifted`/`failed`) requires reviewing the changed
+dimensions; exit 12 (`unsupported`) means the bundle is contract-only and
+`sitl --live` must be run first.
 
 Interpret the workflow outputs in order. A successful `estimate` means the
 static mission model is feasible under deterministic assumptions; an infeasible
@@ -667,16 +601,11 @@ adapter lifecycle, or position proximity, before treating the run as evidence.
 Use the package-root imports for stable caller code:
 
 ```python
-from estimator import ConstantElevationProvider
 from estimator import EstimationOptions
 from estimator import FidelityMode
-from estimator import GridTerrainProvider
 from estimator import LayeredWindProvider
-from estimator import SpatiotemporalWindProvider
-from estimator import TerrainProvider
 from estimator import WindLayer
 from estimator import estimate_mission_distance_time
-from estimator import run_scenario
 ```
 
 Layered wind example:
@@ -698,85 +627,15 @@ result = estimate_mission_distance_time(
 )
 ```
 
-Scenario execution can receive the same providers and static domain inputs as
-mission estimation:
-
-```python
-result = run_scenario(
-    scenario,
-    mission,
-    vehicle,
-    wind_provider=wind_provider,
-    terrain_provider=terrain_provider,
-    geofences=geofences,
-    landing_zones=landing_zones,
-)
-```
-
-Terrain example:
-
-```python
-from adapters.terrain_grid import load_terrain_grid
-
-terrain_provider, _ = load_terrain_grid(Path("terrain/flat_polder.yaml"))
-
-result = estimate_mission_distance_time(
-    mission,
-    vehicle,
-    terrain_provider=terrain_provider,
-)
-```
-
-Or with a constant elevation (useful when ground elevation is uniform):
-
-```python
-provider = ConstantElevationProvider(elevation_m=10.0)
-
-result = estimate_mission_distance_time(
-    mission,
-    vehicle,
-    terrain_provider=provider,
-)
-```
-
-Spatiotemporal wind grid example:
-
-```python
-from adapters.wind_grid import load_wind_grid
-
-wind_provider, _ = load_wind_grid(Path("wind/pipeline_wind_grid.yaml"))
-
-result = estimate_mission_distance_time(
-    mission,
-    vehicle,
-    wind_provider=wind_provider,
-)
-```
-
-Scenario example:
-
-```python
-result = run_scenario(scenario, mission, vehicle)
-```
+Terrain, wind-grid, geofence, landing-zone, and scenario execution APIs accept
+the same provider objects used by the CLI loaders.
 
 Monte Carlo uncertainty example:
 
+See `examples/uncertainty/` for complete uncertainty plan YAML files.
+
 ```python
 from estimator import run_monte_carlo
-from schemas.uncertainty import UncertaintyPlan, UncertaintyParameters, NormalDistribution
-
-plan = UncertaintyPlan(
-    schema_version="uncertainty.v1",
-    uncertainty_id="my-run",
-    mission_file="mission.yaml",
-    vehicle_file="vehicle.yaml",
-    samples=200,
-    seed=42,
-    parameters=UncertaintyParameters(
-        wind_east_mps=NormalDistribution(kind="normal", mean=0.0, std=2.0),
-        wind_north_mps=NormalDistribution(kind="normal", mean=0.0, std=2.0),
-    ),
-)
 
 mc_result = run_monte_carlo(plan, mission, vehicle)
 print(mc_result.feasibility_rate)
@@ -809,20 +668,8 @@ human-readable estimator, scenario, uncertainty, and SITL comparison reports.
 
 ## Verification
 
-Run the linter:
-
 ```bash
 uv run ruff check .
-```
-
-Run all tests:
-
-```bash
 uv run pytest
-```
-
-Run targeted CLI tests:
-
-```bash
-uv run pytest tests/test_cli.py tests/test_scenario_cli.py
+uv run pytest tests/test_cli.py tests/test_scenario_cli.py  # CLI subset
 ```
