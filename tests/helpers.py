@@ -1,4 +1,4 @@
-from schemas import MissionPlan, VehicleProfile
+from schemas import MissionPlan, VehicleClass, VehicleProfile
 
 
 def make_vehicle_payload() -> dict:
@@ -96,6 +96,14 @@ def make_mission_payload() -> dict:
 
 def make_vehicle() -> VehicleProfile:
     return VehicleProfile.model_validate(make_vehicle_payload())
+
+
+def make_fw_vehicle() -> VehicleProfile:
+    v = make_vehicle()
+    v.vehicle_class = VehicleClass.FIXED_WING
+    v.capabilities.hover = False
+    v.capabilities.forward_flight = True
+    return v
 
 
 def make_mission() -> MissionPlan:

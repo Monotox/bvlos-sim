@@ -62,6 +62,28 @@ def test_loiter_fails_when_wind_exceeds_station_keep_authority() -> None:
     assert exc_info.value.failure.code == FailureCode.STATION_KEEP_INFEASIBLE_WIND
 
 
+def test_loiter_fallback_authority_equals_hover_speed_mps() -> None:
+    """When max_station_keep_wind_mps is absent, hover_speed_mps is the authority.
+
+    A wind just above hover_speed_mps must trigger STATION_KEEP_INFEASIBLE_WIND,
+    proving that the fallback value used is exactly hover_speed_mps, not some default.
+    """
+    mission = make_mission()
+    mission.route = [mission.route[2]]
+    vehicle = make_vehicle()
+    vehicle.performance.max_station_keep_wind_mps = None
+    vehicle.performance.hover_speed_mps = 6.0
+
+    with pytest.raises(EstimatorInfeasibleError) as exc_info:
+        estimate_mission_distance_time(
+            mission,
+            vehicle,
+            options=EstimationOptions(wind_east_mps=6.5, wind_north_mps=0.0),
+        )
+
+    assert exc_info.value.failure.code == FailureCode.STATION_KEEP_INFEASIBLE_WIND
+
+
 def test_fixed_wing_loiter_time_is_rejected() -> None:
     mission = make_mission()
     mission.route = [mission.route[2]]

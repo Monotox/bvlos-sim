@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 
+import yaml
 from typer.testing import CliRunner
 
 from adapters.cli import CliExitCode, app
@@ -95,6 +96,29 @@ def test_sample_command_is_reproducible() -> None:
     r1 = _run(["sample", str(EXAMPLE_UNCERTAINTY)])
     r2 = _run(["sample", str(EXAMPLE_UNCERTAINTY)])
     assert r1.output == r2.output
+
+
+def test_sample_command_different_seeds_produce_different_output(tmp_path: Path) -> None:
+    """Different seeds must produce different random samples end-to-end."""
+    base = yaml.safe_load(EXAMPLE_UNCERTAINTY.read_text(encoding="utf-8"))
+    # Resolve relative asset paths so the tmp_path copies can find them.
+    examples_dir = EXAMPLE_UNCERTAINTY.parent
+    base["mission_file"] = str((examples_dir / base["mission_file"]).resolve())
+    base["vehicle_file"] = str((examples_dir / base["vehicle_file"]).resolve())
+
+    path_1 = tmp_path / "plan_seed1.yaml"
+    path_2 = tmp_path / "plan_seed2.yaml"
+    path_1.write_text(yaml.safe_dump({**base, "seed": 1}), encoding="utf-8")
+    path_2.write_text(yaml.safe_dump({**base, "seed": 2}), encoding="utf-8")
+
+    r1 = _run(["sample", str(path_1)])
+    r2 = _run(["sample", str(path_2)])
+
+    assert r1.exit_code == int(CliExitCode.SUCCESS)
+    assert r2.exit_code == int(CliExitCode.SUCCESS)
+    mean_1 = json.loads(r1.output)["result"]["total_time_s"]["mean"]
+    mean_2 = json.loads(r2.output)["result"]["total_time_s"]["mean"]
+    assert mean_1 != mean_2
 
 
 def test_sample_command_speed_example() -> None:

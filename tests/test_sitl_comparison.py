@@ -385,6 +385,8 @@ def test_position_proximity_matched_when_within_tolerance(tmp_path: Path) -> Non
 
 
 def test_position_proximity_drifted_when_outside_tolerance(tmp_path: Path) -> None:
+    # 800m > default 500m tolerance → DRIFTED; 800m is small enough to stay
+    # below the geodesic error threshold but well above the match threshold.
     lon, lat, _back_azimuth = _GEOD.fwd(4.001, 52.001, 90.0, 800.0)
     report = build_sitl_comparison_report(
         comparison_id="comparison-report",
@@ -471,3 +473,51 @@ def test_contract_only_bundle_skipped_dimensions_cover_telemetry_dependent_list(
     skipped = {item.dimension for item in report.items if item.outcome == SitlComparisonOutcome.SKIPPED}
 
     assert set(_TELEMETRY_DEPENDENT_DIMENSIONS) <= skipped
+
+
+def test_bundle_completeness_not_in_telemetry_dependent_dimensions() -> None:
+    # bundle_completeness is SKIPPED via comparison_expected logic, not via
+    # _skipped_telemetry_items(), so it must not appear in the list.
+    from adapters.sitl.comparison_dimensions import _TELEMETRY_DEPENDENT_DIMENSIONS
+
+    assert "bundle_completeness" not in _TELEMETRY_DEPENDENT_DIMENSIONS
+
+
+def test_position_tolerance_m_changes_matched_to_drifted(tmp_path: Path) -> None:
+    """A 300m drift is MATCHED at default 500m tolerance but DRIFTED at 200m.
+
+    Outcome rules: distance ≤ tol → MATCHED; tol < distance ≤ 2·tol → DRIFTED.
+    300m at 200m tolerance: 300 > 200 and 300 ≤ 400 → DRIFTED.
+    300m at 500m tolerance: 300 ≤ 500 → MATCHED.
+    """
+    lon, lat, _ = _GEOD.fwd(4.001, 52.001, 90.0, 300.0)
+    bundle = _completed_bundle(
+        tmp_path,
+        telemetry_records=[
+            _telemetry_record("HEARTBEAT"),
+            _telemetry_record(
+                "GLOBAL_POSITION_INT",
+                {"lat": round(lat * 10_000_000), "lon": round(lon * 10_000_000)},
+            ),
+        ],
+    )
+
+    report_default = build_sitl_comparison_report(
+        comparison_id="comparison-report",
+        bundle=bundle,
+    )
+    report_tight = build_sitl_comparison_report(
+        comparison_id="comparison-report",
+        bundle=bundle,
+        position_tolerance_m=200.0,
+    )
+
+    default_pos = next(
+        item for item in report_default.items if item.dimension.startswith("position:")
+    )
+    tight_pos = next(
+        item for item in report_tight.items if item.dimension.startswith("position:")
+    )
+
+    assert default_pos.outcome == SitlComparisonOutcome.MATCHED
+    assert tight_pos.outcome == SitlComparisonOutcome.DRIFTED

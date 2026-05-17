@@ -102,7 +102,7 @@ def test_energy_capacity_exhaustion_returns_insufficient_energy() -> None:
 
 def test_missing_hover_power_detected_before_per_leg_energy_evaluation() -> None:
     vehicle = make_vehicle()
-    setattr(vehicle.energy, "hover_power_w", None)
+    vehicle.energy = vehicle.energy.model_copy(update={"hover_power_w": None})
 
     with pytest.raises(InvalidEstimatorInputError) as exc_info:
         estimate_mission_distance_time(make_mission(), vehicle)

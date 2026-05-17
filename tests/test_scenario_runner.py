@@ -88,8 +88,8 @@ def test_timeline_starts_with_mission_home() -> None:
 
 def test_timeline_has_one_point_per_leg_plus_home() -> None:
     result = run_scenario(_plan(), make_mission(), make_vehicle())
-    # mission has 4 route items expanded to 5 legs + home = 6 points
-    assert len(result.timeline) == 6
+    assert result.estimate is not None
+    assert len(result.timeline) == len(result.estimate.legs) + 1
 
 
 def test_timeline_indices_are_sequential() -> None:
@@ -619,6 +619,8 @@ def test_at_route_item_trigger_matches_first_occurrence() -> None:
 
 
 def test_field_resolvers_and_supported_paths_are_in_sync() -> None:
+    # Guards against the private API drifting out of sync. Adding a new
+    # assertion kind with a field_path requires updating both dicts.
     from estimator.execution.scenario_assertions import (
         _FIELD_RESOLVERS,
         _SUPPORTED_FIELD_PATHS,

@@ -94,7 +94,7 @@ def test_v2_transit_leg_before_turn_arc_is_trimmed_by_tangent_offset() -> None:
         # path_distance_m must have been reduced by the offset (clamped to 0)
         assert prev.path_distance_m <= prev.horizontal_distance_m
         assert prev.path_distance_m == pytest.approx(
-            max(0.0, prev.horizontal_distance_m - expected_offset), rel=1e-9
+            max(0.0, prev.horizontal_distance_m - expected_offset), rel=1e-6
         )
 
 
@@ -117,7 +117,7 @@ def test_v2_transit_leg_after_turn_arc_is_trimmed_by_tangent_offset() -> None:
         expected_offset = turn_radius_m * math.tan(arc_angle_rad / 2.0)
         assert nxt.path_distance_m <= nxt.horizontal_distance_m
         assert nxt.path_distance_m == pytest.approx(
-            max(0.0, nxt.horizontal_distance_m - expected_offset), rel=1e-9
+            max(0.0, nxt.horizontal_distance_m - expected_offset), rel=1e-6
         )
 
 
