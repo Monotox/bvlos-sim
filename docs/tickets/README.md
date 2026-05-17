@@ -28,7 +28,7 @@ The current codebase includes:
 - Dubins path solver for bank-angle-constrained divert routing; divert distance uses RS/LS arc + straight when entry heading and turn radius are available
 - fidelity v2 tangent-point offset subtraction on transit legs adjacent to TURN_ARC legs for true Dubins-path total distance
 - 3D slant path distance for takeoff and landing-transit legs (`path_distance_m = vertical_distance_m`)
-- `DUBINS_DIVERT_PLANAR_APPROXIMATION_LIMIT` warning on divert estimates exceeding 50 km geodesic distance
+- geodesic-aware Dubins divert sampling with the planar-limit warning retired
 - SITL adapter contract and `sitl-evidence.v1` evidence schema
 - connect-mode ArduPilot SITL adapter with MAVLink mission upload support
 - SITL telemetry, command, simulator, and adapter artifact recording for
@@ -95,9 +95,7 @@ path rather than through isolated examples. Current validation includes:
 - No PX4 SITL adapter yet: Tickets 045 (launch/upload) and 046 (telemetry/evidence).
 - No REST API or UI: Ticket 050.
 - No batch import/export workflows or report diff tooling: Ticket 060.
-- Dubins divert uses a planar East-North approximation; accurate within a
-  fraction of a percent for distances under 50 km (warning emitted beyond that
-  threshold): Ticket 044.
+- Geodesic-aware Dubins divert path sampling is implemented: Ticket 044.
 - No live comms, UTM/U-space, Remote ID, or traffic integrations: Tickets 070
   and 071.
 - No real-world calibration pipeline: Tickets 080-084.

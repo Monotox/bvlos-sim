@@ -8,7 +8,6 @@ from shapely.geometry import Point
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import nearest_points, unary_union
 
-from estimator.core.enums import WarningCode
 from estimator.core.landing_zone import LandingZone
 from estimator.core.results import EnergyEstimate
 from estimator.core.scenario import DivertRouteEstimate
@@ -19,7 +18,9 @@ from schemas.vehicle import VehicleProfile
 
 _GEOD = Geod(ellps="WGS84")
 _SECONDS_PER_HOUR = 3600.0
-_PLANAR_APPROXIMATION_LIMIT_M = 50_000.0
+_MIN_BOUNDARY_SAMPLES = 8
+_MAX_BOUNDARY_SAMPLES = 64
+_BOUNDARY_SAMPLES_PER_DEGREE = 2
 
 
 def compute_divert_estimate(
@@ -68,10 +69,6 @@ def compute_divert_estimate(
         )
 
     geodesic_dist_m = _distance_to_geometry_m(action_lat, action_lon, geometry)
-    divert_warnings: list[WarningCode] = []
-    if geodesic_dist_m > _PLANAR_APPROXIMATION_LIMIT_M:
-        divert_warnings.append(WarningCode.DUBINS_DIVERT_PLANAR_APPROXIMATION_LIMIT)
-
     turn_radius_m = vehicle.performance.turn_radius_m
     if entry_heading_deg is not None and turn_radius_m is not None:
         distance_m = _dubins_distance_to_geometry_m(
@@ -109,7 +106,7 @@ def compute_divert_estimate(
         infeasible_reason=None
         if is_feasible
         else "Insufficient reserve after completing the divert leg.",
-        warnings=divert_warnings,
+        warnings=[],
     )
 
 
@@ -140,18 +137,92 @@ def _dubins_distance_to_geometry_m(
 ) -> float:
     """Dubins path distance from pose (lat, lon, heading) to nearest zone point.
 
-    Uses a planar approximation in the East-North frame. Accurate for divert
-    distances up to tens of kilometres.
+    Uses geodesic-aware sampling in a local East-North frame centred on the
+    vehicle position.
     """
+    return _geodesic_dubins_distance_m(lat, lon, heading_deg, turn_radius_m, geometry)
+
+
+def _geodesic_dubins_distance_m(
+    lat: float,
+    lon: float,
+    heading_deg: float,
+    turn_radius_m: float,
+    geometry: BaseGeometry,
+) -> float:
+    """Geodesic-aware Dubins distance from pose to target geometry."""
     state_point = Point(lon, lat)
     if geometry.covers(state_point):
         return 0.0
+
+    candidates = list(_candidate_target_points(state_point, geometry))
+    heading_rad = math.radians(heading_deg)
+    return min(
+        _dubins_distance_to_target_m(
+            lat,
+            lon,
+            heading_rad,
+            turn_radius_m,
+            candidate,
+        )
+        for candidate in candidates
+    )
+
+
+def _candidate_target_points(
+    state_point: Point,
+    geometry: BaseGeometry,
+) -> Sequence[Point]:
+    if geometry.geom_type == "Point":
+        return [geometry]
+
+    boundary = geometry.boundary
+    if not boundary.is_empty and boundary.geom_type in {
+        "LineString",
+        "LinearRing",
+        "MultiLineString",
+    }:
+        sample_count = _boundary_sample_count(geometry)
+        return [
+            boundary.interpolate(i / sample_count, normalized=True)
+            for i in range(sample_count)
+        ]
+
+    geoms = getattr(geometry, "geoms", None)
+    if geoms is not None:
+        candidates = [
+            candidate
+            for geom in geoms
+            for candidate in _candidate_target_points(state_point, geom)
+        ]
+        if candidates:
+            return candidates
+
     _, nearest = nearest_points(state_point, geometry)
-    fwd_az, _, dist_m = _GEOD.inv(lon, lat, nearest.x, nearest.y)
+    return [nearest]
+
+
+def _boundary_sample_count(geometry: BaseGeometry) -> int:
+    return max(
+        _MIN_BOUNDARY_SAMPLES,
+        min(
+            _MAX_BOUNDARY_SAMPLES,
+            int(geometry.length * _BOUNDARY_SAMPLES_PER_DEGREE),
+        ),
+    )
+
+
+def _dubins_distance_to_target_m(
+    lat: float,
+    lon: float,
+    heading_rad: float,
+    turn_radius_m: float,
+    target: Point,
+) -> float:
+    fwd_az, _, dist_m = _GEOD.inv(lon, lat, target.x, target.y)
     bearing_rad = math.radians(fwd_az)
     target_e = dist_m * math.sin(bearing_rad)
     target_n = dist_m * math.cos(bearing_rad)
-    heading_rad = math.radians(heading_deg)
     return dubins_path_to_point_m(
         0.0, 0.0, heading_rad, target_e, target_n, turn_radius_m
     )
