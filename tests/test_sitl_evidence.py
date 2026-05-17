@@ -68,6 +68,101 @@ def _build_failed_assertion_bundle() -> SitlEvidenceBundle:
     assertion = payload["expected"]["scenario_report"]["assertion_results"][0]
     assertion["passed"] = False
     assertion["observed_value"] = "unexpected"
+    payload["status"] = "completed"
+    return SitlEvidenceBundle.model_validate(payload)
+
+
+def _write_json_artifact(path: Path, payload: dict) -> Path:
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    return path
+
+
+def _artifact_reference(path: Path, role: str, schema_version: str) -> dict:
+    return {
+        "role": role,
+        "path": str(path),
+        "format": "json",
+        "schema_version": schema_version,
+    }
+
+
+def _build_drifted_bundle(tmp_path: Path) -> SitlEvidenceBundle:
+    payload = _build_bundle().model_dump(mode="json")
+    scenario_report = payload["expected"]["scenario_report"]
+    timeline = scenario_report["timeline"]
+    expected_mission_items = len(timeline) - 1
+    telemetry_records = [
+        {"timestamp_s": 0.0, "message_type": "HEARTBEAT", "fields": {}},
+        *[
+            {
+                "timestamp_s": float(point["index"]),
+                "message_type": "GLOBAL_POSITION_INT",
+                "fields": {
+                    "lat": int(point["lat"] * 10_000_000),
+                    "lon": int(point["lon"] * 10_000_000),
+                },
+            }
+            for point in timeline
+            if point["index"] != 0
+        ],
+    ]
+    telemetry_path = _write_json_artifact(
+        tmp_path / "telemetry.json",
+        {"schema_version": "sitl-telemetry.v1", "records": telemetry_records},
+    )
+    command_log_path = _write_json_artifact(
+        tmp_path / "command_log.json",
+        {
+            "schema_version": "sitl-command-log.v1",
+            "commands": [
+                {
+                    "timestamp_s": 0.0,
+                    "command": "MISSION_COUNT",
+                    "fields": {"item_count": expected_mission_items + 1},
+                }
+            ],
+        },
+    )
+    simulator_log_path = _write_json_artifact(
+        tmp_path / "simulator_log.json",
+        {
+            "schema_version": "sitl-simulator-log.v1",
+            "events": [{"timestamp_s": 0.0, "event": "connected", "fields": {}}],
+        },
+    )
+    adapter_log_path = _write_json_artifact(
+        tmp_path / "adapter_log.json",
+        {
+            "schema_version": "sitl-adapter-log.v1",
+            "events": [
+                {"timestamp_s": 0.0, "event": "adapter_initialized", "fields": {}},
+                {"timestamp_s": 0.0, "event": "recording_started", "fields": {}},
+            ],
+        },
+    )
+    payload["status"] = "completed"
+    payload["observed"] = {
+        "telemetry": [
+            _artifact_reference(telemetry_path, "telemetry", "sitl-telemetry.v1")
+        ],
+        "command_logs": [
+            _artifact_reference(
+                command_log_path,
+                "command_log",
+                "sitl-command-log.v1",
+            )
+        ],
+        "simulator_logs": [
+            _artifact_reference(
+                simulator_log_path,
+                "simulator_log",
+                "sitl-simulator-log.v1",
+            )
+        ],
+        "adapter_logs": [
+            _artifact_reference(adapter_log_path, "adapter_log", "sitl-adapter-log.v1")
+        ],
+    }
     return SitlEvidenceBundle.model_validate(payload)
 
 
@@ -175,7 +270,7 @@ def test_compare_command_renders_json_from_contract_only_bundle(
         ],
     )
 
-    assert result.exit_code == int(CliExitCode.SUCCESS)
+    assert result.exit_code == int(CliExitCode.UNSUPPORTED)
     payload = json.loads(result.output)
     assert payload["schema_version"] == "sitl-comparison.v1"
     assert payload["comparison_id"] == "estimate-comparison"
@@ -205,7 +300,7 @@ def test_compare_command_renders_markdown(
         ],
     )
 
-    assert result.exit_code == int(CliExitCode.SUCCESS)
+    assert result.exit_code == int(CliExitCode.UNSUPPORTED)
     assert "# SITL Comparison Report" in result.output
     assert "- Evidence ID: `test-evidence`" in result.output
 
@@ -222,7 +317,7 @@ def test_compare_command_writes_to_output_file(tmp_path: Path) -> None:
         ["compare", str(evidence_path), "--output", str(output_path)],
     )
 
-    assert result.exit_code == int(CliExitCode.SUCCESS)
+    assert result.exit_code == int(CliExitCode.UNSUPPORTED)
     assert result.output == ""
     payload = json.loads(output_path.read_text(encoding="utf-8"))
     assert payload["schema_version"] == "sitl-comparison.v1"
@@ -241,6 +336,39 @@ def test_compare_command_exits_nonzero_when_summary_fails(tmp_path: Path) -> Non
     payload = json.loads(result.output)
     assert payload["schema_version"] == "sitl-comparison.v1"
     assert payload["summary"] == SitlComparisonSummary.FAILED.value
+
+
+def test_compare_command_exits_nonzero_when_summary_drifted(
+    tmp_path: Path,
+) -> None:
+    evidence_path = tmp_path / "evidence.json"
+    evidence_path.write_text(
+        render_sitl_evidence_json(_build_drifted_bundle(tmp_path)),
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(app, ["compare", str(evidence_path)])
+
+    assert result.exit_code == int(CliExitCode.INFEASIBLE)
+    payload = json.loads(result.output)
+    assert payload["schema_version"] == "sitl-comparison.v1"
+    assert payload["summary"] == SitlComparisonSummary.DRIFTED.value
+
+
+def test_compare_command_unsupported_summary_exits_unsupported(
+    tmp_path: Path,
+) -> None:
+    evidence_path = tmp_path / "evidence.json"
+    evidence_path.write_text(
+        render_sitl_evidence_json(_build_bundle()), encoding="utf-8"
+    )
+
+    result = runner.invoke(app, ["compare", str(evidence_path)])
+
+    assert result.exit_code == int(CliExitCode.UNSUPPORTED)
+    payload = json.loads(result.output)
+    assert payload["schema_version"] == "sitl-comparison.v1"
+    assert payload["summary"] == SitlComparisonSummary.UNSUPPORTED.value
 
 
 def test_compare_command_invalid_evidence_file(tmp_path: Path) -> None:

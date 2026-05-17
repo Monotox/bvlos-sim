@@ -219,6 +219,11 @@ uv run bvlos-sim sitl \
 embedded deterministic scenario report. Render one through `compare` from an
 already-written evidence bundle:
 
+`compare` requires a completed `sitl-evidence.v1` bundle (produced with
+`sitl --live`). Comparing a contract-only bundle (produced without `--live`)
+exits 12 with `"summary": "unsupported"` -- this is expected and means no live
+artifacts are available to compare against.
+
 ```bash
 uv run bvlos-sim compare /tmp/sitl-evidence.json \
   --comparison-id pipeline-demo-sitl-comparison \
@@ -233,10 +238,10 @@ uv run bvlos-sim compare /tmp/sitl-evidence.json \
   --output /tmp/sitl-comparison.md
 ```
 
-`compare` exits `0` only when the summary is `passed`. A `drifted`, `failed`, or
-`unsupported` summary exits `10` so shell and CI workflows do not accidentally
-mark a drifted validation as passing. The JSON or Markdown report remains the
-source of detail for which comparison dimension changed.
+`compare` exits `0` only when the summary is `passed`. A `drifted` or `failed`
+summary exits `10`, and an `unsupported` summary exits `12`. The JSON or
+Markdown report remains the source of detail for which comparison dimension
+changed.
 
 Python adapter APIs expose the same report construction:
 
@@ -262,6 +267,16 @@ available.
 
 - `0`: evidence bundle written
 - `11`: invalid input
+- `13`: internal or output-write error
+
+### Compare Exit Codes
+
+- `0`: comparison passed
+- `10`: comparison drifted or failed -- review the changed dimensions before
+  treating the run as evidence
+- `11`: invalid input (malformed evidence file or invalid comparison ID)
+- `12`: comparison not supported -- evidence bundle is contract-only; run
+  `sitl --live` first to produce a completed bundle
 - `13`: internal or output-write error
 
 ### Scenario Events
@@ -618,6 +633,23 @@ uv run bvlos-sim sitl \
 uv run bvlos-sim compare /tmp/sitl-evidence.json \
   --comparison-id pipeline-demo-live \
   --output /tmp/sitl-comparison.json
+```
+
+For automated pipelines, treat each step independently -- do not short-circuit
+on `estimate` infeasibility before running `scenario` and `sample`, since each
+command produces independent evidence. A recommended CI pattern:
+
+```bash
+bvlos-sim estimate ... --output /tmp/estimate.json
+ESTIMATE_EXIT=$?
+bvlos-sim scenario ... --output /tmp/scenario.json
+SCENARIO_EXIT=$?
+bvlos-sim sample ... --output /tmp/uncertainty.json
+# Collect all three outputs before deciding on go/no-go
+# estimate exit 10 = infeasible = pre-flight stop
+# scenario exit 10 = assertion failed
+# compare exit 10 = DRIFTED = review dimensions before treating as evidence
+# compare exit 12 = UNSUPPORTED = contract-only bundle, run sitl --live first
 ```
 
 Interpret the workflow outputs in order. A successful `estimate` means the

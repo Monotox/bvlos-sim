@@ -206,7 +206,7 @@ _SITL_COMPARISON_EXIT_CODES = {
     SitlComparisonSummary.PASSED: CliExitCode.SUCCESS,
     SitlComparisonSummary.DRIFTED: CliExitCode.INFEASIBLE,
     SitlComparisonSummary.FAILED: CliExitCode.INFEASIBLE,
-    SitlComparisonSummary.UNSUPPORTED: CliExitCode.INFEASIBLE,
+    SitlComparisonSummary.UNSUPPORTED: CliExitCode.UNSUPPORTED,
 }
 
 
@@ -252,7 +252,7 @@ def _render_sitl_comparison_output(
 
 
 def _exit_code_for_comparison_report(report: SitlComparisonReport) -> CliExitCode:
-    return _SITL_COMPARISON_EXIT_CODES[report.summary]
+    return _SITL_COMPARISON_EXIT_CODES.get(report.summary, CliExitCode.INTERNAL_ERROR)
 
 
 def _render_cli_error(message: str, command: str) -> str:
@@ -1203,7 +1203,7 @@ def sitl(
         _exit_with_cli_error(
             f"SITL adapter error: {exc}",
             command="sitl",
-            code=CliExitCode.INTERNAL_ERROR,
+            code=CliExitCode.INVALID_INPUT,
         )
     except OutputWriteError as exc:
         _exit_with_cli_error(

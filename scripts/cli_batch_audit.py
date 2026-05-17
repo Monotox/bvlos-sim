@@ -286,6 +286,26 @@ def _write_common_files(root: Path) -> dict[str, Path]:
     return paths
 
 
+def _write_contract_only_sitl_evidence(
+    scenario_path: Path,
+    evidence_path: Path,
+) -> Path:
+    completed = subprocess.run(
+        [sys.executable, "-m", "main", "sitl", str(scenario_path)],
+        cwd=REPO_ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if completed.returncode != SUCCESS:
+        raise RuntimeError(
+            "failed to build contract-only SITL evidence for CLI audit: "
+            f"stdout={completed.stdout!r} stderr={completed.stderr!r}"
+        )
+    evidence_path.write_text(completed.stdout, encoding="utf-8")
+    return evidence_path
+
+
 def _geofence_feature(kind: str = "forbidden") -> dict[str, Any]:
     return {
         "type": "Feature",
@@ -573,6 +593,10 @@ def _build_cases(root: Path) -> list[Case]:
                 }
             ],
         ),
+    )
+    sitl_evidence_path = _write_contract_only_sitl_evidence(
+        paths["scenario"],
+        root / "sitl-evidence.json",
     )
 
     cases = [
@@ -988,6 +1012,58 @@ def _build_cases(root: Path) -> list[Case]:
             ["scenario", str(scenario_policy_fail)],
             INFEASIBLE,
             _scenario_status("failed"),
+        ),
+        Case("sample help", ["sample", "--help"], SUCCESS),
+        Case("sample no args usage error", ["sample"], USAGE_ERROR),
+        Case(
+            "sample example yaml",
+            [
+                "sample",
+                str(
+                    Path(__file__).resolve().parents[1]
+                    / "examples/uncertainty/pipeline_demo_001_wind_uncertainty.yaml"
+                ),
+            ],
+            SUCCESS,
+        ),
+        Case(
+            "sample bad schema exits invalid input",
+            ["sample", str(scenario_bad_schema)],
+            INVALID_INPUT,
+        ),
+        Case("sitl help", ["sitl", "--help"], SUCCESS),
+        Case("sitl no args usage error", ["sitl"], USAGE_ERROR),
+        Case(
+            "sitl contract only",
+            ["sitl", str(paths["scenario"])],
+            SUCCESS,
+        ),
+        Case(
+            "sitl bad schema exits invalid input",
+            ["sitl", str(scenario_bad_schema)],
+            INVALID_INPUT,
+        ),
+        Case(
+            "sitl live missing artifact dir exits invalid input",
+            ["sitl", str(paths["scenario"]), "--live"],
+            INVALID_INPUT,
+        ),
+        Case("compare help", ["compare", "--help"], SUCCESS),
+        Case("compare no args usage error", ["compare"], USAGE_ERROR),
+        Case(
+            "compare contract only exits unsupported",
+            ["compare", str(sitl_evidence_path)],
+            UNSUPPORTED,
+        ),
+        Case(
+            "compare bad evidence exits invalid input",
+            ["compare", str(scenario_bad_yaml)],
+            INVALID_INPUT,
+        ),
+        Case(
+            "compare bad comparison id exits invalid input",
+            ["compare", str(sitl_evidence_path), "--comparison-id", "bad id"],
+            INVALID_INPUT,
         ),
     ]
     return cases
