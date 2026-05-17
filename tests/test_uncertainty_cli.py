@@ -98,7 +98,9 @@ def test_sample_command_is_reproducible() -> None:
     assert r1.output == r2.output
 
 
-def test_sample_command_different_seeds_produce_different_output(tmp_path: Path) -> None:
+def test_sample_command_different_seeds_produce_different_output(
+    tmp_path: Path,
+) -> None:
     """Different seeds must produce different random samples end-to-end."""
     base = yaml.safe_load(EXAMPLE_UNCERTAINTY.read_text(encoding="utf-8"))
     # Resolve relative asset paths so the tmp_path copies can find them.

@@ -29,7 +29,9 @@ def test_missing_tas_fails_with_missing_required_speed_profile() -> None:
     mission.route = [mission.route[1]]
     mission.defaults.cruise_speed_mps = None
     vehicle = make_vehicle()
-    vehicle.performance = vehicle.performance.model_copy(update={"cruise_speed_mps": None})
+    vehicle.performance = vehicle.performance.model_copy(
+        update={"cruise_speed_mps": None}
+    )
 
     with pytest.raises(EstimatorError) as exc_info:
         estimate_mission_distance_time(mission, vehicle)
@@ -43,7 +45,9 @@ def test_climb_rate_required_only_when_climbing() -> None:
     wp.altitude_m = 200.0
     mission.route = [wp]
     vehicle = make_vehicle()
-    vehicle.performance = vehicle.performance.model_copy(update={"climb_rate_mps": None})
+    vehicle.performance = vehicle.performance.model_copy(
+        update={"climb_rate_mps": None}
+    )
 
     with pytest.raises(EstimatorError) as exc_info:
         estimate_mission_distance_time(mission, vehicle)
@@ -58,7 +62,9 @@ def test_descent_rate_required_only_when_descending() -> None:
     wp.altitude_m = 1.0
     mission.route = [wp]
     vehicle = make_vehicle()
-    vehicle.performance = vehicle.performance.model_copy(update={"descent_rate_mps": None})
+    vehicle.performance = vehicle.performance.model_copy(
+        update={"descent_rate_mps": None}
+    )
 
     with pytest.raises(EstimatorError) as exc_info:
         estimate_mission_distance_time(mission, vehicle)
@@ -160,7 +166,9 @@ def test_try_api_invalid_input_failure_maps_to_status_error_not_infeasible() -> 
     mission.route = [mission.route[1]]
     mission.defaults.cruise_speed_mps = None
     vehicle = make_vehicle()
-    vehicle.performance = vehicle.performance.model_copy(update={"cruise_speed_mps": None})
+    vehicle.performance = vehicle.performance.model_copy(
+        update={"cruise_speed_mps": None}
+    )
 
     result = try_estimate_mission_distance_time(mission, vehicle)
 

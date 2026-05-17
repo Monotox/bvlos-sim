@@ -3,6 +3,7 @@
 import json
 from dataclasses import dataclass
 
+from adapters.canonical_json import canonical_json_value
 from schemas.sitl import SitlJsonValue
 from schemas.sitl_comparison import SitlComparisonItem, SitlComparisonReport
 
@@ -46,7 +47,7 @@ class _SitlComparisonMarkdownRenderer:
             return ""
         if isinstance(value, str):
             return value
-        return json.dumps(value, sort_keys=True)
+        return json.dumps(canonical_json_value(value), sort_keys=True)
 
     def _table_cell(self, value: str) -> str:
         text = value.replace("|", "\\|").replace("\n", " ")

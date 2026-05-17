@@ -1,5 +1,6 @@
 """Assertion evaluation for scenario runner v1."""
 
+import math
 from collections.abc import Callable
 from typing import cast
 
@@ -77,6 +78,7 @@ _NUMERIC_COMPARATORS: dict[ScenarioAssertionKind, NumericComparator] = {
     ScenarioAssertionKind.FIELD_LE: lambda a, e: a <= e,
     ScenarioAssertionKind.FIELD_GE: lambda a, e: a >= e,
 }
+_ASSERTION_FLOAT_DECIMAL_PLACES = 8
 
 
 # ---------------------------------------------------------------------------
@@ -207,6 +209,13 @@ def _is_numeric_value(value: AssertionFieldValue) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
+def _format_assertion_value(value: AssertionFieldValue) -> str:
+    if isinstance(value, float) and math.isfinite(value):
+        rounded = round(value, _ASSERTION_FLOAT_DECIMAL_PLACES)
+        return repr(0.0 if rounded == 0.0 else rounded)
+    return repr(value)
+
+
 def _evaluate_eq_assertion(
     assertion: ScenarioAssertion,
     actual: AssertionFieldValue,
@@ -225,14 +234,16 @@ def _evaluate_eq_assertion(
     if values_equal(actual, expected):
         return _passed(
             assertion,
-            f"'{field_path}' == {expected!r} (actual: {actual!r}).",
+            f"'{field_path}' == {_format_assertion_value(expected)} "
+            f"(actual: {_format_assertion_value(actual)}).",
             field_path=field_path,
             expected=expected,
             actual=actual,
         )
     return _failed(
         assertion,
-        f"'{field_path}' expected {expected!r} but was {actual!r}.",
+        f"'{field_path}' expected {_format_assertion_value(expected)} "
+        f"but was {_format_assertion_value(actual)}.",
         field_path=field_path,
         expected=expected,
         actual=actual,
@@ -262,14 +273,18 @@ def _evaluate_numeric_assertion(
     if comparator(cast(float, actual), cast(float, expected)):
         return _passed(
             assertion,
-            f"'{field_path}' {assertion.kind} {expected!r} satisfied (actual: {actual!r}).",
+            f"'{field_path}' {assertion.kind} "
+            f"{_format_assertion_value(expected)} satisfied "
+            f"(actual: {_format_assertion_value(actual)}).",
             field_path=field_path,
             expected=expected,
             actual=actual,
         )
     return _failed(
         assertion,
-        f"'{field_path}' {assertion.kind} {expected!r} not satisfied (actual: {actual!r}).",
+        f"'{field_path}' {assertion.kind} "
+        f"{_format_assertion_value(expected)} not satisfied "
+        f"(actual: {_format_assertion_value(actual)}).",
         field_path=field_path,
         expected=expected,
         actual=actual,

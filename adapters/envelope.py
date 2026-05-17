@@ -1,11 +1,11 @@
 """Canonical result envelope for estimator CLI outputs."""
 
-import json
 from dataclasses import dataclass
 from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from adapters.canonical_json import render_canonical_json
 from adapters.io import InputDocument, InputLoadError
 from adapters.version import tool_version
 from estimator import EstimateStatus, MissionEstimate
@@ -510,4 +510,4 @@ def build_internal_error_envelope(
 
 def render_envelope_json(envelope: EstimatorResultEnvelope) -> str:
     payload = envelope.model_dump(mode="json")
-    return json.dumps(payload, indent=2, sort_keys=True) + "\n"
+    return render_canonical_json(payload)

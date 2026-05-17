@@ -1,8 +1,8 @@
 """SITL scenario comparison report builder."""
 
-import json
 from dataclasses import dataclass, field
 
+from adapters.canonical_json import render_canonical_json
 from adapters.sitl.comparison_dimensions import _SitlComparisonDimensionBuilder
 from adapters.sitl.comparison_summary import _SitlComparisonSummaryCalculator
 from adapters.version import tool_version
@@ -68,7 +68,7 @@ def build_sitl_comparison_report(
 def render_sitl_comparison_json(report: SitlComparisonReport) -> str:
     """Render a SITL comparison report as canonical deterministic JSON."""
 
-    return json.dumps(report.model_dump(mode="json"), indent=2, sort_keys=True) + "\n"
+    return render_canonical_json(report.model_dump(mode="json"))
 
 
 __all__ = [
