@@ -208,7 +208,7 @@ def test_invalid_core_polygon_returns_invalid_geometry_after_kinematics() -> Non
     assert result.status == EstimateStatus.ERROR
     assert result.failure is not None
     assert result.failure.code == FailureCode.INVALID_GEOMETRY
-    assert result.legs
+    assert len(result.legs) > 0  # kinematics completed before geometry check
     assert result.geofence is None
 
 

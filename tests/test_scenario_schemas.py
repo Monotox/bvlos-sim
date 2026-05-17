@@ -76,8 +76,9 @@ def test_duplicate_event_ids_rejected() -> None:
         _make_event(event_id="dup"),
     ]
     payload = _make_scenario_payload(events=events)
-    with pytest.raises(ValidationError, match="event ids must be unique"):
+    with pytest.raises(ValidationError) as exc_info:
         ScenarioPlan.model_validate(payload)
+    assert any("event ids must be unique" in e["msg"] for e in exc_info.value.errors())
 
 
 def test_duplicate_assertion_ids_rejected() -> None:
@@ -86,8 +87,9 @@ def test_duplicate_assertion_ids_rejected() -> None:
         _make_assertion(assertion_id="dup"),
     ]
     payload = _make_scenario_payload(assertions=assertions)
-    with pytest.raises(ValidationError, match="assertion ids must be unique"):
+    with pytest.raises(ValidationError) as exc_info:
         ScenarioPlan.model_validate(payload)
+    assert any("assertion ids must be unique" in e["msg"] for e in exc_info.value.errors())
 
 
 def test_unique_event_ids_accepted() -> None:
@@ -130,8 +132,9 @@ def test_initial_conditions_accept_link_systems() -> None:
 
 
 def test_at_route_item_without_trigger_route_item_id_rejected() -> None:
-    with pytest.raises(ValidationError, match="trigger_route_item_id"):
+    with pytest.raises(ValidationError) as exc_info:
         ScenarioEvent.model_validate(_make_event(trigger="at_route_item"))
+    assert any("trigger_route_item_id" in e["msg"] for e in exc_info.value.errors())
 
 
 def test_at_route_item_with_trigger_route_item_id_accepted() -> None:
@@ -142,8 +145,9 @@ def test_at_route_item_with_trigger_route_item_id_accepted() -> None:
 
 
 def test_at_elapsed_time_without_trigger_elapsed_time_s_rejected() -> None:
-    with pytest.raises(ValidationError, match="trigger_elapsed_time_s"):
+    with pytest.raises(ValidationError) as exc_info:
         ScenarioEvent.model_validate(_make_event(trigger="at_elapsed_time"))
+    assert any("trigger_elapsed_time_s" in e["msg"] for e in exc_info.value.errors())
 
 
 def test_at_elapsed_time_with_trigger_elapsed_time_s_accepted() -> None:
@@ -191,17 +195,19 @@ def test_wind_change_layered_wind_accepted() -> None:
 
 
 def test_wind_change_requires_wind_payload() -> None:
-    with pytest.raises(ValidationError, match="wind_east_mps and wind_north_mps"):
+    with pytest.raises(ValidationError) as exc_info:
         ScenarioEvent.model_validate(_make_event(kind="wind_change"))
+    assert any("wind_east_mps and wind_north_mps" in e["msg"] for e in exc_info.value.errors())
 
 
 def test_wind_change_rejects_partial_scalar_wind_payload() -> None:
-    with pytest.raises(ValidationError, match="wind_east_mps and wind_north_mps"):
+    with pytest.raises(ValidationError) as exc_info:
         ScenarioEvent.model_validate(_make_event(kind="wind_change", wind_east_mps=4.0))
+    assert any("wind_east_mps and wind_north_mps" in e["msg"] for e in exc_info.value.errors())
 
 
 def test_wind_change_rejects_mixed_scalar_and_layered_payload() -> None:
-    with pytest.raises(ValidationError, match="either wind_layers"):
+    with pytest.raises(ValidationError) as exc_info:
         ScenarioEvent.model_validate(
             _make_event(
                 kind="wind_change",
@@ -212,11 +218,13 @@ def test_wind_change_rejects_mixed_scalar_and_layered_payload() -> None:
                 ],
             )
         )
+    assert any("either wind_layers" in e["msg"] for e in exc_info.value.errors())
 
 
 def test_non_wind_change_rejects_wind_payload() -> None:
-    with pytest.raises(ValidationError, match="only valid for wind_change"):
+    with pytest.raises(ValidationError) as exc_info:
         ScenarioEvent.model_validate(_make_event(wind_east_mps=4.0, wind_north_mps=0.0))
+    assert any("only valid for wind_change" in e["msg"] for e in exc_info.value.errors())
 
 
 # ---------------------------------------------------------------------------
@@ -225,17 +233,19 @@ def test_non_wind_change_rejects_wind_payload() -> None:
 
 
 def test_field_lt_without_field_path_rejected() -> None:
-    with pytest.raises(ValidationError, match="field_path"):
+    with pytest.raises(ValidationError) as exc_info:
         ScenarioAssertion.model_validate(
             _make_assertion(kind="field_lt", expected=100.0)
         )
+    assert any("field_path" in e["msg"] for e in exc_info.value.errors())
 
 
 def test_field_lt_without_expected_rejected() -> None:
-    with pytest.raises(ValidationError, match="expected"):
+    with pytest.raises(ValidationError) as exc_info:
         ScenarioAssertion.model_validate(
             _make_assertion(kind="field_lt", field_path="estimate.total_time_s")
         )
+    assert any("expected" in e["msg"] for e in exc_info.value.errors())
 
 
 def test_field_lt_with_all_params_accepted() -> None:

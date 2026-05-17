@@ -14,21 +14,8 @@ from estimator import (
 )
 from estimator.core.errors import UnsupportedEstimatorFeatureError
 from estimator.math.turn_arc import compute_turn_arc_geometry
-from schemas import VehicleClass
 from schemas.mission import MissionAction, RouteItem
-from tests.helpers import make_mission, make_vehicle
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def _fw_vehicle():
-    v = make_vehicle()
-    v.vehicle_class = VehicleClass.FIXED_WING
-    v.capabilities.hover = False
-    v.capabilities.forward_flight = True
-    return v
+from tests.helpers import make_fw_vehicle, make_mission, make_vehicle
 
 
 def _v2_options(**kwargs):
@@ -149,6 +136,15 @@ def test_v2_turn_arc_has_correct_arc_length() -> None:
         assert leg.path_distance_m >= 0.0
         assert leg.path_distance_m <= math.pi * turn_radius_m + 1e-9
 
+    # The north→east segment produces a right turn with outgoing track ~90°.
+    # At least one arc in this mission must exit at that heading.
+    arc_tracks = [
+        leg.ground_track_deg
+        for leg in result.legs
+        if leg.phase == LegPhase.TURN_ARC and leg.ground_track_deg is not None
+    ]
+    assert any(math.isclose(t, 90.0, abs_tol=1.0) for t in arc_tracks)
+
 
 def test_v2_turn_arc_adds_to_total_path_distance() -> None:
     mission = _make_turning_mission()
@@ -248,7 +244,7 @@ def test_v1_metadata_records_estimator_version() -> None:
 def test_fw_loiter_accepted_in_v2() -> None:
     mission = make_mission()
     mission.route = [mission.route[2]]  # loiter_time item
-    vehicle = _fw_vehicle()
+    vehicle = make_fw_vehicle()
 
     result = estimate_mission_distance_time(mission, vehicle, options=_v2_options())
     dwell_legs = [leg for leg in result.legs if leg.phase == LegPhase.LOITER_DWELL]
@@ -258,7 +254,7 @@ def test_fw_loiter_accepted_in_v2() -> None:
 def test_fw_loiter_v1_still_rejected() -> None:
     mission = make_mission()
     mission.route = [mission.route[2]]
-    vehicle = _fw_vehicle()
+    vehicle = make_fw_vehicle()
 
     with pytest.raises(UnsupportedEstimatorFeatureError) as exc_info:
         estimate_mission_distance_time(mission, vehicle, options=_v1_options())
@@ -270,7 +266,7 @@ def test_fw_loiter_v1_still_rejected() -> None:
 def test_fw_circular_loiter_path_distance_equals_tas_times_time() -> None:
     mission = make_mission()
     mission.route = [mission.route[2]]
-    vehicle = _fw_vehicle()
+    vehicle = make_fw_vehicle()
     result = estimate_mission_distance_time(mission, vehicle, options=_v2_options())
 
     dwell = next(leg for leg in result.legs if leg.phase == LegPhase.LOITER_DWELL)
@@ -283,7 +279,7 @@ def test_fw_circular_loiter_path_distance_equals_tas_times_time() -> None:
 def test_fw_circular_loiter_zero_net_displacement() -> None:
     mission = make_mission()
     mission.route = [mission.route[2]]
-    vehicle = _fw_vehicle()
+    vehicle = make_fw_vehicle()
     result = estimate_mission_distance_time(mission, vehicle, options=_v2_options())
 
     dwell = next(leg for leg in result.legs if leg.phase == LegPhase.LOITER_DWELL)
@@ -297,7 +293,7 @@ def test_fw_circular_loiter_time_equals_loiter_time_s() -> None:
     loiter_item = mission.route[2]
     loiter_item.loiter_time_s = 90.0
     mission.route = [loiter_item]
-    vehicle = _fw_vehicle()
+    vehicle = make_fw_vehicle()
     result = estimate_mission_distance_time(mission, vehicle, options=_v2_options())
 
     dwell = next(leg for leg in result.legs if leg.phase == LegPhase.LOITER_DWELL)
@@ -307,7 +303,7 @@ def test_fw_circular_loiter_time_equals_loiter_time_s() -> None:
 def test_fw_circular_loiter_populates_wind_fields() -> None:
     mission = make_mission()
     mission.route = [mission.route[2]]
-    vehicle = _fw_vehicle()
+    vehicle = make_fw_vehicle()
     result = estimate_mission_distance_time(
         mission, vehicle, options=_v2_options(wind_east_mps=3.0)
     )
@@ -321,7 +317,7 @@ def test_fw_circular_loiter_populates_wind_fields() -> None:
 def test_fw_circular_loiter_speed_source_is_cruise() -> None:
     mission = make_mission()
     mission.route = [mission.route[2]]
-    vehicle = _fw_vehicle()
+    vehicle = make_fw_vehicle()
     result = estimate_mission_distance_time(mission, vehicle, options=_v2_options())
 
     dwell = next(leg for leg in result.legs if leg.phase == LegPhase.LOITER_DWELL)
@@ -378,9 +374,8 @@ def test_fw_circular_loiter_dwell_uses_cruise_power_in_energy() -> None:
 
     mission = make_mission()
     mission.route = [mission.route[2]]
-    vehicle = _fw_vehicle()
-    # Ensure hover_power_w is None (proper FW vehicle has no hover power)
-    setattr(vehicle.energy, "hover_power_w", None)
+    vehicle = make_fw_vehicle()
+    vehicle.energy = vehicle.energy.model_copy(update={"hover_power_w": None})
 
     result = try_estimate_mission_distance_time(mission, vehicle, options=_v2_options())
     assert result.failure is None
@@ -420,3 +415,30 @@ def test_collinear_waypoints_produce_no_turn_arc() -> None:
     )
     turn_arcs = [leg for leg in result.legs if leg.phase == LegPhase.TURN_ARC]
     assert len(turn_arcs) == 0
+
+
+# ---------------------------------------------------------------------------
+# FW circular loiter energy
+# ---------------------------------------------------------------------------
+
+
+def test_fw_circular_loiter_energy_equals_cruise_power_times_time() -> None:
+    """FW loiter dwell energy = cruise_power_w × loiter_time_s / 3600."""
+    from estimator import EnergyPowerSource, try_estimate_mission_distance_time
+
+    loiter_time_s = 90.0
+    mission = make_mission()
+    loiter_item = mission.route[2]
+    loiter_item.loiter_time_s = loiter_time_s
+    mission.route = [loiter_item]
+    vehicle = make_fw_vehicle()
+    vehicle.energy = vehicle.energy.model_copy(update={"hover_power_w": None})
+
+    result = try_estimate_mission_distance_time(mission, vehicle, options=_v2_options())
+
+    assert result.failure is None
+    assert result.energy is not None
+    dwell_energy = next(e for e in result.energy.legs if e.phase == LegPhase.LOITER_DWELL)
+    assert dwell_energy.power_source == EnergyPowerSource.CRUISE_POWER
+    expected_wh = vehicle.energy.cruise_power_w * loiter_time_s / 3600.0
+    assert math.isclose(dwell_energy.energy_wh, expected_wh, rel_tol=1e-9)

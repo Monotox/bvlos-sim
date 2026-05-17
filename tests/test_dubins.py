@@ -112,6 +112,7 @@ def test_dubins_path_at_zero_distance_is_zero() -> None:
 
 
 def test_dubins_path_zero_radius_falls_back_to_euclidean() -> None:
+    # 300-400-500 is a scaled 3-4-5 Pythagorean triple
     result = dubins_path_to_point_m(0.0, 0.0, 0.0, 300.0, 400.0, 0.0)
     assert math.isclose(result, 500.0, rel_tol=1e-9)
 

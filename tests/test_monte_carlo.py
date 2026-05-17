@@ -376,3 +376,6 @@ def test_monte_carlo_negative_speed_sample_is_clamped_to_positive() -> None:
 
     assert result.failed_sample_count == 0
     assert result.completed_sample_count == 20
+    # All clamped speeds must produce valid (positive) flight times, not zero or negative.
+    assert result.total_time_s is not None
+    assert result.total_time_s.min > 0.0
