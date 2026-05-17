@@ -6,6 +6,8 @@ from typer.testing import CliRunner
 
 import adapters.cli as cli_module
 from adapters.cli import CliExitCode, app
+from adapters.envelope import RESULT_ENVELOPE_SCHEMA_VERSION
+from adapters.version import tool_version
 from tests.helpers import make_mission_payload, make_vehicle_payload
 
 runner = CliRunner()
@@ -33,8 +35,8 @@ def test_cli_success_json_output_is_deterministic_and_complete(tmp_path: Path) -
     assert first.stdout == second.stdout
 
     envelope = json.loads(first.stdout)
-    assert envelope["schema_version"] == "estimator-envelope.v5"
-    assert envelope["tool_version"] == "0.22.0"
+    assert envelope["schema_version"] == RESULT_ENVELOPE_SCHEMA_VERSION
+    assert envelope["tool_version"] == tool_version()
     assert envelope["status"] == "success"
     assert envelope["result_validity"]["is_complete"] is True
     assert envelope["result_validity"]["is_valid_for_full_mission"] is True

@@ -228,7 +228,11 @@ def test_subsegment_altitude_interpolation_uses_time_not_spatial_fraction() -> N
         mission, vehicle, options=opts, wind_provider=provider_everywhere
     )
 
+    # Sanity: headwind-everywhere must represent a significantly slow flight.
+    # At gs≈12 m/s over ~3.4 km the horizontal time alone exceeds 250 s.
+    assert r_everywhere.total_time_s > 250.0
+
     # With time-based altitude: only sub-seg 0 samples in the headwind zone.
     # The remaining 6/7 sub-segments are at the calm target altitude.
-    # This gives a significantly shorter time than headwind on every sub-segment.
-    assert r_boundary.total_time_s < r_everywhere.total_time_s
+    # The difference must be material (>10%), not just floating-point noise.
+    assert r_boundary.total_time_s < r_everywhere.total_time_s * 0.9
