@@ -4,6 +4,7 @@ import random
 import statistics as stats_module
 from collections.abc import Sequence
 
+from estimator.core.errors import EstimatorError
 from estimator.core.geofence import GeofenceZone
 from estimator.core.landing_zone import LandingZone
 from estimator.core.uncertainty import MonteCarloResult, SampledOutputStats
@@ -34,18 +35,16 @@ def _stats(values: list[float]) -> SampledOutputStats | None:
         return SampledOutputStats(
             count=1, mean=v, std=0.0, min=v, p5=v, p50=v, p95=v, max=v
         )
-    min_val = min(values)
-    max_val = max(values)
     quantiles = stats_module.quantiles(values, n=20)
     return SampledOutputStats(
         count=n,
         mean=stats_module.mean(values),
         std=stats_module.stdev(values),
-        min=min_val,
-        p5=max(quantiles[0], min_val),
+        min=min(values),
+        p5=quantiles[0],
         p50=stats_module.median(values),
-        p95=min(quantiles[18], max_val),
-        max=max_val,
+        p95=quantiles[18],
+        max=max(values),
     )
 
 
@@ -97,13 +96,17 @@ def run_monte_carlo(
             _sample(rng, params.wind_north_mps) if params.wind_north_mps else None
         )
         sampled_cruise_speed = (
-            _sample(rng, params.cruise_speed_mps) if params.cruise_speed_mps else None
+            max(0.1, _sample(rng, params.cruise_speed_mps))
+            if params.cruise_speed_mps
+            else None
         )
         sampled_cruise_power = (
-            _sample(rng, params.cruise_power_w) if params.cruise_power_w else None
+            max(0.1, _sample(rng, params.cruise_power_w))
+            if params.cruise_power_w
+            else None
         )
         sampled_battery_cap = (
-            _sample(rng, params.battery_capacity_wh)
+            max(0.1, _sample(rng, params.battery_capacity_wh))
             if params.battery_capacity_wh
             else None
         )
@@ -125,7 +128,7 @@ def run_monte_carlo(
                 geofences=geofences,
                 landing_zones=landing_zones,
             )
-        except Exception:
+        except EstimatorError:
             failed += 1
             continue
 
@@ -186,6 +189,8 @@ def _apply_vehicle_overrides(
     battery_capacity_wh: float | None,
 ) -> VehicleProfile:
     if cruise_power_w is None and battery_capacity_wh is None:
+        return vehicle
+    if vehicle.energy is None:
         return vehicle
     energy_updates: dict[str, float] = {}
     if cruise_power_w is not None:

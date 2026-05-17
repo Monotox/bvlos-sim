@@ -51,3 +51,23 @@ def test_crosswind_no_solution_when_exceeds_tas() -> None:
         wind_north_mps=0.0,
     )
     assert solution is None
+
+
+def test_zero_tas_returns_none() -> None:
+    solution = solve_wind_triangle(
+        track_deg=90.0,
+        tas_mps=0.0,
+        wind_east_mps=0.0,
+        wind_north_mps=0.0,
+    )
+    assert solution is None
+
+
+def test_zero_tas_with_headwind_returns_none() -> None:
+    solution = solve_wind_triangle(
+        track_deg=90.0,
+        tas_mps=0.0,
+        wind_east_mps=5.0,
+        wind_north_mps=0.0,
+    )
+    assert solution is None

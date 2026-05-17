@@ -145,6 +145,9 @@ class _SitlPositionProximityComparator:
         return None if coordinate is None else self._coordinate_degrees(coordinate)
 
     def _coordinate_degrees(self, coordinate: float) -> float:
+        # MAVLink GLOBAL_POSITION_INT encodes lat/lon as int32 in 1e-7 degree
+        # units. Valid decimal degrees never exceed ±180 for lon or ±90 for lat,
+        # so any value with |x| > 180 must be a MAVLink integer.
         return coordinate / 10_000_000.0 if abs(coordinate) > 180.0 else coordinate
 
     def _closest_position(

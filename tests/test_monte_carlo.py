@@ -318,3 +318,61 @@ def test_monte_carlo_stats_min_le_p5_le_p50_le_p95_le_max() -> None:
     assert s.p5 <= s.p50
     assert s.p50 <= s.p95
     assert s.p95 <= s.max
+
+
+def test_monte_carlo_non_estimator_error_propagates() -> None:
+    """Non-EstimatorError exceptions must not be silently swallowed."""
+    from estimator.execution.monte_carlo import run_monte_carlo as _run
+
+    class BrokenWindProvider:
+        def wind_at(self, **_kwargs: object) -> object:
+            raise RuntimeError("unexpected hardware failure")
+
+    with pytest.raises(RuntimeError, match="unexpected hardware failure"):
+        _run(
+            _wind_plan(samples=5),
+            make_mission(),
+            make_vehicle(),
+            wind_provider=BrokenWindProvider(),  # type: ignore[arg-type]
+        )
+
+
+def test_monte_carlo_vehicle_without_energy_model_skips_overrides() -> None:
+    """If vehicle.energy is None, energy overrides are safely ignored."""
+    vehicle = make_vehicle()
+    vehicle.energy = None
+    plan = UncertaintyPlan(
+        schema_version="uncertainty.v1",
+        uncertainty_id="test-no-energy",
+        mission_file="m.yaml",
+        vehicle_file="v.yaml",
+        samples=5,
+        seed=1,
+        parameters=UncertaintyParameters(
+            cruise_power_w=NormalDistribution(kind="normal", mean=450.0, std=10.0),
+        ),
+    )
+
+    result = run_monte_carlo(plan, make_mission(), vehicle)
+
+    assert result.sample_count == 5
+    assert result.failed_sample_count == 0
+
+
+def test_monte_carlo_negative_speed_sample_is_clamped_to_positive() -> None:
+    """Negative sampled cruise speed must be clamped, not produce a failed sample."""
+    plan = UncertaintyPlan(
+        schema_version="uncertainty.v1",
+        uncertainty_id="test-clamped-speed",
+        mission_file="m.yaml",
+        vehicle_file="v.yaml",
+        samples=20,
+        seed=0,
+        parameters=UncertaintyParameters(
+            cruise_speed_mps=NormalDistribution(kind="normal", mean=0.0, std=100.0),
+        ),
+    )
+    result = run_monte_carlo(plan, make_mission(), make_vehicle())
+
+    assert result.failed_sample_count == 0
+    assert result.completed_sample_count == 20

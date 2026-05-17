@@ -120,6 +120,13 @@ class SitlArtifactRecorder:
         return self._observed_artifacts
 
     def write(self) -> SitlObservedArtifacts:
+        """Write all recorded artifacts to disk and return the observed-artifacts object.
+
+        The same ``SitlObservedArtifacts`` instance is returned on every call.
+        Callers that hold a reference to a previous return value will see its
+        fields updated in-place after subsequent writes — do not cache the
+        result across mutating record_* calls unless that behaviour is intended.
+        """
         if self._observed_artifacts is not None and not self._dirty:
             return self._observed_artifacts
 
