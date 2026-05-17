@@ -121,7 +121,9 @@ def test_uncertainty_plan_rejects_unknown_fields() -> None:
                 "vehicle_file": "v.yaml",
                 "samples": 10,
                 "seed": 1,
-                "parameters": {"wind_east_mps": {"kind": "normal", "mean": 0.0, "std": 1.0}},
+                "parameters": {
+                    "wind_east_mps": {"kind": "normal", "mean": 0.0, "std": 1.0}
+                },
                 "extra_field": True,
             }
         )
@@ -234,6 +236,7 @@ def test_monte_carlo_baseline_is_deterministic() -> None:
 
 def test_monte_carlo_baseline_matches_direct_estimate() -> None:
     from estimator import try_estimate_mission_distance_time
+
     mission = make_mission()
     vehicle = make_vehicle()
     result = run_monte_carlo(_wind_plan(), mission, vehicle)

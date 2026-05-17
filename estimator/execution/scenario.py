@@ -71,7 +71,9 @@ def _mission_with_scenario_link_systems(
 # ---------------------------------------------------------------------------
 
 
-def _fired_event_outcome(event: ScenarioEvent, timeline_index: int) -> ScenarioEventOutcome:
+def _fired_event_outcome(
+    event: ScenarioEvent, timeline_index: int
+) -> ScenarioEventOutcome:
     return ScenarioEventOutcome(
         event_id=event.event_id,
         kind=event.kind,

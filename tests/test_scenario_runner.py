@@ -1,6 +1,5 @@
 """Tests for deterministic scenario runner execution (scenario.v1)."""
 
-
 from estimator.core.scenario import AssertionOutcome, ScenarioStatus
 from estimator.environment.wind import LayeredWindProvider, WindLayer
 from estimator.execution.scenario import run_scenario
@@ -116,9 +115,7 @@ def test_no_assertions_gives_passed_status() -> None:
 
 
 def test_all_passing_assertions_gives_passed_status() -> None:
-    plan = _plan(
-        assertions=[_assertion("a1", "estimate_succeeds")]
-    )
+    plan = _plan(assertions=[_assertion("a1", "estimate_succeeds")])
     result = run_scenario(plan, make_mission(), make_vehicle())
     assert result.status == ScenarioStatus.PASSED
 
@@ -128,8 +125,10 @@ def test_any_failed_assertion_gives_failed_status() -> None:
         assertions=[
             _assertion("a1", "estimate_succeeds"),
             _assertion(
-                "a2", "field_lt",
-                field_path="estimate.total_time_s", expected=1.0,
+                "a2",
+                "field_lt",
+                field_path="estimate.total_time_s",
+                expected=1.0,
             ),
         ]
     )
@@ -164,8 +163,9 @@ def test_estimate_fails_fails_when_estimate_succeeds() -> None:
 def test_field_lt_passes_when_actual_is_less_than_expected() -> None:
     plan = _plan(
         assertions=[
-            _assertion("a1", "field_lt",
-                       field_path="estimate.total_time_s", expected=3600.0)
+            _assertion(
+                "a1", "field_lt", field_path="estimate.total_time_s", expected=3600.0
+            )
         ]
     )
     result = run_scenario(plan, make_mission(), make_vehicle())
@@ -175,8 +175,9 @@ def test_field_lt_passes_when_actual_is_less_than_expected() -> None:
 def test_field_lt_fails_when_actual_is_not_less_than_expected() -> None:
     plan = _plan(
         assertions=[
-            _assertion("a1", "field_lt",
-                       field_path="estimate.total_time_s", expected=1.0)
+            _assertion(
+                "a1", "field_lt", field_path="estimate.total_time_s", expected=1.0
+            )
         ]
     )
     result = run_scenario(plan, make_mission(), make_vehicle())
@@ -191,8 +192,12 @@ def test_field_lt_fails_when_actual_is_not_less_than_expected() -> None:
 def test_field_eq_with_bool_true_passes() -> None:
     plan = _plan(
         assertions=[
-            _assertion("a1", "field_eq",
-                       field_path="estimate.energy.is_feasible", expected=True)
+            _assertion(
+                "a1",
+                "field_eq",
+                field_path="estimate.energy.is_feasible",
+                expected=True,
+            )
         ]
     )
     result = run_scenario(plan, make_mission(), make_vehicle())
@@ -202,8 +207,12 @@ def test_field_eq_with_bool_true_passes() -> None:
 def test_field_eq_with_bool_false_fails_when_true() -> None:
     plan = _plan(
         assertions=[
-            _assertion("a1", "field_eq",
-                       field_path="estimate.energy.is_feasible", expected=False)
+            _assertion(
+                "a1",
+                "field_eq",
+                field_path="estimate.energy.is_feasible",
+                expected=False,
+            )
         ]
     )
     result = run_scenario(plan, make_mission(), make_vehicle())
@@ -218,8 +227,9 @@ def test_field_eq_with_bool_false_fails_when_true() -> None:
 def test_unsupported_field_path_gives_unsupported_outcome() -> None:
     plan = _plan(
         assertions=[
-            _assertion("a1", "field_lt",
-                       field_path="estimate.unknown_field", expected=100.0)
+            _assertion(
+                "a1", "field_lt", field_path="estimate.unknown_field", expected=100.0
+            )
         ]
     )
     result = run_scenario(plan, make_mission(), make_vehicle())
@@ -230,8 +240,12 @@ def test_unavailable_field_gives_skipped_outcome() -> None:
     # energy.geofence.is_feasible requires a geofence, which is not set up here.
     plan = _plan(
         assertions=[
-            _assertion("a1", "field_eq",
-                       field_path="estimate.geofence.is_feasible", expected=True)
+            _assertion(
+                "a1",
+                "field_eq",
+                field_path="estimate.geofence.is_feasible",
+                expected=True,
+            )
         ]
     )
     result = run_scenario(plan, make_mission(), make_vehicle())
@@ -244,9 +258,7 @@ def test_unavailable_field_gives_skipped_outcome() -> None:
 
 
 def test_observe_at_mission_start_fires_at_timeline_index_0() -> None:
-    plan = _plan(
-        events=[_observe_event("start", "at_mission_start")]
-    )
+    plan = _plan(events=[_observe_event("start", "at_mission_start")])
     result = run_scenario(plan, make_mission(), make_vehicle())
     outcome = result.event_outcomes[0]
     assert outcome.fired is True
@@ -254,9 +266,7 @@ def test_observe_at_mission_start_fires_at_timeline_index_0() -> None:
 
 
 def test_observe_at_mission_end_fires_at_last_timeline_index() -> None:
-    plan = _plan(
-        events=[_observe_event("end", "at_mission_end")]
-    )
+    plan = _plan(events=[_observe_event("end", "at_mission_end")])
     result = run_scenario(plan, make_mission(), make_vehicle())
     outcome = result.event_outcomes[0]
     assert outcome.fired is True
@@ -281,7 +291,9 @@ def test_observe_at_route_item_fires_at_correct_index() -> None:
 def test_observe_at_route_item_with_unknown_id_not_fired() -> None:
     plan = _plan(
         events=[
-            _observe_event("wp", "at_route_item", trigger_route_item_id="nonexistent-id")
+            _observe_event(
+                "wp", "at_route_item", trigger_route_item_id="nonexistent-id"
+            )
         ]
     )
     result = run_scenario(plan, make_mission(), make_vehicle())
@@ -339,9 +351,9 @@ def test_wind_change_event_at_unknown_route_item_does_not_fire() -> None:
 
 
 def test_supplied_wind_provider_applies_when_initial_wind_is_unset() -> None:
-    provider = LayeredWindProvider([
-        WindLayer(altitude_m=0.0, wind_east_mps=4.0, wind_north_mps=0.0)
-    ])
+    provider = LayeredWindProvider(
+        [WindLayer(altitude_m=0.0, wind_east_mps=4.0, wind_north_mps=0.0)]
+    )
 
     result = run_scenario(
         _plan_without_initial_wind(),
@@ -354,9 +366,9 @@ def test_supplied_wind_provider_applies_when_initial_wind_is_unset() -> None:
 
 
 def test_explicit_initial_wind_overrides_supplied_wind_provider() -> None:
-    provider = LayeredWindProvider([
-        WindLayer(altitude_m=0.0, wind_east_mps=4.0, wind_north_mps=0.0)
-    ])
+    provider = LayeredWindProvider(
+        [WindLayer(altitude_m=0.0, wind_east_mps=4.0, wind_north_mps=0.0)]
+    )
 
     result = run_scenario(
         _plan(),
@@ -477,7 +489,9 @@ def test_policy_action_eq_skipped_when_event_not_fired() -> None:
     # Event fires at_route_item with a nonexistent id → not fired
     plan = _plan(
         events=[
-            _lost_link_event("ll", "at_route_item", trigger_route_item_id="no-such-item")
+            _lost_link_event(
+                "ll", "at_route_item", trigger_route_item_id="no-such-item"
+            )
         ],
         assertions=[_policy_assertion("a1", "ll", "rtl")],
         lost_link_policy={"action": "rtl", "loiter_s": 0.0},
@@ -587,7 +601,9 @@ def test_at_route_item_trigger_matches_first_occurrence() -> None:
         ],
     )
     result = run_scenario(plan, make_mission(), make_vehicle())
-    loiter_outcome = next(o for o in result.event_outcomes if o.event_id == "loiter_event")
+    loiter_outcome = next(
+        o for o in result.event_outcomes if o.event_id == "loiter_event"
+    )
     assert loiter_outcome.fired is True
     # Timeline index must be the FIRST leg for this route item, not the last.
     # The loiter item has transit + dwell legs; the first is the transit.

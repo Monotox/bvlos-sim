@@ -22,10 +22,12 @@ def test_estimator_is_deterministic_for_same_inputs() -> None:
 def test_estimator_is_deterministic_with_wind_provider() -> None:
     mission = make_mission()
     vehicle = make_vehicle()
-    provider = LayeredWindProvider([
-        WindLayer(altitude_m=0.0, wind_east_mps=3.0, wind_north_mps=-1.0),
-        WindLayer(altitude_m=200.0, wind_east_mps=6.0, wind_north_mps=0.0),
-    ])
+    provider = LayeredWindProvider(
+        [
+            WindLayer(altitude_m=0.0, wind_east_mps=3.0, wind_north_mps=-1.0),
+            WindLayer(altitude_m=200.0, wind_east_mps=6.0, wind_north_mps=0.0),
+        ]
+    )
 
     first = estimate_mission_distance_time(mission, vehicle, wind_provider=provider)
     second = estimate_mission_distance_time(mission, vehicle, wind_provider=provider)
@@ -51,8 +53,12 @@ def test_estimator_v2_is_deterministic() -> None:
     from schemas.mission import MissionAction, RouteItem
 
     mission = make_mission()
-    wp1 = RouteItem(id="north", action=MissionAction.WAYPOINT, lat=52.01, lon=4.0, altitude_m=120.0)
-    wp2 = RouteItem(id="east", action=MissionAction.WAYPOINT, lat=52.01, lon=4.02, altitude_m=120.0)
+    wp1 = RouteItem(
+        id="north", action=MissionAction.WAYPOINT, lat=52.01, lon=4.0, altitude_m=120.0
+    )
+    wp2 = RouteItem(
+        id="east", action=MissionAction.WAYPOINT, lat=52.01, lon=4.02, altitude_m=120.0
+    )
     mission.route = [wp1, wp2, mission.route[-1]]
     vehicle = make_vehicle()
     options = EstimationOptions(
@@ -65,4 +71,3 @@ def test_estimator_v2_is_deterministic() -> None:
     second = estimate_mission_distance_time(mission, vehicle, options=options)
 
     assert first.model_dump() == second.model_dump()
-

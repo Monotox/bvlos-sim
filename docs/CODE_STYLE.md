@@ -24,6 +24,7 @@ Current responsibilities:
 - `estimator/environment/`: wind provider abstractions
 - `estimator/math/`: pure math and geometry helpers
 - `adapters/`: CLI, file loading, envelopes, output rendering, and Markdown reports
+- `adapters/sitl/`: ArduPilot SITL adapter, artifact recording, evidence building, and comparison report logic
 
 Rules:
 

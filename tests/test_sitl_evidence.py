@@ -11,7 +11,7 @@ from adapters.cli import CliExitCode, app
 from adapters.io import load_mission, load_vehicle
 from adapters.scenario_envelope import build_scenario_envelope
 from adapters.scenario_io import load_scenario, resolve_scenario_asset_path
-from adapters.sitl_evidence import (
+from adapters.sitl.evidence import (
     SITL_EVIDENCE_SCHEMA_VERSION,
     build_sitl_evidence_bundle,
     render_sitl_evidence_json,
@@ -20,6 +20,7 @@ from estimator.execution.scenario import run_scenario
 from schemas import (
     SitlArtifactReference,
     SitlArtifactRole,
+    SitlComparisonSummary,
     SitlEvidenceBundle,
 )
 
@@ -60,6 +61,109 @@ def _build_bundle() -> SitlEvidenceBundle:
         vehicle_document=vehicle_doc,
         vehicle=vehicle,
     )
+
+
+def _build_failed_assertion_bundle() -> SitlEvidenceBundle:
+    payload = _build_bundle().model_dump(mode="json")
+    assertion = payload["expected"]["scenario_report"]["assertion_results"][0]
+    assertion["passed"] = False
+    assertion["observed_value"] = "unexpected"
+    payload["status"] = "completed"
+    return SitlEvidenceBundle.model_validate(payload)
+
+
+def _write_json_artifact(path: Path, payload: dict) -> Path:
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    return path
+
+
+def _artifact_reference(path: Path, role: str, schema_version: str) -> dict:
+    return {
+        "role": role,
+        "path": str(path),
+        "format": "json",
+        "schema_version": schema_version,
+    }
+
+
+def _build_drifted_bundle(tmp_path: Path) -> SitlEvidenceBundle:
+    payload = _build_bundle().model_dump(mode="json")
+    scenario_report = payload["expected"]["scenario_report"]
+    timeline = scenario_report["timeline"]
+    expected_mission_items = len(timeline) - 1
+    telemetry_records = [
+        {"timestamp_s": 0.0, "message_type": "HEARTBEAT", "fields": {}},
+        *[
+            {
+                "timestamp_s": float(point["index"]),
+                "message_type": "GLOBAL_POSITION_INT",
+                "fields": {
+                    "lat": int(point["lat"] * 10_000_000),
+                    "lon": int(point["lon"] * 10_000_000),
+                },
+            }
+            for point in timeline
+            if point["index"] != 0
+        ],
+    ]
+    telemetry_path = _write_json_artifact(
+        tmp_path / "telemetry.json",
+        {"schema_version": "sitl-telemetry.v1", "records": telemetry_records},
+    )
+    command_log_path = _write_json_artifact(
+        tmp_path / "command_log.json",
+        {
+            "schema_version": "sitl-command-log.v1",
+            "commands": [
+                {
+                    "timestamp_s": 0.0,
+                    "command": "MISSION_COUNT",
+                    "fields": {"item_count": expected_mission_items + 1},
+                }
+            ],
+        },
+    )
+    simulator_log_path = _write_json_artifact(
+        tmp_path / "simulator_log.json",
+        {
+            "schema_version": "sitl-simulator-log.v1",
+            "events": [{"timestamp_s": 0.0, "event": "connected", "fields": {}}],
+        },
+    )
+    adapter_log_path = _write_json_artifact(
+        tmp_path / "adapter_log.json",
+        {
+            "schema_version": "sitl-adapter-log.v1",
+            "events": [
+                {"timestamp_s": 0.0, "event": "adapter_initialized", "fields": {}},
+                {"timestamp_s": 0.0, "event": "recording_started", "fields": {}},
+            ],
+        },
+    )
+    payload["status"] = "completed"
+    payload["observed"] = {
+        "telemetry": [
+            _artifact_reference(telemetry_path, "telemetry", "sitl-telemetry.v1")
+        ],
+        "command_logs": [
+            _artifact_reference(
+                command_log_path,
+                "command_log",
+                "sitl-command-log.v1",
+            )
+        ],
+        "simulator_logs": [
+            _artifact_reference(
+                simulator_log_path,
+                "simulator_log",
+                "sitl-simulator-log.v1",
+            )
+        ],
+        "adapter_logs": [
+            _artifact_reference(adapter_log_path, "adapter_log", "sitl-adapter-log.v1")
+        ],
+    }
+    return SitlEvidenceBundle.model_validate(payload)
 
 
 def test_sitl_evidence_bundle_schema_validates_happy_path() -> None:
@@ -148,7 +252,7 @@ def test_sitl_cli_invalid_scenario_exits_invalid_input(tmp_path: Path) -> None:
     assert result.exit_code == int(CliExitCode.INVALID_INPUT)
 
 
-def test_estimate_cli_renders_sitl_comparison_from_evidence_bundle(
+def test_compare_command_renders_json_from_contract_only_bundle(
     tmp_path: Path,
 ) -> None:
     evidence_path = tmp_path / "evidence.json"
@@ -159,29 +263,26 @@ def test_estimate_cli_renders_sitl_comparison_from_evidence_bundle(
     result = runner.invoke(
         app,
         [
-            "estimate",
-            str(FIXTURE_ROOT.parent.parent / "success" / "mission.yaml"),
-            str(FIXTURE_ROOT.parent.parent / "success" / "vehicle.yaml"),
-            "--sitl-evidence",
+            "compare",
             str(evidence_path),
             "--comparison-id",
             "estimate-comparison",
         ],
     )
 
-    assert result.exit_code == int(CliExitCode.SUCCESS)
+    assert result.exit_code == int(CliExitCode.UNSUPPORTED)
     payload = json.loads(result.output)
     assert payload["schema_version"] == "sitl-comparison.v1"
     assert payload["comparison_id"] == "estimate-comparison"
     assert payload["evidence_id"] == "test-evidence"
-    assert payload["summary"] == "passed"
+    assert payload["summary"] in {summary.value for summary in SitlComparisonSummary}
     assert any(
         item["dimension"] == "bundle_completeness" and item["outcome"] == "skipped"
         for item in payload["items"]
     )
 
 
-def test_estimate_cli_renders_sitl_comparison_markdown_from_evidence_bundle(
+def test_compare_command_renders_markdown(
     tmp_path: Path,
 ) -> None:
     evidence_path = tmp_path / "evidence.json"
@@ -192,22 +293,97 @@ def test_estimate_cli_renders_sitl_comparison_markdown_from_evidence_bundle(
     result = runner.invoke(
         app,
         [
-            "estimate",
-            str(FIXTURE_ROOT.parent.parent / "success" / "mission.yaml"),
-            str(FIXTURE_ROOT.parent.parent / "success" / "vehicle.yaml"),
-            "--sitl-evidence",
+            "compare",
             str(evidence_path),
             "--format",
             "markdown",
         ],
     )
 
-    assert result.exit_code == int(CliExitCode.SUCCESS)
+    assert result.exit_code == int(CliExitCode.UNSUPPORTED)
     assert "# SITL Comparison Report" in result.output
     assert "- Evidence ID: `test-evidence`" in result.output
 
 
-def test_estimate_cli_invalid_sitl_comparison_id_exits_invalid_input(
+def test_compare_command_writes_to_output_file(tmp_path: Path) -> None:
+    evidence_path = tmp_path / "evidence.json"
+    output_path = tmp_path / "comparison.json"
+    evidence_path.write_text(
+        render_sitl_evidence_json(_build_bundle()), encoding="utf-8"
+    )
+
+    result = runner.invoke(
+        app,
+        ["compare", str(evidence_path), "--output", str(output_path)],
+    )
+
+    assert result.exit_code == int(CliExitCode.UNSUPPORTED)
+    assert result.output == ""
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    assert payload["schema_version"] == "sitl-comparison.v1"
+
+
+def test_compare_command_exits_nonzero_when_summary_fails(tmp_path: Path) -> None:
+    evidence_path = tmp_path / "evidence.json"
+    evidence_path.write_text(
+        render_sitl_evidence_json(_build_failed_assertion_bundle()),
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(app, ["compare", str(evidence_path)])
+
+    assert result.exit_code == int(CliExitCode.INFEASIBLE)
+    payload = json.loads(result.output)
+    assert payload["schema_version"] == "sitl-comparison.v1"
+    assert payload["summary"] == SitlComparisonSummary.FAILED.value
+
+
+def test_compare_command_exits_nonzero_when_summary_drifted(
+    tmp_path: Path,
+) -> None:
+    evidence_path = tmp_path / "evidence.json"
+    evidence_path.write_text(
+        render_sitl_evidence_json(_build_drifted_bundle(tmp_path)),
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(app, ["compare", str(evidence_path)])
+
+    assert result.exit_code == int(CliExitCode.INFEASIBLE)
+    payload = json.loads(result.output)
+    assert payload["schema_version"] == "sitl-comparison.v1"
+    assert payload["summary"] == SitlComparisonSummary.DRIFTED.value
+
+
+def test_compare_command_unsupported_summary_exits_unsupported(
+    tmp_path: Path,
+) -> None:
+    evidence_path = tmp_path / "evidence.json"
+    evidence_path.write_text(
+        render_sitl_evidence_json(_build_bundle()), encoding="utf-8"
+    )
+
+    result = runner.invoke(app, ["compare", str(evidence_path)])
+
+    assert result.exit_code == int(CliExitCode.UNSUPPORTED)
+    payload = json.loads(result.output)
+    assert payload["schema_version"] == "sitl-comparison.v1"
+    assert payload["summary"] == SitlComparisonSummary.UNSUPPORTED.value
+
+
+def test_compare_command_invalid_evidence_file(tmp_path: Path) -> None:
+    evidence_path = tmp_path / "bad-evidence.json"
+    evidence_path.write_text("{bad json", encoding="utf-8")
+
+    result = runner.invoke(app, ["compare", str(evidence_path)])
+
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+    payload = json.loads(result.output)
+    assert payload["command"] == "compare"
+    assert payload["status"] == "error"
+
+
+def test_compare_command_invalid_comparison_id_exits_invalid_input(
     tmp_path: Path,
 ) -> None:
     evidence_path = tmp_path / "evidence.json"
@@ -218,10 +394,7 @@ def test_estimate_cli_invalid_sitl_comparison_id_exits_invalid_input(
     result = runner.invoke(
         app,
         [
-            "estimate",
-            str(FIXTURE_ROOT.parent.parent / "success" / "mission.yaml"),
-            str(FIXTURE_ROOT.parent.parent / "success" / "vehicle.yaml"),
-            "--sitl-evidence",
+            "compare",
             str(evidence_path),
             "--comparison-id",
             "bad id",
@@ -230,6 +403,52 @@ def test_estimate_cli_invalid_sitl_comparison_id_exits_invalid_input(
 
     assert result.exit_code == int(CliExitCode.INVALID_INPUT)
     payload = json.loads(result.output)
+    assert payload["command"] == "compare"
     assert payload["status"] == "error"
-    assert payload["diagnostics"][0]["kind"] == "invalid_input"
-    assert payload["diagnostics"][0]["context"]["first_error_path"] == "comparison_id"
+    assert "comparison_id" in payload["message"]
+
+
+def test_sitl_command_now_accepts_format_flag() -> None:
+    result = runner.invoke(
+        app,
+        ["sitl", str(FIXTURE_ROOT / "scenario.yaml"), "--format", "json"],
+    )
+
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    payload = json.loads(result.output)
+    assert payload["schema_version"] == SITL_EVIDENCE_SCHEMA_VERSION
+
+
+def test_sitl_command_format_markdown() -> None:
+    result = runner.invoke(
+        app,
+        ["sitl", str(FIXTURE_ROOT / "scenario.yaml"), "--format", "markdown"],
+    )
+
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    assert "SITL Evidence Bundle" in result.output
+
+
+def test_sitl_live_requires_artifact_dir() -> None:
+    result = runner.invoke(app, ["sitl", str(FIXTURE_ROOT / "scenario.yaml"), "--live"])
+
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+    payload = json.loads(result.output)
+    assert payload["command"] == "sitl"
+    assert payload["status"] == "error"
+    assert "--artifact-dir" in payload["message"]
+
+
+def test_estimate_no_longer_accepts_sitl_evidence_flag(tmp_path: Path) -> None:
+    result = runner.invoke(
+        app,
+        [
+            "estimate",
+            str(FIXTURE_ROOT.parent.parent / "success" / "mission.yaml"),
+            str(FIXTURE_ROOT.parent.parent / "success" / "vehicle.yaml"),
+            "--sitl-evidence",
+            str(tmp_path / "evidence.json"),
+        ],
+    )
+
+    assert result.exit_code != int(CliExitCode.SUCCESS)

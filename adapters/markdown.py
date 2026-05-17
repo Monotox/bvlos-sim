@@ -25,7 +25,10 @@ def render_envelope_markdown(envelope: EstimatorResultEnvelope) -> str:
                 "",
                 "### Invalidated Fields",
                 "",
-                *[f"- `{field}`" for field in envelope.result_validity.invalidated_fields],
+                *[
+                    f"- `{field}`"
+                    for field in envelope.result_validity.invalidated_fields
+                ],
             ]
         )
     if envelope.result_validity.unavailable_fields:
@@ -34,7 +37,10 @@ def render_envelope_markdown(envelope: EstimatorResultEnvelope) -> str:
                 "",
                 "### Unavailable Fields",
                 "",
-                *[f"- `{field}`" for field in envelope.result_validity.unavailable_fields],
+                *[
+                    f"- `{field}`"
+                    for field in envelope.result_validity.unavailable_fields
+                ],
             ]
         )
 

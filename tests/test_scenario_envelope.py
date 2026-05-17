@@ -29,8 +29,12 @@ def _build_envelope_for(scenario_name: str) -> ScenarioResultEnvelope:
     scenario_path = FIXTURE_ROOT / scenario_name / "scenario.yaml"
     scenario, scenario_doc = load_scenario(scenario_path)
 
-    mission_path = resolve_scenario_asset_path(scenario.mission_file, scenario_path=scenario_path)
-    vehicle_path = resolve_scenario_asset_path(scenario.vehicle_file, scenario_path=scenario_path)
+    mission_path = resolve_scenario_asset_path(
+        scenario.mission_file, scenario_path=scenario_path
+    )
+    vehicle_path = resolve_scenario_asset_path(
+        scenario.vehicle_file, scenario_path=scenario_path
+    )
 
     mission, mission_doc = load_mission(mission_path)
     vehicle, vehicle_doc = load_vehicle(vehicle_path)
@@ -143,7 +147,9 @@ def test_envelope_rejects_unknown_fields() -> None:
 @pytest.mark.parametrize("scenario_name", ["passed", "failed"])
 def test_canonical_json_matches_golden_fixture(scenario_name: str) -> None:
     rendered = render_scenario_envelope_json(_build_envelope_for(scenario_name))
-    expected = (FIXTURE_ROOT / scenario_name / "envelope.json").read_text(encoding="utf-8")
+    expected = (FIXTURE_ROOT / scenario_name / "envelope.json").read_text(
+        encoding="utf-8"
+    )
     assert rendered == expected
 
 

@@ -69,7 +69,9 @@ class SitlArtifactReference(BaseModel):
         default=None,
         description="Optional schema or report version for structured artifacts.",
     )
-    description: str | None = Field(default=None, description="Human-readable artifact note.")
+    description: str | None = Field(
+        default=None, description="Human-readable artifact note."
+    )
 
 
 class SitlSimulatorMetadata(BaseModel):
@@ -77,17 +79,31 @@ class SitlSimulatorMetadata(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    adapter_kind: SitlAdapterKind = Field(description="Adapter family used for the run.")
-    adapter_id: str = Field(min_length=1, description="Adapter implementation identifier.")
-    adapter_version: str = Field(min_length=1, description="Adapter implementation version.")
+    adapter_kind: SitlAdapterKind = Field(
+        description="Adapter family used for the run."
+    )
+    adapter_id: str = Field(
+        min_length=1, description="Adapter implementation identifier."
+    )
+    adapter_version: str = Field(
+        min_length=1, description="Adapter implementation version."
+    )
     execution_mode: str = Field(
         min_length=1,
         description="Execution mode, for example contract_only or live_sitl.",
     )
-    simulator_name: str | None = Field(default=None, description="Simulator name, if any.")
-    simulator_version: str | None = Field(default=None, description="Simulator version, if known.")
-    autopilot: str | None = Field(default=None, description="Autopilot family from vehicle metadata.")
-    frame: str | None = Field(default=None, description="SITL frame or model from vehicle metadata.")
+    simulator_name: str | None = Field(
+        default=None, description="Simulator name, if any."
+    )
+    simulator_version: str | None = Field(
+        default=None, description="Simulator version, if known."
+    )
+    autopilot: str | None = Field(
+        default=None, description="Autopilot family from vehicle metadata."
+    )
+    frame: str | None = Field(
+        default=None, description="SITL frame or model from vehicle metadata."
+    )
     metadata: dict[str, SitlJsonValue] = Field(
         default_factory=dict,
         description="Free-form adapter metadata ignored by deterministic estimator logic.",
@@ -151,7 +167,9 @@ class SitlEvidenceBundle(BaseModel):
     expected: SitlExpectedOutputs = Field(
         description="Deterministic expected outputs for later comparison.",
     )
-    simulator: SitlSimulatorMetadata = Field(description="Simulator and adapter metadata.")
+    simulator: SitlSimulatorMetadata = Field(
+        description="Simulator and adapter metadata."
+    )
     observed: SitlObservedArtifacts = Field(
         default_factory=SitlObservedArtifacts,
         description="Telemetry and command artifacts captured from the simulator.",

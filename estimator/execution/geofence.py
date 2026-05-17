@@ -84,7 +84,9 @@ def evaluate_geofence_feasibility(context: EstimationContext) -> GeofenceEvaluat
     )
 
 
-def _compile_zone(zone: GeofenceZone) -> tuple[CompiledGeofence, EstimatorFailure | None]:
+def _compile_zone(
+    zone: GeofenceZone,
+) -> tuple[CompiledGeofence, EstimatorFailure | None]:
     geometry = polygon_set_to_shapely(zone.geometry.polygons)
 
     if geometry.is_empty or not geometry.is_valid:

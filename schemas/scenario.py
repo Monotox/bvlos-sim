@@ -58,17 +58,21 @@ class ScenarioAssertionKind(StrEnum):
     POLICY_ACTION_EQ = "policy_action_eq"
 
 
-FIELD_ASSERTION_KINDS: frozenset[ScenarioAssertionKind] = frozenset({
-    ScenarioAssertionKind.FIELD_LT,
-    ScenarioAssertionKind.FIELD_GT,
-    ScenarioAssertionKind.FIELD_LE,
-    ScenarioAssertionKind.FIELD_GE,
-    ScenarioAssertionKind.FIELD_EQ,
-})
+FIELD_ASSERTION_KINDS: frozenset[ScenarioAssertionKind] = frozenset(
+    {
+        ScenarioAssertionKind.FIELD_LT,
+        ScenarioAssertionKind.FIELD_GT,
+        ScenarioAssertionKind.FIELD_LE,
+        ScenarioAssertionKind.FIELD_GE,
+        ScenarioAssertionKind.FIELD_EQ,
+    }
+)
 
-POLICY_ASSERTION_KINDS: frozenset[ScenarioAssertionKind] = frozenset({
-    ScenarioAssertionKind.POLICY_ACTION_EQ,
-})
+POLICY_ASSERTION_KINDS: frozenset[ScenarioAssertionKind] = frozenset(
+    {
+        ScenarioAssertionKind.POLICY_ACTION_EQ,
+    }
+)
 
 _VALID_LOST_LINK_ACTIONS: frozenset[str] = frozenset(a.value for a in LostLinkAction)
 
@@ -133,7 +137,9 @@ def _validate_wind_layers_are_non_empty(event: "ScenarioEvent") -> None:
 def _validate_lz_unavailable_params(event: "ScenarioEvent") -> None:
     is_lz_event = event.kind == ScenarioEventKind.LANDING_ZONE_UNAVAILABLE
     has_ids = event.unavailable_zone_ids is not None
-    ids_empty = event.unavailable_zone_ids is not None and len(event.unavailable_zone_ids) == 0
+    ids_empty = (
+        event.unavailable_zone_ids is not None and len(event.unavailable_zone_ids) == 0
+    )
     checks = (
         (
             is_lz_event and not has_ids,
@@ -169,8 +175,7 @@ def _validate_wind_change_params(event: "ScenarioEvent") -> None:
     if _has_complete_scalar_wind_payload(event):
         return
     raise ValueError(
-        "wind_east_mps and wind_north_mps are required for scalar "
-        "wind_change events"
+        "wind_east_mps and wind_north_mps are required for scalar wind_change events"
     )
 
 
@@ -324,8 +329,7 @@ class ScenarioAssertion(BaseModel):
     event_id: str | None = Field(
         default=None,
         description=(
-            "Event ID to reference. "
-            "Required for policy_action_eq assertions."
+            "Event ID to reference. Required for policy_action_eq assertions."
         ),
     )
     description: str | None = None

@@ -3,9 +3,9 @@
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
-from adapters.sitl_comparison_expected import _SitlExpectedComparisonBuilder
-from adapters.sitl_comparison_position import _SitlPositionProximityComparator
-from adapters.sitl_comparison_telemetry import _SitlTelemetryComparisonBuilder
+from adapters.sitl.comparison_expected import _SitlExpectedComparisonBuilder
+from adapters.sitl.comparison_position import _SitlPositionProximityComparator
+from adapters.sitl.comparison_telemetry import _SitlTelemetryComparisonBuilder
 from schemas.sitl import SitlEvidenceBundle, SitlEvidenceStatus
 from schemas.sitl_comparison import SitlComparisonItem, SitlComparisonOutcome
 

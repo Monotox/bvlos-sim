@@ -30,7 +30,9 @@ def load_wind_grid(path: Path) -> tuple[SpatiotemporalWindProvider, InputDocumen
     return _build_provider(parsed, path=path, document=document), document
 
 
-def _require_monotonic(axis: list[float], name: str, *, path: Path, document: InputDocument) -> None:
+def _require_monotonic(
+    axis: list[float], name: str, *, path: Path, document: InputDocument
+) -> None:
     if len(axis) < 2:
         raise WindGridLoadError(
             f"Wind grid axis '{name}' must have at least 2 entries; got {len(axis)}.",
@@ -77,7 +79,9 @@ def _require_list_of(
     return value
 
 
-def _validate_en_pair(value: object, label: str, *, path: Path, document: InputDocument) -> None:
+def _validate_en_pair(
+    value: object, label: str, *, path: Path, document: InputDocument
+) -> None:
     _require_list_of(value, 2, label, path=path, document=document)
 
 
@@ -90,7 +94,13 @@ def _validate_lon_row(
 
 
 def _validate_lat_block(
-    block: object, n_lat: int, n_lon: int, label: str, *, path: Path, document: InputDocument
+    block: object,
+    n_lat: int,
+    n_lon: int,
+    label: str,
+    *,
+    path: Path,
+    document: InputDocument,
 ) -> None:
     rows = _require_list_of(block, n_lat, label, path=path, document=document)
     for i, row in enumerate(rows):
@@ -98,11 +108,20 @@ def _validate_lat_block(
 
 
 def _validate_alt_block(
-    block: object, n_a: int, n_lat: int, n_lon: int, label: str, *, path: Path, document: InputDocument
+    block: object,
+    n_a: int,
+    n_lat: int,
+    n_lon: int,
+    label: str,
+    *,
+    path: Path,
+    document: InputDocument,
 ) -> None:
     lat_blocks = _require_list_of(block, n_a, label, path=path, document=document)
     for i, lat_block in enumerate(lat_blocks):
-        _validate_lat_block(lat_block, n_lat, n_lon, f"{label}[{i}]", path=path, document=document)
+        _validate_lat_block(
+            lat_block, n_lat, n_lon, f"{label}[{i}]", path=path, document=document
+        )
 
 
 def _validate_values_shape(
@@ -117,7 +136,9 @@ def _validate_values_shape(
 ) -> None:
     time_blocks = _require_list_of(values, n_t, "", path=path, document=document)
     for i, alt_block in enumerate(time_blocks):
-        _validate_alt_block(alt_block, n_a, n_lat, n_lon, f"[{i}]", path=path, document=document)
+        _validate_alt_block(
+            alt_block, n_a, n_lat, n_lon, f"[{i}]", path=path, document=document
+        )
 
 
 def _build_provider(
@@ -141,7 +162,12 @@ def _build_provider(
             document=document,
         ) from exc
 
-    for name, axis in [("time_s", time_s), ("altitude_m", altitude_m), ("lat", lat), ("lon", lon)]:
+    for name, axis in [
+        ("time_s", time_s),
+        ("altitude_m", altitude_m),
+        ("lat", lat),
+        ("lon", lon),
+    ]:
         _require_monotonic(axis, name, path=path, document=document)
 
     try:

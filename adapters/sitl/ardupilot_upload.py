@@ -6,7 +6,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from time import monotonic
 
-from adapters.ardupilot_sitl_mavlink import (
+from adapters.sitl.ardupilot_mavlink import (
     MISSION_UPLOAD_MESSAGE_TYPES,
     MavConnection,
     is_mission_item_request,
@@ -16,8 +16,8 @@ from adapters.ardupilot_sitl_mavlink import (
     mission_type,
     raise_for_rejected_mission_ack,
 )
-from adapters.ardupilot_sitl_mission import MissionItem
-from adapters.ardupilot_sitl_types import ArduPilotAdapterError
+from adapters.sitl.ardupilot_mission import MissionItem
+from adapters.sitl.ardupilot_types import ArduPilotAdapterError
 
 
 @dataclass(frozen=True)

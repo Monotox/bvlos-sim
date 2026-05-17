@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Protocol, TypeVar, cast
 
-from adapters.ardupilot_sitl_types import ArduPilotAdapterError
+from adapters.sitl.ardupilot_types import ArduPilotAdapterError
 
 MAV_MISSION_ACCEPTED = 0
 MAV_MISSION_TYPE_MISSION = 0
@@ -82,7 +82,9 @@ def message_sequence(message: object) -> int:
     try:
         return int(getattr(message, "seq"))
     except (AttributeError, TypeError, ValueError) as exc:
-        raise ArduPilotAdapterError("MAVLink mission request did not include seq") from exc
+        raise ArduPilotAdapterError(
+            "MAVLink mission request did not include seq"
+        ) from exc
 
 
 def raise_for_rejected_mission_ack(message: object, mavlink: object) -> None:

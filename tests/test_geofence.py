@@ -29,9 +29,7 @@ def _zone(
             "geometry": {
                 "polygons": [
                     {
-                        "exterior": [
-                            {"lat": lat, "lon": lon} for lat, lon in exterior
-                        ],
+                        "exterior": [{"lat": lat, "lon": lon} for lat, lon in exterior],
                         "holes": [
                             [{"lat": lat, "lon": lon} for lat, lon in hole]
                             for hole in holes or []

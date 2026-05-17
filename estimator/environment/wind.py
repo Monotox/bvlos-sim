@@ -180,8 +180,12 @@ class SpatiotemporalWindProvider:
         self._n_a = len(self._altitude_m)
         self._n_lat = len(self._lat)
         self._n_lon = len(self._lon)
-        self._east = tuple(float(en[0]) for t in values for a in t for lat_row in a for en in lat_row)
-        self._north = tuple(float(en[1]) for t in values for a in t for lat_row in a for en in lat_row)
+        self._east = tuple(
+            float(en[0]) for t in values for a in t for lat_row in a for en in lat_row
+        )
+        self._north = tuple(
+            float(en[1]) for t in values for a in t for lat_row in a for en in lat_row
+        )
 
     def _idx(self, it: int, ia: int, ilat: int, ilon: int) -> int:
         return (

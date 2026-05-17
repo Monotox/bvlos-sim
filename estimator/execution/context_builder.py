@@ -194,14 +194,16 @@ def build_estimation_context(
             and mission.estimation.wind_layers is not None
             and resolved_options.options_source != OptionSource.RUNTIME_OPTIONS
         ):
-            wind_provider = LayeredWindProvider([
-                WindLayer(
-                    altitude_m=layer.altitude_m,
-                    wind_east_mps=layer.wind_east_mps,
-                    wind_north_mps=layer.wind_north_mps,
-                )
-                for layer in mission.estimation.wind_layers
-            ])
+            wind_provider = LayeredWindProvider(
+                [
+                    WindLayer(
+                        altitude_m=layer.altitude_m,
+                        wind_east_mps=layer.wind_east_mps,
+                        wind_north_mps=layer.wind_north_mps,
+                    )
+                    for layer in mission.estimation.wind_layers
+                ]
+            )
         else:
             wind_provider = ConstantWindProvider(
                 resolved_options.wind_east_mps,

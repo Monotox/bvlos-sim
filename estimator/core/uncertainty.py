@@ -10,7 +10,9 @@ class SampledOutputStats(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    count: int = Field(description="Number of samples contributing to these statistics.")
+    count: int = Field(
+        description="Number of samples contributing to these statistics."
+    )
     mean: float = Field(description="Arithmetic mean.")
     std: float = Field(description="Sample standard deviation (0 when count == 1).")
     min: float = Field(description="Minimum observed value.")

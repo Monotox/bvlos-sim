@@ -7,6 +7,15 @@ and this project adheres to semantic versioning once public releases begin.
 
 ## [Unreleased]
 
+### Changed
+
+- Moved SITL adapter modules into `adapters/sitl/` subpackage. Module paths
+  changed: `adapters.ardupilot_sitl` → `adapters.sitl.ardupilot`,
+  `adapters.sitl_evidence` → `adapters.sitl.evidence`,
+  `adapters.sitl_comparison` → `adapters.sitl.comparison`, and so on for all
+  18 SITL-related files. The public schema contracts and CLI behaviour are
+  unchanged.
+
 ### Added
 
 - Dubins path solver (`estimator.math.dubins`) for bank-angle-constrained 2D path planning; evaluates RS (right arc + straight) and LS (left arc + straight) path types with unconstrained exit heading.

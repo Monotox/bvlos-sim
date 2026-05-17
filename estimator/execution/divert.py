@@ -106,15 +106,15 @@ def compute_divert_estimate(
         reserve_after_divert_percent=reserve_after_percent,
         reserve_threshold_wh=energy.reserve_threshold_wh,
         is_feasible=is_feasible,
-        infeasible_reason=None if is_feasible else "Insufficient reserve after completing the divert leg.",
+        infeasible_reason=None
+        if is_feasible
+        else "Insufficient reserve after completing the divert leg.",
         warnings=divert_warnings,
     )
 
 
 def _compile_zone_geometry(zone: LandingZone) -> BaseGeometry | None:
-    geometries: list[BaseGeometry] = [
-        Point(p.lon, p.lat) for p in zone.geometry.points
-    ]
+    geometries: list[BaseGeometry] = [Point(p.lon, p.lat) for p in zone.geometry.points]
     geometries.extend(polygon_set_to_geometry_list(zone.geometry.polygons))
     geometry = unary_union(geometries)
     if geometry.is_empty or not geometry.is_valid:
@@ -152,7 +152,9 @@ def _dubins_distance_to_geometry_m(
     target_e = dist_m * math.sin(bearing_rad)
     target_n = dist_m * math.cos(bearing_rad)
     heading_rad = math.radians(heading_deg)
-    return dubins_path_to_point_m(0.0, 0.0, heading_rad, target_e, target_n, turn_radius_m)
+    return dubins_path_to_point_m(
+        0.0, 0.0, heading_rad, target_e, target_n, turn_radius_m
+    )
 
 
 def _resolve_tas(mission: MissionPlan, vehicle: VehicleProfile) -> float | None:
@@ -163,7 +165,9 @@ def _resolve_tas(mission: MissionPlan, vehicle: VehicleProfile) -> float | None:
 
 def _energy_remaining_at_index(energy: EnergyEstimate, timeline_index: int) -> float:
     max_leg_index = timeline_index - 1
-    used_wh = sum(leg.energy_wh for leg in energy.legs if leg.leg_index <= max_leg_index)
+    used_wh = sum(
+        leg.energy_wh for leg in energy.legs if leg.leg_index <= max_leg_index
+    )
     return energy.battery_capacity_wh - used_wh
 
 
