@@ -80,10 +80,20 @@ path rather than through isolated examples. Current validation includes:
 23. [044-geodesic-dubins-divert.md](./044-geodesic-dubins-divert.md) - planned
 24. [045-px4-sitl-launch-and-mission-upload.md](./045-px4-sitl-launch-and-mission-upload.md) - planned
 25. [046-px4-sitl-telemetry-recorder-and-evidence-bundle.md](./046-px4-sitl-telemetry-recorder-and-evidence-bundle.md) - planned
-26. [050-user-interfaces-and-service-adapters.md](./050-user-interfaces-and-service-adapters.md) - planned
-26. [060-import-export-and-batch-workflows.md](./060-import-export-and-batch-workflows.md) - planned
-27. [070-operational-integration-seams.md](./070-operational-integration-seams.md) - planned
-28. [071-live-comms-remote-id-and-traffic-integrations.md](./071-live-comms-remote-id-and-traffic-integrations.md) - planned
+26. [047-stochastic-state-propagation.md](./047-stochastic-state-propagation.md) - planned
+27. [048-observation-model-and-twin-state.md](./048-observation-model-and-twin-state.md) - planned
+28. [049-stochastic-closed-loop-control.md](./049-stochastic-closed-loop-control.md) - planned
+29. [050-user-interfaces-and-service-adapters.md](./050-user-interfaces-and-service-adapters.md) - planned
+30. [052-real-world-data-fetch-scripts.md](./052-real-world-data-fetch-scripts.md) - planned
+31. [053-airspace-geofence-fetch-script.md](./053-airspace-geofence-fetch-script.md) - planned
+32. [054-reference-inputs-for-calibration-and-import.md](./054-reference-inputs-for-calibration-and-import.md) - planned
+33. [055-geojson-kml-route-export.md](./055-geojson-kml-route-export.md) - planned
+34. [056-community-vehicle-profiles.md](./056-community-vehicle-profiles.md) - planned
+35. [057-summary-output-format.md](./057-summary-output-format.md) - planned
+36. [058-notam-live-airspace-integration.md](./058-notam-live-airspace-integration.md) - planned
+37. [060-import-export-and-batch-workflows.md](./060-import-export-and-batch-workflows.md) - planned
+38. [070-operational-integration-seams.md](./070-operational-integration-seams.md) - planned
+39. [071-live-comms-remote-id-and-traffic-integrations.md](./071-live-comms-remote-id-and-traffic-integrations.md) - planned
 
 ## Limitation Coverage and Status
 
@@ -92,10 +102,18 @@ path rather than through isolated examples. Current validation includes:
 - ArduPilot SITL telemetry evidence: Ticket 042, implemented.
 - SITL comparison reporting through adapter APIs and `compare`:
   Ticket 043, implemented.
+- Geodesic-aware Dubins divert path sampling: Ticket 044, planned.
 - No PX4 SITL adapter yet: Tickets 045 (launch/upload) and 046 (telemetry/evidence).
+- No stochastic state propagation yet: Ticket 047 (propagator), 048 (twin-state
+  EKF observation model), 049 (closed-loop tracking controller).
 - No REST API or UI: Ticket 050.
+- No real-world data fetch scripts yet: Ticket 052 (wind/terrain/LZ), 053
+  (geofences), 054 (reference inputs for calibration and import design).
+- No GeoJSON/KML route export: Ticket 055.
+- No community vehicle profiles: Ticket 056.
+- No terse summary output format: Ticket 057.
+- No NOTAM/live airspace integration: Ticket 058.
 - No batch import/export workflows or report diff tooling: Ticket 060.
-- Geodesic-aware Dubins divert path sampling is implemented: Ticket 044.
 - No live comms, UTM/U-space, Remote ID, or traffic integrations: Tickets 070
   and 071.
 - No real-world calibration pipeline: Tickets 080-084.
