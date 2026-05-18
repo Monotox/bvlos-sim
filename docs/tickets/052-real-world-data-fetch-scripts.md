@@ -40,20 +40,28 @@ results.
 ### `scripts/fetch_wind.py`
 
 ```
-uv run python scripts/fetch_wind.py <lat> <lon> [--date YYYY-MM-DD] [--output path]
+uv run python scripts/fetch_wind.py <lat> <lon> [--departure-time HH:MM] [--date YYYY-MM-DD] [--window-hours N] [--output path]
 ```
 
 - Calls `https://api.open-meteo.com/v1/forecast` (or `/v1/archive` when
   `--date` is in the past) with `hourly=wind_speed_10m,wind_direction_10m,
   wind_speed_80m,wind_direction_80m,wind_speed_120m,wind_direction_120m,
   wind_speed_180m,wind_direction_180m&wind_speed_unit=ms`.
-- Returns 4 altitude bands (10 m, 80 m, 120 m, 180 m) × 24 hourly time steps.
+- Returns 4 altitude bands (10 m, 80 m, 120 m, 180 m) × 24 hourly time steps
+  for the requested date.
+- `--departure-time HH:MM` (default `00:00`) selects the starting forecast
+  hour and maps it to `time_s: [0, 3600, ...]` in the output YAML so that
+  `time_s=0` corresponds to the planned takeoff time. Without this parameter
+  the wind data is temporally wrong for any flight that does not depart at
+  midnight.
+- `--window-hours N` (default `4`) limits the output to N hourly slices
+  starting from `--departure-time`, covering a typical mission duration.
 - Decomposes speed + direction into east/north components:
   `wind_east = −speed · sin(dir_rad)`, `wind_north = −speed · cos(dir_rad)`
   (meteorological convention: direction is *from*).
 - Writes a `SpatiotemporalWindProvider`-compatible YAML with
   `lat_min/lat_max/lon_min/lon_max` set to the queried point ± 0.01°,
-  `altitudes_m: [10, 80, 120, 180]`, and `times_s` from `[0, 3600, ..., 82800]`.
+  `altitudes_m: [10, 80, 120, 180]`, and `times_s` indexed from 0.
 - No API key. No registration. Free forever.
 
 ### `scripts/fetch_terrain.py`
@@ -147,8 +155,11 @@ Modified files:
 
 ## Acceptance Criteria
 
-1. `uv run python scripts/fetch_wind.py 47.0 8.0` produces a valid
-   `SpatiotemporalWindProvider` YAML that passes schema validation.
+1. `uv run python scripts/fetch_wind.py 47.0 8.0 --departure-time 14:00 --date 2025-06-15`
+   produces a valid `SpatiotemporalWindProvider` YAML where `times_s[0] == 0`
+   corresponds to 14:00 UTC on the given date.
+1a. `uv run python scripts/fetch_wind.py 47.0 8.0` (no departure-time) still
+    produces valid output defaulting to the 00:00 window.
 2. `uv run python scripts/fetch_terrain.py 46.9 47.1 7.9 8.1 0.01` produces a
    valid `GridTerrainProvider` YAML; elevations are non-trivially non-zero.
 3. `uv run python scripts/fetch_landing_zones.py 46.9 47.1 7.9 8.1` produces a

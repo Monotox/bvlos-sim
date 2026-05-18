@@ -122,6 +122,11 @@ Platform limitations:
 - no PX4 SITL adapter yet; Tickets 045 (launch/upload) and 046 (telemetry/evidence)
 - no REST API; Ticket 050
 - no web UI; Ticket 050
+- no real-world data fetch scripts yet; Tickets 052-054
+- no GeoJSON/KML route export; Ticket 055
+- no community vehicle profiles; Ticket 056
+- no terse summary output format; Ticket 057
+- no NOTAM/live airspace integration; Ticket 058
 - no live comms, UTM/U-space, Remote ID, or traffic integrations; Tickets 070
   and 071
 - no batch import/export workflows; Ticket 060
@@ -347,6 +352,44 @@ Scope:
 Exit criterion: a scenario can be executed against supported SITL adapters with
 recorded evidence and compared against deterministic scenario expectations
 while preserving the deterministic core execution path.
+
+### Phase 4.12: Real-World Data and Developer Experience
+
+Status: planned.
+
+Scope:
+
+- Ticket 052: real-world data fetch scripts — `fetch_wind.py` (Open-Meteo
+  forecast with `--departure-time`), `fetch_terrain.py` (SRTM via `elevation`
+  package), `fetch_landing_zones.py` (Overpass API); alpine demo example using
+  pre-fetched real assets
+- Ticket 053: airspace geofence fetch script — `fetch_geofences.py` via
+  OpenAIP API (free tier) with Overpass fallback; completes the real-world data
+  set started in Ticket 052
+- Ticket 054: reference inputs for calibration and import design — PX4 ULog
+  flight logs and QGC `.plan` files committed to `reference/` with field-mapping
+  design notes feeding Tickets 060 and 080
+- Ticket 055: GeoJSON / KML route export — `--format geojson` and
+  `--format kml` on `estimate` and `scenario` commands; legs coloured by energy
+  margin; landing zones and geofence polygons as separate feature layers;
+  opens directly in Google Earth and QGC
+- Ticket 056: community vehicle profiles — 4–5 manufacturer-derived YAML
+  profiles (DJI Matrice 300 RTK, Wingtra One Gen II, Quantum-Systems Trinity
+  F90+, Autel EVO Max 4T, generic survey hexacopter) with provenance links
+- Ticket 057: summary output format — `--format summary` on `estimate` and
+  `scenario` commands; single-line go/no-go digest with reserve %, flight time,
+  wind margin, and first failing check; suitable for shell scripts and
+  pre-flight checklists
+- Ticket 058: NOTAM and live airspace integration — `fetch_notams.py` via FAA
+  B4UFly API (US) and EUROCONTROL NOTAM service (Europe); active TFRs and
+  temporary restrictions merged with static geofence output for day-of-flight
+  feasibility checks
+
+Exit criterion: a new user can fetch real terrain, wind, and airspace data for
+any location in under five minutes, run a geographically realistic estimate,
+and open the output in a map viewer without writing any code; community vehicle
+profiles allow immediate use without placeholder values; summary output is
+suitable for shell-script automation.
 
 ### Phase 6: Product Surfaces
 
