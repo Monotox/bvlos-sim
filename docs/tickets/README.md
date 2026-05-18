@@ -55,6 +55,8 @@ path rather than through isolated examples. Current validation includes:
 
 ## Main Execution Backlog
 
+### Implemented
+
 1. [001-estimator-cli-and-envelope.md](./001-estimator-cli-and-envelope.md) - implemented
 2. [002-versioning-and-golden-fixtures.md](./002-versioning-and-golden-fixtures.md) - implemented
 3. [003-technical-debt-hardening.md](./003-technical-debt-hardening.md) - implemented
@@ -77,23 +79,86 @@ path rather than through isolated examples. Current validation includes:
 20. [041-ardupilot-sitl-launch-and-mission-upload.md](./041-ardupilot-sitl-launch-and-mission-upload.md) - implemented
 21. [042-sitl-telemetry-recorder-and-evidence-bundle.md](./042-sitl-telemetry-recorder-and-evidence-bundle.md) - implemented
 22. [043-sitl-scenario-comparison-report.md](./043-sitl-scenario-comparison-report.md) - implemented
-23. [044-geodesic-dubins-divert.md](./044-geodesic-dubins-divert.md) - planned
-24. [045-px4-sitl-launch-and-mission-upload.md](./045-px4-sitl-launch-and-mission-upload.md) - planned
-25. [046-px4-sitl-telemetry-recorder-and-evidence-bundle.md](./046-px4-sitl-telemetry-recorder-and-evidence-bundle.md) - planned
-26. [047-stochastic-state-propagation.md](./047-stochastic-state-propagation.md) - planned
-27. [048-observation-model-and-twin-state.md](./048-observation-model-and-twin-state.md) - planned
-28. [049-stochastic-closed-loop-control.md](./049-stochastic-closed-loop-control.md) - planned
-29. [050-user-interfaces-and-service-adapters.md](./050-user-interfaces-and-service-adapters.md) - planned
-30. [052-real-world-data-fetch-scripts.md](./052-real-world-data-fetch-scripts.md) - planned
-31. [053-airspace-geofence-fetch-script.md](./053-airspace-geofence-fetch-script.md) - planned
-32. [054-reference-inputs-for-calibration-and-import.md](./054-reference-inputs-for-calibration-and-import.md) - planned
-33. [055-geojson-kml-route-export.md](./055-geojson-kml-route-export.md) - planned
-34. [056-community-vehicle-profiles.md](./056-community-vehicle-profiles.md) - planned
-35. [057-summary-output-format.md](./057-summary-output-format.md) - planned
-36. [058-notam-live-airspace-integration.md](./058-notam-live-airspace-integration.md) - planned
-37. [060-import-export-and-batch-workflows.md](./060-import-export-and-batch-workflows.md) - planned
-38. [070-operational-integration-seams.md](./070-operational-integration-seams.md) - planned
-39. [071-live-comms-remote-id-and-traffic-integrations.md](./071-live-comms-remote-id-and-traffic-integrations.md) - planned
+
+### Tier 1 — Quick wins (small effort, immediate user value)
+
+These tickets require little or no new code and make the tool immediately more
+usable and credible for a first-time operator.
+
+23. [057-summary-output-format.md](./057-summary-output-format.md) — planned
+    ~40 lines; single-line go/no-go digest on `estimate` and `scenario`; usable
+    in shell scripts and pre-flight checklists without any post-processing.
+
+24. [055-geojson-kml-route-export.md](./055-geojson-kml-route-export.md) — planned
+    ~80 lines; `--format geojson/kml` on `estimate` and `scenario`; legs
+    coloured by energy margin; opens in QGroundControl, QGIS, Google Earth;
+    makes every existing feature visually interpretable.
+
+25. [056-community-vehicle-profiles.md](./056-community-vehicle-profiles.md) — planned
+    No code; 4–5 manufacturer-derived YAML profiles (DJI Matrice 300 RTK,
+    Wingtra One Gen II, QS Trinity F90+, Autel EVO Max 4T, generic hexacopter);
+    removes the biggest trust gap for new users arriving at `quadplane_v1.yaml`.
+
+### Tier 2 — Real-world data credibility (Phase 4.12)
+
+These tickets replace synthetic demo data with real terrain, wind, and airspace,
+making the tool usable for actual pre-flight planning rather than illustration.
+
+26. [052-real-world-data-fetch-scripts.md](./052-real-world-data-fetch-scripts.md) — planned
+    `fetch_wind.py` (Open-Meteo, departure-time aligned), `fetch_terrain.py`
+    (SRTM), `fetch_landing_zones.py` (Overpass); alpine demo with pre-fetched
+    committed assets; start here — all other Phase 4.12 tickets extend this one.
+
+27. [053-airspace-geofence-fetch-script.md](./053-airspace-geofence-fetch-script.md) — planned
+    `fetch_geofences.py` via OpenAIP (free API key) with Overpass fallback;
+    completes the real-world data set; depends on OpenAIP access verification.
+
+28. [058-notam-live-airspace-integration.md](./058-notam-live-airspace-integration.md) — planned
+    `fetch_notams.py` via FAA B4UFly (US) and EUROCONTROL (Europe); active TFRs
+    merged with static geofences; day-of-flight airspace rather than only
+    permanent structure; medium effort due to NOTAM geometry parsing.
+
+### Tier 3 — Probabilistic risk ("not just a spreadsheet")
+
+The single biggest capability gap between the current tool and a probabilistic
+risk assessment instrument. These tickets must be executed in order.
+
+29. [047-stochastic-state-propagation.md](./047-stochastic-state-propagation.md) — planned
+    Time-stepped propagator; Gaussian EKF-style belief; per-step
+    `p_reserve_violation` timeline; `stochastic.v1` input; `propagate` CLI;
+    `stochastic-envelope.v1` output. Start here.
+
+30. [048-observation-model-and-twin-state.md](./048-observation-model-and-twin-state.md) — planned
+    Twin-state architecture (true physics + EKF estimated state); GPS, battery,
+    airspeed sensor models; policy triggers off estimated state. Depends on 047.
+
+31. [049-stochastic-closed-loop-control.md](./049-stochastic-closed-loop-control.md) — planned
+    Tracking controller converting EKF estimation error into actual cross-track
+    deviation and secondary energy burn; closes the full physical loop.
+    Depends on 048.
+
+### Tier 4 — Technical accuracy
+
+32. [044-geodesic-dubins-divert.md](./044-geodesic-dubins-divert.md) — planned
+    Replaces planar EN Dubins approximation with WGS-84 sampling solver;
+    retires the `DUBINS_DIVERT_PLANAR_APPROXIMATION_LIMIT` warning; relevant
+    when divert distances exceed 50 km.
+
+### Tier 5 — Design seeds (unblocks later tracks)
+
+33. [054-reference-inputs-for-calibration-and-import.md](./054-reference-inputs-for-calibration-and-import.md) — planned
+    Commit PX4 ULog flight logs and QGC `.plan` reference files with field-mapping
+    design notes; no code; unblocks Ticket 060 (import design) and Tickets 080–082
+    (calibration pipeline). Execute before starting either of those tracks.
+
+### Tier 6 — Platform extensions (larger scope, later phases)
+
+34. [045-px4-sitl-launch-and-mission-upload.md](./045-px4-sitl-launch-and-mission-upload.md) — planned
+35. [046-px4-sitl-telemetry-recorder-and-evidence-bundle.md](./046-px4-sitl-telemetry-recorder-and-evidence-bundle.md) — planned
+36. [050-user-interfaces-and-service-adapters.md](./050-user-interfaces-and-service-adapters.md) — planned
+37. [060-import-export-and-batch-workflows.md](./060-import-export-and-batch-workflows.md) — planned
+38. [070-operational-integration-seams.md](./070-operational-integration-seams.md) — planned
+39. [071-live-comms-remote-id-and-traffic-integrations.md](./071-live-comms-remote-id-and-traffic-integrations.md) — planned
 
 ## Limitation Coverage and Status
 
