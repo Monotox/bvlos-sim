@@ -126,6 +126,24 @@ uv run bvlos-sim estimate \
   --output /tmp/bvlos-route.kml
 ```
 
+## Vehicle Profiles
+
+Reference and community vehicle profiles live under `examples/vehicles/`.
+The starter community set is in `examples/vehicles/community/`:
+
+- `dji_matrice_300_rtk.yaml`
+- `wingtra_one_gen2.yaml`
+- `qs_trinity_f90_plus.yaml`
+- `autel_evo_max_4t.yaml`
+- `generic_survey_hexacopter.yaml`
+
+Each profile includes manufacturer-derived or typical-class values plus
+`metadata.source` and calibration notes. Before using a community profile with
+an existing mission, update `mission.vehicle_profile` to match the profile's
+`vehicle_id`; the CLI rejects mismatches to prevent accidental vehicle swaps.
+Validate any community profile against observed flight logs before operational
+use.
+
 ## Scenario Execution
 
 Run the example scenario:

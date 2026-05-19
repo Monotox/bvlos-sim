@@ -1,0 +1,40 @@
+vehicle_id: qs_trinity_f90_plus
+display_name: Quantum-Systems Trinity F90+
+vehicle_class: vtol
+mav_type: MAV_TYPE_VTOL_TILTROTOR
+autopilot: generic
+
+mass:
+  empty_kg: 3.5      # airframe + 2x 99 Wh batteries, no sensor payload; source: QS spec
+  max_payload_kg: 0.8  # source: Quantum-Systems Trinity F90+ spec
+  max_takeoff_kg: 4.3  # source: Quantum-Systems Trinity F90+ spec
+
+performance:
+  cruise_speed_mps: 18.0   # source: Quantum-Systems Trinity F90+ spec
+  hover_speed_mps: 5.0     # nominal transition phase forward speed
+  max_speed_mps: 22.0      # source: Quantum-Systems Trinity F90+ spec
+  climb_rate_mps: 4.0      # estimated VTOL transition ascent rate
+  descent_rate_mps: 2.0    # estimated VTOL transition descent rate
+  turn_radius_m: 71.0      # derived: v^2 / (g x tan(25 deg)) = 324 / 4.57 at 18 m/s
+  max_wind_mps: 12.0       # source: Quantum-Systems Trinity F90+ spec
+
+energy:
+  battery_capacity_wh: 198.0   # 2x 99 Wh; source: Quantum-Systems Trinity F90+ spec
+  reserve_percent_default: 20.0
+  cruise_power_w: 132.0         # derived: 198 Wh / (90 min / 60) = 132 W; endurance source: QS spec
+  hover_power_w: 400.0          # derived: estimated from motor class; manufacturer does not publish separately
+  climb_power_w: 550.0          # derived: estimated VTOL transition power
+
+failsafe:
+  low_battery_warn_percent: 30
+  low_battery_abort_percent: 25
+  emergency_land_percent: 10
+
+metadata:
+  calibration_status: manufacturer_derived
+  source: "https://www.quantum-systems.com/trinity-f90/"
+  notes: >
+    Cruise power derived from published 90-minute endurance at 18 m/s (2x 99 Wh
+    = 198 Wh). Hover power is estimated; Quantum-Systems does not publish
+    VTOL-phase power separately. Turn radius estimated at 25 deg bank angle.
+    Validate against observed logs before operational use.

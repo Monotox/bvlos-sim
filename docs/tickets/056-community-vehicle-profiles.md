@@ -2,7 +2,7 @@
 
 ## Goal
 
-Add 4–5 manufacturer-derived vehicle profiles to `examples/vehicles/community/`
+Add five manufacturer-derived vehicle profiles to `examples/vehicles/community/`
 covering real commercial UAS that operators and researchers are likely to
 actually fly. Each profile is a YAML file with values sourced from published
 spec sheets, peer-reviewed endurance studies, or manufacturer documentation,
@@ -30,7 +30,7 @@ gap, not a code gap. No new code is required.
 
 ### 2. Wingtra One Gen II (`wingtra_one_gen2.yaml`)
 
-- `vehicle_class: FIXED_WING` (VTOL)
+- `vehicle_class: VTOL`
 - Battery: custom 97.2 Wh
 - Cruise endurance: ~59 min at ~16 m/s cruise
 - Stall speed: ~12 m/s; cruise altitude: typically 100–400 m AGL
@@ -38,7 +38,7 @@ gap, not a code gap. No new code is required.
 
 ### 3. Quantum-Systems Trinity F90+ (`qs_trinity_f90_plus.yaml`)
 
-- `vehicle_class: FIXED_WING` (VTOL)
+- `vehicle_class: VTOL`
 - Battery: 2× 99 Wh, 198 Wh combined
 - Cruise endurance: ~90 min at ~18 m/s
 - Payload: up to 800 g sensor bay
@@ -97,9 +97,9 @@ values are marked `# source: <URL or document name>`.
 ## Acceptance Criteria
 
 1. All five YAML files pass `VehicleProfile.model_validate()` without errors.
-2. `uv run bvlos-sim estimate examples/missions/pipeline_demo_001.yaml
-   examples/vehicles/community/<profile>.yaml` exits 0 for each profile
-   (feasible or infeasible, but no schema errors).
+2. `uv run bvlos-sim estimate <mission-with-matching-vehicle_profile>.yaml
+   examples/vehicles/community/<profile>.yaml` exits without schema errors for
+   each profile (feasible or infeasible is acceptable).
 3. `README.md` contains at least one provenance link per profile.
 4. All existing tests continue to pass (no test imports community profiles).
 5. `uv run ruff check` passes (no Python files added by this ticket).

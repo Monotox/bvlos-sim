@@ -1,0 +1,43 @@
+vehicle_id: dji_matrice_300_rtk
+display_name: DJI Matrice 300 RTK
+vehicle_class: multirotor
+mav_type: MAV_TYPE_QUADROTOR
+autopilot: generic
+
+mass:
+  empty_kg: 6.3      # with 2x TB60 batteries, no payload; source: DJI M300 RTK spec
+  max_payload_kg: 2.7  # source: DJI M300 RTK spec
+  max_takeoff_kg: 9.0  # source: DJI M300 RTK spec
+
+performance:
+  cruise_speed_mps: 14.0   # typical operational cruise; manufacturer publishes max, not cruise
+  hover_speed_mps: 5.0     # nominal forward translation speed in hover
+  max_speed_mps: 23.0      # source: DJI M300 RTK spec (Sport mode)
+  climb_rate_mps: 5.0      # source: DJI M300 RTK spec (max ascent, S mode)
+  descent_rate_mps: 3.0    # source: DJI M300 RTK spec (max descent, S mode)
+  max_wind_mps: 12.0       # source: DJI M300 RTK spec (wind resistance level 6)
+  max_crab_angle_deg: 30.0
+
+energy:
+  battery_capacity_wh: 548.8   # 2x DJI TB60, 274.4 Wh each; source: TB60 datasheet
+  reserve_percent_default: 20.0
+  hover_power_w: 599.0          # derived: 548.8 Wh / (55 min / 60) = 598.7 W; endurance source: DJI spec
+  cruise_power_w: 329.0         # derived: hover_power_w x 0.55 (typical fixed-pitch multirotor ratio)
+  climb_power_w: 750.0          # derived: estimated 1.25 x hover_power_w
+
+capabilities:
+  hover: true
+  forward_flight: true  # multirotor default is hover-only; explicit for BVLOS transit missions
+
+failsafe:
+  low_battery_warn_percent: 30
+  low_battery_abort_percent: 25
+  emergency_land_percent: 10
+
+metadata:
+  calibration_status: manufacturer_derived
+  source: "https://www.dji.com/matrice-300/specs"
+  notes: >
+    Hover power derived from published 55-minute hover endurance with 2x TB60
+    (548.8 Wh total). Cruise power estimated at hover x 0.55. Validate against
+    observed logs before operational use.
