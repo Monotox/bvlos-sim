@@ -187,7 +187,6 @@ yet run a live autopilot or physics simulator.
 Known gaps in the current release:
 
 - no deliberately infeasible demo mission; Ticket 059
-- no airspace geofence fetch script; Ticket 053
 - no QGC `.plan` import or batch workflows; Ticket 060
 - no stochastic state propagation or twin-state EKF; Tickets 047, 048, 049
 - no geodesic Dubins divert; long-distance divert uses a planar approximation;
@@ -227,16 +226,15 @@ scenario assertions, and reproducible reporting.
 
 ## Development Direction
 
-Fetch scripts for wind, terrain, and landing zones are implemented (Ticket 052)
-with a single wrapper command (`fetch_all.py <lat> <lon>`) and a pre-fetched
-Alpine example in `examples/real_world/`. The next three steps complete the
-first-impression experience for new users:
+Fetch scripts for wind, terrain, landing zones, and static airspace geofences
+are implemented (Tickets 052 and 053), with a single wrapper command for the
+Ticket 052 assets (`fetch_all.py <lat> <lon>`) and a pre-fetched Alpine example
+in `examples/real_world/`. The next two steps complete the first-impression
+experience for new users:
 
-1. **Ticket 053** — airspace geofence fetch script, completing the real-world
-   asset set so all five environment layers have a fetch path.
-2. **Ticket 059** — deliberately infeasible demo mission, demonstrating that
+1. **Ticket 059** — deliberately infeasible demo mission, demonstrating that
    the tool produces `INFEASIBLE` output and explains why, not only green pass.
-3. **Ticket 060** — QGC `.plan` import and batch workflows, removing the
+2. **Ticket 060** — QGC `.plan` import and batch workflows, removing the
    biggest adoption barrier for operators who already have missions in
    QGroundControl format.
 

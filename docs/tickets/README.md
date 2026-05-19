@@ -37,7 +37,7 @@ The current codebase includes:
 - one-line `--format summary` output for `estimate` and `scenario` with reserve %, flight time, policy action, and first failing check
 - `--format geojson` and `--format kml` route exports with per-leg energy-margin layers, landing-zone reachability markers, and geofence conflict flags
 - five community vehicle profiles in `examples/vehicles/community/` (DJI Matrice 300 RTK, Wingtra One Gen II, QS Trinity F90+, Autel EVO Max 4T, generic survey hexacopter) with manufacturer-derived values and provenance links
-- `fetch_all.py` (one-command wrapper), `fetch_wind.py`, `fetch_terrain.py`, and `fetch_landing_zones.py` scripts for real SRTM terrain, Open-Meteo wind forecast, and Overpass landing zones; pre-fetched Alpine example in `examples/real_world/`
+- `fetch_all.py` (one-command wrapper), `fetch_wind.py`, `fetch_terrain.py`, `fetch_landing_zones.py`, and `fetch_geofences.py` scripts for real SRTM terrain, Open-Meteo wind forecast, Overpass landing zones, and static airspace geofences; pre-fetched Alpine example in `examples/real_world/`
 - passing Linux estimator/schema/CLI/scenario/SITL comparison test suite with
   521 tests and 9 skipped live or environment-dependent tests
 
@@ -87,10 +87,10 @@ path rather than through isolated examples. Current validation includes:
 24. [055-geojson-kml-route-export.md](./055-geojson-kml-route-export.md)
 25. [056-community-vehicle-profiles.md](./056-community-vehicle-profiles.md)
 26. [052-real-world-data-fetch-scripts.md](./052-real-world-data-fetch-scripts.md)
+27. [053-airspace-geofence-fetch-script.md](./053-airspace-geofence-fetch-script.md)
 
 ### Planned
 
-27. [053-airspace-geofence-fetch-script.md](./053-airspace-geofence-fetch-script.md)
 28. [059-infeasible-demo-mission.md](./059-infeasible-demo-mission.md)
 29. [060-import-export-and-batch-workflows.md](./060-import-export-and-batch-workflows.md)
 30. [047-stochastic-state-propagation.md](./047-stochastic-state-propagation.md)
@@ -108,7 +108,6 @@ path rather than through isolated examples. Current validation includes:
 ## Current Gaps
 
 - No deliberately infeasible demo mission: Ticket 059.
-- No airspace geofence fetch script: Ticket 053.
 - No QGC `.plan` import or batch workflows: Ticket 060.
 - No stochastic state propagation: Ticket 047 (propagator), 048 (twin-state
   EKF observation model), 049 (closed-loop tracking controller).

@@ -21,6 +21,28 @@ real terrain and spatiotemporal wind are active. Terrain elevations in this
 grid range from 0 to 1943 m (Pilatus area), well above the flat polder used
 in the pipeline demo.
 
+## What a failing mission looks like
+
+This variant uses a smaller battery and fails the reserve check.
+
+```bash
+uv run bvlos-sim estimate \
+  examples/real_world/alpine_infeasible.yaml \
+  examples/real_world/quadplane_small_battery.yaml \
+  --format summary
+```
+
+Output:
+
+```text
+INFEASIBLE   reserve −25.7 %   flight 7m 55s   [RESERVE_BELOW_THRESHOLD]
+```
+
+The mission consumes 69.21872104 Wh, leaving 15.78127896 Wh at landing with
+the 85 Wh battery. The required 25 % reserve threshold is 21.25 Wh, so the
+landing reserve is below the minimum. Increase `battery_capacity_wh` to at
+least 93 Wh, or reduce the route energy demand, to make this mission pass.
+
 ## Re-fetch the assets yourself
 
 ### One command (recommended)
