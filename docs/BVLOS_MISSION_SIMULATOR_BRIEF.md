@@ -184,17 +184,22 @@ yet run a live autopilot or physics simulator.
 
 ## Current Limitations
 
-Known limitations are deliberate for the current release:
+Known gaps in the current release:
 
-- no PX4 SITL adapter yet; Tickets 045 and 046
+- no real-world data fetch scripts for wind, terrain, landing zones, or
+  airspace; Tickets 052, 053, 054
+- no geodesic Dubins divert; long-distance divert uses a planar approximation;
+  Ticket 044
+- no stochastic state propagation or twin-state EKF; Tickets 047, 048, 049
+- no PX4 SITL adapter; Tickets 045, 046
 - no REST API or UI; Ticket 050
+- no NOTAM or live airspace integration; Ticket 058
 - no batch import/export workflows or report diff tooling; Ticket 060
-- long-distance Dubins divert still uses a planar approximation pending a
-  geodesic solver; Ticket 044
-- no live comms, UTM, Remote ID, or traffic integrations; Tickets 070 and 071
-- no real-world calibration pipeline; Tickets 080-084
+- no live comms, UTM/U-space, Remote ID, or traffic integrations; Tickets 070,
+  071
+- no real-world calibration pipeline from flight logs; Tickets 080–084
 
-See [ROADMAP.md](./ROADMAP.md) for planned expansion.
+See [tickets/README.md](./tickets/README.md) for the full planned backlog.
 
 ## Target Users
 
@@ -221,11 +226,20 @@ scenario assertions, and reproducible reporting.
 
 ## Development Direction
 
-The next major project area is broadening simulator and product surfaces around
-the existing evidence and comparison contracts. PX4 remains a separate adapter
-track. The longer-term roadmap includes API/UI surfaces, import/export
-workflows, batch operations, operational integration, and real-world validation
-and calibration from flight logs.
+The immediate next area is environmental realism: fetch scripts (Tickets 052,
+053) that pull real SRTM terrain, Open-Meteo wind forecasts, Overpass landing
+zones, and OpenAIP airspace into files that wire directly into any mission YAML,
+replacing the current synthetic demo data.
+
+After that, the stochastic track (Tickets 047–049) adds a time-stepped
+propagator, twin-state EKF, and closed-loop tracking controller — shifting from
+a single reserve-at-landing scalar to a per-step `p_reserve_violation` timeline.
+
+Longer-term priorities are a geodesic Dubins divert solver (Ticket 044), PX4
+SITL adapter (Tickets 045–046), NOTAM/live airspace integration (Ticket 058),
+API/UI surfaces (Ticket 050), batch workflows (Ticket 060), operational
+integration (Tickets 070–071), and real-world calibration from flight logs
+(Tickets 080–084).
 
 The project should continue to prioritize:
 

@@ -60,79 +60,71 @@ path rather than through isolated examples. Current validation includes:
 
 ### Implemented
 
-1. [001-estimator-cli-and-envelope.md](./001-estimator-cli-and-envelope.md) - implemented
-2. [002-versioning-and-golden-fixtures.md](./002-versioning-and-golden-fixtures.md) - implemented
-3. [003-technical-debt-hardening.md](./003-technical-debt-hardening.md) - implemented
-4. [010-deterministic-energy-feasibility.md](./010-deterministic-energy-feasibility.md) - implemented
-5. [011-static-geofence-feasibility.md](./011-static-geofence-feasibility.md) - implemented
-6. [012-static-landing-zone-reachability.md](./012-static-landing-zone-reachability.md) - implemented
-7. [020-scenario-runner-core.md](./020-scenario-runner-core.md) - implemented
-8. [021-comms-link-and-contingency-policies.md](./021-comms-link-and-contingency-policies.md) - implemented
-9. [030-fidelity-v2-layered-wind-and-subsegments.md](./030-fidelity-v2-layered-wind-and-subsegments.md) - implemented
-10. [031-fidelity-v2-turns-and-fixed-wing-loiter.md](./031-fidelity-v2-turns-and-fixed-wing-loiter.md) - implemented
-11. [032-terrain-referenced-altitude-execution.md](./032-terrain-referenced-altitude-execution.md) - implemented
-12. [033-continuous-spatiotemporal-wind-grid.md](./033-continuous-spatiotemporal-wind-grid.md) - implemented
-13. [034-resource-and-link-feasibility-abstractions.md](./034-resource-and-link-feasibility-abstractions.md) - implemented
-14. [035-dynamic-landing-zone-availability.md](./035-dynamic-landing-zone-availability.md) - implemented
-15. [036-computed-divert-routing.md](./036-computed-divert-routing.md) - implemented
-16. [037-monte-carlo-uncertainty-modeling.md](./037-monte-carlo-uncertainty-modeling.md) - implemented
-17. [038-bank-angle-and-dubins-path-optimization.md](./038-bank-angle-and-dubins-path-optimization.md) - implemented
-18. [039-path-planning-model-gaps.md](./039-path-planning-model-gaps.md) - implemented
-19. [040-sitl-adapter-contract-and-evidence-schema.md](./040-sitl-adapter-contract-and-evidence-schema.md) - implemented
-20. [041-ardupilot-sitl-launch-and-mission-upload.md](./041-ardupilot-sitl-launch-and-mission-upload.md) - implemented
-21. [042-sitl-telemetry-recorder-and-evidence-bundle.md](./042-sitl-telemetry-recorder-and-evidence-bundle.md) - implemented
-22. [043-sitl-scenario-comparison-report.md](./043-sitl-scenario-comparison-report.md) - implemented
-23. [057-summary-output-format.md](./057-summary-output-format.md) - implemented
-24. [055-geojson-kml-route-export.md](./055-geojson-kml-route-export.md) - implemented
-25. [056-community-vehicle-profiles.md](./056-community-vehicle-profiles.md) - implemented
+1. [001-estimator-cli-and-envelope.md](./001-estimator-cli-and-envelope.md)
+2. [002-versioning-and-golden-fixtures.md](./002-versioning-and-golden-fixtures.md)
+3. [003-technical-debt-hardening.md](./003-technical-debt-hardening.md)
+4. [010-deterministic-energy-feasibility.md](./010-deterministic-energy-feasibility.md)
+5. [011-static-geofence-feasibility.md](./011-static-geofence-feasibility.md)
+6. [012-static-landing-zone-reachability.md](./012-static-landing-zone-reachability.md)
+7. [020-scenario-runner-core.md](./020-scenario-runner-core.md)
+8. [021-comms-link-and-contingency-policies.md](./021-comms-link-and-contingency-policies.md)
+9. [030-fidelity-v2-layered-wind-and-subsegments.md](./030-fidelity-v2-layered-wind-and-subsegments.md)
+10. [031-fidelity-v2-turns-and-fixed-wing-loiter.md](./031-fidelity-v2-turns-and-fixed-wing-loiter.md)
+11. [032-terrain-referenced-altitude-execution.md](./032-terrain-referenced-altitude-execution.md)
+12. [033-continuous-spatiotemporal-wind-grid.md](./033-continuous-spatiotemporal-wind-grid.md)
+13. [034-resource-and-link-feasibility-abstractions.md](./034-resource-and-link-feasibility-abstractions.md)
+14. [035-dynamic-landing-zone-availability.md](./035-dynamic-landing-zone-availability.md)
+15. [036-computed-divert-routing.md](./036-computed-divert-routing.md)
+16. [037-monte-carlo-uncertainty-modeling.md](./037-monte-carlo-uncertainty-modeling.md)
+17. [038-bank-angle-and-dubins-path-optimization.md](./038-bank-angle-and-dubins-path-optimization.md)
+18. [039-path-planning-model-gaps.md](./039-path-planning-model-gaps.md)
+19. [040-sitl-adapter-contract-and-evidence-schema.md](./040-sitl-adapter-contract-and-evidence-schema.md)
+20. [041-ardupilot-sitl-launch-and-mission-upload.md](./041-ardupilot-sitl-launch-and-mission-upload.md)
+21. [042-sitl-telemetry-recorder-and-evidence-bundle.md](./042-sitl-telemetry-recorder-and-evidence-bundle.md)
+22. [043-sitl-scenario-comparison-report.md](./043-sitl-scenario-comparison-report.md)
+23. [057-summary-output-format.md](./057-summary-output-format.md)
+24. [055-geojson-kml-route-export.md](./055-geojson-kml-route-export.md)
+25. [056-community-vehicle-profiles.md](./056-community-vehicle-profiles.md)
 
 ### Planned
 
-26. [052-real-world-data-fetch-scripts.md](./052-real-world-data-fetch-scripts.md) — planned
-27. [053-airspace-geofence-fetch-script.md](./053-airspace-geofence-fetch-script.md) — planned
-28. [058-notam-live-airspace-integration.md](./058-notam-live-airspace-integration.md) — planned
-29. [047-stochastic-state-propagation.md](./047-stochastic-state-propagation.md) — planned
-30. [048-observation-model-and-twin-state.md](./048-observation-model-and-twin-state.md) — planned
-31. [049-stochastic-closed-loop-control.md](./049-stochastic-closed-loop-control.md) — planned
-32. [044-geodesic-dubins-divert.md](./044-geodesic-dubins-divert.md) — planned
-33. [054-reference-inputs-for-calibration-and-import.md](./054-reference-inputs-for-calibration-and-import.md) — planned
-34. [045-px4-sitl-launch-and-mission-upload.md](./045-px4-sitl-launch-and-mission-upload.md) — planned
-35. [046-px4-sitl-telemetry-recorder-and-evidence-bundle.md](./046-px4-sitl-telemetry-recorder-and-evidence-bundle.md) — planned
-36. [050-user-interfaces-and-service-adapters.md](./050-user-interfaces-and-service-adapters.md) — planned
-37. [060-import-export-and-batch-workflows.md](./060-import-export-and-batch-workflows.md) — planned
-38. [070-operational-integration-seams.md](./070-operational-integration-seams.md) — planned
-39. [071-live-comms-remote-id-and-traffic-integrations.md](./071-live-comms-remote-id-and-traffic-integrations.md) — planned
+26. [052-real-world-data-fetch-scripts.md](./052-real-world-data-fetch-scripts.md)
+27. [053-airspace-geofence-fetch-script.md](./053-airspace-geofence-fetch-script.md)
+28. [058-notam-live-airspace-integration.md](./058-notam-live-airspace-integration.md)
+29. [047-stochastic-state-propagation.md](./047-stochastic-state-propagation.md)
+30. [048-observation-model-and-twin-state.md](./048-observation-model-and-twin-state.md)
+31. [049-stochastic-closed-loop-control.md](./049-stochastic-closed-loop-control.md)
+32. [044-geodesic-dubins-divert.md](./044-geodesic-dubins-divert.md)
+33. [054-reference-inputs-for-calibration-and-import.md](./054-reference-inputs-for-calibration-and-import.md)
+34. [045-px4-sitl-launch-and-mission-upload.md](./045-px4-sitl-launch-and-mission-upload.md)
+35. [046-px4-sitl-telemetry-recorder-and-evidence-bundle.md](./046-px4-sitl-telemetry-recorder-and-evidence-bundle.md)
+36. [050-user-interfaces-and-service-adapters.md](./050-user-interfaces-and-service-adapters.md)
+37. [060-import-export-and-batch-workflows.md](./060-import-export-and-batch-workflows.md)
+38. [070-operational-integration-seams.md](./070-operational-integration-seams.md)
+39. [071-live-comms-remote-id-and-traffic-integrations.md](./071-live-comms-remote-id-and-traffic-integrations.md)
 
-## Limitation Coverage and Status
+## Current Gaps
 
-- SITL adapter contract and evidence schema: Ticket 040, implemented.
-- ArduPilot SITL connect/upload integration: Ticket 041, implemented.
-- ArduPilot SITL telemetry evidence: Ticket 042, implemented.
-- SITL comparison reporting through adapter APIs and `compare`:
-  Ticket 043, implemented.
-- Geodesic-aware Dubins divert path sampling: Ticket 044, planned.
-- No PX4 SITL adapter yet: Tickets 045 (launch/upload) and 046 (telemetry/evidence).
-- No stochastic state propagation yet: Ticket 047 (propagator), 048 (twin-state
+- No geodesic-aware Dubins divert path sampling: Ticket 044.
+- No PX4 SITL adapter: Tickets 045 (launch/upload) and 046 (telemetry/evidence).
+- No stochastic state propagation: Ticket 047 (propagator), 048 (twin-state
   EKF observation model), 049 (closed-loop tracking controller).
 - No REST API or UI: Ticket 050.
-- No real-world data fetch scripts yet: Ticket 052 (wind/terrain/LZ), 053
+- No real-world data fetch scripts: Ticket 052 (wind/terrain/LZ), 053
   (geofences), 054 (reference inputs for calibration and import design).
-- GeoJSON/KML route export: Ticket 055, implemented.
-- Community vehicle profiles: Ticket 056, implemented.
-- Terse `estimate` and `scenario` summary output: Ticket 057, implemented.
 - No NOTAM/live airspace integration: Ticket 058.
 - No batch import/export workflows or report diff tooling: Ticket 060.
 - No live comms, UTM/U-space, Remote ID, or traffic integrations: Tickets 070
   and 071.
-- No real-world calibration pipeline: Tickets 080-084.
+- No real-world calibration pipeline: Tickets 080–084.
 
 ## Validation and Calibration Track
 
-1. [080-flight-log-ingestion-and-trace-normalization.md](./080-flight-log-ingestion-and-trace-normalization.md) - planned
-2. [081-flight-phase-segmentation.md](./081-flight-phase-segmentation.md) - planned
-3. [082-predicted-vs-observed-validation-metrics.md](./082-predicted-vs-observed-validation-metrics.md) - planned
-4. [083-calibration-profile-data-and-fitting.md](./083-calibration-profile-data-and-fitting.md) - planned
-5. [084-holdout-validation-reports.md](./084-holdout-validation-reports.md) - planned
+1. [080-flight-log-ingestion-and-trace-normalization.md](./080-flight-log-ingestion-and-trace-normalization.md)
+2. [081-flight-phase-segmentation.md](./081-flight-phase-segmentation.md)
+3. [082-predicted-vs-observed-validation-metrics.md](./082-predicted-vs-observed-validation-metrics.md)
+4. [083-calibration-profile-data-and-fitting.md](./083-calibration-profile-data-and-fitting.md)
+5. [084-holdout-validation-reports.md](./084-holdout-validation-reports.md)
 
 ## Backlog Rules
 

@@ -419,6 +419,56 @@ Supported distribution kinds: `normal` (requires `mean` and `std > 0`), `uniform
 - Sampling is deterministic for a given `seed`, `samples`, and parameter configuration.
 - `feasibility_rate` is the fraction of completed samples where `energy.is_feasible` is `True`. It is `None` when no completed sample produced an energy estimate.
 
+## Output Format Semantics
+
+### `--format summary`
+
+Available on `estimate` and `scenario`. Emits a single line to stdout.
+
+Estimate summary fields (space-separated, fixed-width columns):
+
+- `FEASIBLE` / `INFEASIBLE`: mission energy feasibility.
+- `reserve <value> %`: `reserve_at_landing_wh / battery_capacity_wh * 100`, formatted to one decimal place.
+- `flight <Xm Ys>`: total flight time as minutes and seconds.
+- `[<INFEASIBLE_REASON>]`: present only when the mission is infeasible; the first failing feasibility code.
+
+Scenario summary fields:
+
+- `PASSED <n>/<total>` / `FAILED <n>/<total>`: assertion counts.
+- `reserve <value> %`: same computation as estimate.
+- `flight <Xm Ys>`: total flight time.
+- `policy <ACTION>`: lost-link policy action (`NONE`, `RTL`, `LAND`, `LOITER`, `DIVERT`), or `NONE` when no lost-link event fired.
+- `[ASSERTION: <assertion_id>]`: present only when at least one assertion has outcome `FAILED`; the first failing assertion ID.
+
+### `--format geojson`
+
+Available on `estimate` and `scenario`. Emits a GeoJSON FeatureCollection to stdout.
+
+Three feature layers:
+
+- `route`: one LineString per leg. Coordinates in `[lon, lat, altitude_m]` order (RFC 7946). Properties include `leg_id`, `action`, `energy_margin_pct`, and `energy_color` (`green` / `amber` / `red`).
+- `landing_zones`: one Point per configured landing zone. Properties include `zone_id`, `reachable` (boolean), and `surface` (from GeoJSON source or `"unknown"`).
+- `geofences`: one Polygon per configured geofence zone. Properties include `zone_id`, `kind` (`forbidden` / `caution`), and `conflict` (boolean).
+
+`energy_margin_pct` is computed per leg as:
+`(reserve_at_landing_wh − reserve_threshold_wh) / battery_capacity_wh × 100`.
+
+Energy color thresholds:
+
+- `green`: `energy_margin_pct > 30`
+- `amber`: `10 ≤ energy_margin_pct ≤ 30`
+- `red`: `energy_margin_pct < 10`
+
+Geofence and landing-zone layers are omitted when the corresponding asset is not configured in the mission.
+
+### `--format kml`
+
+Available on `estimate` and `scenario`. Emits KML to stdout using the `http://www.opengis.net/kml/2.2` namespace.
+
+Three placemarks per leg (one per energy color style), one Placemark per landing zone, and one Placemark per geofence polygon. Color encoding uses the same thresholds as GeoJSON: `route-green` (`#00b050`), `route-amber` (`#0080ff`), `route-red` (`#0000ff`) in KML `aabbggrr` encoding.
+
+Opens directly in Google Earth and QGroundControl.
+
 ## Update Rule
 
 When a non-operative field becomes operative, update all of the following in the

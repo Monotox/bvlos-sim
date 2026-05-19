@@ -17,23 +17,32 @@ As of early 2024 bulk GeoJSON downloads require a registered free-tier API
 key. Before scripting, confirm:
 
 1. Register at `https://www.openaip.net` and obtain a free API key.
-2. Verify that the `/api/airspaces` endpoint accepts a bounding-box query and
-   returns GeoJSON Polygons with `icaoClass` and `type` fields.
+2. Verify that `https://api.openaip.net/api/airspaces?bbox=<lon_min,lat_min,lon_max,lat_max>`
+   accepts a bounding-box query and returns GeoJSON Polygons with `icaoClass`
+   and `type` fields.
 3. Confirm the free tier is sufficient for demo-scale queries (~50–200
    polygons per country).
 
-If the OpenAIP API is inaccessible or changed, fall back to the Overpass API
-using the `aeroway=restricted_area` tag (less complete, but free and keyless):
+The keyless Overpass fallback has **limited coverage**: OSM airspace data uses
+`relation` geometries with complex multi-polygon shapes for most real-world
+CTR/TMA/restricted zones. The `way`-only Overpass path described below will
+typically return fewer polygons than OpenAIP. Operators needing complete,
+authoritative airspace data should use the OpenAIP path.
+
+The Overpass fallback uses `boundary=aeronautical` + `icao:class` tags (more
+accurate than `aeroway=restricted_area`, which has very sparse OSM coverage):
 
 ```
 [out:json];
-area["name"="<country>"];
 (
-  way["aeroway"="restricted_area"](area);
-  relation["aeroway"="restricted_area"](area);
+  way["boundary"="aeronautical"]["icao:class"~"^(C|D|R|P)$"](<bbox>);
 );
 out geom;
 ```
+
+Note: Real airspace zones are typically mapped as OSM `relation` objects with
+complex geometry. This script **skips `relation` types** and prints a warning;
+only `way`-based airspace (a small subset) is returned via the Overpass path.
 
 ## Script Specification
 
@@ -45,8 +54,8 @@ uv run python scripts/fetch_geofences.py <lat_min> <lat_max> <lon_min> <lon_max>
 ```
 
 **OpenAIP path:**
-- Calls `/api/airspaces?bbox=<lon_min,lat_min,lon_max,lat_max>` with
-  `Authorization: Bearer <key>` header.
+- Calls `https://api.openaip.net/api/airspaces?bbox=<lon_min,lat_min,lon_max,lat_max>`
+  with `Authorization: Bearer <key>` header.
 - Maps `icaoClass` / `type` to `kind`:
   - `RESTRICTED`, `PROHIBITED`, `DANGER` → `"forbidden"`
   - `CTR`, `TMA`, `CTA` → `"caution"`
@@ -55,10 +64,19 @@ uv run python scripts/fetch_geofences.py <lat_min> <lat_max> <lon_min> <lon_max>
   and `{ "kind": "forbidden"|"caution", "name": <string> }` properties.
 
 **Overpass fallback path (keyless):**
-- Issues the bounding-box Overpass QL query above.
-- Reconstructs Polygon geometries from way node sequences.
-- Applies the same `kind` mapping based on OSM `aeroway` and `restriction`
-  tags.
+- Issues the bounding-box Overpass QL query above (`way` type only).
+- Prints a warning to stderr: `"Warning: Overpass path returns way-based
+  airspace only; relation-based zones (most CTR/TMA) are skipped. Use
+  --source openaip for complete coverage."`
+- Skips any element whose `type` is `relation` (geometry reconstruction
+  is non-trivial and produces unreliable results for complex multi-polygon
+  airspace).
+- Reconstructs Polygon geometries from `way` node sequences via the `geom`
+  output directive (`out geom`).
+- Maps `icao:class` tag to `kind`:
+  - `R`, `P` → `"forbidden"` (restricted, prohibited)
+  - `C`, `D` → `"caution"` (CTR, danger)
+  - Others → `"caution"` (conservative default).
 
 ## Updated Alpine Demo
 
