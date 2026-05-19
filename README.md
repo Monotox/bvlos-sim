@@ -125,7 +125,7 @@ Max 4T, and a generic survey hexacopter. Each has values sourced from published
 spec sheets with derivation notes, so you can start estimating without filling
 in placeholder values.
 
-### Environmental realism (fetch scripts planned, Phase 4.12)
+### Environmental realism (available now)
 
 Three fetch scripts eliminate the need for synthetic demo data.
 `fetch_wind.py` pulls an Open-Meteo forecast at four altitude bands
@@ -133,14 +133,15 @@ Three fetch scripts eliminate the need for synthetic demo data.
 to your planned takeoff so wind interpolation is temporally correct.
 `fetch_terrain.py` downloads SRTM tiles for any bounding box.
 `fetch_landing_zones.py` queries the Overpass API for helipads and aerodromes.
-`fetch_geofences.py` pulls CTR, TMA, restricted, and prohibited zones from
-OpenAIP (free API key required) with a keyless Overpass fallback.
-`fetch_notams.py` queries the FAA B4UFly API (US) or EUROCONTROL's NOTAM
-service (Europe) for active TFRs and temporary restrictions in your flight
-window, merging them with the static airspace file so the geofence feasibility
-check reflects actual day-of-flight airspace, not only permanent structure. All
-scripts produce files that wire directly into the `assets:` section of your
-mission YAML.
+`fetch_all.py` wraps all three in a single command. All scripts produce files
+that wire directly into the `assets:` section of your mission YAML. A
+pre-fetched Alpine example covering the Lucerne/Zug area is committed to
+`examples/real_world/` and runs offline with no network calls.
+
+Two additional fetch scripts are planned: `fetch_geofences.py` for CTR, TMA,
+restricted, and prohibited zones from OpenAIP (Ticket 053), and
+`fetch_notams.py` for active TFRs and temporary restrictions from FAA B4UFly
+or EUROCONTROL (Ticket 058).
 
 ### Uncertainty and risk
 
@@ -204,12 +205,14 @@ route over Alpine foothills does not look like Dutch polder, and performs
 geometric intersection between your route and the actual GeoJSON polygons for
 the Swiss TMA or the FAA TFR issued 48 hours before departure. A spreadsheet
 gives you a scalar go/no-go; bvlos-sim gives you a `reserve_at_landing_wh`
-with a p5/p95 envelope from 500 seeded Monte Carlo draws, a per-assertion
+with a p5/p95 envelope from 500 seeded Monte Carlo draws and a per-assertion
 scenario report showing whether your RTL policy leaves the aircraft with
-positive reserve after a Dubins-constrained divert path, and — once Ticket 047
-ships — a per-step `p_reserve_violation` timeline showing where mid-flight
-energy risk peaks, not only whether you land inside the threshold. None of that
-requires writing Python; it requires two YAML files and three CLI commands.
+positive reserve after a Dubins-constrained divert path. None of that requires
+writing Python; it requires two YAML files and three CLI commands.
+
+On the roadmap: once Ticket 047 ships, the planned `propagate` command will add
+a per-step `p_reserve_violation` timeline showing where mid-flight energy risk
+peaks, not only whether you land inside the threshold.
 
 ## Disclaimer
 
