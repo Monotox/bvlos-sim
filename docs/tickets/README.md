@@ -79,10 +79,10 @@ path rather than through isolated examples. Current validation includes:
 20. [041-ardupilot-sitl-launch-and-mission-upload.md](./041-ardupilot-sitl-launch-and-mission-upload.md) - implemented
 21. [042-sitl-telemetry-recorder-and-evidence-bundle.md](./042-sitl-telemetry-recorder-and-evidence-bundle.md) - implemented
 22. [043-sitl-scenario-comparison-report.md](./043-sitl-scenario-comparison-report.md) - implemented
+23. [057-summary-output-format.md](./057-summary-output-format.md) - implemented
 
 ### Planned
 
-23. [057-summary-output-format.md](./057-summary-output-format.md) — planned
 24. [055-geojson-kml-route-export.md](./055-geojson-kml-route-export.md) — planned
 25. [056-community-vehicle-profiles.md](./056-community-vehicle-profiles.md) — planned
 26. [052-real-world-data-fetch-scripts.md](./052-real-world-data-fetch-scripts.md) — planned
@@ -116,7 +116,7 @@ path rather than through isolated examples. Current validation includes:
   (geofences), 054 (reference inputs for calibration and import design).
 - No GeoJSON/KML route export: Ticket 055.
 - No community vehicle profiles: Ticket 056.
-- No terse summary output format: Ticket 057.
+- Terse `estimate` and `scenario` summary output: Ticket 057, implemented.
 - No NOTAM/live airspace integration: Ticket 058.
 - No batch import/export workflows or report diff tooling: Ticket 060.
 - No live comms, UTM/U-space, Remote ID, or traffic integrations: Tickets 070

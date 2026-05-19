@@ -29,6 +29,7 @@ from adapters.scenario_envelope import (
 )
 from adapters.scenario_io import resolve_scenario_asset_path
 from adapters.scenario_markdown import render_scenario_markdown
+from adapters.summary import format_estimate_summary, format_scenario_summary
 from adapters.terrain_grid import load_terrain_grid
 from adapters.uncertainty_envelope import (
     UncertaintyResultEnvelope,
@@ -119,31 +120,71 @@ def _resolve_asset_path(path: Path, *, mission_path: Path) -> Path:
     return mission_path.parent / path
 
 
+EstimatorEnvelopeRenderer = Callable[[EstimatorResultEnvelope], str]
+ScenarioEnvelopeRenderer = Callable[[ScenarioResultEnvelope], str]
+UncertaintyEnvelopeRenderer = Callable[[UncertaintyResultEnvelope], str]
+
+
+def _render_estimate_summary(envelope: EstimatorResultEnvelope) -> str:
+    result = envelope.result
+    if result is None:
+        return "ERROR"
+    return format_estimate_summary(result)
+
+
+def _scenario_result_from_envelope(envelope: ScenarioResultEnvelope) -> ScenarioResult:
+    return ScenarioResult(
+        scenario_id=envelope.scenario_id,
+        status=envelope.status,
+        deterministic=envelope.determinism_metadata.deterministic,
+        timeline=envelope.timeline,
+        event_outcomes=envelope.event_outcomes,
+        assertion_results=envelope.assertion_results,
+        estimate=envelope.estimate,
+    )
+
+
+def _render_scenario_summary(envelope: ScenarioResultEnvelope) -> str:
+    return format_scenario_summary(_scenario_result_from_envelope(envelope))
+
+
+_ESTIMATE_RENDERERS: dict[OutputFormat, EstimatorEnvelopeRenderer] = {
+    OutputFormat.JSON: render_envelope_json,
+    OutputFormat.MARKDOWN: render_envelope_markdown,
+    OutputFormat.SUMMARY: _render_estimate_summary,
+}
+
+_SCENARIO_RENDERERS: dict[OutputFormat, ScenarioEnvelopeRenderer] = {
+    OutputFormat.JSON: render_scenario_envelope_json,
+    OutputFormat.MARKDOWN: render_scenario_markdown,
+    OutputFormat.SUMMARY: _render_scenario_summary,
+}
+
+_UNCERTAINTY_RENDERERS: dict[OutputFormat, UncertaintyEnvelopeRenderer] = {
+    OutputFormat.JSON: render_uncertainty_envelope_json,
+    OutputFormat.MARKDOWN: render_uncertainty_markdown,
+}
+
+
 def _render_output(
     output_format: OutputFormat,
     envelope: EstimatorResultEnvelope,
 ) -> str:
-    if output_format == OutputFormat.MARKDOWN:
-        return render_envelope_markdown(envelope)
-    return render_envelope_json(envelope)
+    return _ESTIMATE_RENDERERS[output_format](envelope)
 
 
 def _render_scenario_output(
     output_format: OutputFormat,
     envelope: ScenarioResultEnvelope,
 ) -> str:
-    if output_format == OutputFormat.MARKDOWN:
-        return render_scenario_markdown(envelope)
-    return render_scenario_envelope_json(envelope)
+    return _SCENARIO_RENDERERS[output_format](envelope)
 
 
 def _render_uncertainty_output(
     output_format: OutputFormat,
     envelope: UncertaintyResultEnvelope,
 ) -> str:
-    if output_format == OutputFormat.MARKDOWN:
-        return render_uncertainty_markdown(envelope)
-    return render_uncertainty_envelope_json(envelope)
+    return _UNCERTAINTY_RENDERERS[output_format](envelope)
 
 
 def _load_optional_asset(

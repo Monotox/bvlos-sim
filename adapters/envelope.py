@@ -139,6 +139,7 @@ class ResultScope(StrEnum):
 class OutputFormat(StrEnum):
     JSON = "json"
     MARKDOWN = "markdown"
+    SUMMARY = "summary"
 
 
 class EnvelopeDiagnostic(BaseModel):
