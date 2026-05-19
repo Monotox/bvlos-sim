@@ -178,3 +178,21 @@ def test_failed_scenario_summary_ends_with_first_failed_assertion() -> None:
     assert "policy RTL" in output
     assert output.endswith("[ASSERTION: estimate.energy.reserve_at_landing_wh]")
     _assert_one_line(output)
+
+
+def test_passed_scenario_summary_ignores_skipped_assertion_tag() -> None:
+    result = ScenarioResult(
+        scenario_id="scenario-1",
+        status=ScenarioStatus.PASSED,
+        assertion_results=[
+            _assertion("estimate-succeeds", AssertionOutcome.PASSED),
+            _assertion("optional-check", AssertionOutcome.SKIPPED),
+        ],
+        estimate=_estimate(energy=_energy()),
+    )
+
+    output = format_scenario_summary(result)
+
+    assert output.startswith("PASSED")
+    assert "[ASSERTION:" not in output
+    _assert_one_line(output)

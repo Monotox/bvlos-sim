@@ -125,7 +125,7 @@ def _first_failed_assertion(
         (
             assertion
             for assertion in assertions
-            if assertion.outcome != AssertionOutcome.PASSED
+            if assertion.outcome == AssertionOutcome.FAILED
         ),
         None,
     )

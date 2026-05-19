@@ -2,32 +2,34 @@
 
 ## Goal
 
-Add `--format summary` to the `estimate` and `scenario` CLI commands, printing
-exactly five lines of human-readable output. The summary is suitable for a
-shell script, a pre-flight checklist, a CI gate, or a terminal that has no
-room for a full Markdown report.
+Status: implemented.
+
+`--format summary` is available on the `estimate` and `scenario` CLI commands.
+It prints exactly one line of human-readable output. The summary is suitable
+for a shell script, a pre-flight checklist, a CI gate, or a terminal that has
+no room for a full Markdown report.
 
 ## Motivation
 
 The Markdown renderer is comprehensive but verbose — full timeline, all leg
 fields, per-phase energy breakdown. In a pre-flight context or a shell pipeline
-the operator needs one glance: go / no-go, reserve margin, flight time, worst
-wind margin, and the first failing check if any. No new computation is needed;
-the summary is a terse projection of fields already present in
-`MissionEstimate` and `ScenarioResult`.
+the operator needs one glance: go / no-go, reserve margin, flight time,
+contingency policy action, and the first failing check if any. No new
+computation is needed; the summary is a terse projection of fields already
+present in `MissionEstimate` and `ScenarioResult`.
 
 ## Output Specification
 
 ### `estimate --format summary`
 
 ```
-FEASIBLE   reserve 38.2 %   flight 24m 13s   wind margin 3.1 m/s
+FEASIBLE   reserve 281.6 %   flight 2m 49s
 ```
 
 Or on failure:
 
 ```
-INFEASIBLE   reserve −12.4 %   flight 24m 13s   wind margin 3.1 m/s   [RESERVE_BELOW_THRESHOLD]
+INFEASIBLE   reserve −12.4 %   flight 24m 13s   [RESERVE_BELOW_THRESHOLD]
 ```
 
 Fields in order:
@@ -35,11 +37,14 @@ Fields in order:
 2. `reserve <pct> %` — `(reserve_at_landing_wh / reserve_threshold_wh − 1) × 100`
    (negative means below threshold)
 3. `flight <Xm Ys>` — `total_time_s` formatted as minutes and seconds
-4. `wind margin <X> m/s` — smallest `(max_wind_speed_mps − actual_wind_mps)`
-   across all legs; omitted when no wind model is active
-5. `[FAILURE_CODE]` — the primary `FailureCode` name; omitted when feasible
+4. `[FAILURE_CODE]` — the primary `FailureCode` name; omitted when feasible
 
-Single line, space-separated. Machine-parseable with `awk '{print $2}'`.
+Single line, space-separated with stable field order.
+
+Wind margin is intentionally omitted in the implemented formatter unless the
+result model exposes enough information to derive it cleanly. Current
+`MissionEstimate` results include per-leg wind speed but not the vehicle
+maximum wind capability used to compute a correct margin.
 
 ### `scenario --format summary`
 
@@ -63,10 +68,9 @@ Fields in order:
 
 ## Implementation Notes
 
-The `--format summary` handler must live in a new function in the existing
-adapter modules (`adapters/envelope.py` or a new `adapters/summary.py`), not
-as logic in `adapters/cli.py`. The CLI handler calls the adapter function and
-prints the returned string. This keeps the CLI thin and the summary format
+The `--format summary` handler lives in `adapters/summary.py`, not as logic in
+`adapters/cli.py`. The CLI support layer calls the adapter function and prints
+the returned string. This keeps the CLI thin and the summary format
 independently testable.
 
 Do not add a new `SummaryResult` schema or envelope. The summary is a
@@ -83,8 +87,11 @@ New files:
 
 Modified files:
 
-- `adapters/cli.py` — add `summary` to `--format` choices for `estimate` and
-  `scenario` commands; call `format_estimate_summary` / `format_scenario_summary`
+- `adapters/envelope.py` — add `SUMMARY = "summary"` to `OutputFormat`
+- `adapters/cli_support.py` — route summary rendering for `estimate` and
+  `scenario`
+- `adapters/cli.py` — keep `summary` available only on `estimate` and
+  `scenario`; `sample`, `sitl`, and `compare` remain JSON/Markdown only
 - `adapters/__init__.py` — export new format functions
 
 ## Acceptance Criteria

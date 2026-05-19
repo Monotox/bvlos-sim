@@ -6,7 +6,7 @@ toward a broader BVLOS simulation platform.
 ## Current Status
 
 The current codebase implements Phases 1 through 4.10, plus Tickets 032, 033,
-034, 035, 036, 037, 038, 039, 040, 041, 042, and 043:
+034, 035, 036, 037, 038, 039, 040, 041, 042, 043, and 057:
 
 - estimator hardening
 - static feasibility checks
@@ -24,8 +24,9 @@ The current codebase implements Phases 1 through 4.10, plus Tickets 032, 033,
 - connect-mode ArduPilot SITL mission upload
 - SITL telemetry, command-log, simulator-log, and adapter-log artifacts
 - SITL comparison reports via `sitl-comparison.v1`
+- one-line `--format summary` output for `estimate` and `scenario`
 
-The Linux test suite currently passes with 506 tests and 9 skipped live or
+The Linux test suite currently passes with 515 tests and 9 skipped live or
 environment-dependent tests.
 
 bvlos-sim remains an engineering validation tool. It is not a flight-safety
@@ -103,6 +104,7 @@ Interfaces and contracts:
 - SITL comparison report JSON and Markdown rendering through `compare` and
   adapter APIs
 - Markdown rendering for estimator, scenario, and uncertainty reports
+- one-line summary rendering for estimator and scenario reports
 - golden fixture regression tests
 
 ## Known Limitations
@@ -125,7 +127,6 @@ Platform limitations:
 - no real-world data fetch scripts yet; Tickets 052-054
 - no GeoJSON/KML route export; Ticket 055
 - no community vehicle profiles; Ticket 056
-- no terse summary output format; Ticket 057
 - no NOTAM/live airspace integration; Ticket 058
 - no live comms, UTM/U-space, Remote ID, or traffic integrations; Tickets 070
   and 071
@@ -376,10 +377,10 @@ Scope:
 - Ticket 056: community vehicle profiles — 4–5 manufacturer-derived YAML
   profiles (DJI Matrice 300 RTK, Wingtra One Gen II, Quantum-Systems Trinity
   F90+, Autel EVO Max 4T, generic survey hexacopter) with provenance links
-- Ticket 057: summary output format — `--format summary` on `estimate` and
+- Ticket 057: summary output format — implemented for `estimate` and
   `scenario` commands; single-line go/no-go digest with reserve %, flight time,
-  wind margin, and first failing check; suitable for shell scripts and
-  pre-flight checklists
+  contingency policy action, and first failing check; suitable for shell
+  scripts and pre-flight checklists
 - Ticket 058: NOTAM and live airspace integration — `fetch_notams.py` via FAA
   B4UFly API (US) and EUROCONTROL NOTAM service (Europe); active TFRs and
   temporary restrictions merged with static geofence output for day-of-flight
