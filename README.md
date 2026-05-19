@@ -81,6 +81,19 @@ uv run bvlos-sim scenario \
   examples/scenarios/pipeline_demo_001_scenario.yaml
 ```
 
+Convert a QGroundControl plan and run it:
+
+```bash
+uv run bvlos-sim convert examples/missions/pipeline_demo_001.plan \
+  --output /tmp/pipeline_converted.yaml
+```
+
+Run a batch of estimates from a manifest:
+
+```bash
+uv run bvlos-sim batch examples/batch/demo_batch.yaml
+```
+
 Run Monte Carlo uncertainty sampling:
 
 ```bash
@@ -104,6 +117,8 @@ Full usage details are in [docs/USAGE.md](./docs/USAGE.md).
 
 - `estimate`: run deterministic mission estimation and static feasibility checks
 - `scenario`: run deterministic scenario events and assertions
+- `convert`: convert a QGroundControl `.plan` file to a `mission.v5` YAML
+- `batch`: run batch mission estimates from a manifest file
 - `sample`: run seeded Monte Carlo uncertainty sampling
 - `sitl`: build a contract-only or live SITL evidence bundle
 - `compare`: compare a SITL evidence bundle against deterministic scenario expectations
