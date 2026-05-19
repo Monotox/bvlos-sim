@@ -37,6 +37,7 @@ The current codebase includes:
 - one-line `--format summary` output for `estimate` and `scenario` with reserve %, flight time, policy action, and first failing check
 - `--format geojson` and `--format kml` route exports with per-leg energy-margin layers, landing-zone reachability markers, and geofence conflict flags
 - five community vehicle profiles in `examples/vehicles/community/` (DJI Matrice 300 RTK, Wingtra One Gen II, QS Trinity F90+, Autel EVO Max 4T, generic survey hexacopter) with manufacturer-derived values and provenance links
+- `fetch_all.py` (one-command wrapper), `fetch_wind.py`, `fetch_terrain.py`, and `fetch_landing_zones.py` scripts for real SRTM terrain, Open-Meteo wind forecast, and Overpass landing zones; pre-fetched Alpine example in `examples/real_world/`
 - passing Linux estimator/schema/CLI/scenario/SITL comparison test suite with
   521 tests and 9 skipped live or environment-dependent tests
 
@@ -85,10 +86,10 @@ path rather than through isolated examples. Current validation includes:
 23. [057-summary-output-format.md](./057-summary-output-format.md)
 24. [055-geojson-kml-route-export.md](./055-geojson-kml-route-export.md)
 25. [056-community-vehicle-profiles.md](./056-community-vehicle-profiles.md)
+26. [052-real-world-data-fetch-scripts.md](./052-real-world-data-fetch-scripts.md)
 
 ### Planned
 
-26. [052-real-world-data-fetch-scripts.md](./052-real-world-data-fetch-scripts.md)
 27. [053-airspace-geofence-fetch-script.md](./053-airspace-geofence-fetch-script.md)
 28. [058-notam-live-airspace-integration.md](./058-notam-live-airspace-integration.md)
 29. [047-stochastic-state-propagation.md](./047-stochastic-state-propagation.md)
@@ -110,8 +111,8 @@ path rather than through isolated examples. Current validation includes:
 - No stochastic state propagation: Ticket 047 (propagator), 048 (twin-state
   EKF observation model), 049 (closed-loop tracking controller).
 - No REST API or UI: Ticket 050.
-- No real-world data fetch scripts: Ticket 052 (wind/terrain/LZ), 053
-  (geofences), 054 (reference inputs for calibration and import design).
+- No airspace geofence fetch script: Ticket 053.
+- No reference inputs for calibration and import: Ticket 054.
 - No NOTAM/live airspace integration: Ticket 058.
 - No batch import/export workflows or report diff tooling: Ticket 060.
 - No live comms, UTM/U-space, Remote ID, or traffic integrations: Tickets 070
