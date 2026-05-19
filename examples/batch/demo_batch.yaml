@@ -1,0 +1,11 @@
+format_version: "batch.v1"
+runs:
+  - id: alpine_standard
+    mission: ../real_world/alpine_mission.yaml
+    vehicle: ../real_world/quadplane_v1.yaml
+  - id: alpine_infeasible
+    mission: ../real_world/alpine_infeasible.yaml
+    vehicle: ../real_world/quadplane_small_battery.yaml
+  - id: pipeline_demo
+    mission: ../missions/pipeline_demo_001.yaml
+    vehicle: ../vehicles/quadplane_v1.yaml

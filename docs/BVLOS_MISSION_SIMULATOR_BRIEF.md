@@ -186,7 +186,6 @@ yet run a live autopilot or physics simulator.
 
 Known gaps in the current release:
 
-- no QGC `.plan` import or batch workflows; Ticket 060
 - no stochastic state propagation or twin-state EKF; Tickets 047, 048, 049
 - no geodesic Dubins divert; long-distance divert uses a planar approximation;
   Ticket 044
@@ -228,16 +227,12 @@ scenario assertions, and reproducible reporting.
 Fetch scripts for wind, terrain, landing zones, and static airspace geofences
 are implemented (Tickets 052 and 053), with a single wrapper command for the
 Ticket 052 assets (`fetch_all.py <lat> <lon>`) and a pre-fetched Alpine example
-in `examples/real_world/` that includes a deliberately infeasible variant
-(`alpine_infeasible.yaml` + `quadplane_small_battery.yaml`) with a README
-explanation of what failed and how to fix it (Ticket 059). The next step is:
+in `examples/real_world/`. Ticket 059 adds a deliberately infeasible demo, and
+Ticket 060 adds QGC `.plan` conversion plus batch estimate manifests for CI and
+multi-vehicle comparisons.
 
-1. **Ticket 060** — QGC `.plan` import and batch workflows, removing the
-   biggest adoption barrier for operators who already have missions in
-   QGroundControl format.
-
-After that, the stochastic track (Tickets 047–049) adds a time-stepped
-propagator, twin-state EKF, and closed-loop tracking controller — shifting from
+The next major track is stochastic execution (Tickets 047-049): a time-stepped
+propagator, twin-state EKF, and closed-loop tracking controller that shift from
 a single reserve-at-landing scalar to a per-step `p_reserve_violation` timeline.
 
 Longer-term priorities are a geodesic Dubins divert solver (Ticket 044),
