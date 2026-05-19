@@ -9,6 +9,13 @@ import typer
 from pydantic import ValidationError
 
 from adapters.sitl.ardupilot_types import ArduPilotAdapterError
+from adapters.batch_io import load_batch_manifest
+from adapters.batch_support import (
+    BatchRunResult,
+    render_batch_table,
+    run_batch_manifest,
+    summarize_batch,
+)
 from adapters.cli_sitl_support import (
     _build_sitl_evidence_from_context,
     _emit_sitl_progress,
@@ -52,6 +59,7 @@ from adapters.io import (
 )
 from adapters.kml_export import build_kml_export
 from adapters.landing_zone_geojson import LandingZoneLoadError
+from adapters.qgc_plan import load_and_convert_plan
 from adapters.scenario_envelope import (
     ScenarioResultEnvelope,
     build_scenario_internal_error_envelope,
@@ -274,6 +282,44 @@ def _write_internal_error_envelope(
 
 
 @app.command()
+def convert(
+    plan: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True),
+    output: Path | None = typer.Option(None, "--output", "-o"),
+) -> None:
+    """Convert a QGroundControl .plan file to a mission.v5 YAML."""
+
+    import yaml
+
+    try:
+        mission, diagnostics = load_and_convert_plan(plan)
+        for diagnostic in diagnostics:
+            typer.echo(
+                "Warning: item "
+                f"{diagnostic.item_index} (command {diagnostic.command}): "
+                f"{diagnostic.message}",
+                err=True,
+            )
+        rendered = yaml.dump(
+            mission,
+            default_flow_style=None,
+            sort_keys=False,
+        )
+        _write_output(rendered, output)
+        raise typer.Exit(code=int(CliExitCode.SUCCESS))
+    except (json.JSONDecodeError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=int(CliExitCode.INVALID_INPUT)) from exc
+    except OutputWriteError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=int(CliExitCode.INTERNAL_ERROR)) from exc
+    except typer.Exit:
+        raise
+    except Exception as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=int(CliExitCode.INTERNAL_ERROR)) from exc
+
+
+@app.command()
 def estimate(
     mission: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True),
     vehicle: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True),
@@ -410,6 +456,77 @@ def estimate(
             inputs=envelope_inputs,
             retry_requested_output=True,
         )
+        raise typer.Exit(code=int(CliExitCode.INTERNAL_ERROR)) from exc
+
+
+def _batch_exit_code(results: list[BatchRunResult]) -> CliExitCode:
+    summary = summarize_batch(results)
+    if summary.error_count > 0:
+        return CliExitCode.INVALID_INPUT
+    if summary.infeasible_count > 0:
+        return CliExitCode.INFEASIBLE
+    return CliExitCode.SUCCESS
+
+
+def _batch_output_extension(output_format: OutputFormat) -> str:
+    if output_format == OutputFormat.MARKDOWN:
+        return ".md"
+    if output_format == OutputFormat.SUMMARY:
+        return ".txt"
+    return ".json"
+
+
+def _write_batch_outputs(
+    *,
+    output_dir: Path,
+    output_format: OutputFormat,
+    results: list[BatchRunResult],
+) -> None:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    rendered_format = _envelope_output_format(output_format)
+    extension = _batch_output_extension(rendered_format)
+    for result in results:
+        if result.envelope is None:
+            continue
+        _write_output(
+            _render_output(rendered_format, result.envelope),
+            output_dir / f"{result.id}{extension}",
+        )
+
+
+@app.command()
+def batch(
+    manifest: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True),
+    output_dir: Path | None = typer.Option(None, "--output-dir"),
+    format: OutputFormat = typer.Option(OutputFormat.SUMMARY, "--format"),
+) -> None:
+    """Run batch mission estimates from a batch.v1 manifest file."""
+
+    try:
+        batch_manifest = load_batch_manifest(manifest)
+        results = run_batch_manifest(batch_manifest)
+        for result in results:
+            if result.error_message is None:
+                continue
+            typer.echo(f"Warning: run {result.id}: {result.error_message}", err=True)
+        if output_dir is not None:
+            _write_batch_outputs(
+                output_dir=output_dir,
+                output_format=format,
+                results=results,
+            )
+        _write_output(render_batch_table(results), None)
+        raise typer.Exit(code=int(_batch_exit_code(results)))
+    except InputLoadError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=int(CliExitCode.INVALID_INPUT)) from exc
+    except OutputWriteError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=int(CliExitCode.INTERNAL_ERROR)) from exc
+    except typer.Exit:
+        raise
+    except Exception as exc:
+        typer.echo(str(exc), err=True)
         raise typer.Exit(code=int(CliExitCode.INTERNAL_ERROR)) from exc
 
 

@@ -4,35 +4,29 @@
 
 Improve engineering workflow and interoperability.
 
-## Current Gap
+Status: implemented for QGC plan conversion and batch estimate workflows.
 
-There is no plan importer, no batch execution, and no report comparison tooling.
+## Delivered
 
-## Scope
-
-- Add QGroundControl `.plan` importer.
-- Add import diagnostics.
-- Add batch-run support.
-- Add report comparison/diff tools.
-- Add performance profiling.
-- Expand mission/action compatibility where required by imports.
+- Added `bvlos-sim convert` for QGroundControl `.plan` to `mission.v5` YAML
+  conversion.
+- Added import diagnostics for unsupported QGC mission items and commands.
+- Added `batch.v1` manifests and `bvlos-sim batch` for multi-run mission
+  estimates.
+- Added example `.plan` and batch manifest files.
 
 ## Integration Requirements
 
 - Importers must emit existing mission YAML/JSON schema shapes rather than a
   separate internal plan format.
-- Batch runs must execute the same `estimate` and `scenario` behavior used by
-  single-file CLI runs.
-- Batch manifests should reference existing mission, vehicle, scenario, terrain,
-  wind, geofence, and landing-zone files.
+- Batch runs execute the same `estimate` behavior used by single-file CLI runs.
+- Batch manifests reference existing mission, vehicle, terrain, wind, geofence,
+  and landing-zone files.
 - Add example batch inputs that combine previously implemented asset types.
-- Report comparison must understand existing estimator and scenario envelopes,
-  including terrain, wind-grid, landing-zone, geofence, energy, and policy
-  sections.
 
 ## Acceptance Criteria
 
-- Teams can import plans, run batches, and compare outputs deterministically.
+- Teams can import QGC plans and run estimate batches deterministically.
 - Imported and batch-run missions compose with existing YAML assets and command
   behavior.
 
@@ -40,3 +34,6 @@ There is no plan importer, no batch execution, and no report comparison tooling.
 
 - Live GCS synchronization.
 - UTM integration.
+- Batch scenario runs.
+- Report comparison/diff tooling.
+- Performance profiling.

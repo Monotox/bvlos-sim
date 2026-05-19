@@ -11,9 +11,9 @@ This guide covers the supported CLI and Python API workflows for bvlos-sim.
 uv sync
 ```
 
-Mission, vehicle, scenario, and uncertainty files may be `.yaml`, `.yml`, or
-`.json`. Relative asset paths are resolved from the referencing file's
-directory.
+Mission, vehicle, scenario, uncertainty, and batch files may be `.yaml`,
+`.yml`, or `.json`. Relative asset paths are resolved from the referencing
+file's directory.
 
 Verify the CLI:
 
@@ -23,10 +23,12 @@ uv run bvlos-sim --help
 
 ## CLI Commands
 
-bvlos-sim exposes five commands:
+bvlos-sim exposes seven commands:
 
 - `estimate`: run deterministic mission estimation and static feasibility checks
 - `scenario`: run deterministic scenario events and assertions
+- `convert`: convert a QGroundControl `.plan` file to a `mission.v5` YAML
+- `batch`: run batch mission estimates from a manifest file
 - `sample`: run seeded Monte Carlo uncertainty sampling
 - `sitl`: build a contract-only or live SITL evidence bundle from an existing scenario
 - `compare`: compare a SITL evidence bundle against deterministic scenario expectations
@@ -38,6 +40,8 @@ bvlos-sim exposes five commands:
 | sample | success | - | invalid input | - | internal error |
 | sitl | success | - | invalid input | - | internal/write error |
 | compare | passed | drifted/failed | invalid input | unsupported (contract-only) | internal/write error |
+| convert | success | - | invalid input | - | internal error |
+| batch | all feasible | any infeasible | invalid input/run | - | internal error |
 
 Mission-scoped functionality is exposed through `estimate` by mission and
 vehicle YAML: fidelity settings, terrain, wind grids, geofences, landing zones,
@@ -46,19 +50,75 @@ Scenario events, uncertainty sampling, and SITL evidence use `scenario`,
 `sample`, and `sitl` because they require separate versioned input contracts.
 SITL comparison reports are exposed through `compare` so evidence review has a
 dedicated command with JSON, Markdown, and `--output` support.
+Plan conversion and multi-run CI workflows are exposed through `convert` and
+`batch`.
 For terse terminal output, `estimate` and `scenario` also support
 `--format summary`. They also support `--format geojson` and `--format kml`
-for map-ready route exports. The other commands remain JSON/Markdown only.
+for map-ready route exports. `sample`, `sitl`, and `compare` remain
+JSON/Markdown only.
 
 Command help:
 
 ```bash
 uv run bvlos-sim estimate --help
 uv run bvlos-sim scenario --help
+uv run bvlos-sim convert --help
+uv run bvlos-sim batch --help
 uv run bvlos-sim sample --help
 uv run bvlos-sim sitl --help
 uv run bvlos-sim compare --help
 ```
+
+## QGroundControl Plan Conversion
+
+Convert QGroundControl `.plan` JSON into a starter `mission.v5` YAML:
+
+```bash
+uv run bvlos-sim convert examples/missions/pipeline_demo_001.plan \
+  --output /tmp/pipeline_converted.yaml
+```
+
+The converter reads `plannedHomePosition`, mission `cruiseSpeed` and
+`hoverSpeed`, and supported MAVLink mission items: takeoff, VTOL takeoff,
+waypoint, loiter-time, RTL, land, and VTOL land. Unsupported commands and
+ComplexItem entries are skipped with warnings to stderr so the rest of the
+route can still be converted.
+
+The output YAML intentionally leaves `vehicle_profile` empty and omits policy
+and asset references. Set `vehicle_profile`, review route altitudes and
+constraints, and add any geofence, landing-zone, terrain, or wind-grid assets
+before treating the converted mission as operational input.
+
+## Batch Estimates
+
+Run multiple estimate jobs from a `batch.v1` manifest:
+
+```bash
+uv run bvlos-sim batch examples/batch/demo_batch.yaml
+```
+
+Manifest files are YAML or JSON:
+
+```yaml
+format_version: "batch.v1"
+runs:
+  - id: alpine_standard
+    mission: ../real_world/alpine_mission.yaml
+    vehicle: ../real_world/quadplane_v1.yaml
+  - id: alpine_infeasible
+    mission: ../real_world/alpine_infeasible.yaml
+    vehicle: ../real_world/quadplane_small_battery.yaml
+```
+
+Paths are resolved relative to the manifest file. The command always prints a
+table with run id, status, reserve margin above or below threshold, and flight
+time, followed by a feasible/infeasible/error count. Use `--output-dir DIR` to
+write each successful run's envelope output for later CI collection; `--format`
+controls those per-run files while the table stays on stdout.
+
+Batch exits `0` only when all runs are feasible, `10` when any run is
+infeasible and no run had an input error, `11` when any run cannot load its
+inputs, and `13` for unexpected internal failures.
 
 ## Mission Estimation
 

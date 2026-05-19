@@ -134,7 +134,6 @@ Platform limitations:
 - no NOTAM/live airspace integration; Ticket 058
 - no live comms, UTM/U-space, Remote ID, or traffic integrations; Tickets 070
   and 071
-- no batch import/export workflows; Ticket 060
 - no real-world calibration pipeline; Tickets 080-084
 
 ## Phase Plan
@@ -400,7 +399,7 @@ suitable for shell-script automation.
 
 ### Phase 6: Product Surfaces
 
-Status: planned.
+Status: partially implemented.
 
 Scope:
 
@@ -451,9 +450,10 @@ Status: planned.
 
 Scope:
 
-- QGroundControl `.plan` importer
+- QGroundControl `.plan` importer — implemented as `bvlos-sim convert`
 - broader mission/action compatibility
-- batch-run support
+- batch-run support — implemented as `bvlos-sim batch` with `batch.v1`
+  estimate manifests
 - performance profiling
 - report comparison and diff tooling
 - batch manifests referencing existing mission, vehicle, scenario, terrain,
