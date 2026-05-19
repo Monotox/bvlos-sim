@@ -45,6 +45,26 @@ DJI Matrice 300 RTK, Wingtra One Gen II, Trinity F90+, Autel EVO Max 4T, and a
 generic survey hexacopter. When swapping vehicles, set
 `mission.vehicle_profile` to the selected profile's `vehicle_id`.
 
+Run the real-world Alpine demo (pre-fetched SRTM terrain, Open-Meteo wind,
+and Overpass landing zones committed — no network required):
+
+```bash
+uv run bvlos-sim estimate \
+  examples/real_world/alpine_mission.yaml \
+  examples/real_world/quadplane_v1.yaml
+```
+
+To fetch assets for your own area, run one command:
+
+```bash
+uv sync --extra scripts   # installs srtm.py (once)
+uv run python scripts/fetch_all.py <lat> <lon> --departure-time HH:MM --output-dir assets/
+```
+
+This writes `terrain.yaml`, `wind_grid.yaml`, and `landing_zones.geojson` and
+prints the `assets:` block to paste into your mission YAML. See
+[`examples/real_world/README.md`](./examples/real_world/README.md) for details.
+
 Run the example scenario (lost-link event injection and policy assertions):
 
 ```bash

@@ -186,8 +186,8 @@ yet run a live autopilot or physics simulator.
 
 Known gaps in the current release:
 
-- no real-world data fetch scripts for wind, terrain, landing zones, or
-  airspace; Tickets 052, 053, 054
+- no airspace geofence fetch script; Ticket 053
+- no reference inputs for calibration and import; Ticket 054
 - no geodesic Dubins divert; long-distance divert uses a planar approximation;
   Ticket 044
 - no stochastic state propagation or twin-state EKF; Tickets 047, 048, 049
@@ -226,10 +226,11 @@ scenario assertions, and reproducible reporting.
 
 ## Development Direction
 
-The immediate next area is environmental realism: fetch scripts (Tickets 052,
-053) that pull real SRTM terrain, Open-Meteo wind forecasts, Overpass landing
-zones, and OpenAIP airspace into files that wire directly into any mission YAML,
-replacing the current synthetic demo data.
+Fetch scripts for wind, terrain, and landing zones are implemented (Ticket 052)
+with a single wrapper command (`fetch_all.py <lat> <lon>`) and a pre-fetched
+Alpine example in `examples/real_world/`. The next immediate
+step is the airspace geofence fetch script (Ticket 053) to complete the
+real-world asset set.
 
 After that, the stochastic track (Tickets 047–049) adds a time-stepped
 propagator, twin-state EKF, and closed-loop tracking controller — shifting from

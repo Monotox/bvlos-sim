@@ -1,0 +1,51 @@
+mission_id: alpine_demo_001
+vehicle_profile: quadplane_v1
+
+planned_home:
+  lat: 47.05
+  lon: 8.30
+  altitude_amsl_m: 450.0
+
+defaults:
+  cruise_speed_mps: 18.0
+  hover_speed_mps: 5.0
+  altitude_reference: relative_home
+
+route:
+  - id: takeoff
+    action: vtol_takeoff
+    altitude_m: 100.0
+
+  - id: wp_ridge
+    action: waypoint
+    lat: 47.065
+    lon: 8.285
+    altitude_m: 120.0
+    acceptance_radius_m: 20.0
+
+  - id: wp_valley
+    action: waypoint
+    lat: 47.08
+    lon: 8.31
+    altitude_m: 120.0
+    acceptance_radius_m: 20.0
+
+  - id: rtl
+    action: rtl
+
+constraints:
+  min_landing_reserve_percent: 25.0
+  max_wind_mps: 15.0
+  min_distance_to_landing_zone_m: 8000.0
+
+assets:
+  terrain_file: assets/terrain.yaml
+  wind_grid_file: assets/wind_grid.yaml
+  landing_zones_file: assets/landing_zones.geojson
+
+metadata:
+  notes: >
+    Alpine demo over the Lucerne/Zug area (lat ~47.05, lon ~8.30). Pre-fetched
+    assets from SRTM terrain tiles, Open-Meteo forecast archive (2025-06-15 14:00
+    UTC), and Overpass API aeroway nodes. Terrain elevation ranges 0–1943 m across
+    the grid, making terrain-referenced altitude produce non-trivial AGL corrections.
