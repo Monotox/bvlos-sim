@@ -24,7 +24,7 @@ def _decompose(speed: float, direction_deg: float) -> tuple[float, float]:
     return -speed * math.sin(d), -speed * math.cos(d)
 
 
-def _fetch(lat: float, lon: float, target_date: date) -> dict:
+def _fetch(lat: float, lon: float, target_date: date) -> dict[str, object]:
     hourly_vars = ",".join(
         f"wind_speed_{a}m,wind_direction_{a}m" for a in _ALTITUDES_M
     )
@@ -39,17 +39,18 @@ def _fetch(lat: float, lon: float, target_date: date) -> dict:
     url = _ARCHIVE_URL if target_date < date.today() else _FORECAST_URL
     resp = requests.get(url, params=params, timeout=30)
     resp.raise_for_status()
-    return resp.json()
+    return resp.json()  # type: ignore[no-any-return]
 
 
 def _build_grid(
-    data: dict,
+    data: dict[str, object],
     lat: float,
     lon: float,
     dep_hour: int,
     window_hours: int,
-) -> dict:
+) -> dict[str, object]:
     hourly = data["hourly"]
+    assert isinstance(hourly, dict)
     end_hour = min(dep_hour + window_hours, 24)
     n = end_hour - dep_hour
     if n < 1:
@@ -62,8 +63,10 @@ def _build_grid(
         idx = dep_hour + i
         alt_blocks = []
         for alt in _ALTITUDES_M:
-            speed = float(hourly[f"wind_speed_{alt}m"][idx] or 0.0)
-            direction = float(hourly[f"wind_direction_{alt}m"][idx] or 0.0)
+            raw_speed = hourly[f"wind_speed_{alt}m"][idx]  # type: ignore[index]
+            raw_dir = hourly[f"wind_direction_{alt}m"][idx]  # type: ignore[index]
+            speed = float(raw_speed) if raw_speed is not None else 0.0
+            direction = float(raw_dir) if raw_dir is not None else 0.0
             east, north = _decompose(speed, direction)
             pair = [round(east, 4), round(north, 4)]
             # 2×2 uniform spatial grid — same wind value at all four corners
@@ -131,6 +134,7 @@ def main() -> None:
     grid = _build_grid(data, args.lat, args.lon, dep_hour, args.window_hours)
 
     out = Path(args.output)
+    out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(yaml.dump(grid, default_flow_style=None, sort_keys=False))
     n_times = len(grid["axes"]["time_s"])
     print(f"Wrote {out} ({n_times} time steps × {len(_ALTITUDES_M)} altitude bands)")

@@ -48,4 +48,6 @@ metadata:
     Alpine demo over the Lucerne/Zug area (lat ~47.05, lon ~8.30). Pre-fetched
     assets from SRTM terrain tiles, Open-Meteo forecast archive (2025-06-15 14:00
     UTC), and Overpass API aeroway nodes. Terrain elevation ranges 0–1943 m across
-    the grid, making terrain-referenced altitude produce non-trivial AGL corrections.
+    the grid; the terrain provider is active and visible in result metadata
+    (terrain_provider_id: uniform_grid). Switch altitude_reference to terrain
+    to resolve per-waypoint AMSL from ground elevation.

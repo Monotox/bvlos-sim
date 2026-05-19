@@ -24,25 +24,20 @@ def _sample_grid(
 ) -> tuple[list[float], list[float], list[list[float]]]:
     elevation_data = srtm.get_data()
 
-    lats: list[float] = []
-    lat = lat_min
-    while lat <= lat_max + step * 1e-6:
-        lats.append(round(lat, 8))
-        lat += step
-
-    lons: list[float] = []
-    lon = lon_min
-    while lon <= lon_max + step * 1e-6:
-        lons.append(round(lon, 8))
-        lon += step
+    n_lat = round((lat_max - lat_min) / step) + 1
+    n_lon = round((lon_max - lon_min) / step) + 1
+    lats = [round(lat_min + i * step, 8) for i in range(n_lat)]
+    lons = [round(lon_min + j * step, 8) for j in range(n_lon)]
 
     rows: list[list[float]] = []
-    for row_lat in lats:
+    for i, row_lat in enumerate(lats):
+        print(f"\r  row {i + 1}/{n_lat}", end="", flush=True)
         row: list[float] = []
         for col_lon in lons:
             elev = elevation_data.get_elevation(row_lat, col_lon)
             row.append(float(elev) if elev is not None else 0.0)
         rows.append(row)
+    print()
 
     return lats, lons, rows
 
@@ -85,6 +80,7 @@ def main() -> None:
     }
 
     out = Path(args.output)
+    out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(yaml.dump(grid, default_flow_style=None, sort_keys=False))
     print(f"Wrote {out} ({len(lats)} rows × {len(lons)} cols)")
 

@@ -13,7 +13,7 @@ except ImportError:
 _OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 
 
-def _query(lat_min: float, lat_max: float, lon_min: float, lon_max: float) -> list[dict]:
+def _query(lat_min: float, lat_max: float, lon_min: float, lon_max: float) -> list[dict[str, object]]:
     bbox = f"{lat_min},{lon_min},{lat_max},{lon_max}"
     query = (
         "[out:json];\n"
@@ -32,9 +32,13 @@ def _query(lat_min: float, lat_max: float, lon_min: float, lon_max: float) -> li
     return resp.json().get("elements", [])
 
 
-def _to_feature(element: dict) -> dict | None:
-    lat = element.get("lat") or element.get("center", {}).get("lat")
-    lon = element.get("lon") or element.get("center", {}).get("lon")
+def _to_feature(element: dict[str, object]) -> dict[str, object] | None:
+    lat = element.get("lat")
+    if lat is None:
+        lat = element.get("center", {}).get("lat")  # type: ignore[union-attr]
+    lon = element.get("lon")
+    if lon is None:
+        lon = element.get("center", {}).get("lon")  # type: ignore[union-attr]
     if lat is None or lon is None:
         return None
     tags = element.get("tags", {})
@@ -66,6 +70,7 @@ def main() -> None:
     geojson = {"type": "FeatureCollection", "features": features}
 
     out = Path(args.output)
+    out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(geojson, indent=2))
     print(f"Wrote {out} ({len(features)} features)")
 

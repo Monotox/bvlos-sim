@@ -97,6 +97,19 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
+          8.4084132,
+          46.9781519
+        ]
+      },
+      "properties": {
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
           8.3048779,
           47.0921856
         ]

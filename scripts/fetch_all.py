@@ -105,10 +105,18 @@ def main() -> None:
             f"Error: invalid --departure-time '{args.departure_time}'; expected HH:MM (00–23)"
         )
 
+    if args.step_deg <= 0:
+        sys.exit("Error: --step-deg must be positive")
+    if args.radius_deg <= 0:
+        sys.exit("Error: --radius-deg must be positive")
+
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     lat_min, lat_max, lon_min, lon_max = _bbox(args.lat, args.lon, args.radius_deg)
+
+    step = 1
+    total = 3 if _sample_grid is not None else 2
 
     # --- terrain ---
     terrain_path = out_dir / "terrain.yaml"
@@ -120,10 +128,10 @@ def main() -> None:
         )
     else:
         print(
-            f"[1/3] Terrain  lat [{lat_min}, {lat_max}] "
+            f"[{step}/{total}] Terrain  lat [{lat_min}, {lat_max}] "
             f"lon [{lon_min}, {lon_max}] step {args.step_deg}° …"
         )
-        print("      (SRTM tiles downloaded and cached on first run)")
+        print("       (SRTM tiles downloaded and cached on first run)")
         lats, lons, rows = _sample_grid(lat_min, lat_max, lon_min, lon_max, args.step_deg)
         terrain_grid = {
             "origin_lat": lats[0],
@@ -133,41 +141,50 @@ def main() -> None:
             "elevations_m": rows,
         }
         terrain_path.write_text(yaml.dump(terrain_grid, default_flow_style=None, sort_keys=False))
-        print(f"      → {terrain_path} ({len(lats)} rows × {len(lons)} cols)")
+        print(f"       → {terrain_path} ({len(lats)} rows × {len(lons)} cols)")
+        step += 1
 
     # --- wind ---
     wind_path = out_dir / "wind_grid.yaml"
     print(
-        f"[2/3] Wind     lat={args.lat}, lon={args.lon}, "
+        f"[{step}/{total}] Wind     lat={args.lat}, lon={args.lon}, "
         f"date={target_date}, departure={dep_hour:02d}:00 UTC, "
         f"window={args.window_hours}h …"
     )
     wind_data = _fetch_wind(args.lat, args.lon, target_date)
     wind_grid = _build_wind_grid(wind_data, args.lat, args.lon, dep_hour, args.window_hours)
     wind_path.write_text(yaml.dump(wind_grid, default_flow_style=None, sort_keys=False))
-    n_times = len(wind_grid["axes"]["time_s"])
-    print(f"      → {wind_path} ({n_times} time steps × {len(_ALTITUDES_M)} altitude bands)")
+    n_times = len(wind_grid["axes"]["time_s"])  # type: ignore[arg-type]
+    print(f"       → {wind_path} ({n_times} time steps × {len(_ALTITUDES_M)} altitude bands)")
+    step += 1
 
     # --- landing zones ---
     lz_path = out_dir / "landing_zones.geojson"
     print(
-        f"[3/3] Landing zones  lat [{lat_min}, {lat_max}] "
+        f"[{step}/{total}] Landing zones  lat [{lat_min}, {lat_max}] "
         f"lon [{lon_min}, {lon_max}] …"
     )
     elements = _query_lz(lat_min, lat_max, lon_min, lon_max)
     features = [f for e in elements if (f := _to_feature(e)) is not None]
     lz_path.write_text(json.dumps({"type": "FeatureCollection", "features": features}, indent=2))
-    print(f"      → {lz_path} ({len(features)} features)")
+    print(f"       → {lz_path} ({len(features)} features)")
 
     # --- summary ---
+    cwd = Path.cwd()
+    def _rel(p: Path) -> str:
+        try:
+            return str(p.relative_to(cwd))
+        except ValueError:
+            return str(p)
+
     print()
     print("Done. Add this to your mission YAML:")
     print()
     assets: dict[str, str] = {}
     if _sample_grid is not None:
-        assets["terrain_file"] = str(terrain_path)
-    assets["wind_grid_file"] = str(wind_path)
-    assets["landing_zones_file"] = str(lz_path)
+        assets["terrain_file"] = _rel(terrain_path)
+    assets["wind_grid_file"] = _rel(wind_path)
+    assets["landing_zones_file"] = _rel(lz_path)
     print("assets:")
     for key, val in assets.items():
         print(f"  {key}: {val}")
