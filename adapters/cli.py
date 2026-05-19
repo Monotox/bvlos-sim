@@ -3,7 +3,7 @@
 import json
 from enum import IntEnum, StrEnum
 from pathlib import Path
-from typing import NoReturn
+from typing import NoReturn, Protocol
 
 import typer
 from pydantic import ValidationError
@@ -36,20 +36,24 @@ from adapters.cli_support import (
 )
 from adapters.envelope import (
     EnvelopeInputs,
+    EstimatorResultEnvelope,
     OutputFormat,
     build_estimator_envelope,
     build_internal_error_envelope,
     build_invalid_input_envelope,
 )
 from adapters.geofence_geojson import GeofenceLoadError
+from adapters.geojson_export import build_geojson_export
 from adapters.io import (
     InputDocument,
     InputLoadError,
     load_mission,
     load_vehicle,
 )
+from adapters.kml_export import build_kml_export
 from adapters.landing_zone_geojson import LandingZoneLoadError
 from adapters.scenario_envelope import (
+    ScenarioResultEnvelope,
     build_scenario_internal_error_envelope,
     build_scenario_invalid_input_envelope,
 )
@@ -69,6 +73,8 @@ from estimator import (
     EstimateStatus,
     FailureKind,
     FidelityMode,
+    GeofenceZone,
+    LandingZone,
     LayeredWindProvider,
     MissionEstimate,
     ScenarioResult,
@@ -107,6 +113,22 @@ _DOCUMENT_OUTPUT_FORMATS: dict[DocumentOutputFormat, OutputFormat] = {
 _FAILURE_KIND_EXIT_CODES = {
     FailureKind.INFEASIBLE: CliExitCode.INFEASIBLE,
     FailureKind.UNSUPPORTED: CliExitCode.UNSUPPORTED,
+}
+
+
+class RouteExportBuilder(Protocol):
+    def __call__(
+        self,
+        estimate: MissionEstimate,
+        *,
+        geofence_zones: list[GeofenceZone] | None = None,
+        landing_zones: list[LandingZone] | None = None,
+    ) -> str: ...
+
+
+_ROUTE_EXPORT_BUILDERS: dict[OutputFormat, RouteExportBuilder] = {
+    OutputFormat.GEOJSON: build_geojson_export,
+    OutputFormat.KML: build_kml_export,
 }
 
 
@@ -157,6 +179,60 @@ def _document_output_format(output_format: DocumentOutputFormat) -> OutputFormat
     return _DOCUMENT_OUTPUT_FORMATS[output_format]
 
 
+def _envelope_output_format(output_format: OutputFormat) -> OutputFormat:
+    if output_format in _ROUTE_EXPORT_BUILDERS:
+        return OutputFormat.JSON
+    return output_format
+
+
+def _render_estimate_command_output(
+    output_format: OutputFormat,
+    envelope: EstimatorResultEnvelope,
+    result: MissionEstimate,
+    mission_assets: MissionAssetBundle,
+) -> str:
+    builder = _ROUTE_EXPORT_BUILDERS.get(output_format)
+    if builder is None:
+        return _render_output(output_format, envelope)
+    return builder(
+        result,
+        geofence_zones=mission_assets.geofences,
+        landing_zones=mission_assets.landing_zones,
+    )
+
+
+def _render_estimate_error_output(
+    output_format: OutputFormat,
+    envelope: EstimatorResultEnvelope,
+) -> str:
+    return _render_output(_envelope_output_format(output_format), envelope)
+
+
+def _render_scenario_command_output(
+    output_format: OutputFormat,
+    envelope: ScenarioResultEnvelope,
+    result: ScenarioResult,
+    mission_assets: MissionAssetBundle,
+) -> str:
+    builder = _ROUTE_EXPORT_BUILDERS.get(output_format)
+    if builder is None:
+        return _render_scenario_output(output_format, envelope)
+    if result.estimate is None:
+        return _render_scenario_output(OutputFormat.JSON, envelope)
+    return builder(
+        result.estimate,
+        geofence_zones=mission_assets.geofences,
+        landing_zones=mission_assets.landing_zones,
+    )
+
+
+def _render_scenario_error_output(
+    output_format: OutputFormat,
+    envelope: ScenarioResultEnvelope,
+) -> str:
+    return _render_scenario_output(_envelope_output_format(output_format), envelope)
+
+
 def _exit_code_for_result(result: MissionEstimate) -> CliExitCode:
     if result.status == EstimateStatus.SUCCESS:
         return CliExitCode.SUCCESS
@@ -175,7 +251,7 @@ def _write_internal_error_envelope(
     retry_requested_output: bool,
 ) -> None:
     envelope = build_internal_error_envelope(error=error, inputs=inputs)
-    rendered = _render_output(output_format, envelope)
+    rendered = _render_estimate_error_output(output_format, envelope)
 
     # For unexpected exceptions, retry the originally requested output path first.
     if retry_requested_output and output is not None:
@@ -264,7 +340,10 @@ def estimate(
             result=result,
             inputs=envelope_inputs,
         )
-        _write_output(_render_output(format, envelope), output)
+        _write_output(
+            _render_estimate_command_output(format, envelope, result, mission_assets),
+            output,
+        )
         raise typer.Exit(code=int(_exit_code_for_result(result)))
     except InputLoadError as exc:
         envelope = build_invalid_input_envelope(
@@ -273,7 +352,7 @@ def estimate(
             vehicle_document=vehicle_document,
         )
         try:
-            _write_output(_render_output(format, envelope), output)
+            _write_output(_render_estimate_error_output(format, envelope), output)
         except OutputWriteError as write_exc:
             _write_internal_error_envelope(
                 error=write_exc,
@@ -301,7 +380,7 @@ def estimate(
         else:
             envelope = build_internal_error_envelope(error=exc, inputs=envelope_inputs)
         try:
-            _write_output(_render_output(format, envelope), output)
+            _write_output(_render_estimate_error_output(format, envelope), output)
         except OutputWriteError as write_exc:
             _write_internal_error_envelope(
                 error=write_exc,
@@ -416,7 +495,7 @@ def _emit_scenario_internal_error(
             "vehicle": vehicle_document,
         },
     )
-    _write_output(_render_scenario_output(output_format, internal_envelope), None)
+    _write_output(_render_scenario_error_output(output_format, internal_envelope), None)
 
 
 def _scenario_exit_code_for_result(result: ScenarioResult) -> ScenarioExitCode:
@@ -471,7 +550,10 @@ def scenario(
             vehicle_document=vehicle_document,
             mission_assets=mission_assets,
         )
-        _write_output(_render_scenario_output(format, envelope), output)
+        _write_output(
+            _render_scenario_command_output(format, envelope, result, mission_assets),
+            output,
+        )
         raise typer.Exit(code=int(_scenario_exit_code_for_result(result)))
     except InputLoadError as exc:
         envelope = build_scenario_invalid_input_envelope(
@@ -483,7 +565,7 @@ def scenario(
             known_documents=mission_assets.known_documents(),
         )
         try:
-            _write_output(_render_scenario_output(format, envelope), output)
+            _write_output(_render_scenario_error_output(format, envelope), output)
         except OutputWriteError as write_exc:
             _emit_scenario_internal_error(
                 output_format=format,
@@ -504,7 +586,7 @@ def scenario(
             known_documents=mission_assets.known_documents(),
         )
         try:
-            _write_output(_render_scenario_output(format, envelope), output)
+            _write_output(_render_scenario_error_output(format, envelope), output)
         except OutputWriteError as write_exc:
             _emit_scenario_internal_error(
                 output_format=format,

@@ -2,12 +2,12 @@
 
 ## Goal
 
-Add a `--format geojson` output mode to the `estimate` and `scenario` CLI
-commands that emits the mission route as a GeoJSON FeatureCollection. Legs are
-coloured by energy margin, landing zones and geofence polygons are included as
-separate feature layers. The output opens directly in Google Earth, QGIS,
-QGroundControl, and any web map, turning an opaque JSON blob into something a
-pilot or operations team can visually inspect in seconds.
+Add `--format geojson` and `--format kml` output modes to the `estimate` and
+`scenario` CLI commands. They emit the mission route as map-ready layers: one
+LineString per leg, landing-zone points, and geofence polygons. The output
+opens directly in Google Earth, QGIS, QGroundControl, and any web map, turning
+an opaque JSON blob into something a pilot or operations team can visually
+inspect in seconds.
 
 ## Motivation
 
@@ -83,8 +83,8 @@ Included only when the mission YAML references a geofence file.
 `--format kml` emits the same three layers as KML Placemarks and LineStrings,
 with colour-coded styles matching the energy-margin thresholds. KML is the
 native format for Google Earth and many regulatory submission portals. The KML
-adapter is a thin transform of the same intermediate data structure used by the
-GeoJSON adapter.
+adapter is a thin transform over the same `MissionEstimate`, geofence, and
+landing-zone inputs used by the GeoJSON adapter.
 
 ## CLI Changes
 
@@ -92,6 +92,7 @@ GeoJSON adapter.
 bvlos-sim estimate mission.yaml vehicle.yaml --format geojson [--output route.geojson]
 bvlos-sim estimate mission.yaml vehicle.yaml --format kml     [--output route.kml]
 bvlos-sim scenario scenario.yaml             --format geojson [--output route.geojson]
+bvlos-sim scenario scenario.yaml             --format kml     [--output route.kml]
 ```
 
 When `--output` is omitted, writes to stdout. Existing `--format json` and
@@ -104,7 +105,7 @@ New files:
 | File | Purpose |
 |---|---|
 | `adapters/geojson_export.py` | GeoJSON FeatureCollection builder from `MissionEstimate` |
-| `adapters/kml_export.py` | KML document builder (thin wrapper over GeoJSON intermediate) |
+| `adapters/kml_export.py` | KML document builder from `MissionEstimate` |
 | `tests/test_geojson_export.py` | Unit tests: feature count, layer names, coordinate order, energy_margin_pct value |
 
 Modified files:
