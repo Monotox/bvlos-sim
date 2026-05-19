@@ -186,7 +186,6 @@ yet run a live autopilot or physics simulator.
 
 Known gaps in the current release:
 
-- no deliberately infeasible demo mission; Ticket 059
 - no QGC `.plan` import or batch workflows; Ticket 060
 - no stochastic state propagation or twin-state EKF; Tickets 047, 048, 049
 - no geodesic Dubins divert; long-distance divert uses a planar approximation;
@@ -229,12 +228,11 @@ scenario assertions, and reproducible reporting.
 Fetch scripts for wind, terrain, landing zones, and static airspace geofences
 are implemented (Tickets 052 and 053), with a single wrapper command for the
 Ticket 052 assets (`fetch_all.py <lat> <lon>`) and a pre-fetched Alpine example
-in `examples/real_world/`. The next two steps complete the first-impression
-experience for new users:
+in `examples/real_world/` that includes a deliberately infeasible variant
+(`alpine_infeasible.yaml` + `quadplane_small_battery.yaml`) with a README
+explanation of what failed and how to fix it (Ticket 059). The next step is:
 
-1. **Ticket 059** — deliberately infeasible demo mission, demonstrating that
-   the tool produces `INFEASIBLE` output and explains why, not only green pass.
-2. **Ticket 060** — QGC `.plan` import and batch workflows, removing the
+1. **Ticket 060** — QGC `.plan` import and batch workflows, removing the
    biggest adoption barrier for operators who already have missions in
    QGroundControl format.
 
