@@ -125,7 +125,6 @@ Platform limitations:
 - no REST API; Ticket 050
 - no web UI; Ticket 050
 - no real-world data fetch scripts yet; Tickets 052-054
-- no GeoJSON/KML route export; Ticket 055
 - no community vehicle profiles; Ticket 056
 - no NOTAM/live airspace integration; Ticket 058
 - no live comms, UTM/U-space, Remote ID, or traffic integrations; Tickets 070
@@ -370,7 +369,7 @@ Scope:
 - Ticket 054: reference inputs for calibration and import design — PX4 ULog
   flight logs and QGC `.plan` files committed to `reference/` with field-mapping
   design notes feeding Tickets 060 and 080
-- Ticket 055: GeoJSON / KML route export — `--format geojson` and
+- Ticket 055: GeoJSON / KML route export — implemented with `--format geojson` and
   `--format kml` on `estimate` and `scenario` commands; legs coloured by energy
   margin; landing zones and geofence polygons as separate feature layers;
   opens directly in Google Earth and QGC
