@@ -6,7 +6,7 @@ toward a broader BVLOS simulation platform.
 ## Current Status
 
 The current codebase implements Phases 1 through 4.10, plus Tickets 032, 033,
-034, 035, 036, 037, 038, 039, 040, 041, 042, 043, 055, 056, and 057:
+034, 035, 036, 037, 038, 039, 040, 041, 042, 043, 052, 055, 056, and 057:
 
 - estimator hardening
 - static feasibility checks
@@ -27,6 +27,7 @@ The current codebase implements Phases 1 through 4.10, plus Tickets 032, 033,
 - one-line `--format summary` output for `estimate` and `scenario`
 - `--format geojson` and `--format kml` route exports with energy-margin layers
 - five community vehicle profiles (DJI Matrice 300 RTK, Wingtra One Gen II, QS Trinity F90+, Autel EVO Max 4T, generic survey hexacopter)
+- real-world data fetch scripts (`fetch_wind.py`, `fetch_terrain.py`, `fetch_landing_zones.py`) with pre-fetched Alpine demo example
 
 The Linux test suite currently passes with 521 tests and 9 skipped live or
 environment-dependent tests.
@@ -109,6 +110,7 @@ Interfaces and contracts:
 - one-line summary rendering for estimator and scenario reports
 - GeoJSON and KML route export with per-leg energy-margin colouring, landing-zone reachability markers, and geofence conflict flags
 - community vehicle profiles in `examples/vehicles/community/` for DJI Matrice 300 RTK, Wingtra One Gen II, QS Trinity F90+, Autel EVO Max 4T, and generic survey hexacopter
+- `fetch_wind.py` (Open-Meteo archive/forecast), `fetch_terrain.py` (SRTM via `srtm.py`), and `fetch_landing_zones.py` (Overpass API) scripts with pre-fetched Alpine demo in `examples/real_world/`
 - golden fixture regression tests
 
 ## Known Limitations
@@ -128,7 +130,8 @@ Platform limitations:
 - no PX4 SITL adapter yet; Tickets 045 (launch/upload) and 046 (telemetry/evidence)
 - no REST API; Ticket 050
 - no web UI; Ticket 050
-- no real-world data fetch scripts yet; Tickets 052-054
+- no airspace geofence fetch script yet; Ticket 053
+- no reference inputs for calibration and import; Ticket 054
 - no NOTAM/live airspace integration; Ticket 058
 - no live comms, UTM/U-space, Remote ID, or traffic integrations; Tickets 070
   and 071
