@@ -54,6 +54,15 @@ uv run bvlos-sim estimate \
   examples/real_world/quadplane_v1.yaml
 ```
 
+Run the infeasible variant to see what a failing reserve check looks like:
+
+```bash
+uv run bvlos-sim estimate \
+  examples/real_world/alpine_infeasible.yaml \
+  examples/real_world/quadplane_small_battery.yaml \
+  --format summary
+```
+
 To fetch assets for your own area, run one command:
 
 ```bash
