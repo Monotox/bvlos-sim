@@ -125,7 +125,6 @@ Platform limitations:
 - no REST API; Ticket 050
 - no web UI; Ticket 050
 - no real-world data fetch scripts yet; Tickets 052-054
-- no community vehicle profiles; Ticket 056
 - no NOTAM/live airspace integration; Ticket 058
 - no live comms, UTM/U-space, Remote ID, or traffic integrations; Tickets 070
   and 071
@@ -373,7 +372,7 @@ Scope:
   `--format kml` on `estimate` and `scenario` commands; legs coloured by energy
   margin; landing zones and geofence polygons as separate feature layers;
   opens directly in Google Earth and QGC
-- Ticket 056: community vehicle profiles — 4–5 manufacturer-derived YAML
+- Ticket 056: community vehicle profiles — implemented with five manufacturer-derived YAML
   profiles (DJI Matrice 300 RTK, Wingtra One Gen II, Quantum-Systems Trinity
   F90+, Autel EVO Max 4T, generic survey hexacopter) with provenance links
 - Ticket 057: summary output format — implemented for `estimate` and

@@ -1,0 +1,39 @@
+vehicle_id: generic_survey_hexacopter
+display_name: Generic Survey Hexacopter
+vehicle_class: multirotor
+mav_type: MAV_TYPE_HEXAROTOR
+autopilot: generic
+
+mass:
+  empty_kg: 4.5      # typical-class estimate for 6-arm commercial survey frame
+  max_payload_kg: 1.5  # typical-class estimate
+  max_takeoff_kg: 6.0  # typical-class estimate (4.5 kg airframe + 1.5 kg payload)
+
+performance:
+  cruise_speed_mps: 12.0   # typical-class estimate
+  hover_speed_mps: 5.0     # typical-class estimate
+  max_speed_mps: 18.0      # typical-class estimate
+  climb_rate_mps: 3.0      # typical-class estimate
+  descent_rate_mps: 2.0    # typical-class estimate
+  max_wind_mps: 10.0       # typical-class estimate
+  max_crab_angle_deg: 30.0
+
+energy:
+  battery_capacity_wh: 400.0   # typical-class estimate (e.g. 2x 6S 10 000 mAh at 22.2 V)
+  reserve_percent_default: 20.0
+  hover_power_w: 800.0          # derived: 400 Wh / (30 min / 60) = 800 W; 30-min commercial mission assumption
+  cruise_power_w: 440.0         # derived: hover_power_w x 0.55 (typical fixed-pitch multirotor ratio)
+  climb_power_w: 1000.0         # derived: estimated 1.25 x hover_power_w
+
+failsafe:
+  low_battery_warn_percent: 30
+  low_battery_abort_percent: 25
+  emergency_land_percent: 10
+
+metadata:
+  calibration_status: placeholder_values
+  notes: >
+    All values are typical-class estimates for a mid-market 6-arm survey
+    multirotor at 6 kg AUW. No specific manufacturer reference. Use as a
+    conservative baseline only. Replace with measured values before any
+    operational use.

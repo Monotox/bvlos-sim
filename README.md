@@ -39,6 +39,12 @@ uv run bvlos-sim estimate \
   --fidelity v2
 ```
 
+Community starter vehicle profiles are available in
+[`examples/vehicles/community/`](./examples/vehicles/community/), including
+DJI Matrice 300 RTK, Wingtra One Gen II, Trinity F90+, Autel EVO Max 4T, and a
+generic survey hexacopter. When swapping vehicles, set
+`mission.vehicle_profile` to the selected profile's `vehicle_id`.
+
 Run the example scenario (lost-link event injection and policy assertions):
 
 ```bash

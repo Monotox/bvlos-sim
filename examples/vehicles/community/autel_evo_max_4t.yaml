@@ -1,0 +1,39 @@
+vehicle_id: autel_evo_max_4t
+display_name: Autel EVO Max 4T
+vehicle_class: multirotor
+mav_type: MAV_TYPE_QUADROTOR
+autopilot: generic
+
+mass:
+  empty_kg: 1.75     # operational weight with battery and integrated sensors; source: Autel spec
+  max_payload_kg: 0.3  # small accessories only; sensors are integrated
+  max_takeoff_kg: 2.05  # source: Autel EVO Max 4T spec
+
+performance:
+  cruise_speed_mps: 10.0   # typical operational cruise
+  hover_speed_mps: 4.0     # nominal forward translation speed in hover
+  max_speed_mps: 20.0      # source: Autel EVO Max 4T spec
+  climb_rate_mps: 8.0      # source: Autel EVO Max 4T spec
+  descent_rate_mps: 4.0    # source: Autel EVO Max 4T spec
+  max_wind_mps: 12.0       # source: Autel EVO Max 4T spec (wind resistance level 6)
+  max_crab_angle_deg: 30.0
+
+energy:
+  battery_capacity_wh: 86.4   # source: Autel Smart Battery spec
+  reserve_percent_default: 20.0
+  hover_power_w: 123.0          # derived: 86.4 Wh / (42 min / 60) = 123.4 W; endurance source: Autel spec
+  cruise_power_w: 68.0          # derived: hover_power_w x 0.55 (typical fixed-pitch multirotor ratio)
+  climb_power_w: 160.0          # derived: estimated 1.3 x hover_power_w
+
+failsafe:
+  low_battery_warn_percent: 30
+  low_battery_abort_percent: 25
+  emergency_land_percent: 10
+
+metadata:
+  calibration_status: manufacturer_derived
+  source: "https://www.autelrobotics.com/product/autel-evo-max-4t/"
+  notes: >
+    Hover power derived from published 42-minute hover endurance (86.4 Wh
+    battery). Cruise power estimated at hover x 0.55. Validate against observed
+    logs before operational use.
