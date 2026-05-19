@@ -22,13 +22,13 @@ in the output.
 ## Scope
 
 Three scripts in a new `scripts/` directory, each under ~60 lines, depending
-only on `requests` (already a transitive dependency) and optionally
-`elevation` (SRTM local lookup):
+only on `requests` (already a transitive dependency) and `srtm.py` (pure-Python
+SRTM tile reader, no GDAL required):
 
 | Script | Source API | Output |
 |---|---|---|
 | `scripts/fetch_wind.py` | Open-Meteo forecast | `wind_grid.yaml` for `SpatiotemporalWindProvider` |
-| `scripts/fetch_terrain.py` | `elevation` package (SRTM) | `terrain.yaml` for `GridTerrainProvider` |
+| `scripts/fetch_terrain.py` | `srtm.py` package (SRTM tiles) | `terrain.yaml` for `GridTerrainProvider` |
 | `scripts/fetch_landing_zones.py` | Overpass API | `landing_zones.geojson` for `landing-zone-geojson.v1` |
 
 One updated example mission wired to all three outputs, located in a
@@ -70,15 +70,19 @@ uv run python scripts/fetch_wind.py <lat> <lon> [--departure-time HH:MM] [--date
 uv run python scripts/fetch_terrain.py <lat_min> <lat_max> <lon_min> <lon_max> <step_deg> [--output path]
 ```
 
-- Uses the `elevation` PyPI package, which downloads and caches SRTM tiles
-  locally on first run (no network call after that). Falls back to the
-  Open-Elevation REST API (`https://api.open-elevation.com/api/v1/lookup`
-  via POST) only when `elevation` is not installed.
+- Uses the `srtm.py` PyPI package (import name `srtm`), which downloads and
+  caches SRTM HGT tiles locally on first run (no network call after that).
+  Pure Python — no GDAL, no C dependencies, installs cleanly with `uv sync`.
+- Samples elevation at every grid point `(lat, lon)` from `lat_min` to
+  `lat_max` and `lon_min` to `lon_max` in `step_deg` increments using
+  `srtm.get_data().get_elevation(lat, lon)`.
 - Writes a `GridTerrainProvider`-compatible YAML with
   `lat_min, lat_max, lon_min, lon_max, step_deg` and a 2-D `elevations_m`
-  array in row-major order (north-to-south, west-to-east).
-- The `elevation` package is added to `pyproject.toml` as an optional
-  dependency under `[project.optional-dependencies] scripts`.
+  array in row-major order (north-to-south, west-to-east). Points where
+  `get_elevation` returns `None` (ocean or tile gap) are written as `0.0`.
+- `srtm.py` is added to `pyproject.toml` as an optional dependency under
+  `[project.optional-dependencies] scripts`. No fallback REST API — if the
+  package is missing the script exits with a clear error message.
 
 ### `scripts/fetch_landing_zones.py`
 
@@ -129,7 +133,7 @@ New files:
 | File | Purpose |
 |---|---|
 | `scripts/fetch_wind.py` | Open-Meteo → `wind_grid.yaml` |
-| `scripts/fetch_terrain.py` | SRTM / Open-Elevation → `terrain.yaml` |
+| `scripts/fetch_terrain.py` | `srtm.py` (SRTM tiles, pure Python) → `terrain.yaml` |
 | `scripts/fetch_landing_zones.py` | Overpass API → `landing_zones.geojson` |
 | `examples/real_world/README.md` | Step-by-step real-data demo |
 | `examples/real_world/alpine_mission.yaml` | Alpine demo mission |
@@ -139,13 +143,14 @@ New files:
 
 Modified files:
 
-- `pyproject.toml` — add `elevation` as optional dep under `[scripts]` extra
+- `pyproject.toml` — add `srtm.py` as optional dep under `[scripts]` extra
 - `README.md` — add "Real-world data" section pointing to `examples/real_world/`
 
 ## Integration Requirements
 
 - Scripts must be runnable with `uv run python scripts/fetch_*.py` with no
-  additional setup beyond `uv sync --extra scripts` for the `elevation` dep.
+  additional setup beyond `uv sync --extra scripts` for the `srtm.py` dep.
+  No GDAL or other C library is required.
 - Output files must be valid inputs to existing `assets:` fields in mission
   YAML without any manual editing.
 - Pre-fetched asset files must be committed so that `uv run bvlos-sim estimate
