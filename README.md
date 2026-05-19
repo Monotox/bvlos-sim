@@ -142,7 +142,8 @@ and suitable for CI gates.
 
 All commands emit versioned JSON envelopes (`estimator-envelope.v5`,
 `scenario-report.v2`, `uncertainty-report.v1`) and optional Markdown reports.
-The planned `--format summary` (Ticket 057, Phase 4.12) prints a single line:
+The `estimate` and `scenario` commands also support `--format summary` for a
+single-line operational summary:
 
 ```
 FEASIBLE   reserve 38.2 %   flight 24m 13s   wind margin 3.1 m/s
