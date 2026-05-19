@@ -46,6 +46,8 @@ Scenario events, uncertainty sampling, and SITL evidence use `scenario`,
 `sample`, and `sitl` because they require separate versioned input contracts.
 SITL comparison reports are exposed through `compare` so evidence review has a
 dedicated command with JSON, Markdown, and `--output` support.
+For terse terminal output, `estimate` and `scenario` also support
+`--format summary`; the other commands remain JSON/Markdown only.
 
 Command help:
 
@@ -88,6 +90,21 @@ uv run bvlos-sim estimate \
   --output /tmp/bvlos-report.md
 ```
 
+Write a one-line summary:
+
+```bash
+uv run bvlos-sim estimate \
+  examples/missions/pipeline_demo_001.yaml \
+  examples/vehicles/quadplane_v1.yaml \
+  --format summary
+```
+
+Example output:
+
+```text
+FEASIBLE   reserve 281.6 %   flight 2m 49s
+```
+
 ## Scenario Execution
 
 Run the example scenario:
@@ -126,6 +143,20 @@ uv run bvlos-sim scenario \
   examples/scenarios/pipeline_demo_001_scenario.yaml \
   --format markdown \
   --output /tmp/scenario-report.md
+```
+
+Write a one-line summary:
+
+```bash
+uv run bvlos-sim scenario \
+  examples/scenarios/pipeline_demo_001_scenario.yaml \
+  --format summary
+```
+
+Example output:
+
+```text
+PASSED 3/3   reserve 281.6 %   flight 2m 49s   policy NONE
 ```
 
 ### Scenario Exit Codes
@@ -665,6 +696,9 @@ The compare CLI and SITL comparison API emit `sitl-comparison.v1`.
 Estimator and scenario JSON outputs are canonical, deterministic, and
 regression-tested with golden fixtures. Markdown output is supported for
 human-readable estimator, scenario, uncertainty, and SITL comparison reports.
+`estimate --format summary` and `scenario --format summary` emit one-line
+plain-text summaries for terminal checks and shell pipelines; no summary schema
+or envelope is created.
 
 ## Verification
 

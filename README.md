@@ -142,13 +142,19 @@ and suitable for CI gates.
 
 All commands emit versioned JSON envelopes (`estimator-envelope.v5`,
 `scenario-report.v2`, `uncertainty-report.v1`) and optional Markdown reports.
-The planned `--format summary` (Ticket 057, Phase 4.12) prints a single line:
+The `estimate` and `scenario` commands also support `--format summary` for a
+single-line operational summary:
 
 ```
-FEASIBLE   reserve 38.2 %   flight 24m 13s   wind margin 3.1 m/s
+FEASIBLE   reserve 281.6 %   flight 2m 49s
+PASSED 3/3   reserve 281.6 %   flight 2m 49s   policy NONE
 ```
 
-suitable for shell pipelines and pre-flight checklists. The planned
+The estimate summary reports feasibility, reserve margin, flight time, and the
+primary failure code when present. The scenario summary reports assertion
+counts, reserve margin, flight time, contingency policy action, and the first
+failing assertion when present. These single-line outputs are suitable for
+shell pipelines and pre-flight checklists. The planned
 `--format geojson` and `--format kml` (Ticket 055, Phase 4.12) emit the full
 route as a FeatureCollection with legs coloured by energy margin, geofence
 polygons with conflict flags, and landing-zone reachability markers — opening

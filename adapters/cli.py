@@ -1,7 +1,7 @@
 """Typer CLI adapter for estimator execution."""
 
 import json
-from enum import IntEnum
+from enum import IntEnum, StrEnum
 from pathlib import Path
 from typing import NoReturn
 
@@ -95,6 +95,15 @@ class ScenarioExitCode(IntEnum):
     INTERNAL_ERROR = 13
 
 
+class DocumentOutputFormat(StrEnum):
+    JSON = "json"
+    MARKDOWN = "markdown"
+
+
+_DOCUMENT_OUTPUT_FORMATS: dict[DocumentOutputFormat, OutputFormat] = {
+    DocumentOutputFormat.JSON: OutputFormat.JSON,
+    DocumentOutputFormat.MARKDOWN: OutputFormat.MARKDOWN,
+}
 _FAILURE_KIND_EXIT_CODES = {
     FailureKind.INFEASIBLE: CliExitCode.INFEASIBLE,
     FailureKind.UNSUPPORTED: CliExitCode.UNSUPPORTED,
@@ -142,6 +151,10 @@ def _write_output(rendered: str, output: Path | None) -> None:
         output.write_text(rendered, encoding="utf-8")
     except OSError as exc:
         raise OutputWriteError("Failed to write output.") from exc
+
+
+def _document_output_format(output_format: DocumentOutputFormat) -> OutputFormat:
+    return _DOCUMENT_OUTPUT_FORMATS[output_format]
 
 
 def _exit_code_for_result(result: MissionEstimate) -> CliExitCode:
@@ -341,7 +354,7 @@ def compare(
         min=0.0,
         help="Position proximity tolerance in metres.",
     ),
-    format: OutputFormat = typer.Option(OutputFormat.JSON, "--format"),
+    format: DocumentOutputFormat = typer.Option(DocumentOutputFormat.JSON, "--format"),
     output: Path | None = typer.Option(None, "--output", "-o"),
 ) -> None:
     """Compare a SITL evidence bundle against its embedded scenario expectations."""
@@ -353,7 +366,10 @@ def compare(
             comparison_id=comparison_id or f"{bundle.evidence_id}-comparison",
             position_tolerance_m=position_tolerance_m,
         )
-        _write_output(_render_sitl_comparison_output(format, report), output)
+        _write_output(
+            _render_sitl_comparison_output(_document_output_format(format), report),
+            output,
+        )
         raise typer.Exit(code=int(_exit_code_for_comparison_report(report)))
     except InputLoadError as exc:
         _exit_with_cli_error(
@@ -517,7 +533,7 @@ def sample(
     uncertainty_file: Path = typer.Argument(
         ..., exists=True, readable=True, resolve_path=True
     ),
-    format: OutputFormat = typer.Option(OutputFormat.JSON, "--format"),
+    format: DocumentOutputFormat = typer.Option(DocumentOutputFormat.JSON, "--format"),
     output: Path | None = typer.Option(None, "--output", "-o"),
 ) -> None:
     """Run a seeded Monte Carlo uncertainty analysis and emit an uncertainty report."""
@@ -561,7 +577,10 @@ def sample(
             mission_document=mission_document,
             vehicle_document=vehicle_document,
         )
-        _write_output(_render_uncertainty_output(format, envelope), output)
+        _write_output(
+            _render_uncertainty_output(_document_output_format(format), envelope),
+            output,
+        )
         raise typer.Exit(code=int(CliExitCode.SUCCESS))
     except InputLoadError as exc:
         _exit_with_cli_error(
@@ -591,7 +610,7 @@ def sitl(
         ..., exists=True, readable=True, resolve_path=True
     ),
     output: Path | None = typer.Option(None, "--output", "-o"),
-    format: OutputFormat = typer.Option(OutputFormat.JSON, "--format"),
+    format: DocumentOutputFormat = typer.Option(DocumentOutputFormat.JSON, "--format"),
     live: bool = typer.Option(
         False,
         "--live",
@@ -654,7 +673,10 @@ def sitl(
             adapter=adapter,
             live_options=live_options,
         )
-        _write_output(_render_sitl_evidence_output(format, evidence), output)
+        _write_output(
+            _render_sitl_evidence_output(_document_output_format(format), evidence),
+            output,
+        )
         raise typer.Exit(code=int(CliExitCode.SUCCESS))
     except InputLoadError as exc:
         _exit_with_cli_error(
