@@ -1,0 +1,40 @@
+vehicle_id: wingtra_one_gen2
+display_name: Wingtra One Gen II
+vehicle_class: vtol
+mav_type: MAV_TYPE_VTOL_TAILSITTER
+autopilot: generic
+
+mass:
+  empty_kg: 3.7      # airframe + internal battery, no sensor payload; source: Wingtra spec
+  max_payload_kg: 0.8  # sensor bay capacity; source: Wingtra spec
+  max_takeoff_kg: 4.5  # source: Wingtra spec (3.7 kg + 800 g payload)
+
+performance:
+  cruise_speed_mps: 16.0   # source: Wingtra One Gen II spec
+  hover_speed_mps: 5.0     # nominal transition phase forward speed
+  max_speed_mps: 19.0      # estimated; Wingtra does not publish separate max airspeed
+  climb_rate_mps: 4.0      # estimated VTOL transition ascent rate
+  descent_rate_mps: 2.0    # estimated VTOL transition descent rate
+  turn_radius_m: 56.0      # derived: v^2 / (g x tan(25 deg)) = 256 / 4.57 at 16 m/s
+  max_wind_mps: 11.0       # source: Wingtra One Gen II spec
+
+energy:
+  battery_capacity_wh: 97.2   # source: Wingtra One Gen II spec
+  reserve_percent_default: 20.0
+  cruise_power_w: 99.0          # derived: 97.2 Wh / (59 min / 60) = 98.9 W; endurance source: Wingtra spec
+  hover_power_w: 380.0          # derived: estimated from motor class; manufacturer does not publish separately
+  climb_power_w: 500.0          # derived: estimated VTOL transition power
+
+failsafe:
+  low_battery_warn_percent: 30
+  low_battery_abort_percent: 25
+  emergency_land_percent: 10
+
+metadata:
+  calibration_status: manufacturer_derived
+  source: "https://wingtra.com/mapping-drone-wingtraone/"
+  notes: >
+    Cruise power derived from published 59-minute endurance at 16 m/s (97.2 Wh
+    battery). Hover power is estimated; Wingtra does not publish VTOL-phase
+    power separately. Turn radius estimated at 25 deg bank angle. Validate
+    against observed logs before operational use.

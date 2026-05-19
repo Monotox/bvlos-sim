@@ -34,8 +34,11 @@ The current codebase includes:
 - SITL telemetry, command, simulator, and adapter artifact recording for
   ArduPilot evidence bundles
 - SITL scenario comparison reports through `sitl-comparison.v1` and `compare`
+- one-line `--format summary` output for `estimate` and `scenario` with reserve %, flight time, policy action, and first failing check
+- `--format geojson` and `--format kml` route exports with per-leg energy-margin layers, landing-zone reachability markers, and geofence conflict flags
+- five community vehicle profiles in `examples/vehicles/community/` (DJI Matrice 300 RTK, Wingtra One Gen II, QS Trinity F90+, Autel EVO Max 4T, generic survey hexacopter) with manufacturer-derived values and provenance links
 - passing Linux estimator/schema/CLI/scenario/SITL comparison test suite with
-  491 tests and 9 skipped live or environment-dependent tests
+  521 tests and 9 skipped live or environment-dependent tests
 
 ## Implemented Integration Validation
 
@@ -81,10 +84,10 @@ path rather than through isolated examples. Current validation includes:
 22. [043-sitl-scenario-comparison-report.md](./043-sitl-scenario-comparison-report.md) - implemented
 23. [057-summary-output-format.md](./057-summary-output-format.md) - implemented
 24. [055-geojson-kml-route-export.md](./055-geojson-kml-route-export.md) - implemented
+25. [056-community-vehicle-profiles.md](./056-community-vehicle-profiles.md) - implemented
 
 ### Planned
 
-25. [056-community-vehicle-profiles.md](./056-community-vehicle-profiles.md) — planned
 26. [052-real-world-data-fetch-scripts.md](./052-real-world-data-fetch-scripts.md) — planned
 27. [053-airspace-geofence-fetch-script.md](./053-airspace-geofence-fetch-script.md) — planned
 28. [058-notam-live-airspace-integration.md](./058-notam-live-airspace-integration.md) — planned
@@ -115,7 +118,7 @@ path rather than through isolated examples. Current validation includes:
 - No real-world data fetch scripts yet: Ticket 052 (wind/terrain/LZ), 053
   (geofences), 054 (reference inputs for calibration and import design).
 - GeoJSON/KML route export: Ticket 055, implemented.
-- No community vehicle profiles: Ticket 056.
+- Community vehicle profiles: Ticket 056, implemented.
 - Terse `estimate` and `scenario` summary output: Ticket 057, implemented.
 - No NOTAM/live airspace integration: Ticket 058.
 - No batch import/export workflows or report diff tooling: Ticket 060.
