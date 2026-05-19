@@ -186,15 +186,16 @@ yet run a live autopilot or physics simulator.
 
 Known gaps in the current release:
 
+- no deliberately infeasible demo mission; Ticket 059
 - no airspace geofence fetch script; Ticket 053
-- no reference inputs for calibration and import; Ticket 054
+- no QGC `.plan` import or batch workflows; Ticket 060
+- no stochastic state propagation or twin-state EKF; Tickets 047, 048, 049
 - no geodesic Dubins divert; long-distance divert uses a planar approximation;
   Ticket 044
-- no stochastic state propagation or twin-state EKF; Tickets 047, 048, 049
+- no NOTAM or live airspace integration; Ticket 058
+- no reference inputs for calibration and import; Ticket 054
 - no PX4 SITL adapter; Tickets 045, 046
 - no REST API or UI; Ticket 050
-- no NOTAM or live airspace integration; Ticket 058
-- no batch import/export workflows or report diff tooling; Ticket 060
 - no live comms, UTM/U-space, Remote ID, or traffic integrations; Tickets 070,
   071
 - no real-world calibration pipeline from flight logs; Tickets 080–084
@@ -228,19 +229,25 @@ scenario assertions, and reproducible reporting.
 
 Fetch scripts for wind, terrain, and landing zones are implemented (Ticket 052)
 with a single wrapper command (`fetch_all.py <lat> <lon>`) and a pre-fetched
-Alpine example in `examples/real_world/`. The next immediate
-step is the airspace geofence fetch script (Ticket 053) to complete the
-real-world asset set.
+Alpine example in `examples/real_world/`. The next three steps complete the
+first-impression experience for new users:
+
+1. **Ticket 053** — airspace geofence fetch script, completing the real-world
+   asset set so all five environment layers have a fetch path.
+2. **Ticket 059** — deliberately infeasible demo mission, demonstrating that
+   the tool produces `INFEASIBLE` output and explains why, not only green pass.
+3. **Ticket 060** — QGC `.plan` import and batch workflows, removing the
+   biggest adoption barrier for operators who already have missions in
+   QGroundControl format.
 
 After that, the stochastic track (Tickets 047–049) adds a time-stepped
 propagator, twin-state EKF, and closed-loop tracking controller — shifting from
 a single reserve-at-landing scalar to a per-step `p_reserve_violation` timeline.
 
-Longer-term priorities are a geodesic Dubins divert solver (Ticket 044), PX4
-SITL adapter (Tickets 045–046), NOTAM/live airspace integration (Ticket 058),
-API/UI surfaces (Ticket 050), batch workflows (Ticket 060), operational
-integration (Tickets 070–071), and real-world calibration from flight logs
-(Tickets 080–084).
+Longer-term priorities are a geodesic Dubins divert solver (Ticket 044),
+NOTAM/live airspace integration (Ticket 058), PX4 SITL adapter
+(Tickets 045–046), API/UI surfaces (Ticket 050), operational integration
+(Tickets 070–071), and real-world calibration from flight logs (Tickets 080–084).
 
 The project should continue to prioritize:
 

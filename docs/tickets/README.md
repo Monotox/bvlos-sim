@@ -91,30 +91,32 @@ path rather than through isolated examples. Current validation includes:
 ### Planned
 
 27. [053-airspace-geofence-fetch-script.md](./053-airspace-geofence-fetch-script.md)
-28. [058-notam-live-airspace-integration.md](./058-notam-live-airspace-integration.md)
-29. [047-stochastic-state-propagation.md](./047-stochastic-state-propagation.md)
-30. [048-observation-model-and-twin-state.md](./048-observation-model-and-twin-state.md)
-31. [049-stochastic-closed-loop-control.md](./049-stochastic-closed-loop-control.md)
-32. [044-geodesic-dubins-divert.md](./044-geodesic-dubins-divert.md)
-33. [054-reference-inputs-for-calibration-and-import.md](./054-reference-inputs-for-calibration-and-import.md)
-34. [045-px4-sitl-launch-and-mission-upload.md](./045-px4-sitl-launch-and-mission-upload.md)
-35. [046-px4-sitl-telemetry-recorder-and-evidence-bundle.md](./046-px4-sitl-telemetry-recorder-and-evidence-bundle.md)
-36. [050-user-interfaces-and-service-adapters.md](./050-user-interfaces-and-service-adapters.md)
-37. [060-import-export-and-batch-workflows.md](./060-import-export-and-batch-workflows.md)
-38. [070-operational-integration-seams.md](./070-operational-integration-seams.md)
-39. [071-live-comms-remote-id-and-traffic-integrations.md](./071-live-comms-remote-id-and-traffic-integrations.md)
+28. [059-infeasible-demo-mission.md](./059-infeasible-demo-mission.md)
+29. [060-import-export-and-batch-workflows.md](./060-import-export-and-batch-workflows.md)
+30. [047-stochastic-state-propagation.md](./047-stochastic-state-propagation.md)
+31. [048-observation-model-and-twin-state.md](./048-observation-model-and-twin-state.md)
+32. [049-stochastic-closed-loop-control.md](./049-stochastic-closed-loop-control.md)
+33. [044-geodesic-dubins-divert.md](./044-geodesic-dubins-divert.md)
+34. [058-notam-live-airspace-integration.md](./058-notam-live-airspace-integration.md)
+35. [054-reference-inputs-for-calibration-and-import.md](./054-reference-inputs-for-calibration-and-import.md)
+36. [045-px4-sitl-launch-and-mission-upload.md](./045-px4-sitl-launch-and-mission-upload.md)
+37. [046-px4-sitl-telemetry-recorder-and-evidence-bundle.md](./046-px4-sitl-telemetry-recorder-and-evidence-bundle.md)
+38. [050-user-interfaces-and-service-adapters.md](./050-user-interfaces-and-service-adapters.md)
+39. [070-operational-integration-seams.md](./070-operational-integration-seams.md)
+40. [071-live-comms-remote-id-and-traffic-integrations.md](./071-live-comms-remote-id-and-traffic-integrations.md)
 
 ## Current Gaps
 
-- No geodesic-aware Dubins divert path sampling: Ticket 044.
-- No PX4 SITL adapter: Tickets 045 (launch/upload) and 046 (telemetry/evidence).
+- No deliberately infeasible demo mission: Ticket 059.
+- No airspace geofence fetch script: Ticket 053.
+- No QGC `.plan` import or batch workflows: Ticket 060.
 - No stochastic state propagation: Ticket 047 (propagator), 048 (twin-state
   EKF observation model), 049 (closed-loop tracking controller).
-- No REST API or UI: Ticket 050.
-- No airspace geofence fetch script: Ticket 053.
-- No reference inputs for calibration and import: Ticket 054.
+- No geodesic-aware Dubins divert path sampling: Ticket 044.
 - No NOTAM/live airspace integration: Ticket 058.
-- No batch import/export workflows or report diff tooling: Ticket 060.
+- No reference inputs for calibration and import: Ticket 054.
+- No PX4 SITL adapter: Tickets 045 (launch/upload) and 046 (telemetry/evidence).
+- No REST API or UI: Ticket 050.
 - No live comms, UTM/U-space, Remote ID, or traffic integrations: Tickets 070
   and 071.
 - No real-world calibration pipeline: Tickets 080–084.
