@@ -34,8 +34,11 @@ The current codebase includes:
 - SITL telemetry, command, simulator, and adapter artifact recording for
   ArduPilot evidence bundles
 - SITL scenario comparison reports through `sitl-comparison.v1` and `compare`
+- one-line `--format summary` output for `estimate` and `scenario` with reserve %, flight time, policy action, and first failing check
+- `--format geojson` and `--format kml` route exports with per-leg energy-margin layers, landing-zone reachability markers, and geofence conflict flags
+- five community vehicle profiles in `examples/vehicles/community/` (DJI Matrice 300 RTK, Wingtra One Gen II, QS Trinity F90+, Autel EVO Max 4T, generic survey hexacopter) with manufacturer-derived values and provenance links
 - passing Linux estimator/schema/CLI/scenario/SITL comparison test suite with
-  491 tests and 9 skipped live or environment-dependent tests
+  521 tests and 9 skipped live or environment-dependent tests
 
 ## Implemented Integration Validation
 

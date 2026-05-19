@@ -99,7 +99,13 @@ that at least one suitable landing point is within transit range. Resource and
 communication-link feasibility models battery, tethered, and hybrid power, and
 direct, cellular, satellite, or hybrid failover link architectures.
 
-### Environmental realism (planned, Phase 4.12)
+Five ready-to-use vehicle profiles are in `examples/vehicles/community/`: DJI
+Matrice 300 RTK, Wingtra One Gen II, Quantum-Systems Trinity F90+, Autel EVO
+Max 4T, and a generic survey hexacopter. Each has values sourced from published
+spec sheets with derivation notes, so you can start estimating without filling
+in placeholder values.
+
+### Environmental realism (fetch scripts planned, Phase 4.12)
 
 Three fetch scripts eliminate the need for synthetic demo data.
 `fetch_wind.py` pulls an Open-Meteo forecast at four altitude bands

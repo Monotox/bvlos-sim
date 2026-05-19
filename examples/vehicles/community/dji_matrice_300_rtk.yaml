@@ -25,6 +25,10 @@ energy:
   cruise_power_w: 329.0         # derived: hover_power_w x 0.55 (typical fixed-pitch multirotor ratio)
   climb_power_w: 750.0          # derived: estimated 1.25 x hover_power_w
 
+capabilities:
+  hover: true
+  forward_flight: true  # multirotor default is hover-only; explicit for BVLOS transit missions
+
 failsafe:
   low_battery_warn_percent: 30
   low_battery_abort_percent: 25

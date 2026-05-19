@@ -1,0 +1,38 @@
+mission_id: autel_evo_max_4t_demo
+vehicle_profile: autel_evo_max_4t
+
+planned_home:
+  lat: 52.0
+  lon: 4.0
+  altitude_amsl_m: 12.0
+
+defaults:
+  cruise_speed_mps: 10.0
+  hover_speed_mps: 4.0
+  altitude_reference: relative_home
+
+route:
+  - id: takeoff
+    action: takeoff
+    altitude_m: 80.0
+
+  - id: wp1
+    action: waypoint
+    lat: 52.001
+    lon: 4.002
+    altitude_m: 80.0
+    acceptance_radius_m: 20.0
+
+  - id: wp2
+    action: waypoint
+    lat: 52.002
+    lon: 4.004
+    altitude_m: 80.0
+    acceptance_radius_m: 20.0
+
+  - id: rtl
+    action: rtl
+
+constraints:
+  min_landing_reserve_percent: 20.0
+  max_wind_mps: 12.0
