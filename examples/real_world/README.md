@@ -25,8 +25,10 @@ in the pipeline demo.
 
 ### One command (recommended)
 
-`fetch_all.py` fetches all three assets for a centre point in one go and
-prints the `assets:` block to paste into your mission YAML.
+`fetch_all.py` fetches terrain, wind, and landing zones for a centre point
+in one go and prints the `assets:` block to paste into your mission YAML.
+Fetch geofences separately with `fetch_geofences.py` (see the "Fetch
+geofences" section below).
 
 ```bash
 uv sync --extra scripts   # installs srtm.py (once)

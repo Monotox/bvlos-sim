@@ -94,12 +94,6 @@ def _overpass_elements(
         _OVERPASS_URL, data={"data": query}, headers=headers, timeout=60
     )
     resp.raise_for_status()
-    print(
-        "Warning: Overpass path returns way-based airspace only; "
-        "relation-based zones (most CTR/TMA) are skipped. "
-        "Use --source openaip for complete coverage.",
-        file=sys.stderr,
-    )
     payload: object = resp.json()
     elements = _object_list(_object_dict(payload).get("elements"))
     return [_object_dict(element) for element in elements if isinstance(element, dict)]
@@ -112,10 +106,11 @@ def _way_to_feature(element: dict[str, object]) -> dict[str, object] | None:
 
     geometry = _object_list(element.get("geometry"))
     coordinates = [_node_coordinate(node) for node in geometry]
-    if len(coordinates) < 3 or any(coordinate is None for coordinate in coordinates):
+    non_null: list[list[float]] = [c for c in coordinates if c is not None]
+    if len(non_null) < 3:
         return None
 
-    ring = [coordinate for coordinate in coordinates if coordinate is not None]
+    ring = non_null
     if ring[0] != ring[-1]:
         ring.append(ring[0])
 
@@ -194,7 +189,7 @@ def main() -> None:
         print(
             f"Querying OpenAIP for airspace geofences in "
             f"lat [{args.lat_min}, {args.lat_max}] "
-            f"lon [{args.lon_min}, {args.lon_max}] ..."
+            f"lon [{args.lon_min}, {args.lon_max}] …"
         )
         features = _openaip_features(
             args.lat_min, args.lat_max, args.lon_min, args.lon_max, args.api_key
@@ -203,10 +198,16 @@ def main() -> None:
         print(
             f"Querying Overpass for airspace geofences in "
             f"lat [{args.lat_min}, {args.lat_max}] "
-            f"lon [{args.lon_min}, {args.lon_max}] ..."
+            f"lon [{args.lon_min}, {args.lon_max}] …"
         )
         elements = _overpass_elements(
             args.lat_min, args.lat_max, args.lon_min, args.lon_max
+        )
+        print(
+            "Warning: Overpass path returns way-based airspace only; "
+            "relation-based zones (most CTR/TMA) are skipped. "
+            "Use --source openaip for complete coverage.",
+            file=sys.stderr,
         )
         features = [
             feature
