@@ -74,6 +74,22 @@ class _QgcItem:
 
 
 # JSON primitive helpers — used across all parsing layers
+CommandHandler = Callable[[_QgcItem, RouteCounters], tuple[RouteItemDict | None, str | None]]
+
+
+def _diagnostic(
+    *,
+    item_index: int,
+    command: int | None,
+    message: str,
+) -> ConvertDiagnostic:
+    return ConvertDiagnostic(
+        item_index=item_index,
+        command=command,
+        message=message,
+    )
+
+
 def _mapping(value: object) -> JsonObject | None:
     if not isinstance(value, dict):
         return None
