@@ -11,10 +11,12 @@ from pydantic import ValidationError
 from adapters.sitl.ardupilot_types import ArduPilotAdapterError
 from adapters.batch_io import load_batch_manifest
 from adapters.batch_support import (
-    BatchRunResult,
     render_batch_table,
     run_batch_manifest,
-    summarize_batch,
+)
+from adapters.cli_batch_support import (
+    _batch_exit_code,
+    write_batch_outputs,
 )
 from adapters.cli_sitl_support import (
     _build_sitl_evidence_from_context,
@@ -28,10 +30,12 @@ from adapters.cli_sitl_support import (
 )
 from adapters.cli_support import (
     MissionAssetBundle,
+    OutputWriteError,
     _build_estimation_options,
     _build_scenario_result_envelope,
     _empty_failed_result,
     _envelope_inputs_for_static_asset_error,
+    _envelope_output_format,
     _input_error_for_geojson_asset_error,
     _parse_wind_layers,
     _populate_mission_assets,
@@ -40,6 +44,7 @@ from adapters.cli_support import (
     _render_uncertainty_output,
     _resolve_scenario_input_paths,
     _run_scenario_with_assets,
+    _write_output,
 )
 from adapters.envelope import (
     EnvelopeInputs,
@@ -140,10 +145,6 @@ _ROUTE_EXPORT_BUILDERS: dict[OutputFormat, RouteExportBuilder] = {
 }
 
 
-class OutputWriteError(OSError):
-    """Raised when the CLI cannot write rendered output."""
-
-
 @app.callback()
 def main() -> None:
     """BVLOS simulator command group."""
@@ -173,24 +174,8 @@ def _exit_with_cli_error(
     raise typer.Exit(code=int(code))
 
 
-def _write_output(rendered: str, output: Path | None) -> None:
-    try:
-        if output is None:
-            typer.echo(rendered, nl=False)
-            return
-        output.write_text(rendered, encoding="utf-8")
-    except OSError as exc:
-        raise OutputWriteError("Failed to write output.") from exc
-
-
 def _document_output_format(output_format: DocumentOutputFormat) -> OutputFormat:
     return _DOCUMENT_OUTPUT_FORMATS[output_format]
-
-
-def _envelope_output_format(output_format: OutputFormat) -> OutputFormat:
-    if output_format in _ROUTE_EXPORT_BUILDERS:
-        return OutputFormat.JSON
-    return output_format
 
 
 def _render_estimate_command_output(
@@ -459,41 +444,6 @@ def estimate(
         raise typer.Exit(code=int(CliExitCode.INTERNAL_ERROR)) from exc
 
 
-def _batch_exit_code(results: list[BatchRunResult]) -> CliExitCode:
-    summary = summarize_batch(results)
-    if summary.error_count > 0:
-        return CliExitCode.INVALID_INPUT
-    if summary.infeasible_count > 0:
-        return CliExitCode.INFEASIBLE
-    return CliExitCode.SUCCESS
-
-
-def _batch_output_extension(output_format: OutputFormat) -> str:
-    if output_format == OutputFormat.MARKDOWN:
-        return ".md"
-    if output_format == OutputFormat.SUMMARY:
-        return ".txt"
-    return ".json"
-
-
-def _write_batch_outputs(
-    *,
-    output_dir: Path,
-    output_format: OutputFormat,
-    results: list[BatchRunResult],
-) -> None:
-    output_dir.mkdir(parents=True, exist_ok=True)
-    rendered_format = _envelope_output_format(output_format)
-    extension = _batch_output_extension(rendered_format)
-    for result in results:
-        if result.envelope is None:
-            continue
-        _write_output(
-            _render_output(rendered_format, result.envelope),
-            output_dir / f"{result.id}{extension}",
-        )
-
-
 @app.command()
 def batch(
     manifest: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True),
@@ -510,13 +460,13 @@ def batch(
                 continue
             typer.echo(f"Warning: run {result.id}: {result.error_message}", err=True)
         if output_dir is not None:
-            _write_batch_outputs(
+            write_batch_outputs(
                 output_dir=output_dir,
                 output_format=format,
                 results=results,
             )
         _write_output(render_batch_table(results), None)
-        raise typer.Exit(code=int(_batch_exit_code(results)))
+        raise typer.Exit(code=_batch_exit_code(results))
     except InputLoadError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=int(CliExitCode.INVALID_INPUT)) from exc

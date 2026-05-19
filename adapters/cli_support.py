@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TypeVar
 
+import typer
+
 from pydantic import ValidationError
 
 from adapters.envelope import (
@@ -396,6 +398,31 @@ def _build_scenario_result_envelope(
     )
 
 
+class OutputWriteError(OSError):
+    """Raised when the CLI cannot write rendered output."""
+
+
+_ROUTE_EXPORT_FORMATS: frozenset[OutputFormat] = frozenset(
+    [OutputFormat.GEOJSON, OutputFormat.KML]
+)
+
+
+def _write_output(rendered: str, output: Path | None) -> None:
+    try:
+        if output is None:
+            typer.echo(rendered, nl=False)
+            return
+        output.write_text(rendered, encoding="utf-8")
+    except OSError as exc:
+        raise OutputWriteError("Failed to write output.") from exc
+
+
+def _envelope_output_format(output_format: OutputFormat) -> OutputFormat:
+    if output_format in _ROUTE_EXPORT_FORMATS:
+        return OutputFormat.JSON
+    return output_format
+
+
 __all__ = [
     "GeoJsonAssetLoadError",
     "LoadedAssetT",
@@ -410,10 +437,13 @@ __all__ = [
     "_parse_wind_layer_entry",
     "_parse_wind_layers",
     "_populate_mission_assets",
+    "_envelope_output_format",
     "_render_output",
     "_render_scenario_output",
     "_render_uncertainty_output",
     "_resolve_asset_path",
     "_resolve_scenario_input_paths",
     "_run_scenario_with_assets",
+    "_write_output",
+    "OutputWriteError",
 ]
