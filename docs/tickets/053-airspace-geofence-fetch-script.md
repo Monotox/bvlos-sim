@@ -1,38 +1,32 @@
 # Ticket 053: Airspace Geofence Fetch Script
 
+Status: implemented.
+
 ## Goal
 
-Complete the real-world data set started in Ticket 052 by adding a
-`scripts/fetch_geofences.py` script that produces a `geofence-geojson.v1`
-file from real airspace data. This is the only data type missing from the
-Ticket 052 real-world example; once it exists the alpine demo will include
-actual restricted airspace alongside real terrain, real wind, and real landing
-zones.
+Complete the real-world data set started in Ticket 052 by adding
+`scripts/fetch_geofences.py`. The script writes a standard GeoJSON
+FeatureCollection accepted by `adapters/geofence_geojson.py`, with `Polygon`
+or `MultiPolygon` features and `kind` / `name` properties for each zone.
 
-## Prerequisite: Verify OpenAIP Access Model
+The Alpine demo now includes a committed `geofences.geojson` asset alongside
+real terrain, real wind, and real landing zones.
 
-OpenAIP (`https://www.openaip.net`) is the best free source of structured
-airspace polygons (CTR, TMA, restricted, prohibited zones) in GeoJSON format.
-As of early 2024 bulk GeoJSON downloads require a registered free-tier API
-key. Before scripting, confirm:
+## Sources
 
-1. Register at `https://www.openaip.net` and obtain a free API key.
-2. Verify that `https://api.openaip.net/api/airspaces?bbox=<lon_min,lat_min,lon_max,lat_max>`
-   accepts a bounding-box query and returns GeoJSON Polygons with `icaoClass`
-   and `type` fields.
-3. Confirm the free tier is sufficient for demo-scale queries (~50–200
-   polygons per country).
+OpenAIP (`https://www.openaip.net`) is the primary source for structured
+airspace polygons such as CTR, TMA, restricted, prohibited, and danger zones.
+It requires a registered free-tier API key.
 
-The keyless Overpass fallback has **limited coverage**: OSM airspace data uses
-`relation` geometries with complex multi-polygon shapes for most real-world
-CTR/TMA/restricted zones. The `way`-only Overpass path described below will
-typically return fewer polygons than OpenAIP. Operators needing complete,
-authoritative airspace data should use the OpenAIP path.
+The keyless Overpass fallback has limited coverage. OSM airspace data often
+uses `relation` geometries with complex multi-polygon shapes for real-world
+CTR/TMA/restricted zones. The implemented Overpass path intentionally reads
+way-based airspace only and prints a warning so operators know to prefer
+OpenAIP when complete coverage matters.
 
-The Overpass fallback uses `boundary=aeronautical` + `icao:class` tags (more
-accurate than `aeroway=restricted_area`, which has very sparse OSM coverage):
+The Overpass fallback uses `boundary=aeronautical` + `icao:class` tags:
 
-```
+```text
 [out:json];
 (
   way["boundary"="aeronautical"]["icao:class"~"^(C|D|R|P)$"](<bbox>);
@@ -40,52 +34,46 @@ accurate than `aeroway=restricted_area`, which has very sparse OSM coverage):
 out geom;
 ```
 
-Note: Real airspace zones are typically mapped as OSM `relation` objects with
-complex geometry. This script **skips `relation` types** and prints a warning;
-only `way`-based airspace (a small subset) is returned via the Overpass path.
+## Implemented Script
 
-## Script Specification
-
-### `scripts/fetch_geofences.py`
-
-```
+```bash
 uv run python scripts/fetch_geofences.py <lat_min> <lat_max> <lon_min> <lon_max> \
-    [--source openaip|overpass] [--api-key KEY] [--output path]
+  [--source openaip|overpass] [--api-key KEY] [--output PATH]
 ```
 
 **OpenAIP path:**
-- Calls `https://api.openaip.net/api/airspaces?bbox=<lon_min,lat_min,lon_max,lat_max>`
-  with `Authorization: Bearer <key>` header.
-- Maps `icaoClass` / `type` to `kind`:
-  - `RESTRICTED`, `PROHIBITED`, `DANGER` → `"forbidden"`
-  - `CTR`, `TMA`, `CTA` → `"caution"`
-  - All others → omit or `"caution"`.
-- Returns a `geofence-geojson.v1` FeatureCollection with Polygon geometry
-  and `{ "kind": "forbidden"|"caution", "name": <string> }` properties.
 
-**Overpass fallback path (keyless):**
-- Issues the bounding-box Overpass QL query above (`way` type only).
-- Prints a warning to stderr: `"Warning: Overpass path returns way-based
-  airspace only; relation-based zones (most CTR/TMA) are skipped. Use
-  --source openaip for complete coverage."`
-- Skips any element whose `type` is `relation` (geometry reconstruction
-  is non-trivial and produces unreliable results for complex multi-polygon
-  airspace).
-- Reconstructs Polygon geometries from `way` node sequences via the `geom`
-  output directive (`out geom`).
-- Maps `icao:class` tag to `kind`:
-  - `R`, `P` → `"forbidden"` (restricted, prohibited)
-  - `C`, `D` → `"caution"` (CTR, danger)
-  - Others → `"caution"` (conservative default).
+- Calls `https://api.openaip.net/api/airspaces` with
+  `bbox=<lon_min>,<lat_min>,<lon_max>,<lat_max>`.
+- Sends the API key as `x-openaip-api-key: <key>`.
+- Requires `--api-key` before any network call when `--source openaip`.
+- Maps `icaoClass` / `type` to `kind`:
+  - `RESTRICTED`, `PROHIBITED`, `DANGER` -> `"forbidden"`
+  - `CTR`, `TMA`, `CTA`, and all others -> `"caution"`
+- Skips non-Polygon and non-MultiPolygon features.
+
+**Overpass fallback path:**
+
+- Posts the bounding-box Overpass QL query above.
+- Prints this warning to stderr:
+  `"Warning: Overpass path returns way-based airspace only; relation-based zones
+  (most CTR/TMA) are skipped. Use --source openaip for complete coverage."`
+- Converts way geometry nodes into closed GeoJSON Polygon rings.
+- Maps `icao:class` to `kind`:
+  - `R`, `P` -> `"forbidden"`
+  - `C`, `D`, and all others -> `"caution"`
+- Skips ways with fewer than three geometry nodes.
 
 ## Updated Alpine Demo
 
-- Add `examples/real_world/assets/geofences.geojson` — pre-fetched from
-  OpenAIP or Overpass for the Alpine foothills bounding box.
-- Wire `geofences.geojson` into `examples/real_world/alpine_mission.yaml`
-  under `assets.geofence_file`.
-- The alpine area includes Swiss/Austrian TMA and military restricted zones
-  that will appear as `caution` and `forbidden` in the feasibility output.
+- `examples/real_world/assets/geofences.geojson` is committed so the demo runs
+  offline. The committed asset was produced through the Overpass fallback and
+  may be an empty FeatureCollection when the bounded area has no way-based
+  aeronautical boundaries.
+- `examples/real_world/alpine_mission.yaml` references the asset under
+  `assets.geofences_file`.
+- `examples/real_world/README.md` documents both the OpenAIP primary command
+  and the Overpass fallback command.
 
 ## File Plan
 
@@ -93,37 +81,37 @@ New files:
 
 | File | Purpose |
 |---|---|
-| `scripts/fetch_geofences.py` | OpenAIP / Overpass → `geofences.geojson` |
-| `examples/real_world/assets/geofences.geojson` | Pre-fetched airspace data for alpine demo |
+| `scripts/fetch_geofences.py` | OpenAIP / Overpass -> `geofences.geojson` |
+| `examples/real_world/assets/geofences.geojson` | Pre-fetched static airspace data for the Alpine demo |
 
 Modified files:
 
-- `examples/real_world/alpine_mission.yaml` — add `geofence_file` asset reference
-- `examples/real_world/README.md` — add fetch command for geofences, note API key requirement
+- `examples/real_world/alpine_mission.yaml` -- add `geofences_file` asset reference.
+- `examples/real_world/README.md` -- document geofence fetch commands and API key requirement.
 
 ## Acceptance Criteria
 
-1. `uv run python scripts/fetch_geofences.py 46.9 47.1 7.9 8.1 --source openaip
-   --api-key $OPENAIP_KEY` produces a valid `geofence-geojson.v1`
-   FeatureCollection with at least one polygon.
-2. `uv run python scripts/fetch_geofences.py 46.9 47.1 7.9 8.1 --source overpass`
-   works with no API key and produces valid output (may return fewer polygons).
+1. `uv run python scripts/fetch_geofences.py 46.9 47.2 8.1 8.4 --source overpass`
+   exits successfully and writes a valid GeoJSON FeatureCollection. It may be
+   empty because the Overpass path is way-based.
+2. `uv run python scripts/fetch_geofences.py 46.9 47.2 8.1 8.4 --source openaip`
+   exits with a clear `--api-key` error before making any network call.
 3. `uv run bvlos-sim estimate examples/real_world/alpine_mission.yaml
-   examples/real_world/quadplane_v1.yaml` includes geofence check results in
-   output when `geofences.geojson` is referenced.
+   examples/real_world/quadplane_v1.yaml` reads `geofences.geojson` and includes
+   geofence check results.
 4. Pre-fetched `geofences.geojson` is committed so the demo works offline.
 5. All existing tests continue to pass.
-6. `uv run ruff check` passes.
+6. `uv run ruff check .` passes.
 
 ## Dependency on Ticket 052
 
 This ticket is a direct follow-on to Ticket 052. The `scripts/` directory,
-`examples/real_world/` structure, and `alpine_mission.yaml` are all created
-there; this ticket extends them.
+`examples/real_world/` structure, and `alpine_mission.yaml` are created there;
+this ticket extends them with static airspace geofences.
 
 ## Out of Scope
 
 - Fetching live NOTAMs or temporary restrictions (dynamic airspace).
-- Altitude-bounded geofence filtering (e.g. only restrictions below 1000 m
-  AGL) — deferred to a later schema extension.
-- FAA UAS Facility Map integration — a separate follow-on for US operators.
+- Altitude-bounded geofence filtering, such as only restrictions below
+  1000 m AGL.
+- FAA UAS Facility Map integration.

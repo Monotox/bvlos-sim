@@ -31,18 +31,18 @@ The failure should be real and meaningful — not a contrived energy budget
 exhausted by a 10,000 km route. Candidate failure modes:
 
 1. **Geofence conflict** — route leg intersects a `forbidden` zone in the
-   committed `geofences.geojson` (requires Ticket 053 to have real airspace);
-   fallback: use the existing synthetic `data/geofences/demo.geojson`.
+   committed `geofences.geojson` when that asset contains a relevant airspace
+   polygon; fallback: use the existing synthetic `data/geofences/demo.geojson`.
 2. **Insufficient reserve for terrain** — battery too small for the elevation
    gain on the alpine route, ending with `reserve_at_landing_wh < threshold`.
 3. **Landing-zone unreachable** — `min_distance_to_landing_zone_m` constraint
-   tighter than any available landing zone; useful if no geofences are yet
-   committed.
+   tighter than any available landing zone; useful if the committed geofence
+   asset is empty for the route area.
 
-Option 2 (energy/reserve failure) is self-contained and does not depend on
-Ticket 053. Use a reduced `battery_capacity_wh` in a local vehicle override or
-a second vehicle YAML (e.g. `alpine_small_battery.yaml`) to make the failure
-legible without editing the real quadplane profile.
+Option 2 (energy/reserve failure) is self-contained and does not depend on a
+non-empty geofence asset. Use a reduced `battery_capacity_wh` in a local vehicle
+override or a second vehicle YAML (e.g. `alpine_small_battery.yaml`) to make the
+failure legible without editing the real quadplane profile.
 
 ## README note format
 
@@ -78,5 +78,6 @@ altitude gain by lowering the waypoint altitude or re-routing around the ridge.
 
 ## Out of Scope
 
-- Geofence-based failure (deferred until Ticket 053 commits real airspace).
+- Geofence-based failure unless the committed or refreshed geofence asset
+  contains a forbidden zone in the route area.
 - Any code changes to the estimator or CLI.

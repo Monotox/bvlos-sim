@@ -127,21 +127,23 @@ in placeholder values.
 
 ### Environmental realism (available now)
 
-Three fetch scripts eliminate the need for synthetic demo data.
+Four fetch scripts eliminate the need for synthetic demo data.
 `fetch_wind.py` pulls an Open-Meteo forecast at four altitude bands
 (10 m, 80 m, 120 m, 180 m) for a departure time and date, aligning `time_s=0`
 to your planned takeoff so wind interpolation is temporally correct.
 `fetch_terrain.py` downloads SRTM tiles for any bounding box.
 `fetch_landing_zones.py` queries the Overpass API for helipads and aerodromes.
-`fetch_all.py` wraps all three in a single command. All scripts produce files
-that wire directly into the `assets:` section of your mission YAML. A
+`fetch_geofences.py` fetches static airspace geofences from OpenAIP, with a
+keyless Overpass fallback for way-based aeronautical boundaries.
+`fetch_all.py` wraps terrain, wind, and landing-zone fetching in a single
+command; fetch geofences separately when you need airspace polygons. All
+implemented scripts produce files that wire directly into the `assets:`
+section of your mission YAML. A
 pre-fetched Alpine example covering the Lucerne/Zug area is committed to
 `examples/real_world/` and runs offline with no network calls.
 
-Two additional fetch scripts are planned: `fetch_geofences.py` for CTR, TMA,
-restricted, and prohibited zones from OpenAIP (Ticket 053), and
-`fetch_notams.py` for active TFRs and temporary restrictions from FAA B4UFly
-or EUROCONTROL (Ticket 058).
+One additional fetch script is planned: `fetch_notams.py` for active TFRs and
+temporary restrictions from FAA B4UFly or EUROCONTROL (Ticket 058).
 
 ### Uncertainty and risk
 

@@ -130,7 +130,6 @@ Platform limitations:
 - no PX4 SITL adapter yet; Tickets 045 (launch/upload) and 046 (telemetry/evidence)
 - no REST API; Ticket 050
 - no web UI; Ticket 050
-- no airspace geofence fetch script yet; Ticket 053
 - no reference inputs for calibration and import; Ticket 054
 - no NOTAM/live airspace integration; Ticket 058
 - no live comms, UTM/U-space, Remote ID, or traffic integrations; Tickets 070
@@ -361,7 +360,9 @@ while preserving the deterministic core execution path.
 
 ### Phase 4.12: Real-World Data and Developer Experience
 
-Status: partially implemented (Tickets 055, 056, 057 done; 052, 053, 054, 058 planned).
+Status: partially implemented.
+Done: Tickets 052, 053, 055, 056, and 057.
+Planned: Tickets 054 and 058.
 
 Scope:
 
@@ -369,9 +370,9 @@ Scope:
   forecast with `--departure-time`), `fetch_terrain.py` (SRTM via `elevation`
   package), `fetch_landing_zones.py` (Overpass API); alpine demo example using
   pre-fetched real assets
-- Ticket 053: airspace geofence fetch script — `fetch_geofences.py` via
-  OpenAIP API (free tier) with Overpass fallback; completes the real-world data
-  set started in Ticket 052
+- Ticket 053: airspace geofence fetch script — implemented with
+  `fetch_geofences.py` via OpenAIP API key or keyless Overpass fallback;
+  completes the static real-world asset set started in Ticket 052
 - Ticket 054: reference inputs for calibration and import design — PX4 ULog
   flight logs and QGC `.plan` files committed to `reference/` with field-mapping
   design notes feeding Tickets 060 and 080
