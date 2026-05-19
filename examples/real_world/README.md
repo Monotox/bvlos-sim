@@ -2,7 +2,7 @@
 
 This example runs a BVLOS estimate over the Lucerne/Zug area of Switzerland
 using real terrain from SRTM, a real wind forecast from Open-Meteo, and real
-aeroway landing zones from OpenStreetMap via Overpass.
+aeroway landing zones and airspace geofences from OpenStreetMap via Overpass.
 
 Pre-fetched assets are committed to `assets/` so the estimate runs offline
 with no network calls.
@@ -75,6 +75,30 @@ uv run python scripts/fetch_landing_zones.py 46.9 47.2 8.1 8.4 \
 All scripts write files that wire directly into the `assets:` section of any
 mission YAML without manual editing.
 
+### Fetch geofences
+
+OpenAIP is the primary source for complete airspace coverage and requires a
+free account at https://www.openaip.net.
+
+```bash
+uv run python scripts/fetch_geofences.py 46.9 47.2 8.1 8.4 \
+  --source openaip \
+  --api-key $OPENAIP_KEY \
+  --output geofences.geojson
+```
+
+Overpass is the keyless fallback. It returns way-based airspace only;
+relation-based zones, including most CTR/TMA areas, are skipped. Use OpenAIP
+when complete coverage matters.
+
+```bash
+uv run python scripts/fetch_geofences.py 46.9 47.2 8.1 8.4 \
+  --source overpass \
+  --output geofences.geojson
+```
+
+The committed `geofences.geojson` was produced via the Overpass fallback.
+
 ## Area and data sources
 
 | Asset | Source | Coverage |
@@ -82,6 +106,7 @@ mission YAML without manual editing.
 | `terrain.yaml` | SRTM via `srtm.py` | lat 46.9–47.2, lon 8.1–8.4, 31×31 grid |
 | `wind_grid.yaml` | Open-Meteo archive (2025-06-15 14:00 UTC) | 4 altitude bands, 4 hourly slices |
 | `landing_zones.geojson` | OpenStreetMap via Overpass | 12 helipads/aerodromes/runways |
+| `geofences.geojson` | OpenStreetMap via Overpass | way-based aeronautical boundaries |
 
 The area covers the Lucerne basin and surrounding pre-Alps, including the
 Pilatus massif (peak elevation 1943 m in the SRTM grid). Wind at 10 m vs.
