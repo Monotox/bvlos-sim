@@ -154,11 +154,13 @@ The estimate summary reports feasibility, reserve margin, flight time, and the
 primary failure code when present. The scenario summary reports assertion
 counts, reserve margin, flight time, contingency policy action, and the first
 failing assertion when present. These single-line outputs are suitable for
-shell pipelines and pre-flight checklists. The planned
-`--format geojson` and `--format kml` (Ticket 055, Phase 4.12) emit the full
-route as a FeatureCollection with legs coloured by energy margin, geofence
-polygons with conflict flags, and landing-zone reachability markers — opening
-directly in QGroundControl, QGIS, and Google Earth.
+shell pipelines and pre-flight checklists.
+
+`estimate --format geojson`, `estimate --format kml`, and the same formats on
+`scenario` emit the route as map-ready layers: one LineString per leg,
+landing-zone points with reachability markers, and geofence polygons with
+conflict flags. GeoJSON opens directly in QGroundControl and QGIS; KML opens
+directly in Google Earth.
 
 ### Why not a spreadsheet
 

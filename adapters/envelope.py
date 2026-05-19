@@ -140,6 +140,8 @@ class OutputFormat(StrEnum):
     JSON = "json"
     MARKDOWN = "markdown"
     SUMMARY = "summary"
+    GEOJSON = "geojson"
+    KML = "kml"
 
 
 class EnvelopeDiagnostic(BaseModel):

@@ -80,10 +80,10 @@ path rather than through isolated examples. Current validation includes:
 21. [042-sitl-telemetry-recorder-and-evidence-bundle.md](./042-sitl-telemetry-recorder-and-evidence-bundle.md) - implemented
 22. [043-sitl-scenario-comparison-report.md](./043-sitl-scenario-comparison-report.md) - implemented
 23. [057-summary-output-format.md](./057-summary-output-format.md) - implemented
+24. [055-geojson-kml-route-export.md](./055-geojson-kml-route-export.md) - implemented
 
 ### Planned
 
-24. [055-geojson-kml-route-export.md](./055-geojson-kml-route-export.md) — planned
 25. [056-community-vehicle-profiles.md](./056-community-vehicle-profiles.md) — planned
 26. [052-real-world-data-fetch-scripts.md](./052-real-world-data-fetch-scripts.md) — planned
 27. [053-airspace-geofence-fetch-script.md](./053-airspace-geofence-fetch-script.md) — planned
@@ -114,7 +114,7 @@ path rather than through isolated examples. Current validation includes:
 - No REST API or UI: Ticket 050.
 - No real-world data fetch scripts yet: Ticket 052 (wind/terrain/LZ), 053
   (geofences), 054 (reference inputs for calibration and import design).
-- No GeoJSON/KML route export: Ticket 055.
+- GeoJSON/KML route export: Ticket 055, implemented.
 - No community vehicle profiles: Ticket 056.
 - Terse `estimate` and `scenario` summary output: Ticket 057, implemented.
 - No NOTAM/live airspace integration: Ticket 058.

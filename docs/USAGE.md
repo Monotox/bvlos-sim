@@ -47,7 +47,8 @@ Scenario events, uncertainty sampling, and SITL evidence use `scenario`,
 SITL comparison reports are exposed through `compare` so evidence review has a
 dedicated command with JSON, Markdown, and `--output` support.
 For terse terminal output, `estimate` and `scenario` also support
-`--format summary`; the other commands remain JSON/Markdown only.
+`--format summary`. They also support `--format geojson` and `--format kml`
+for map-ready route exports. The other commands remain JSON/Markdown only.
 
 Command help:
 
@@ -105,6 +106,26 @@ Example output:
 FEASIBLE   reserve 281.6 %   flight 2m 49s
 ```
 
+Write GeoJSON route layers:
+
+```bash
+uv run bvlos-sim estimate \
+  examples/missions/pipeline_demo_001.yaml \
+  examples/vehicles/quadplane_v1.yaml \
+  --format geojson \
+  --output /tmp/bvlos-route.geojson
+```
+
+Write KML route layers:
+
+```bash
+uv run bvlos-sim estimate \
+  examples/missions/pipeline_demo_001.yaml \
+  examples/vehicles/quadplane_v1.yaml \
+  --format kml \
+  --output /tmp/bvlos-route.kml
+```
+
 ## Scenario Execution
 
 Run the example scenario:
@@ -157,6 +178,24 @@ Example output:
 
 ```text
 PASSED 3/3   reserve 281.6 %   flight 2m 49s   policy NONE
+```
+
+Write GeoJSON route layers from the scenario estimate:
+
+```bash
+uv run bvlos-sim scenario \
+  examples/scenarios/pipeline_demo_001_scenario.yaml \
+  --format geojson \
+  --output /tmp/scenario-route.geojson
+```
+
+Write KML route layers from the scenario estimate:
+
+```bash
+uv run bvlos-sim scenario \
+  examples/scenarios/pipeline_demo_001_scenario.yaml \
+  --format kml \
+  --output /tmp/scenario-route.kml
 ```
 
 ### Scenario Exit Codes
@@ -698,7 +737,11 @@ regression-tested with golden fixtures. Markdown output is supported for
 human-readable estimator, scenario, uncertainty, and SITL comparison reports.
 `estimate --format summary` and `scenario --format summary` emit one-line
 plain-text summaries for terminal checks and shell pipelines; no summary schema
-or envelope is created.
+or envelope is created. `estimate --format geojson|kml` and
+`scenario --format geojson|kml` emit map exports directly from the computed
+mission estimate instead of creating a new schema or envelope. Invalid-input
+and internal-error paths still fall back to JSON envelopes so automation can
+parse failures consistently.
 
 ## Verification
 
