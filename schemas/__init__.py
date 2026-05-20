@@ -55,6 +55,7 @@ from schemas.sitl_comparison import (
     SitlComparisonSummary,
 )
 from schemas.stochastic import (
+    CrossTrackStats,
     EstimationErrorTimelinePoint,
     PropagationTimelinePoint,
     StochasticPropagationPlan,
@@ -63,6 +64,7 @@ from schemas.stochastic import (
 from schemas.vehicle_sensors import AirspeedModel, BatteryMeterModel, GpsModel
 from schemas.vehicle import (
     AutopilotStack,
+    ControllerProfile,
     EnergyModel,
     FailsafeProfile,
     MassProfile,
@@ -85,6 +87,8 @@ __all__ = [
     "UncertaintyParameters",
     "UncertaintyPlan",
     "AutopilotStack",
+    "ControllerProfile",
+    "CrossTrackStats",
     "EnergyModel",
     "EstimationErrorTimelinePoint",
     "ExternalPowerDelivery",
