@@ -41,6 +41,7 @@ from adapters.cli_support import (
     _populate_mission_assets,
     _render_output,
     _render_scenario_output,
+    _render_stochastic_output,
     _render_uncertainty_output,
     _resolve_scenario_input_paths,
     _run_scenario_with_assets,
@@ -73,6 +74,11 @@ from adapters.scenario_envelope import (
 from adapters.scenario_io import load_scenario
 from adapters.sitl.evidence import compare_sitl_evidence_bundle
 from adapters.sitl.evidence_io import load_sitl_evidence_bundle
+from adapters.stochastic_envelope import build_stochastic_envelope
+from adapters.stochastic_io import (
+    load_stochastic_plan,
+    resolve_stochastic_asset_path,
+)
 from adapters.terrain_grid import TerrainGridLoadError
 from adapters.uncertainty_envelope import (
     build_uncertainty_envelope,
@@ -95,6 +101,7 @@ from estimator import (
     try_estimate_mission_distance_time,
 )
 from estimator.execution.monte_carlo import run_monte_carlo
+from estimator.execution.propagator import run_stochastic_propagation
 
 app = typer.Typer(name="bvlos-sim", add_completion=False, no_args_is_help=True)
 
@@ -749,6 +756,82 @@ def sample(
         _exit_with_cli_error(
             str(exc),
             command="sample",
+            code=CliExitCode.INTERNAL_ERROR,
+        )
+
+
+@app.command()
+def propagate(
+    stochastic_file: Path = typer.Argument(
+        ..., exists=True, readable=True, resolve_path=True
+    ),
+    format: DocumentOutputFormat = typer.Option(DocumentOutputFormat.JSON, "--format"),
+    output: Path | None = typer.Option(None, "--output", "-o"),
+) -> None:
+    """Run stochastic state propagation and emit a stochastic-envelope.v1 report."""
+
+    stochastic_document = None
+    mission_document = None
+    vehicle_document = None
+    mission_assets = MissionAssetBundle()
+
+    try:
+        plan, stochastic_document = load_stochastic_plan(stochastic_file)
+
+        mission_path = resolve_stochastic_asset_path(
+            plan.mission_file, stochastic_path=stochastic_file
+        )
+        vehicle_path = resolve_stochastic_asset_path(
+            plan.vehicle_file, stochastic_path=stochastic_file
+        )
+
+        mission_model, mission_document = load_mission(mission_path)
+        vehicle_model, vehicle_document = load_vehicle(vehicle_path)
+
+        _populate_mission_assets(
+            mission_assets,
+            mission_model=mission_model,
+            mission_document=mission_document,
+        )
+
+        result = run_stochastic_propagation(
+            plan,
+            mission_model,
+            vehicle_model,
+            wind_provider=mission_assets.wind_provider,
+            terrain_provider=mission_assets.terrain_provider,
+            geofences=mission_assets.geofences,
+            landing_zones=mission_assets.landing_zones,
+        )
+        envelope = build_stochastic_envelope(
+            result=result,
+            stochastic_document=stochastic_document,
+            mission_document=mission_document,
+            vehicle_document=vehicle_document,
+        )
+        _write_output(
+            _render_stochastic_output(_document_output_format(format), envelope),
+            output,
+        )
+        raise typer.Exit(code=int(CliExitCode.SUCCESS))
+    except InputLoadError as exc:
+        _exit_with_cli_error(
+            str(exc),
+            command="propagate",
+            code=CliExitCode.INVALID_INPUT,
+        )
+    except OutputWriteError as exc:
+        _exit_with_cli_error(
+            str(exc),
+            command="propagate",
+            code=CliExitCode.INTERNAL_ERROR,
+        )
+    except typer.Exit:
+        raise
+    except Exception as exc:
+        _exit_with_cli_error(
+            str(exc),
+            command="propagate",
             code=CliExitCode.INTERNAL_ERROR,
         )
 
