@@ -41,6 +41,7 @@ The current codebase includes:
 - Monte Carlo uncertainty sampling through the `sample` CLI command
 - stochastic state propagation through the `propagate` CLI command
 - twin-state stochastic observation model with true and estimated particle state
+- stochastic closed-loop tracking controller with proportional cross-track error feedback, path-length excess energy accounting, and cross-track timeline outputs
 - contract-only SITL evidence bundles through the `sitl` CLI command
 - ArduPilot SITL telemetry evidence and comparison reports through adapter APIs
   and the `sitl` / `compare` CLI commands

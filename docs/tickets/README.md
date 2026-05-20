@@ -42,8 +42,9 @@ The current codebase includes:
 - `bvlos-sim convert` QGC `.plan` importer and `bvlos-sim batch` multi-run estimate command with `batch.v1` manifest schema
 - stochastic state propagation via particle sampling with `propagate` CLI command and `stochastic-envelope.v1` output
 - twin-state stochastic observation model with per-particle estimated state and estimation-error timeline outputs
+- stochastic closed-loop tracking controller with proportional cross-track / along-track error feedback, per-particle true-state deviation, path-length excess accounting, and cross-track timeline outputs
 - passing Linux estimator/schema/CLI/scenario/SITL comparison test suite with
-  560 passing tests and 9 skipped live or environment-dependent tests
+  571 passing tests and 9 skipped live or environment-dependent tests
 
 ## Implemented Integration Validation
 
@@ -96,10 +97,10 @@ path rather than through isolated examples. Current validation includes:
 29. [060-import-export-and-batch-workflows.md](./060-import-export-and-batch-workflows.md)
 30. [047-stochastic-state-propagation.md](./047-stochastic-state-propagation.md)
 31. [048-observation-model-and-twin-state.md](./048-observation-model-and-twin-state.md)
+32. [049-stochastic-closed-loop-control.md](./049-stochastic-closed-loop-control.md)
 
 ### Planned
 
-32. [049-stochastic-closed-loop-control.md](./049-stochastic-closed-loop-control.md)
 33. [044-geodesic-dubins-divert.md](./044-geodesic-dubins-divert.md)
 34. [058-notam-live-airspace-integration.md](./058-notam-live-airspace-integration.md)
 35. [054-reference-inputs-for-calibration-and-import.md](./054-reference-inputs-for-calibration-and-import.md)
@@ -111,7 +112,6 @@ path rather than through isolated examples. Current validation includes:
 
 ## Current Gaps
 
-- No stochastic closed-loop tracking controller: Ticket 049.
 - No geodesic-aware Dubins divert path sampling: Ticket 044.
 - No NOTAM/live airspace integration: Ticket 058.
 - No reference inputs for calibration and import: Ticket 054.
