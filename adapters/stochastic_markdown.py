@@ -3,7 +3,11 @@
 import math
 
 from adapters.stochastic_envelope import StochasticResultEnvelope
-from schemas.stochastic import EstimationErrorTimelinePoint, PropagationTimelinePoint
+from schemas.stochastic import (
+    CrossTrackStats,
+    EstimationErrorTimelinePoint,
+    PropagationTimelinePoint,
+)
 
 
 def _fmt(value: float, decimals: int = 2) -> str:
@@ -24,6 +28,16 @@ def _estimation_error_points(
     envelope: StochasticResultEnvelope,
 ) -> list[EstimationErrorTimelinePoint]:
     points = envelope.result.estimation_error_timeline
+    if len(points) <= 20:
+        return points
+    stride = math.ceil(len(points) / 20)
+    return points[::stride][:20]
+
+
+def _cross_track_points(
+    envelope: StochasticResultEnvelope,
+) -> list[CrossTrackStats]:
+    points = envelope.result.cross_track_timeline
     if len(points) <= 20:
         return points
     stride = math.ceil(len(points) / 20)
@@ -74,6 +88,24 @@ def render_stochastic_markdown(envelope: StochasticResultEnvelope) -> str:
                 f"| {_fmt(point.position_error_m.mean)} "
                 f"| {_fmt(point.position_error_m.std)} "
                 f"| {_fmt(point.energy_error_wh.mean)} |"
+            )
+
+    if r.cross_track_timeline:
+        lines.append("")
+        lines.append("## Cross-Track Timeline")
+        lines.append("")
+        lines.append(
+            "| Elapsed (s) | XTE Mean (m) | XTE Std | Path Excess Mean (m) |"
+        )
+        lines.append(
+            "|-------------|--------------|---------|----------------------|"
+        )
+        for point in _cross_track_points(envelope):
+            lines.append(
+                f"| {_fmt(point.elapsed_time_s)} "
+                f"| {_fmt(point.cross_track_error_m.mean)} "
+                f"| {_fmt(point.cross_track_error_m.std)} "
+                f"| {_fmt(point.path_length_excess_m.mean)} |"
             )
 
     lines.append("")
