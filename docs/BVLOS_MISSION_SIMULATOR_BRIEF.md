@@ -40,6 +40,7 @@ The current codebase includes:
 - computed Dubins divert estimates for divert policy outcomes
 - Monte Carlo uncertainty sampling through the `sample` CLI command
 - stochastic state propagation through the `propagate` CLI command
+- twin-state stochastic observation model with true and estimated particle state
 - contract-only SITL evidence bundles through the `sitl` CLI command
 - ArduPilot SITL telemetry evidence and comparison reports through adapter APIs
   and the `sitl` / `compare` CLI commands
@@ -189,8 +190,7 @@ yet run a live autopilot or physics simulator.
 
 Known gaps in the current release:
 
-- no twin-state EKF observation model or stochastic closed-loop control;
-  Tickets 048, 049
+- no stochastic closed-loop control; Ticket 049
 - no geodesic Dubins divert; long-distance divert uses a planar approximation;
   Ticket 044
 - no NOTAM or live airspace integration; Ticket 058
@@ -235,10 +235,10 @@ in `examples/real_world/`. Ticket 059 adds a deliberately infeasible demo, and
 Ticket 060 adds QGC `.plan` conversion plus batch estimate manifests for CI and
 multi-vehicle comparisons.
 
-Ticket 047 is implemented: `propagate` now runs a time-stepped particle
-propagator and emits a per-step `p_reserve_violation` timeline. The next
-stochastic step is Ticket 048, adding the twin-state EKF observation model,
-followed by Ticket 049 for closed-loop tracking control.
+Tickets 047 and 048 are implemented: `propagate` now runs a time-stepped
+particle propagator, emits a per-step `p_reserve_violation` timeline, and
+tracks twin true/estimated particle state with estimation-error timelines. The
+next stochastic step is Ticket 049 for closed-loop tracking control.
 
 Longer-term priorities are a geodesic Dubins divert solver (Ticket 044),
 NOTAM/live airspace integration (Ticket 058), PX4 SITL adapter

@@ -14,8 +14,10 @@ from estimator.core.uncertainty import SampledOutputStats
 from estimator.environment.terrain import TerrainProvider
 from estimator.environment.wind import ConstantWindProvider, WindProvider
 from estimator.execution.engine import try_estimate_mission_distance_time
+from estimator.execution.propagator_ekf import EstimatedStateTracker
 from schemas.mission import MissionPlan
 from schemas.stochastic import (
+    EstimationErrorTimelinePoint,
     PropagationTimelinePoint,
     StochasticPropagationPlan,
     StochasticPropagationResult,
@@ -25,6 +27,7 @@ from schemas.uncertainty import (
     UncertaintyDistribution,
 )
 from schemas.vehicle import VehicleProfile
+from schemas.vehicle_sensors import SensorProfile
 
 
 @dataclass(frozen=True, slots=True)
@@ -149,6 +152,7 @@ class _ParticleTrack:
     energy_curve: _EnergyDrainCurve
     wind_east_mps: float
     wind_north_mps: float
+    estimated_state: EstimatedStateTracker | None = None
 
     @classmethod
     def from_estimate(
@@ -156,6 +160,7 @@ class _ParticleTrack:
         *,
         estimate: MissionEstimate,
         sample: _SampledParameters,
+        sensors: SensorProfile | None,
     ) -> "_ParticleTrack | None":
         if estimate.energy is None:
             return None
@@ -164,11 +169,21 @@ class _ParticleTrack:
         if energy_curve is None:
             return None
 
+        estimated_state = None
+        if sensors is not None:
+            estimated_state = EstimatedStateTracker.initial(
+                true_lat=estimate.legs[0].start_lat if estimate.legs else 0.0,
+                true_lon=estimate.legs[0].start_lon if estimate.legs else 0.0,
+                battery_cap_wh=estimate.energy.battery_capacity_wh,
+                sensors=sensors,
+            )
+
         return cls(
             battery_capacity_wh=estimate.energy.battery_capacity_wh,
             energy_curve=energy_curve,
             wind_east_mps=_zero_when_none(sample.wind_east_mps),
             wind_north_mps=_zero_when_none(sample.wind_north_mps),
+            estimated_state=estimated_state,
         )
 
     @property
@@ -221,6 +236,7 @@ class _ParticleSampler:
     baseline_legs: list[LegEstimate]
     estimator_inputs: _EstimatorInputs
     rng: random.Random
+    sensors: SensorProfile | None
 
     def run(self) -> _ParticlePopulation:
         particles: list[_ParticleTrack] = []
@@ -229,7 +245,7 @@ class _ParticleSampler:
         for _ in range(self.plan.samples):
             sample = _SampledParameters.from_plan(plan=self.plan, rng=self.rng)
             result = self._estimate_sample(sample)
-            particle = self._particle_from_result(result, sample)
+            particle = self._particle_from_result(result, sample, self.sensors)
             if particle is None:
                 continue
 
@@ -251,10 +267,13 @@ class _ParticleSampler:
     def _particle_from_result(
         result: MissionEstimate | None,
         sample: _SampledParameters,
+        sensors: SensorProfile | None,
     ) -> _ParticleTrack | None:
         if result is None:
             return None
-        return _ParticleTrack.from_estimate(estimate=result, sample=sample)
+        return _ParticleTrack.from_estimate(
+            estimate=result, sample=sample, sensors=sensors
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -292,17 +311,28 @@ class _TimelineBuilder:
     rng: random.Random
     wind_process_noise_std_mps: float
 
-    def build(self) -> list[PropagationTimelinePoint]:
+    def build(
+        self,
+    ) -> tuple[list[PropagationTimelinePoint], list[EstimationErrorTimelinePoint]]:
         if not self.population.particles:
-            return []
+            return [], []
 
         points: list[PropagationTimelinePoint] = []
+        error_snapshots: list[EstimationErrorTimelinePoint] = []
         previous_time_s = 0.0
-        for elapsed_time_s in _timeline_steps(self.population.t_max_s, self.dt_s):
-            self._advance_particle_winds(elapsed_time_s - previous_time_s)
+        for step_index, elapsed_time_s in enumerate(
+            _timeline_steps(self.population.t_max_s, self.dt_s)
+        ):
+            step_width_s = elapsed_time_s - previous_time_s
+            self._advance_particle_winds(step_width_s)
+            self._advance_estimated_states(step_index, elapsed_time_s, step_width_s)
             points.append(self._point_at(elapsed_time_s))
+            if self._has_estimated_states():
+                error_point = self._estimation_error_point_at(elapsed_time_s)
+                if error_point is not None:
+                    error_snapshots.append(error_point)
             previous_time_s = elapsed_time_s
-        return points
+        return points, error_snapshots
 
     def _advance_particle_winds(self, step_width_s: float) -> None:
         for particle in self.population.particles:
@@ -312,12 +342,43 @@ class _TimelineBuilder:
                 wind_process_noise_std_mps=self.wind_process_noise_std_mps,
             )
 
+    def _advance_estimated_states(
+        self, step_index: int, elapsed_time_s: float, step_width_s: float
+    ) -> None:
+        for particle in self.population.particles:
+            if particle.estimated_state is None:
+                continue
+            true_lat, true_lon = self.position.at(elapsed_time_s)
+            prev_consumed = particle.energy_curve.energy_consumed_at(
+                max(0.0, elapsed_time_s - step_width_s)
+            )
+            curr_consumed = particle.energy_curve.energy_consumed_at(elapsed_time_s)
+            true_delta_wh = curr_consumed - prev_consumed
+            particle.estimated_state.step(
+                step_index=step_index,
+                dt_s=step_width_s,
+                true_lat=true_lat,
+                true_lon=true_lon,
+                true_energy_consumed_since_last_wh=true_delta_wh,
+                rng=self.rng,
+            )
+
     def _point_at(self, elapsed_time_s: float) -> PropagationTimelinePoint:
-        remaining_values = [
+        true_remaining = [
             particle.energy_remaining_at(elapsed_time_s)
             for particle in self.population.particles
         ]
-        remaining_stats = _stats(remaining_values)
+        if self._has_estimated_states():
+            policy_remaining = [
+                particle.estimated_state.est_energy_remaining_wh
+                if particle.estimated_state is not None
+                else particle.energy_remaining_at(elapsed_time_s)
+                for particle in self.population.particles
+            ]
+        else:
+            policy_remaining = true_remaining
+
+        remaining_stats = _stats(true_remaining)
         if remaining_stats is None:
             raise ValueError("Timeline points require at least one particle.")
 
@@ -328,10 +389,41 @@ class _TimelineBuilder:
             lon_mean=lon_mean,
             energy_remaining_wh=remaining_stats,
             p_reserve_violation=_reserve_violation_rate(
-                remaining_values,
+                policy_remaining,
                 reserve_threshold_wh=self.reserve_threshold_wh,
                 sample_count=self.sample_count,
             ),
+        )
+
+    def _estimation_error_point_at(
+        self, elapsed_time_s: float
+    ) -> EstimationErrorTimelinePoint | None:
+        true_lat, true_lon = self.position.at(elapsed_time_s)
+        pos_errors = [
+            particle.estimated_state.position_error_m(true_lat, true_lon)
+            for particle in self.population.particles
+            if particle.estimated_state is not None
+        ]
+        energy_errors = [
+            particle.estimated_state.energy_error_wh(
+                particle.energy_remaining_at(elapsed_time_s)
+            )
+            for particle in self.population.particles
+            if particle.estimated_state is not None
+        ]
+        pos_stats = _stats(pos_errors)
+        energy_stats = _stats(energy_errors)
+        if pos_stats is None or energy_stats is None:
+            return None
+        return EstimationErrorTimelinePoint(
+            elapsed_time_s=elapsed_time_s,
+            position_error_m=pos_stats,
+            energy_error_wh=energy_stats,
+        )
+
+    def _has_estimated_states(self) -> bool:
+        return any(
+            particle.estimated_state is not None for particle in self.population.particles
         )
 
 
@@ -389,28 +481,31 @@ def run_stochastic_propagation(
         baseline_legs=baseline.legs,
         estimator_inputs=estimator_inputs,
         rng=rng,
+        sensors=vehicle.sensors,
     ).run()
     reserve_threshold_wh = _reserve_threshold_wh(baseline)
     final_remaining = population.final_remaining_values
+    timeline, estimation_error_timeline = _TimelineBuilder(
+        population=population,
+        position=_PositionInterpolator(
+            legs=population.position_legs,
+            fallback_lat=mission.planned_home.lat,
+            fallback_lon=mission.planned_home.lon,
+        ),
+        dt_s=plan.dt_s,
+        reserve_threshold_wh=reserve_threshold_wh,
+        sample_count=plan.samples,
+        rng=rng,
+        wind_process_noise_std_mps=plan.wind_process_noise_std_mps,
+    ).build()
 
     return StochasticPropagationResult(
         propagation_id=plan.propagation_id,
         seed=plan.seed,
         dt_s=plan.dt_s,
         sample_count=plan.samples,
-        timeline=_TimelineBuilder(
-            population=population,
-            position=_PositionInterpolator(
-                legs=population.position_legs,
-                fallback_lat=mission.planned_home.lat,
-                fallback_lon=mission.planned_home.lon,
-            ),
-            dt_s=plan.dt_s,
-            reserve_threshold_wh=reserve_threshold_wh,
-            sample_count=plan.samples,
-            rng=rng,
-            wind_process_noise_std_mps=plan.wind_process_noise_std_mps,
-        ).build(),
+        timeline=timeline,
+        estimation_error_timeline=estimation_error_timeline,
         reserve_at_landing_wh=_stats(final_remaining),
         feasibility_rate=_feasibility_rate(
             final_remaining,
