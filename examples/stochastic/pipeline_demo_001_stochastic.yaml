@@ -1,0 +1,25 @@
+schema_version: stochastic.v1
+propagation_id: pipeline-demo-stochastic
+mission_file: ../missions/pipeline_demo_001.yaml
+vehicle_file: ../vehicles/quadplane_v1.yaml
+dt_s: 2.0
+samples: 100
+seed: 42
+wind_process_noise_std_mps: 0.5
+parameters:
+  wind_east_mps:
+    kind: normal
+    mean: 0.0
+    std: 2.0
+  wind_north_mps:
+    kind: normal
+    mean: 0.0
+    std: 2.0
+  cruise_power_w:
+    kind: normal
+    mean: 450.0
+    std: 30.0
+  battery_capacity_wh:
+    kind: normal
+    mean: 900.0
+    std: 25.0

@@ -31,6 +31,11 @@ from adapters.scenario_envelope import (
 )
 from adapters.scenario_io import resolve_scenario_asset_path
 from adapters.scenario_markdown import render_scenario_markdown
+from adapters.stochastic_envelope import (
+    StochasticResultEnvelope,
+    render_stochastic_envelope_json,
+)
+from adapters.stochastic_markdown import render_stochastic_markdown
 from adapters.summary import format_estimate_summary, format_scenario_summary
 from adapters.terrain_grid import load_terrain_grid
 from adapters.uncertainty_envelope import (
@@ -125,6 +130,7 @@ def _resolve_asset_path(path: Path, *, mission_path: Path) -> Path:
 EstimatorEnvelopeRenderer = Callable[[EstimatorResultEnvelope], str]
 ScenarioEnvelopeRenderer = Callable[[ScenarioResultEnvelope], str]
 UncertaintyEnvelopeRenderer = Callable[[UncertaintyResultEnvelope], str]
+StochasticEnvelopeRenderer = Callable[[StochasticResultEnvelope], str]
 
 
 def _render_estimate_summary(envelope: EstimatorResultEnvelope) -> str:
@@ -167,6 +173,11 @@ _UNCERTAINTY_RENDERERS: dict[OutputFormat, UncertaintyEnvelopeRenderer] = {
     OutputFormat.MARKDOWN: render_uncertainty_markdown,
 }
 
+_STOCHASTIC_RENDERERS: dict[OutputFormat, StochasticEnvelopeRenderer] = {
+    OutputFormat.JSON: render_stochastic_envelope_json,
+    OutputFormat.MARKDOWN: render_stochastic_markdown,
+}
+
 
 def _render_output(
     output_format: OutputFormat,
@@ -187,6 +198,13 @@ def _render_uncertainty_output(
     envelope: UncertaintyResultEnvelope,
 ) -> str:
     return _UNCERTAINTY_RENDERERS[output_format](envelope)
+
+
+def _render_stochastic_output(
+    output_format: OutputFormat,
+    envelope: StochasticResultEnvelope,
+) -> str:
+    return _STOCHASTIC_RENDERERS[output_format](envelope)
 
 
 def _load_optional_asset(
@@ -440,6 +458,7 @@ __all__ = [
     "_envelope_output_format",
     "_render_output",
     "_render_scenario_output",
+    "_render_stochastic_output",
     "_render_uncertainty_output",
     "_resolve_asset_path",
     "_resolve_scenario_input_paths",

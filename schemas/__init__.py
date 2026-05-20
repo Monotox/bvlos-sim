@@ -54,6 +54,11 @@ from schemas.sitl_comparison import (
     SitlComparisonReport,
     SitlComparisonSummary,
 )
+from schemas.stochastic import (
+    PropagationTimelinePoint,
+    StochasticPropagationPlan,
+    StochasticPropagationResult,
+)
 from schemas.vehicle import (
     AutopilotStack,
     EnergyModel,
@@ -90,6 +95,7 @@ __all__ = [
     "MissionPolicyRef",
     "PerformanceProfile",
     "PlannedHome",
+    "PropagationTimelinePoint",
     "ResourceSystemConfig",
     "ResourceSystemKind",
     "RouteItem",
@@ -115,6 +121,8 @@ __all__ = [
     "SitlObservedArtifacts",
     "SitlProfile",
     "SitlSimulatorMetadata",
+    "StochasticPropagationPlan",
+    "StochasticPropagationResult",
     "VehicleCapabilities",
     "VehicleClass",
     "VehicleProfile",

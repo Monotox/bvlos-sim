@@ -40,6 +40,7 @@ The current codebase includes:
 - `fetch_all.py` (one-command wrapper), `fetch_wind.py`, `fetch_terrain.py`, `fetch_landing_zones.py`, and `fetch_geofences.py` scripts for real SRTM terrain, Open-Meteo wind forecast, Overpass landing zones, and static airspace geofences; pre-fetched Alpine example in `examples/real_world/`
 - deliberately infeasible demo mission (`alpine_infeasible.yaml` + `quadplane_small_battery.yaml`) with README explanation of what failed and how to fix it
 - `bvlos-sim convert` QGC `.plan` importer and `bvlos-sim batch` multi-run estimate command with `batch.v1` manifest schema
+- stochastic state propagation via particle sampling with `propagate` CLI command and `stochastic-envelope.v1` output
 - passing Linux estimator/schema/CLI/scenario/SITL comparison test suite with
   521 tests and 9 skipped live or environment-dependent tests
 
@@ -92,10 +93,10 @@ path rather than through isolated examples. Current validation includes:
 27. [053-airspace-geofence-fetch-script.md](./053-airspace-geofence-fetch-script.md)
 28. [059-infeasible-demo-mission.md](./059-infeasible-demo-mission.md)
 29. [060-import-export-and-batch-workflows.md](./060-import-export-and-batch-workflows.md)
+30. [047-stochastic-state-propagation.md](./047-stochastic-state-propagation.md)
 
 ### Planned
 
-30. [047-stochastic-state-propagation.md](./047-stochastic-state-propagation.md)
 31. [048-observation-model-and-twin-state.md](./048-observation-model-and-twin-state.md)
 32. [049-stochastic-closed-loop-control.md](./049-stochastic-closed-loop-control.md)
 33. [044-geodesic-dubins-divert.md](./044-geodesic-dubins-divert.md)
@@ -109,8 +110,8 @@ path rather than through isolated examples. Current validation includes:
 
 ## Current Gaps
 
-- No stochastic state propagation: Ticket 047 (propagator), 048 (twin-state
-  EKF observation model), 049 (closed-loop tracking controller).
+- No twin-state EKF observation model or stochastic closed-loop tracking
+  controller: Tickets 048 and 049.
 - No geodesic-aware Dubins divert path sampling: Ticket 044.
 - No NOTAM/live airspace integration: Ticket 058.
 - No reference inputs for calibration and import: Ticket 054.

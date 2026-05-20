@@ -1,0 +1,126 @@
+"""Tests for the propagate CLI command (Ticket 047)."""
+
+import json
+from pathlib import Path
+
+from typer.testing import CliRunner
+
+from adapters.cli import CliExitCode, app
+from adapters.stochastic_envelope import STOCHASTIC_ENVELOPE_SCHEMA_VERSION
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+EXAMPLE_STOCHASTIC = (
+    REPO_ROOT / "examples/stochastic/pipeline_demo_001_stochastic.yaml"
+)
+
+runner = CliRunner()
+
+
+def _run(args: list[str]):
+    return runner.invoke(app, args)
+
+
+# ---------------------------------------------------------------------------
+# Happy-path CLI tests
+# ---------------------------------------------------------------------------
+
+
+def test_propagate_command_exits_zero() -> None:
+    result = _run(["propagate", str(EXAMPLE_STOCHASTIC)])
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+
+
+def test_propagate_command_json_schema_version() -> None:
+    result = _run(["propagate", str(EXAMPLE_STOCHASTIC)])
+    payload = json.loads(result.output)
+    assert payload["schema_version"] == STOCHASTIC_ENVELOPE_SCHEMA_VERSION
+
+
+def test_propagate_command_propagation_id() -> None:
+    result = _run(["propagate", str(EXAMPLE_STOCHASTIC)])
+    payload = json.loads(result.output)
+    assert payload["propagation_id"] == "pipeline-demo-stochastic"
+
+
+def test_propagate_command_result_has_expected_keys() -> None:
+    result = _run(["propagate", str(EXAMPLE_STOCHASTIC)])
+    payload = json.loads(result.output)
+    r = payload["result"]
+    assert "sample_count" in r
+    assert "timeline" in r
+    assert "feasibility_rate" in r
+    assert "reserve_at_landing_wh" in r
+    assert "baseline" in r
+    assert "seed" in r
+    assert "dt_s" in r
+
+
+def test_propagate_command_timeline_is_non_empty() -> None:
+    result = _run(["propagate", str(EXAMPLE_STOCHASTIC)])
+    payload = json.loads(result.output)
+    assert len(payload["result"]["timeline"]) >= 1
+
+
+def test_propagate_command_determinism_metadata_not_deterministic() -> None:
+    result = _run(["propagate", str(EXAMPLE_STOCHASTIC)])
+    payload = json.loads(result.output)
+    assert payload["determinism_metadata"]["deterministic"] is False
+    assert payload["determinism_metadata"]["randomness_used"] is True
+
+
+def test_propagate_command_provenance_has_required_inputs() -> None:
+    result = _run(["propagate", str(EXAMPLE_STOCHASTIC)])
+    payload = json.loads(result.output)
+    assert set(payload["provenance"]["inputs"].keys()) == {
+        "stochastic",
+        "mission",
+        "vehicle",
+    }
+
+
+def test_propagate_command_is_reproducible() -> None:
+    r1 = _run(["propagate", str(EXAMPLE_STOCHASTIC)])
+    r2 = _run(["propagate", str(EXAMPLE_STOCHASTIC)])
+    assert r1.output == r2.output
+
+
+def test_propagate_command_markdown_format() -> None:
+    result = _run(["propagate", str(EXAMPLE_STOCHASTIC), "--format", "markdown"])
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    assert "# Stochastic Propagation Report" in result.output
+
+
+def test_propagate_command_output_to_file(tmp_path: Path) -> None:
+    out_file = tmp_path / "report.json"
+    result = _run(["propagate", str(EXAMPLE_STOCHASTIC), "--output", str(out_file)])
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    assert out_file.exists()
+    payload = json.loads(out_file.read_text())
+    assert payload["schema_version"] == STOCHASTIC_ENVELOPE_SCHEMA_VERSION
+
+
+# ---------------------------------------------------------------------------
+# Error handling
+# ---------------------------------------------------------------------------
+
+
+def test_propagate_command_invalid_file_exits_invalid_input(tmp_path: Path) -> None:
+    bad_file = tmp_path / "bad.yaml"
+    bad_file.write_text(
+        "\n".join(
+            [
+                "schema_version: stochastic.v1",
+                "propagation_id: x",
+                "mission_file: m.yaml",
+                "vehicle_file: v.yaml",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    result = _run(["propagate", str(bad_file)])
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+
+
+def test_propagate_command_missing_file_exits_nonzero() -> None:
+    result = _run(["propagate", "/does/not/exist.yaml"])
+    assert result.exit_code != 0

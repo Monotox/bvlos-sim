@@ -39,11 +39,13 @@ The current codebase includes:
 - lost-link policy outcomes for `rtl`, `land`, `loiter`, and `divert`
 - computed Dubins divert estimates for divert policy outcomes
 - Monte Carlo uncertainty sampling through the `sample` CLI command
+- stochastic state propagation through the `propagate` CLI command
 - contract-only SITL evidence bundles through the `sitl` CLI command
 - ArduPilot SITL telemetry evidence and comparison reports through adapter APIs
   and the `sitl` / `compare` CLI commands
 - canonical JSON envelopes and optional Markdown reports
-- CLI commands for estimator, scenario, uncertainty, and SITL contract workflows
+- CLI commands for estimator, scenario, uncertainty, stochastic, and SITL
+  contract workflows
 - golden fixture tests for stable public output contracts
 
 ## Primary Workflows
@@ -111,10 +113,11 @@ Current output contracts:
 - `estimator-envelope.v5`: canonical estimator JSON envelope
 - `scenario-report.v2`: canonical scenario JSON envelope
 - `uncertainty-report.v1`: canonical uncertainty JSON envelope
+- `stochastic-envelope.v1`: canonical stochastic propagation JSON envelope
 - `sitl-evidence.v1`: canonical SITL evidence bundle
 - `sitl-comparison.v1`: canonical SITL comparison report
-- Markdown reports for estimator, scenario, uncertainty, and SITL comparison
-  outputs
+- Markdown reports for estimator, scenario, uncertainty, stochastic, and SITL
+  comparison outputs
 
 JSON rendering is deterministic and sorted, and representative outputs are
 covered by golden fixture tests.
@@ -186,7 +189,8 @@ yet run a live autopilot or physics simulator.
 
 Known gaps in the current release:
 
-- no stochastic state propagation or twin-state EKF; Tickets 047, 048, 049
+- no twin-state EKF observation model or stochastic closed-loop control;
+  Tickets 048, 049
 - no geodesic Dubins divert; long-distance divert uses a planar approximation;
   Ticket 044
 - no NOTAM or live airspace integration; Ticket 058
@@ -231,9 +235,10 @@ in `examples/real_world/`. Ticket 059 adds a deliberately infeasible demo, and
 Ticket 060 adds QGC `.plan` conversion plus batch estimate manifests for CI and
 multi-vehicle comparisons.
 
-The next major track is stochastic execution (Tickets 047-049): a time-stepped
-propagator, twin-state EKF, and closed-loop tracking controller that shift from
-a single reserve-at-landing scalar to a per-step `p_reserve_violation` timeline.
+Ticket 047 is implemented: `propagate` now runs a time-stepped particle
+propagator and emits a per-step `p_reserve_violation` timeline. The next
+stochastic step is Ticket 048, adding the twin-state EKF observation model,
+followed by Ticket 049 for closed-loop tracking control.
 
 Longer-term priorities are a geodesic Dubins divert solver (Ticket 044),
 NOTAM/live airspace integration (Ticket 058), PX4 SITL adapter
