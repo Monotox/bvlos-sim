@@ -41,8 +41,9 @@ The current codebase includes:
 - deliberately infeasible demo mission (`alpine_infeasible.yaml` + `quadplane_small_battery.yaml`) with README explanation of what failed and how to fix it
 - `bvlos-sim convert` QGC `.plan` importer and `bvlos-sim batch` multi-run estimate command with `batch.v1` manifest schema
 - stochastic state propagation via particle sampling with `propagate` CLI command and `stochastic-envelope.v1` output
+- twin-state stochastic observation model with per-particle estimated state and estimation-error timeline outputs
 - passing Linux estimator/schema/CLI/scenario/SITL comparison test suite with
-  521 tests and 9 skipped live or environment-dependent tests
+  560 passing tests and 9 skipped live or environment-dependent tests
 
 ## Implemented Integration Validation
 
@@ -94,10 +95,10 @@ path rather than through isolated examples. Current validation includes:
 28. [059-infeasible-demo-mission.md](./059-infeasible-demo-mission.md)
 29. [060-import-export-and-batch-workflows.md](./060-import-export-and-batch-workflows.md)
 30. [047-stochastic-state-propagation.md](./047-stochastic-state-propagation.md)
+31. [048-observation-model-and-twin-state.md](./048-observation-model-and-twin-state.md)
 
 ### Planned
 
-31. [048-observation-model-and-twin-state.md](./048-observation-model-and-twin-state.md)
 32. [049-stochastic-closed-loop-control.md](./049-stochastic-closed-loop-control.md)
 33. [044-geodesic-dubins-divert.md](./044-geodesic-dubins-divert.md)
 34. [058-notam-live-airspace-integration.md](./058-notam-live-airspace-integration.md)
@@ -110,8 +111,7 @@ path rather than through isolated examples. Current validation includes:
 
 ## Current Gaps
 
-- No twin-state EKF observation model or stochastic closed-loop tracking
-  controller: Tickets 048 and 049.
+- No stochastic closed-loop tracking controller: Ticket 049.
 - No geodesic-aware Dubins divert path sampling: Ticket 044.
 - No NOTAM/live airspace integration: Ticket 058.
 - No reference inputs for calibration and import: Ticket 054.

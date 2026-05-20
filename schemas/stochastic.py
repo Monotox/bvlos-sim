@@ -33,6 +33,14 @@ class PropagationTimelinePoint(BaseModel):
     p_reserve_violation: float
 
 
+class EstimationErrorTimelinePoint(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    elapsed_time_s: float
+    position_error_m: SampledOutputStats
+    energy_error_wh: SampledOutputStats
+
+
 class StochasticPropagationResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -41,6 +49,9 @@ class StochasticPropagationResult(BaseModel):
     dt_s: float
     sample_count: int
     timeline: list[PropagationTimelinePoint]
+    estimation_error_timeline: list[EstimationErrorTimelinePoint] = Field(
+        default_factory=list
+    )
     reserve_at_landing_wh: SampledOutputStats | None
     feasibility_rate: float
     baseline: MissionEstimate

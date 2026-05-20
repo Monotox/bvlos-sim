@@ -15,6 +15,7 @@ from schemas.vehicle_energy import EnergyModel, FailsafeProfile
 from schemas.vehicle_enums import AutopilotStack, VehicleClass
 from schemas.vehicle_mass import MassProfile
 from schemas.vehicle_performance import PerformanceProfile
+from schemas.vehicle_sensors import SensorProfile
 from schemas.vehicle_sitl import SitlProfile
 
 
@@ -97,6 +98,7 @@ class VehicleProfile(BaseModel):
         ),
     )
     sitl: SitlProfile | None = None
+    sensors: SensorProfile | None = None
     metadata: dict[str, Any] = Field(
         default_factory=dict,
         description="Free-form notes such as source links, version, or calibration status ignored by estimator v1.",
@@ -121,6 +123,7 @@ __all__ = [
     "MassProfile",
     "PerformanceProfile",
     "ResourceSystemConfig",
+    "SensorProfile",
     "SitlProfile",
     "VehicleCapabilities",
     "VehicleClass",

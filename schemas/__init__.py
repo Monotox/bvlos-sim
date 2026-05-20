@@ -55,16 +55,19 @@ from schemas.sitl_comparison import (
     SitlComparisonSummary,
 )
 from schemas.stochastic import (
+    EstimationErrorTimelinePoint,
     PropagationTimelinePoint,
     StochasticPropagationPlan,
     StochasticPropagationResult,
 )
+from schemas.vehicle_sensors import AirspeedModel, BatteryMeterModel, GpsModel
 from schemas.vehicle import (
     AutopilotStack,
     EnergyModel,
     FailsafeProfile,
     MassProfile,
     PerformanceProfile,
+    SensorProfile,
     SitlProfile,
     VehicleCapabilities,
     VehicleClass,
@@ -73,6 +76,9 @@ from schemas.vehicle import (
 
 __all__ = [
     "AltitudeReference",
+    "AirspeedModel",
+    "BatteryMeterModel",
+    "GpsModel",
     "NormalDistribution",
     "UniformDistribution",
     "UncertaintyDistribution",
@@ -80,6 +86,7 @@ __all__ = [
     "UncertaintyPlan",
     "AutopilotStack",
     "EnergyModel",
+    "EstimationErrorTimelinePoint",
     "ExternalPowerDelivery",
     "FailsafeProfile",
     "LinkAvailability",
@@ -99,6 +106,7 @@ __all__ = [
     "ResourceSystemConfig",
     "ResourceSystemKind",
     "RouteItem",
+    "SensorProfile",
     "WindLayerConfig",
     "ScenarioAssertion",
     "ScenarioAssertionKind",
