@@ -41,6 +41,15 @@ class EstimationErrorTimelinePoint(BaseModel):
     energy_error_wh: SampledOutputStats
 
 
+class CrossTrackStats(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    elapsed_time_s: float
+    cross_track_error_m: SampledOutputStats
+    along_track_error_m: SampledOutputStats
+    path_length_excess_m: SampledOutputStats
+
+
 class StochasticPropagationResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -52,6 +61,7 @@ class StochasticPropagationResult(BaseModel):
     estimation_error_timeline: list[EstimationErrorTimelinePoint] = Field(
         default_factory=list
     )
+    cross_track_timeline: list[CrossTrackStats] = Field(default_factory=list)
     reserve_at_landing_wh: SampledOutputStats | None
     feasibility_rate: float
     baseline: MissionEstimate
