@@ -37,9 +37,9 @@
 ## Provenance
 
 - Estimator API: `estimator.try_estimate_mission_distance_time`
-- mission: `yaml` sha256 `d5cf66b6a52da6e9106b51885d13735eafd5053e87a1e6e74869dbb2c0cca7da`
-- vehicle: `yaml` sha256 `4067f6697bba308915271afc95bf273ae7dc7637f3d921c71ac30b15a26453e5`
-- wind_grid: `yaml` sha256 `10326e2f5c6d70305d94bbd79e38824ea5fd8db0ed0d2cd056c6ce60dc9fc216`
+- mission: `yaml` sha256 `58ab52dfa39badfef9d78a753680a11138b86d6e9e3e47ad2f338c86df004d46`
+- vehicle: `yaml` sha256 `8d6aa9d57a7125b48b16264741c45c3335f026acb19ecba8fe0e2b36fa3c7046`
+- wind_grid: `yaml` sha256 `0615f1d182a44ff64d369721985b3eff8d063e5eb0922c9dcfd9ba29503120bc`
 
 ## Determinism
 

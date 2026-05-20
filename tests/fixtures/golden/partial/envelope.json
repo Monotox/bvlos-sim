@@ -51,11 +51,11 @@
     "inputs": {
       "mission": {
         "format": "yaml",
-        "sha256": "5d6cab40974459fcdcde15d97cdb18d58382cf9a349de2421931654770ce36c0"
+        "sha256": "2650157590fad82b465d16df941d4bf7fa4217c50127b5c5672e938253d6159d"
       },
       "vehicle": {
         "format": "yaml",
-        "sha256": "4067f6697bba308915271afc95bf273ae7dc7637f3d921c71ac30b15a26453e5"
+        "sha256": "8d6aa9d57a7125b48b16264741c45c3335f026acb19ecba8fe0e2b36fa3c7046"
       }
     }
   },
