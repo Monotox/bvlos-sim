@@ -47,7 +47,6 @@ def _plan(
     )
 
 
-
 def test_perfect_gps_produces_zero_position_error() -> None:
     mission, vehicle = _mission_vehicle()
     vehicle = vehicle.model_copy(
@@ -113,13 +112,15 @@ def test_higher_gps_accuracy_produces_wider_error() -> None:
 def test_sensors_none_results_identical_to_ticket_047() -> None:
     mission, vehicle = _mission_vehicle()
     plan = _plan(samples=30, seed=12)
-    vehicle_no_sensors = vehicle.model_copy(update={"sensors": None})
 
-    result = run_stochastic_propagation(plan, mission, vehicle_no_sensors)
-    result_no_sensors = run_stochastic_propagation(plan, mission, vehicle)
+    result_implicit = run_stochastic_propagation(plan, mission, vehicle)
+    result_explicit = run_stochastic_propagation(
+        plan, mission, vehicle.model_copy(update={"sensors": None})
+    )
 
-    assert result.timeline == result_no_sensors.timeline
-    assert result.estimation_error_timeline == []
+    assert result_implicit.timeline == result_explicit.timeline
+    assert result_implicit.estimation_error_timeline == []
+    assert result_explicit.estimation_error_timeline == []
 
 
 def test_battery_meter_noise_affects_p_reserve_violation() -> None:
