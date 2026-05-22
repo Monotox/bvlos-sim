@@ -1,0 +1,66 @@
+vehicle_id: quadplane_v1_ekf
+display_name: QuadPlane v1 (EKF + Tracking Controller)
+vehicle_class: vtol
+mav_type: MAV_TYPE_VTOL_QUADROTOR
+autopilot: ardupilot
+
+mass:
+  empty_kg: 8.0
+  max_payload_kg: 2.0
+  max_takeoff_kg: 12.0
+
+performance:
+  cruise_speed_mps: 18.0
+  hover_speed_mps: 5.0
+  max_speed_mps: 25.0
+  climb_rate_mps: 3.0
+  descent_rate_mps: 2.0
+  turn_radius_m: 80.0
+  max_wind_mps: 10.0
+  max_crab_angle_deg: 35.0
+  max_station_keep_wind_mps: 8.0
+
+energy:
+  battery_capacity_wh: 900.0
+  reserve_percent_default: 25.0
+  cruise_power_w: 450.0
+  hover_power_w: 1200.0
+  climb_power_w: 1500.0
+
+failsafe:
+  low_battery_warn_percent: 30
+  low_battery_abort_percent: 25
+  emergency_land_percent: 10
+
+sensors:
+  gps:
+    horizontal_accuracy_m: 2.5
+    vertical_accuracy_m: 4.0
+    fix_rate_hz: 5.0
+    availability: 0.95
+  battery_meter:
+    current_sensor_noise_pct: 1.5
+    voltage_noise_mv: 10.0
+    update_rate_hz: 10.0
+
+controller:
+  Kp_cross_track: 0.15
+  Kp_along_track: 0.05
+  max_heading_correction_rad: 0.5236
+  max_speed_correction_mps: 2.0
+
+capabilities:
+  hover: true
+  forward_flight: true
+
+sitl:
+  backend: ardupilot
+  frame: quadplane
+
+metadata:
+  calibration_status: placeholder_values
+  notes: >
+    Extends quadplane_v1 with GPS sensor noise (T048), battery-meter noise (T048),
+    and proportional cross-track tracking controller (T049).
+    Enables estimation_error_timeline and cross_track_timeline in propagate output.
+    Replace sensor parameters with measured values before real analysis.

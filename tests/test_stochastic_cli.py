@@ -12,6 +12,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 EXAMPLE_STOCHASTIC = (
     REPO_ROOT / "examples/stochastic/pipeline_demo_001_stochastic.yaml"
 )
+GOLDEN_STOCHASTIC = REPO_ROOT / "tests/fixtures/golden/stochastic/stochastic.yaml"
 
 runner = CliRunner()
 
@@ -124,3 +125,16 @@ def test_propagate_command_invalid_file_exits_invalid_input(tmp_path: Path) -> N
 def test_propagate_command_missing_file_exits_nonzero() -> None:
     result = _run(["propagate", "/does/not/exist.yaml"])
     assert result.exit_code != 0
+
+
+# ---------------------------------------------------------------------------
+# Golden fixture regression test
+# ---------------------------------------------------------------------------
+
+
+def test_propagate_canonical_json_matches_golden_fixture() -> None:
+    fixture_dir = REPO_ROOT / "tests/fixtures/golden/stochastic"
+    result = _run(["propagate", str(GOLDEN_STOCHASTIC)])
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    expected = (fixture_dir / "envelope.json").read_text(encoding="utf-8")
+    assert result.output == expected

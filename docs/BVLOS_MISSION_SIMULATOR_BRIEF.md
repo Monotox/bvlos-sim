@@ -191,9 +191,6 @@ yet run a live autopilot or physics simulator.
 
 Known gaps in the current release:
 
-- no stochastic closed-loop control; Ticket 049
-- no geodesic Dubins divert; long-distance divert uses a planar approximation;
-  Ticket 044
 - no NOTAM or live airspace integration; Ticket 058
 - no reference inputs for calibration and import; Ticket 054
 - no PX4 SITL adapter; Tickets 045, 046
@@ -236,13 +233,15 @@ in `examples/real_world/`. Ticket 059 adds a deliberately infeasible demo, and
 Ticket 060 adds QGC `.plan` conversion plus batch estimate manifests for CI and
 multi-vehicle comparisons.
 
-Tickets 047 and 048 are implemented: `propagate` now runs a time-stepped
-particle propagator, emits a per-step `p_reserve_violation` timeline, and
-tracks twin true/estimated particle state with estimation-error timelines. The
-next stochastic step is Ticket 049 for closed-loop tracking control.
+Tickets 047, 048, and 049 are implemented: `propagate` runs a time-stepped
+particle propagator with twin true/estimated particle state, GPS and
+battery-meter sensor noise models, an EKF predict/update cycle, and a
+proportional cross-track tracking controller. The `estimation_error_timeline`
+and `cross_track_timeline` outputs are populated when the vehicle profile
+includes `sensors` and `controller` blocks; see
+`examples/vehicles/quadplane_v1_ekf.yaml` for a working example.
 
-Longer-term priorities are a geodesic Dubins divert solver (Ticket 044),
-NOTAM/live airspace integration (Ticket 058), PX4 SITL adapter
+Longer-term priorities are NOTAM/live airspace integration (Ticket 058), PX4 SITL adapter
 (Tickets 045–046), API/UI surfaces (Ticket 050), operational integration
 (Tickets 070–071), and real-world calibration from flight logs (Tickets 080–084).
 

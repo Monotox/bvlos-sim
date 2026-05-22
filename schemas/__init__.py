@@ -1,5 +1,6 @@
 """Public schema models for mission, vehicle, scenario, uncertainty, and SITL configuration."""
 
+from schemas.batch import BatchManifest, BatchRun
 from schemas.uncertainty import (
     NormalDistribution,
     UniformDistribution,
@@ -79,6 +80,8 @@ from schemas.vehicle import (
 __all__ = [
     "AltitudeReference",
     "AirspeedModel",
+    "BatchManifest",
+    "BatchRun",
     "BatteryMeterModel",
     "GpsModel",
     "NormalDistribution",

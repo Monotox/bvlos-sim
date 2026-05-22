@@ -1,0 +1,25 @@
+schema_version: stochastic.v1
+propagation_id: golden-stochastic
+mission_file: ./mission.yaml
+vehicle_file: ./vehicle.yaml
+dt_s: 5.0
+samples: 5
+seed: 1
+wind_process_noise_std_mps: 0.3
+parameters:
+  wind_east_mps:
+    kind: normal
+    mean: 0.0
+    std: 1.5
+  wind_north_mps:
+    kind: normal
+    mean: 0.0
+    std: 1.5
+  cruise_power_w:
+    kind: normal
+    mean: 450.0
+    std: 20.0
+  battery_capacity_wh:
+    kind: normal
+    mean: 900.0
+    std: 15.0

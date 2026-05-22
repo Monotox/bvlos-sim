@@ -23,13 +23,14 @@ uv run bvlos-sim --help
 
 ## CLI Commands
 
-bvlos-sim exposes seven commands:
+bvlos-sim exposes eight commands:
 
 - `estimate`: run deterministic mission estimation and static feasibility checks
 - `scenario`: run deterministic scenario events and assertions
 - `convert`: convert a QGroundControl `.plan` file to a `mission.v5` YAML
 - `batch`: run batch mission estimates from a manifest file
 - `sample`: run seeded Monte Carlo uncertainty sampling
+- `propagate`: run time-stepped stochastic particle propagation (Tickets 047–049)
 - `sitl`: build a contract-only or live SITL evidence bundle from an existing scenario
 - `compare`: compare a SITL evidence bundle against deterministic scenario expectations
 
@@ -38,6 +39,7 @@ bvlos-sim exposes seven commands:
 | estimate | success | infeasible | invalid input | unsupported | internal error |
 | scenario | passed | failed | invalid input | - | internal error |
 | sample | success | - | invalid input | - | internal error |
+| propagate | success | - | invalid input | - | internal error |
 | sitl | success | - | invalid input | - | internal/write error |
 | compare | passed | drifted/failed | invalid input | unsupported (contract-only) | internal/write error |
 | convert | success | - | invalid input | - | internal error |
@@ -65,6 +67,7 @@ uv run bvlos-sim scenario --help
 uv run bvlos-sim convert --help
 uv run bvlos-sim batch --help
 uv run bvlos-sim sample --help
+uv run bvlos-sim propagate --help
 uv run bvlos-sim sitl --help
 uv run bvlos-sim compare --help
 ```
@@ -352,6 +355,78 @@ should be treated as operational risk, even when the deterministic estimate
 passes. Percentile fields such as `p95` describe tail behavior: for
 reserve-at-landing, low-end percentiles are usually the operational concern; for
 time or energy use, high-end percentiles show the conservative planning bound.
+
+## Stochastic Propagation
+
+The `propagate` command runs a time-stepped particle propagator over the full
+mission timeline. Each particle carries independently sampled wind, cruise
+speed, cruise power, and battery capacity. Per-step `p_reserve_violation`
+tracks energy risk accumulation. Emits `stochastic-envelope.v1`.
+
+```bash
+uv run bvlos-sim propagate \
+  examples/stochastic/pipeline_demo_001_stochastic.yaml \
+  --format json \
+  --output /tmp/stochastic.json
+```
+
+Write Markdown:
+
+```bash
+uv run bvlos-sim propagate \
+  examples/stochastic/pipeline_demo_001_stochastic.yaml \
+  --format markdown \
+  --output /tmp/stochastic-report.md
+```
+
+The `seed` in the stochastic YAML makes repeated runs reproducible for the
+same sample count and parameters. `feasibility_rate` is the fraction of
+particles that landed with sufficient reserve. `reserve_at_landing_wh` gives
+distribution statistics (mean, std, p5, p50, p95) over particles.
+
+To activate the twin-state EKF and cross-track controller, the vehicle file
+must include `sensors` and `controller` blocks. Without those blocks the
+propagator runs in basic mode (identical to T047 behavior) and
+`estimation_error_timeline` and `cross_track_timeline` are empty. An example
+EKF-equipped vehicle is provided at
+`examples/vehicles/quadplane_v1_ekf.yaml`:
+
+```bash
+uv run bvlos-sim propagate \
+  examples/stochastic/pipeline_demo_001_stochastic_ekf.yaml \
+  --format json \
+  --output /tmp/stochastic-ekf.json
+```
+
+The `stochastic.v1` YAML format:
+
+```yaml
+schema_version: stochastic.v1
+propagation_id: my-propagation
+mission_file: path/to/mission.yaml
+vehicle_file: path/to/vehicle.yaml
+dt_s: 2.0         # time step in seconds
+samples: 100      # number of particles
+seed: 42          # fixed seed for reproducibility
+wind_process_noise_std_mps: 0.5
+parameters:
+  wind_east_mps:
+    kind: normal
+    mean: 0.0
+    std: 2.0
+  wind_north_mps:
+    kind: normal
+    mean: 0.0
+    std: 2.0
+  cruise_power_w:
+    kind: normal
+    mean: 450.0
+    std: 30.0
+  battery_capacity_wh:
+    kind: normal
+    mean: 900.0
+    std: 25.0
+```
 
 ## SITL Evidence Contract
 
@@ -806,13 +881,16 @@ The scenario CLI emits `scenario-report.v2`.
 
 The sample CLI emits `uncertainty-report.v1`.
 
+The propagate CLI emits `stochastic-envelope.v1`.
+
 The SITL contract command emits `sitl-evidence.v1`.
 
 The compare CLI and SITL comparison API emit `sitl-comparison.v1`.
 
-Estimator and scenario JSON outputs are canonical, deterministic, and
-regression-tested with golden fixtures. Markdown output is supported for
-human-readable estimator, scenario, uncertainty, and SITL comparison reports.
+Estimator, scenario, and stochastic JSON outputs are canonical and
+regression-tested with golden fixtures. Stochastic output is deterministic
+for a fixed seed. Markdown output is supported for human-readable estimator,
+scenario, uncertainty, stochastic, and SITL comparison reports.
 `estimate --format summary` and `scenario --format summary` emit one-line
 plain-text summaries for terminal checks and shell pipelines; no summary schema
 or envelope is created. `estimate --format geojson|kml` and
