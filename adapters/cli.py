@@ -126,9 +126,21 @@ class DocumentOutputFormat(StrEnum):
     MARKDOWN = "markdown"
 
 
+class SummaryOutputFormat(StrEnum):
+    JSON = "json"
+    MARKDOWN = "markdown"
+    SUMMARY = "summary"
+
+
 _DOCUMENT_OUTPUT_FORMATS: dict[DocumentOutputFormat, OutputFormat] = {
     DocumentOutputFormat.JSON: OutputFormat.JSON,
     DocumentOutputFormat.MARKDOWN: OutputFormat.MARKDOWN,
+}
+
+_SUMMARY_OUTPUT_FORMATS: dict[SummaryOutputFormat, OutputFormat] = {
+    SummaryOutputFormat.JSON: OutputFormat.JSON,
+    SummaryOutputFormat.MARKDOWN: OutputFormat.MARKDOWN,
+    SummaryOutputFormat.SUMMARY: OutputFormat.SUMMARY,
 }
 _FAILURE_KIND_EXIT_CODES = {
     FailureKind.INFEASIBLE: CliExitCode.INFEASIBLE,
@@ -183,6 +195,10 @@ def _exit_with_cli_error(
 
 def _document_output_format(output_format: DocumentOutputFormat) -> OutputFormat:
     return _DOCUMENT_OUTPUT_FORMATS[output_format]
+
+
+def _summary_output_format(output_format: SummaryOutputFormat) -> OutputFormat:
+    return _SUMMARY_OUTPUT_FORMATS[output_format]
 
 
 def _render_estimate_command_output(
@@ -689,7 +705,7 @@ def sample(
     uncertainty_file: Path = typer.Argument(
         ..., exists=True, readable=True, resolve_path=True
     ),
-    format: DocumentOutputFormat = typer.Option(DocumentOutputFormat.JSON, "--format"),
+    format: SummaryOutputFormat = typer.Option(SummaryOutputFormat.JSON, "--format"),
     output: Path | None = typer.Option(None, "--output", "-o"),
 ) -> None:
     """Run a seeded Monte Carlo uncertainty analysis and emit an uncertainty report."""
@@ -734,7 +750,7 @@ def sample(
             vehicle_document=vehicle_document,
         )
         _write_output(
-            _render_uncertainty_output(_document_output_format(format), envelope),
+            _render_uncertainty_output(_summary_output_format(format), envelope),
             output,
         )
         raise typer.Exit(code=int(CliExitCode.SUCCESS))
@@ -771,7 +787,7 @@ def propagate(
     stochastic_file: Path = typer.Argument(
         ..., exists=True, readable=True, resolve_path=True
     ),
-    format: DocumentOutputFormat = typer.Option(DocumentOutputFormat.JSON, "--format"),
+    format: SummaryOutputFormat = typer.Option(SummaryOutputFormat.JSON, "--format"),
     output: Path | None = typer.Option(None, "--output", "-o"),
 ) -> None:
     """Run stochastic state propagation and emit a stochastic-envelope.v1 report."""
@@ -816,7 +832,7 @@ def propagate(
             vehicle_document=vehicle_document,
         )
         _write_output(
-            _render_stochastic_output(_document_output_format(format), envelope),
+            _render_stochastic_output(_summary_output_format(format), envelope),
             output,
         )
         raise typer.Exit(code=int(CliExitCode.SUCCESS))

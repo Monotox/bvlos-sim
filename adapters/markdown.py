@@ -91,6 +91,28 @@ def render_envelope_markdown(envelope: EstimatorResultEnvelope) -> str:
             ]
         )
 
+        if envelope.result.legs:
+            energy_by_leg: dict[int, float] = {}
+            if envelope.result.energy is not None:
+                energy_by_leg = {
+                    el.leg_index: el.energy_wh for el in envelope.result.energy.legs
+                }
+            lines.extend(["", "## Leg Breakdown", ""])
+            lines.append("| # | ID | Action | Dist m | Time s | Alt m | GS m/s | Wind m/s | Energy Wh |")
+            lines.append("|---|-----|--------|-------:|-------:|------:|-------:|---------:|----------:|")
+            for leg in envelope.result.legs:
+                gs = f"{_fmt(leg.groundspeed_mps)}" if leg.groundspeed_mps is not None else "—"
+                wind = f"{_fmt(leg.wind_speed_mps)}" if leg.wind_speed_mps is not None else "—"
+                energy_wh = energy_by_leg.get(leg.leg_index)
+                energy_str = _fmt(energy_wh) if energy_wh is not None else "—"
+                alt = f"{_fmt(leg.end_alt_amsl_m)}"
+                leg_id = leg.route_item_id or "—"
+                lines.append(
+                    f"| {leg.leg_index} | {leg_id} | {leg.action} "
+                    f"| {_fmt(leg.path_distance_m)} | {_fmt(leg.time_s)} "
+                    f"| {alt} | {gs} | {wind} | {energy_str} |"
+                )
+
         if envelope.result.energy is not None:
             energy = envelope.result.energy
             lines.extend(
@@ -168,6 +190,12 @@ def render_envelope_markdown(envelope: EstimatorResultEnvelope) -> str:
                     f"- Reserve threshold Wh: `{_fmt(landing_zone.reserve_threshold_wh)}`",
                 ]
             )
+
+        if envelope.result.warnings:
+            lines.extend(["", "## Warnings", ""])
+            for w in envelope.result.warnings:
+                leg_tag = f" (leg {w.leg_index})" if w.leg_index is not None else ""
+                lines.append(f"- `{w.code}`{leg_tag}: {w.message}")
 
     lines.append("")
     return "\n".join(lines)

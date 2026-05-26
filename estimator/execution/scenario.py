@@ -111,6 +111,7 @@ def _build_policy_outcome(
     vehicle: VehicleProfile,
     landing_zones: Sequence[LandingZone] | None,
     legs: list[LegEstimate],
+    wind_provider: WindProvider | None = None,
 ) -> CommsLinkPolicyOutcome:
     trigger_point = timeline[trigger_index]
     action_elapsed_s = trigger_point.elapsed_time_s + policy.loiter_s
@@ -124,6 +125,19 @@ def _build_policy_outcome(
         and landing_zones
     ):
         entry_heading_deg = _entry_heading_at_index(legs, action_index)
+        wind_east = 0.0
+        wind_north = 0.0
+        wind_corrected = False
+        if wind_provider is not None:
+            wind_vec = wind_provider.wind_at(
+                action_point.lat,
+                action_point.lon,
+                action_point.altitude_amsl_m,
+                action_elapsed_s,
+            )
+            wind_east = wind_vec.wind_east_mps
+            wind_north = wind_vec.wind_north_mps
+            wind_corrected = True
         divert_estimate = compute_divert_estimate(
             action_lat=action_point.lat,
             action_lon=action_point.lon,
@@ -134,6 +148,9 @@ def _build_policy_outcome(
             mission=mission,
             vehicle=vehicle,
             entry_heading_deg=entry_heading_deg,
+            wind_east_mps=wind_east,
+            wind_north_mps=wind_north,
+            wind_corrected=wind_corrected,
         )
 
     return CommsLinkPolicyOutcome(
@@ -162,6 +179,7 @@ def _process_lost_link_event(
     vehicle: VehicleProfile,
     landing_zones: Sequence[LandingZone] | None,
     legs: list[LegEstimate],
+    wind_provider: WindProvider | None = None,
 ) -> ScenarioEventOutcome:
     policy_outcome = (
         _build_policy_outcome(
@@ -173,6 +191,7 @@ def _process_lost_link_event(
             vehicle=vehicle,
             landing_zones=landing_zones,
             legs=legs,
+            wind_provider=wind_provider,
         )
         if policy is not None
         else None
@@ -196,6 +215,7 @@ def _process_event(
     vehicle: VehicleProfile,
     landing_zones: Sequence[LandingZone] | None,
     legs: list[LegEstimate],
+    wind_provider: WindProvider | None = None,
 ) -> ScenarioEventOutcome:
     trigger_index = resolve_trigger_index(event, timeline)
     if trigger_index is None:
@@ -211,6 +231,7 @@ def _process_event(
             vehicle=vehicle,
             landing_zones=landing_zones,
             legs=legs,
+            wind_provider=wind_provider,
         )
     return _fired_event_outcome(event, trigger_index)
 
@@ -225,6 +246,7 @@ def _process_events(
     vehicle: VehicleProfile,
     landing_zones: Sequence[LandingZone] | None,
     legs: list[LegEstimate],
+    wind_provider: WindProvider | None = None,
 ) -> list[ScenarioEventOutcome]:
     return [
         _process_event(
@@ -236,6 +258,7 @@ def _process_events(
             vehicle=vehicle,
             landing_zones=landing_zones,
             legs=legs,
+            wind_provider=wind_provider,
         )
         for event in events
     ]
@@ -296,6 +319,7 @@ def run_scenario(
         vehicle=vehicle,
         landing_zones=landing_zones,
         legs=list(estimate.legs),
+        wind_provider=effective_wind_provider,
     )
     assertion_results: list[ScenarioAssertionResult] = [
         evaluate_assertion(assertion, estimate, event_outcomes)

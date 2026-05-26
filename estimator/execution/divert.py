@@ -14,6 +14,7 @@ from estimator.core.results import EnergyEstimate
 from estimator.core.scenario import DivertRouteEstimate
 from estimator.execution.spatial import polygon_set_to_geometry_list
 from estimator.math.dubins import dubins_path_to_point_m
+from estimator.math.wind_triangle import solve_wind_triangle
 from schemas.mission import MissionPlan
 from schemas.vehicle import VehicleProfile
 
@@ -35,6 +36,9 @@ def compute_divert_estimate(
     mission: MissionPlan,
     vehicle: VehicleProfile,
     entry_heading_deg: float | None = None,
+    wind_east_mps: float = 0.0,
+    wind_north_mps: float = 0.0,
+    wind_corrected: bool = False,
 ) -> DivertRouteEstimate:
     """Compute a deterministic divert route estimate.
 
@@ -42,8 +46,9 @@ def compute_divert_estimate(
     uses Dubins path distance (bank-angle-constrained arc + straight). Otherwise
     falls back to straight-line geodesic distance.
 
-    Uses TAS-based transit time and cruise-power energy without wind correction
-    or geofence intersection on the divert leg.
+    When wind_corrected=True the transit time and energy use a wind-triangle
+    ground speed. When wind_corrected=False (the default), TAS is used and a
+    DIVERT_ENERGY_TAS_ONLY advisory warning is emitted.
     """
     if energy is None:
         return _no_estimate(
@@ -87,12 +92,30 @@ def compute_divert_estimate(
             reason="No valid cruise TAS available for divert estimate.",
         )
 
-    time_s = distance_m / tas_mps
+    gs_mps = _resolve_groundspeed(
+        action_lat,
+        action_lon,
+        geometry,
+        tas_mps,
+        wind_east_mps=wind_east_mps,
+        wind_north_mps=wind_north_mps,
+        wind_corrected=wind_corrected,
+    )
+    if gs_mps is None or gs_mps <= 0:
+        return _no_estimate(
+            target_zone_id,
+            energy=energy,
+            action_at_timeline_index=action_at_timeline_index,
+            reason="Headwind exceeds cruise TAS; divert groundspeed is zero or negative.",
+        )
+
+    time_s = distance_m / gs_mps
     divert_energy_wh = vehicle.energy.cruise_power_w * time_s / _SECONDS_PER_HOUR
     energy_remaining_wh = _energy_remaining_at_index(energy, action_at_timeline_index)
     reserve_after_wh = energy_remaining_wh - divert_energy_wh
     reserve_after_percent = reserve_after_wh / energy.battery_capacity_wh * 100.0
     is_feasible = reserve_after_wh >= energy.reserve_threshold_wh
+    warnings = [] if wind_corrected else [WarningCode.DIVERT_ENERGY_TAS_ONLY]
 
     return DivertRouteEstimate(
         target_zone_id=target_zone_id,
@@ -107,7 +130,7 @@ def compute_divert_estimate(
         infeasible_reason=None
         if is_feasible
         else "Insufficient reserve after completing the divert leg.",
-        warnings=[WarningCode.DIVERT_ENERGY_TAS_ONLY],
+        warnings=warnings,
     )
 
 
@@ -227,6 +250,42 @@ def _dubins_distance_to_target_m(
     return dubins_path_to_point_m(
         0.0, 0.0, heading_rad, target_e, target_n, turn_radius_m
     )
+
+
+def _resolve_groundspeed(
+    action_lat: float,
+    action_lon: float,
+    target_geometry: BaseGeometry,
+    tas_mps: float,
+    *,
+    wind_east_mps: float,
+    wind_north_mps: float,
+    wind_corrected: bool,
+) -> float | None:
+    """Return groundspeed for the divert leg.
+
+    When wind_corrected=True, computes the track bearing to the nearest target
+    geometry point and applies a wind-triangle correction. Returns None when
+    the headwind exceeds TAS (no valid triangle solution).
+    """
+    if not wind_corrected:
+        return tas_mps
+
+    state_point = Point(action_lon, action_lat)
+    if target_geometry.covers(state_point):
+        return tas_mps
+
+    _, nearest = nearest_points(state_point, target_geometry)
+    fwd_az, _, _ = _GEOD.inv(action_lon, action_lat, nearest.x, nearest.y)
+    solution = solve_wind_triangle(
+        track_deg=fwd_az,
+        tas_mps=tas_mps,
+        wind_east_mps=wind_east_mps,
+        wind_north_mps=wind_north_mps,
+    )
+    if solution is None:
+        return None
+    return solution.groundspeed_mps
 
 
 def _resolve_tas(mission: MissionPlan, vehicle: VehicleProfile) -> float | None:

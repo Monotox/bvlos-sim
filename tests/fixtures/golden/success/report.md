@@ -31,7 +31,7 @@
 - Static landing-zone reachability uses straight-line geodesic distance and deterministic cruise-power divert energy.
 - Landing-zone v1 excludes terrain, obstacles, dynamic availability, suitability scoring, and comms dependency.
 - Dynamic landing-zone availability is a scenario-only feature; availability changes are resolved deterministically against the scenario timeline and do not affect the estimate CLI.
-- Divert route estimates use geodesic-aware Dubins path distance (bank-angle-constrained arc + straight sampled to target geometry boundary points) when entry heading and vehicle turn radius are known; otherwise straight-line geodesic distance. TAS-based transit time is used without wind correction or geofence intersection on the divert leg.
+- Divert route estimates use geodesic-aware Dubins path distance (bank-angle-constrained arc + straight sampled to target geometry boundary points) when entry heading and vehicle turn radius are known; otherwise straight-line geodesic distance. When a wind provider is configured, a wind-triangle correction is applied to the divert ground speed; without a wind provider, TAS is used and a DIVERT_ENERGY_TAS_ONLY warning is emitted.
 - Monte Carlo uncertainty sampling uses a seeded pseudo-random number generator; results are reproducible for a given seed, sample count, and uncertainty parameters. Wind sampling overrides any mission wind provider with a ConstantWindProvider per sample.
 
 ## Provenance
@@ -53,6 +53,16 @@
 - Time s: `169.82027517`
 - Legs: `5`
 
+## Leg Breakdown
+
+| # | ID | Action | Dist m | Time s | Alt m | GS m/s | Wind m/s | Energy Wh |
+|---|-----|--------|-------:|-------:|------:|-------:|---------:|----------:|
+| 0 | takeoff | vtol_takeoff | 80.0 | 26.66666667 | 92.0 | — | — | 11.11111111 |
+| 1 | wp1 | waypoint | 176.76731937 | 13.33333333 | 132.0 | 18.0 | 0.0 | 1.66666667 |
+| 2 | loiter | loiter_time | 176.76495311 | 9.82027517 | 132.0 | 18.0 | 0.0 | 1.2275344 |
+| 3 | loiter | loiter_time | 0.0 | 60.0 | 132.0 | — | 0.0 | 20.0 |
+| 4 | rtl | rtl | 353.53227242 | 60.0 | 12.0 | 18.0 | 0.0 | 7.5 |
+
 ## Energy Feasibility
 
 - Feasible: `true`
@@ -64,3 +74,7 @@
 - Reserve at landing Wh: `858.49468783`
 - Reserve at landing percent: `95.38829865`
 - Energy legs: `5`
+
+## Warnings
+
+- `LOITER_ASSUMED_ZERO_GROUND_DISTANCE` (leg 3): Loiter dwell modeled as station-keep hold with zero ground-path distance in estimator v1.

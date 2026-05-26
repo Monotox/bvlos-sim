@@ -48,8 +48,8 @@ class DivertRouteEstimate(BaseModel):
     Computed when a divert policy action fires and the target landing zone and
     energy state are available. Uses Dubins path distance when entry heading and
     vehicle turn radius are known; otherwise straight-line geodesic distance.
-    Uses TAS-based transit time and cruise-power energy without wind correction
-    or geofence intersection on the divert leg.
+    When a wind provider is available, applies a wind-triangle correction to
+    compute ground speed. Otherwise uses TAS and emits DIVERT_ENERGY_TAS_ONLY.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -65,7 +65,7 @@ class DivertRouteEstimate(BaseModel):
         )
     )
     time_s: float = Field(
-        description="Estimated divert transit time in seconds at cruise TAS."
+        description="Estimated divert transit time in seconds at cruise ground speed."
     )
     energy_wh: float = Field(description="Estimated divert energy consumption in Wh.")
     energy_remaining_at_action_wh: float = Field(

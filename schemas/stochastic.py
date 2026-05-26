@@ -61,6 +61,14 @@ class StochasticPropagationResult(BaseModel):
         default=0,
         description="Samples that raised an exception and were skipped.",
     )
+    spatial_infeasible_count: int = Field(
+        default=0,
+        description=(
+            "Samples where the route was spatially infeasible "
+            "(geofence conflict or landing-zone failure). "
+            "Counted as infeasible in feasibility_rate."
+        ),
+    )
     timeline: list[PropagationTimelinePoint]
     estimation_error_timeline: list[EstimationErrorTimelinePoint] = Field(
         default_factory=list

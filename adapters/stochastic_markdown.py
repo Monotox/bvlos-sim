@@ -56,6 +56,8 @@ def render_stochastic_markdown(envelope: StochasticResultEnvelope) -> str:
     lines.append(f"**Samples:** {r.sample_count}  ")
     if r.failed_sample_count > 0:
         lines.append(f"**Failed Samples:** {r.failed_sample_count}  ")
+    if r.spatial_infeasible_count > 0:
+        lines.append(f"**Spatially Infeasible Samples:** {r.spatial_infeasible_count}  ")
     lines.append(f"**dt_s:** {_fmt(r.dt_s)}  ")
     lines.append(f"**Feasibility Rate:** {r.feasibility_rate * 100:.1f}%  ")
 

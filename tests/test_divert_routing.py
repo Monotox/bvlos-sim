@@ -1,10 +1,11 @@
-"""Tests for computed divert routing (Ticket 036)."""
+"""Tests for computed divert routing (Ticket 036 and Ticket 062)."""
 
 import pytest
 
 from estimator import DivertRouteEstimate, LandingZone
-from estimator.core.enums import EnergyPowerSource, LegPhase
+from estimator.core.enums import EnergyPowerSource, LegPhase, WarningCode
 from estimator.core.results import EnergyEstimate, EnergyLegEstimate
+from estimator.environment.wind import ConstantWindProvider
 from estimator.execution.divert import compute_divert_estimate
 from estimator.execution.scenario import run_scenario
 from schemas.scenario import ScenarioPlan
@@ -481,3 +482,186 @@ def test_divert_estimate_combined_with_lz_unavailability_events() -> None:
     assert divert is not None
     assert divert.target_zone_id == "lz-near"
     assert divert.is_feasible is True
+
+
+# ---------------------------------------------------------------------------
+# Wind-corrected divert estimate tests (Ticket 062)
+# ---------------------------------------------------------------------------
+
+
+def test_divert_estimate_no_wind_emits_tas_only_warning() -> None:
+    """Without wind_corrected=True the estimate emits DIVERT_ENERGY_TAS_ONLY."""
+    mission = make_mission()
+    vehicle = make_vehicle()
+    zone = _point_zone("lz", lat=52.1, lon=4.0)
+    energy = _energy()
+
+    result = compute_divert_estimate(
+        action_lat=52.0,
+        action_lon=4.0,
+        action_at_timeline_index=0,
+        target_zone_id="lz",
+        landing_zones=[zone],
+        energy=energy,
+        mission=mission,
+        vehicle=vehicle,
+    )
+
+    assert result.is_feasible is True
+    assert WarningCode.DIVERT_ENERGY_TAS_ONLY in result.warnings
+
+
+def test_divert_estimate_headwind_increases_energy() -> None:
+    """A direct headwind raises energy relative to no-wind TAS estimate."""
+    mission = make_mission()
+    vehicle = make_vehicle()
+    # Target is due north of action point; headwind = south-to-north = positive north
+    zone = _point_zone("lz", lat=52.1, lon=4.0)
+    energy = _energy()
+
+    no_wind_result = compute_divert_estimate(
+        action_lat=52.0,
+        action_lon=4.0,
+        action_at_timeline_index=0,
+        target_zone_id="lz",
+        landing_zones=[zone],
+        energy=energy,
+        mission=mission,
+        vehicle=vehicle,
+        wind_east_mps=0.0,
+        wind_north_mps=-5.0,  # headwind (wind from north, aircraft heading north)
+        wind_corrected=True,
+    )
+
+    tas_result = compute_divert_estimate(
+        action_lat=52.0,
+        action_lon=4.0,
+        action_at_timeline_index=0,
+        target_zone_id="lz",
+        landing_zones=[zone],
+        energy=energy,
+        mission=mission,
+        vehicle=vehicle,
+        wind_corrected=False,
+    )
+
+    assert no_wind_result.energy_wh > tas_result.energy_wh
+    assert WarningCode.DIVERT_ENERGY_TAS_ONLY not in no_wind_result.warnings
+
+
+def test_divert_estimate_tailwind_decreases_energy() -> None:
+    """A direct tailwind lowers energy relative to no-wind TAS estimate."""
+    mission = make_mission()
+    vehicle = make_vehicle()
+    zone = _point_zone("lz", lat=52.1, lon=4.0)
+    energy = _energy()
+
+    tailwind_result = compute_divert_estimate(
+        action_lat=52.0,
+        action_lon=4.0,
+        action_at_timeline_index=0,
+        target_zone_id="lz",
+        landing_zones=[zone],
+        energy=energy,
+        mission=mission,
+        vehicle=vehicle,
+        wind_east_mps=0.0,
+        wind_north_mps=5.0,  # tailwind (wind from south, aircraft heading north)
+        wind_corrected=True,
+    )
+
+    tas_result = compute_divert_estimate(
+        action_lat=52.0,
+        action_lon=4.0,
+        action_at_timeline_index=0,
+        target_zone_id="lz",
+        landing_zones=[zone],
+        energy=energy,
+        mission=mission,
+        vehicle=vehicle,
+        wind_corrected=False,
+    )
+
+    assert tailwind_result.energy_wh < tas_result.energy_wh
+    assert WarningCode.DIVERT_ENERGY_TAS_ONLY not in tailwind_result.warnings
+
+
+def test_divert_estimate_zero_wind_with_corrected_flag_matches_tas() -> None:
+    """Zero wind with wind_corrected=True produces same result as TAS."""
+    mission = make_mission()
+    vehicle = make_vehicle()
+    zone = _point_zone("lz", lat=52.1, lon=4.0)
+    energy = _energy()
+
+    corrected = compute_divert_estimate(
+        action_lat=52.0,
+        action_lon=4.0,
+        action_at_timeline_index=0,
+        target_zone_id="lz",
+        landing_zones=[zone],
+        energy=energy,
+        mission=mission,
+        vehicle=vehicle,
+        wind_east_mps=0.0,
+        wind_north_mps=0.0,
+        wind_corrected=True,
+    )
+
+    uncorrected = compute_divert_estimate(
+        action_lat=52.0,
+        action_lon=4.0,
+        action_at_timeline_index=0,
+        target_zone_id="lz",
+        landing_zones=[zone],
+        energy=energy,
+        mission=mission,
+        vehicle=vehicle,
+        wind_corrected=False,
+    )
+
+    assert corrected.time_s == pytest.approx(uncorrected.time_s, rel=1e-6)
+    assert corrected.energy_wh == pytest.approx(uncorrected.energy_wh, rel=1e-6)
+    assert WarningCode.DIVERT_ENERGY_TAS_ONLY not in corrected.warnings
+    assert WarningCode.DIVERT_ENERGY_TAS_ONLY in uncorrected.warnings
+
+
+def test_divert_estimate_wind_corrected_via_scenario_runner() -> None:
+    """run_scenario applies wind correction when wind provider is available."""
+    mission = make_mission()
+    vehicle = make_vehicle()
+    zone = _point_zone("lz-near", lat=52.001, lon=4.001)
+
+    # Scenario without explicit initial wind: no wind provider → TAS fallback
+    scenario_no_wind = ScenarioPlan.model_validate(
+        {
+            "schema_version": "scenario.v1",
+            "scenario_id": "divert-no-wind",
+            "mission_file": "mission.yaml",
+            "vehicle_file": "vehicle.yaml",
+            "initial_conditions": {
+                "lost_link_policy": {
+                    "action": "divert",
+                    "loiter_s": 0.0,
+                    "divert_target_id": "lz-near",
+                }
+            },
+            "events": [
+                {"event_id": "link-lost", "kind": "lost_link", "trigger": "at_mission_start"}
+            ],
+            "assertions": [],
+        }
+    )
+    # Same scenario with a constant wind provider
+    wind_provider = ConstantWindProvider(0.0, 0.0)
+
+    result_no_wind = run_scenario(scenario_no_wind, mission, vehicle, landing_zones=[zone])
+    result_with_wind = run_scenario(
+        scenario_no_wind, mission, vehicle, landing_zones=[zone], wind_provider=wind_provider
+    )
+
+    divert_no_wind = result_no_wind.event_outcomes[0].policy_outcome.divert_estimate
+    divert_with_wind = result_with_wind.event_outcomes[0].policy_outcome.divert_estimate
+    assert divert_no_wind is not None
+    assert divert_with_wind is not None
+    assert WarningCode.DIVERT_ENERGY_TAS_ONLY in divert_no_wind.warnings
+    assert WarningCode.DIVERT_ENERGY_TAS_ONLY not in divert_with_wind.warnings

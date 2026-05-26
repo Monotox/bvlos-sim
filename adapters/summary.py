@@ -9,6 +9,8 @@ from estimator.core.enums import (
     ScenarioStatus,
 )
 from estimator.core.results import EnergyEstimate, MissionEstimate, EstimatorWarning
+from estimator.core.uncertainty import MonteCarloResult
+from schemas.stochastic import StochasticPropagationResult
 from estimator.core.scenario import (
     CommsLinkPolicyOutcome,
     ScenarioAssertionResult,
@@ -153,6 +155,48 @@ def _estimate_fields(estimate: MissionEstimate | None) -> tuple[str | None, str 
         _reserve_margin_field(estimate.energy),
         _flight_time_field(estimate.total_time_s),
     )
+
+
+def format_uncertainty_summary(result: MonteCarloResult) -> str:
+    """Format a Monte Carlo result as a single summary line."""
+    feasibility = result.feasibility_rate
+    feasibility_field = (
+        f"feasible {feasibility * 100:.0f}%" if feasibility is not None else None
+    )
+    reserve = result.reserve_at_landing_wh
+    reserve_field: str | None = None
+    if reserve is not None:
+        reserve_field = (
+            f"reserve p5 {reserve.p5:.1f} Wh   p50 {reserve.p50:.1f} Wh"
+            f"   p95 {reserve.p95:.1f} Wh"
+        )
+    time_field: str | None = None
+    if result.total_time_s is not None:
+        minutes = int(result.total_time_s.p50 // 60)
+        seconds = int(result.total_time_s.p50 % 60)
+        time_field = f"time p50 {minutes}m {seconds:02d}s"
+    samples_field = f"n={result.completed_sample_count}"
+    return _join_fields((feasibility_field, reserve_field, time_field, samples_field))
+
+
+def format_stochastic_summary(result: StochasticPropagationResult) -> str:
+    """Format a stochastic propagation result as a single summary line."""
+    feasibility_field = f"feasible {result.feasibility_rate * 100:.0f}%"
+    reserve = result.reserve_at_landing_wh
+    reserve_field: str | None = None
+    if reserve is not None:
+        reserve_field = (
+            f"reserve p5 {reserve.p5:.1f} Wh   p50 {reserve.p50:.1f} Wh"
+            f"   p95 {reserve.p95:.1f} Wh"
+        )
+    time_field: str | None = None
+    total_time = result.baseline.total_time_s
+    if total_time:
+        minutes = int(total_time // 60)
+        seconds = int(total_time % 60)
+        time_field = f"time {minutes}m {seconds:02d}s"
+    samples_field = f"n={result.sample_count}"
+    return _join_fields((feasibility_field, reserve_field, time_field, samples_field))
 
 
 def format_scenario_summary(result: ScenarioResult) -> str:

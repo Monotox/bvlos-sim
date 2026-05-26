@@ -92,6 +92,14 @@ def test_propagate_command_markdown_format() -> None:
     assert "# Stochastic Propagation Report" in result.output
 
 
+def test_propagate_command_summary_format() -> None:
+    result = _run(["propagate", str(EXAMPLE_STOCHASTIC), "--format", "summary"])
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    assert "feasible" in result.output
+    assert "reserve" in result.output
+    assert "n=" in result.output
+
+
 def test_propagate_command_output_to_file(tmp_path: Path) -> None:
     out_file = tmp_path / "report.json"
     result = _run(["propagate", str(EXAMPLE_STOCHASTIC), "--output", str(out_file)])

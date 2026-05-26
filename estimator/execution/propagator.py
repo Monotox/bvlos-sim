@@ -237,6 +237,7 @@ class _ParticleTrack:
 class _ParticlePopulation:
     particles: tuple[_ParticleTrack, ...]
     position_legs: list[LegEstimate]
+    spatial_infeasible_count: int = 0
 
     @property
     def final_remaining_values(self) -> list[float]:
@@ -259,10 +260,16 @@ class _ParticleSampler:
     def run(self) -> _ParticlePopulation:
         particles: list[_ParticleTrack] = []
         position_legs = self.baseline_legs
+        spatial_infeasible_count = 0
 
         for _ in range(self.plan.samples):
             sample = _SampledParameters.from_plan(plan=self.plan, rng=self.rng)
             result = self._estimate_sample(sample)
+
+            if _is_spatial_infeasible(result):
+                spatial_infeasible_count += 1
+                continue
+
             particle = self._particle_from_result(result, sample, self.sensors, self.controller)
             if particle is None:
                 continue
@@ -273,6 +280,7 @@ class _ParticleSampler:
         return _ParticlePopulation(
             particles=tuple(particles),
             position_legs=position_legs,
+            spatial_infeasible_count=spatial_infeasible_count,
         )
 
     def _estimate_sample(self, sample: _SampledParameters) -> MissionEstimate:
@@ -608,12 +616,14 @@ def run_stochastic_propagation(
     final_remaining = [p.final_energy_remaining_wh for p in population.particles]
 
     successful_samples = len(population.particles)
+    spatial_infeasible = population.spatial_infeasible_count
     return StochasticPropagationResult(
         propagation_id=plan.propagation_id,
         seed=plan.seed,
         dt_s=plan.dt_s,
         sample_count=successful_samples,
-        failed_sample_count=plan.samples - successful_samples,
+        failed_sample_count=plan.samples - successful_samples - spatial_infeasible,
+        spatial_infeasible_count=spatial_infeasible,
         timeline=timeline,
         estimation_error_timeline=estimation_error_timeline,
         cross_track_timeline=cross_track_timeline,
@@ -621,6 +631,7 @@ def run_stochastic_propagation(
         feasibility_rate=_feasibility_rate(
             final_remaining,
             reserve_threshold_wh=reserve_threshold_wh,
+            spatial_infeasible_count=spatial_infeasible,
         ),
         baseline=baseline,
     )
@@ -730,16 +741,27 @@ def _reserve_violation_rate(
     return violation_count / n
 
 
+def _is_spatial_infeasible(estimate: MissionEstimate) -> bool:
+    if estimate.geofence is not None and not estimate.geofence.is_feasible:
+        return True
+    if estimate.landing_zone is not None and not estimate.landing_zone.is_feasible:
+        return True
+    return False
+
+
 def _feasibility_rate(
     values: list[float],
     *,
     reserve_threshold_wh: float | None,
+    spatial_infeasible_count: int = 0,
 ) -> float:
-    n = len(values)
-    if reserve_threshold_wh is None or n == 0:
+    total = len(values) + spatial_infeasible_count
+    if total == 0:
+        return 0.0
+    if reserve_threshold_wh is None:
         return 0.0
     feasible_count = sum(value >= reserve_threshold_wh for value in values)
-    return feasible_count / n
+    return feasible_count / total
 
 
 def _build_sample_wind_provider(

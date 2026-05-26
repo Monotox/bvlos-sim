@@ -1,6 +1,6 @@
 # Ticket 062 — Wind-Corrected Divert and Landing-Zone Energy
 
-## Status: Planned
+## Status: Implemented (divert estimate; landing-zone energy remains TAS-only)
 
 ## Problem
 

@@ -1,10 +1,11 @@
-"""Tests for stochastic state propagation (Ticket 047)."""
+"""Tests for stochastic state propagation (Ticket 047, 065)."""
 
 from pathlib import Path
 
 import pytest
 
 from adapters.io import load_mission, load_vehicle
+from estimator import LandingZone
 from estimator.execution.propagator import run_stochastic_propagation
 from schemas.stochastic import StochasticPropagationPlan
 from schemas.uncertainty import NormalDistribution, UncertaintyParameters
@@ -146,3 +147,86 @@ def test_infeasible_baseline_raises_value_error() -> None:
 
     with pytest.raises(ValueError, match="feasible baseline"):
         run_stochastic_propagation(_plan(samples=5, seed=1), mission, vehicle_no_energy)
+
+
+# --- Ticket 065: geofence/LZ spatial infeasibility in stochastic feasibility_rate ---
+
+
+def _far_landing_zone() -> LandingZone:
+    """A landing zone ~5 km north of home; 100 Wh samples can't afford the divert reserve."""
+    return LandingZone.model_validate(
+        {
+            "id": "far_lz",
+            "geometry": {"points": [{"lat": 52.045, "lon": 4.0}]},
+        }
+    )
+
+
+def _plan_low_battery(*, samples: int, seed: int) -> StochasticPropagationPlan:
+    """Plan that samples battery at 100 Wh.
+
+    Route energy ≈ 41.5 Wh; at RTL state remaining ≈ 58.5 Wh, reserve = 25 Wh,
+    so divert budget ≈ 33.5 Wh < divert to far LZ (~34.8 Wh) → LZ infeasible.
+    """
+    return StochasticPropagationPlan(
+        schema_version="stochastic.v1",
+        propagation_id="test-spatial-infeasible",
+        mission_file=str(MISSION_PATH),
+        vehicle_file=str(VEHICLE_PATH),
+        dt_s=2.0,
+        samples=samples,
+        seed=seed,
+        wind_process_noise_std_mps=0.0,
+        parameters=UncertaintyParameters(
+            battery_capacity_wh=NormalDistribution(kind="normal", mean=100.0, std=0.1),
+        ),
+    )
+
+
+def _mission_with_lax_distance_constraint():
+    """Mission with min_distance_to_landing_zone_m = 7000 so the far LZ passes distance check."""
+    mission, _ = load_mission(MISSION_PATH)
+    new_constraints = mission.constraints.model_copy(
+        update={"min_distance_to_landing_zone_m": 7000.0}
+    )
+    return mission.model_copy(update={"constraints": new_constraints})
+
+
+def test_spatial_infeasible_count_is_zero_without_landing_zones() -> None:
+    mission, vehicle = _mission_vehicle()
+    result = run_stochastic_propagation(_plan(samples=10, seed=42), mission, vehicle)
+
+    assert result.spatial_infeasible_count == 0
+
+
+def test_lz_infeasible_on_low_battery_sample_increments_spatial_count() -> None:
+    """Samples with 50 Wh battery cannot afford the divert — counted as spatial infeasible."""
+    mission = _mission_with_lax_distance_constraint()
+    _, vehicle = _mission_vehicle()
+    lz = _far_landing_zone()
+    plan = _plan_low_battery(samples=6, seed=7)
+
+    result = run_stochastic_propagation(
+        plan, mission, vehicle, landing_zones=[lz]
+    )
+
+    assert result.spatial_infeasible_count == 6
+    assert result.sample_count == 0
+    assert result.feasibility_rate == 0.0
+
+
+def test_three_way_accounting_holds_with_spatial_infeasible() -> None:
+    """sample_count + failed_sample_count + spatial_infeasible_count == plan.samples."""
+    mission = _mission_with_lax_distance_constraint()
+    _, vehicle = _mission_vehicle()
+    lz = _far_landing_zone()
+    plan = _plan_low_battery(samples=5, seed=3)
+
+    result = run_stochastic_propagation(
+        plan, mission, vehicle, landing_zones=[lz]
+    )
+
+    assert (
+        result.sample_count + result.failed_sample_count + result.spatial_infeasible_count
+        == plan.samples
+    )

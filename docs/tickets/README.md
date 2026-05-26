@@ -51,8 +51,10 @@ The current codebase includes:
 - `--format summary` output now includes a `warnings N` field when the estimate has advisory warnings
 - bug fix: `EstimationOptions.fidelity` is now optional; `--max-segment-length-m` without `--fidelity` no longer silently downgrades `estimation.fidelity: v2` missions to v1
 - batch summary table now includes a `warnings` column
+- wind-triangle correction applied to divert route estimates when a wind provider is available; DIVERT_ENERGY_TAS_ONLY warning suppressed when wind is corrected
+- `--format summary` for `sample` and `propagate` commands (feasibility rate, p5/p50/p95 reserve, time, sample count)
 - passing Linux estimator/schema/CLI/scenario/SITL comparison test suite with
-  589 passing tests and 9 skipped live or environment-dependent tests
+  622 passing tests and 9 skipped live or environment-dependent tests
 
 ## Implemented Integration Validation
 
@@ -106,10 +108,10 @@ path rather than through isolated examples. Current validation includes:
 30. [047-stochastic-state-propagation.md](./047-stochastic-state-propagation.md)
 31. [048-observation-model-and-twin-state.md](./048-observation-model-and-twin-state.md)
 32. [049-stochastic-closed-loop-control.md](./049-stochastic-closed-loop-control.md)
+33. [062-wind-corrected-divert-energy.md](./062-wind-corrected-divert-energy.md) *(divert estimate; landing-zone energy TAS-only remaining)*
 
 ### Planned
 
-33. [062-wind-corrected-divert-energy.md](./062-wind-corrected-divert-energy.md)
 34. [065-geofence-and-lz-in-stochastic.md](./065-geofence-and-lz-in-stochastic.md)
 35. [063-rth-reserve-check.md](./063-rth-reserve-check.md)
 36. [061-3d-geofence-altitude-bounds.md](./061-3d-geofence-altitude-bounds.md)
@@ -134,7 +136,7 @@ path rather than through isolated examples. Current validation includes:
   and 071.
 - No real-world calibration pipeline: Tickets 080–084.
 - Geofence feasibility is 2D only (no altitude bounds): Ticket 061.
-- Divert and landing-zone energy ignore wind: Ticket 062.
+- Divert estimate now applies wind-triangle correction when wind provider is available; landing-zone reachability energy still uses TAS only (remaining scope of Ticket 062).
 - No RTH reserve check from every route point: Ticket 063.
 - Batch only supports estimate runs (no scenario or propagate): Ticket 064.
 - Geofence/landing-zone infeasibility not counted in stochastic feasibility_rate: Ticket 065.

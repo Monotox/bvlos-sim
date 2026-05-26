@@ -36,7 +36,7 @@ from adapters.stochastic_envelope import (
     render_stochastic_envelope_json,
 )
 from adapters.stochastic_markdown import render_stochastic_markdown
-from adapters.summary import format_estimate_summary, format_scenario_summary
+from adapters.summary import format_estimate_summary, format_scenario_summary, format_stochastic_summary, format_uncertainty_summary
 from adapters.terrain_grid import load_terrain_grid
 from adapters.uncertainty_envelope import (
     UncertaintyResultEnvelope,
@@ -168,14 +168,24 @@ _SCENARIO_RENDERERS: dict[OutputFormat, ScenarioEnvelopeRenderer] = {
     OutputFormat.SUMMARY: _render_scenario_summary,
 }
 
+def _render_uncertainty_summary(envelope: UncertaintyResultEnvelope) -> str:
+    return format_uncertainty_summary(envelope.result)
+
+
 _UNCERTAINTY_RENDERERS: dict[OutputFormat, UncertaintyEnvelopeRenderer] = {
     OutputFormat.JSON: render_uncertainty_envelope_json,
     OutputFormat.MARKDOWN: render_uncertainty_markdown,
+    OutputFormat.SUMMARY: _render_uncertainty_summary,
 }
+
+def _render_stochastic_summary(envelope: StochasticResultEnvelope) -> str:
+    return format_stochastic_summary(envelope.result)
+
 
 _STOCHASTIC_RENDERERS: dict[OutputFormat, StochasticEnvelopeRenderer] = {
     OutputFormat.JSON: render_stochastic_envelope_json,
     OutputFormat.MARKDOWN: render_stochastic_markdown,
+    OutputFormat.SUMMARY: _render_stochastic_summary,
 }
 
 

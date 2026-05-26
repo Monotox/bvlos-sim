@@ -54,10 +54,10 @@ SITL comparison reports are exposed through `compare` so evidence review has a
 dedicated command with JSON, Markdown, and `--output` support.
 Plan conversion and multi-run CI workflows are exposed through `convert` and
 `batch`.
-For terse terminal output, `estimate` and `scenario` also support
-`--format summary`. They also support `--format geojson` and `--format kml`
-for map-ready route exports. `sample`, `sitl`, and `compare` remain
-JSON/Markdown only.
+For terse terminal output, `estimate`, `scenario`, `sample`, and `propagate`
+support `--format summary`. `estimate` and `scenario` also support
+`--format geojson` and `--format kml` for map-ready route exports. `sitl` and
+`compare` remain JSON/Markdown only.
 
 Command help:
 
@@ -349,6 +349,16 @@ uv run bvlos-sim sample \
   --output /tmp/uncertainty-report.md
 ```
 
+Print a one-line summary:
+
+```bash
+uv run bvlos-sim sample \
+  examples/uncertainty/pipeline_demo_001_wind_uncertainty.yaml \
+  --format summary
+```
+
+Example output: `feasible 100%   reserve p5 823.9 Wh   p50 858.2 Wh   p95 903.3 Wh   time p50 2m 50s   n=200`
+
 The `seed` in the uncertainty YAML makes repeated runs reproducible for the same
 sample count and distributions. `feasibility_rate` is the fraction of completed
 samples that remained feasible; values below the team's go/no-go threshold
@@ -379,6 +389,16 @@ uv run bvlos-sim propagate \
   --format markdown \
   --output /tmp/stochastic-report.md
 ```
+
+Print a one-line summary:
+
+```bash
+uv run bvlos-sim propagate \
+  examples/stochastic/pipeline_demo_001_stochastic.yaml \
+  --format summary
+```
+
+Example output: `feasible 100%   reserve p5 822.2 Wh   p50 858.7 Wh   p95 909.1 Wh   time 2m 49s   n=100`
 
 The `seed` in the stochastic YAML makes repeated runs reproducible for the
 same sample count and parameters. `feasibility_rate` is the fraction of
@@ -892,9 +912,10 @@ Estimator, scenario, and stochastic JSON outputs are canonical and
 regression-tested with golden fixtures. Stochastic output is deterministic
 for a fixed seed. Markdown output is supported for human-readable estimator,
 scenario, uncertainty, stochastic, and SITL comparison reports.
-`estimate --format summary` and `scenario --format summary` emit one-line
-plain-text summaries for terminal checks and shell pipelines; no summary schema
-or envelope is created. `estimate --format geojson|kml` and
+`estimate --format summary`, `scenario --format summary`,
+`sample --format summary`, and `propagate --format summary` emit one-line
+plain-text summaries for terminal checks and shell pipelines; no summary
+schema or envelope is created. `estimate --format geojson|kml` and
 `scenario --format geojson|kml` emit map exports directly from the computed
 mission estimate instead of creating a new schema or envelope. Invalid-input
 and internal-error paths still fall back to JSON envelopes so automation can

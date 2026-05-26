@@ -5,9 +5,8 @@ toward a broader BVLOS simulation platform.
 
 ## Current Status
 
-The current codebase implements Phases 1 through 4.11, plus Tickets 032, 033,
-034, 035, 036, 037, 038, 039, 040, 041, 042, 043, 047, 048, 049, 052, 055,
-056, 057, 059, and 060:
+The current codebase implements Phases 1 through 4.11, plus Tickets 032–043,
+047–049, 052, 055–057, 059, and 060:
 
 - estimator hardening
 - static feasibility checks
@@ -25,12 +24,12 @@ The current codebase implements Phases 1 through 4.11, plus Tickets 032, 033,
 - connect-mode ArduPilot SITL mission upload
 - SITL telemetry, command-log, simulator-log, and adapter-log artifacts
 - SITL comparison reports via `sitl-comparison.v1`
-- one-line `--format summary` output for `estimate` and `scenario`
+- one-line `--format summary` output for `estimate`, `scenario`, `sample`, and `propagate`
 - `--format geojson` and `--format kml` route exports with energy-margin layers
 - five community vehicle profiles (DJI Matrice 300 RTK, Wingtra One Gen II, QS Trinity F90+, Autel EVO Max 4T, generic survey hexacopter)
 - real-world data fetch scripts (`fetch_wind.py`, `fetch_terrain.py`, `fetch_landing_zones.py`) with pre-fetched Alpine demo example
 
-The Linux test suite currently passes with 589 tests and 9 skipped live or
+The Linux test suite currently passes with 622 tests and 9 skipped live or
 environment-dependent tests.
 
 bvlos-sim remains an engineering validation tool. It is not a flight-safety
@@ -120,7 +119,7 @@ Interfaces and contracts:
 - SITL comparison report JSON and Markdown rendering through `compare` and
   adapter APIs
 - Markdown rendering for estimator, scenario, and uncertainty reports
-- one-line summary rendering for estimator and scenario reports
+- one-line summary rendering for estimator, scenario, uncertainty, and stochastic reports
 - GeoJSON and KML route export with per-leg energy-margin colouring, landing-zone reachability markers, and geofence conflict flags
 - community vehicle profiles in `examples/vehicles/community/` for DJI Matrice 300 RTK, Wingtra One Gen II, QS Trinity F90+, Autel EVO Max 4T, and generic survey hexacopter
 - `fetch_wind.py` (Open-Meteo archive/forecast), `fetch_terrain.py` (SRTM via `srtm.py`), and `fetch_landing_zones.py` (Overpass API) scripts with pre-fetched Alpine demo in `examples/real_world/`
