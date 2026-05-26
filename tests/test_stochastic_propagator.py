@@ -121,3 +121,28 @@ def test_result_fields_populated() -> None:
     assert 0.0 <= result.feasibility_rate <= 1.0
     assert len(result.timeline) >= 1
     assert all(0.0 <= point.p_reserve_violation <= 1.0 for point in result.timeline)
+
+
+def test_sample_count_plus_failed_equals_requested() -> None:
+    mission, vehicle = _mission_vehicle()
+    plan = _plan(samples=10, seed=7)
+    result = run_stochastic_propagation(plan, mission, vehicle)
+
+    assert result.sample_count + result.failed_sample_count == plan.samples
+
+
+def test_failed_sample_count_is_zero_for_healthy_plan() -> None:
+    mission, vehicle = _mission_vehicle()
+    result = run_stochastic_propagation(_plan(samples=10, seed=42), mission, vehicle)
+
+    assert result.failed_sample_count == 0
+    assert result.sample_count == 10
+
+
+def test_infeasible_baseline_raises_value_error() -> None:
+    mission, vehicle = _mission_vehicle()
+    # Remove energy model so baseline estimation fails before energy evaluation.
+    vehicle_no_energy = vehicle.model_copy(update={"energy": None})
+
+    with pytest.raises(ValueError, match="feasible baseline"):
+        run_stochastic_propagation(_plan(samples=5, seed=1), mission, vehicle_no_energy)

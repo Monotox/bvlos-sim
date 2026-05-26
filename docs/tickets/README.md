@@ -43,8 +43,16 @@ The current codebase includes:
 - stochastic state propagation via particle sampling with `propagate` CLI command and `stochastic-envelope.v1` output
 - twin-state stochastic observation model with per-particle estimated state and estimation-error timeline outputs
 - stochastic closed-loop tracking controller with proportional cross-track / along-track error feedback, per-particle true-state deviation, path-length excess accounting, and cross-track timeline outputs
+- advisory warnings for `MAX_WIND_EXCEEDED`, `RESERVE_BELOW_FAILSAFE_WARN_THRESHOLD`, and `RESERVE_BELOW_FAILSAFE_ABORT_THRESHOLD` emitted when vehicle failsafe or max_wind thresholds are crossed
+- MAV_CMD_NAV_TAKEOFF (fixed-wing) normalization diagnostic in the QGC `.plan` importer
+- denominator-correct stochastic feasibility and reserve-violation rates (use particle count, not requested sample count)
+- `loiter_time_s` validated as strictly positive at schema load time; `loiter_radius_m` emits `LOITER_RADIUS_IGNORED` warning when set
+- `ROUTE_ACTIONS_AFTER_RTL` warning emitted when actions follow an RTL item (operationally unreachable legs)
+- `--format summary` output now includes a `warnings N` field when the estimate has advisory warnings
+- bug fix: `EstimationOptions.fidelity` is now optional; `--max-segment-length-m` without `--fidelity` no longer silently downgrades `estimation.fidelity: v2` missions to v1
+- batch summary table now includes a `warnings` column
 - passing Linux estimator/schema/CLI/scenario/SITL comparison test suite with
-  571 passing tests and 9 skipped live or environment-dependent tests
+  589 passing tests and 9 skipped live or environment-dependent tests
 
 ## Implemented Integration Validation
 
@@ -101,14 +109,19 @@ path rather than through isolated examples. Current validation includes:
 
 ### Planned
 
-33. [044-geodesic-dubins-divert.md](./044-geodesic-dubins-divert.md)
-34. [058-notam-live-airspace-integration.md](./058-notam-live-airspace-integration.md)
-35. [054-reference-inputs-for-calibration-and-import.md](./054-reference-inputs-for-calibration-and-import.md)
-36. [045-px4-sitl-launch-and-mission-upload.md](./045-px4-sitl-launch-and-mission-upload.md)
-37. [046-px4-sitl-telemetry-recorder-and-evidence-bundle.md](./046-px4-sitl-telemetry-recorder-and-evidence-bundle.md)
-38. [050-user-interfaces-and-service-adapters.md](./050-user-interfaces-and-service-adapters.md)
-39. [070-operational-integration-seams.md](./070-operational-integration-seams.md)
-40. [071-live-comms-remote-id-and-traffic-integrations.md](./071-live-comms-remote-id-and-traffic-integrations.md)
+33. [062-wind-corrected-divert-energy.md](./062-wind-corrected-divert-energy.md)
+34. [065-geofence-and-lz-in-stochastic.md](./065-geofence-and-lz-in-stochastic.md)
+35. [063-rth-reserve-check.md](./063-rth-reserve-check.md)
+36. [061-3d-geofence-altitude-bounds.md](./061-3d-geofence-altitude-bounds.md)
+37. [064-batch-scenario-and-propagate.md](./064-batch-scenario-and-propagate.md)
+38. [044-geodesic-dubins-divert.md](./044-geodesic-dubins-divert.md)
+39. [054-reference-inputs-for-calibration-and-import.md](./054-reference-inputs-for-calibration-and-import.md)
+40. [045-px4-sitl-launch-and-mission-upload.md](./045-px4-sitl-launch-and-mission-upload.md)
+41. [046-px4-sitl-telemetry-recorder-and-evidence-bundle.md](./046-px4-sitl-telemetry-recorder-and-evidence-bundle.md)
+42. [058-notam-live-airspace-integration.md](./058-notam-live-airspace-integration.md)
+43. [050-user-interfaces-and-service-adapters.md](./050-user-interfaces-and-service-adapters.md)
+44. [070-operational-integration-seams.md](./070-operational-integration-seams.md)
+45. [071-live-comms-remote-id-and-traffic-integrations.md](./071-live-comms-remote-id-and-traffic-integrations.md)
 
 ## Current Gaps
 
@@ -120,6 +133,11 @@ path rather than through isolated examples. Current validation includes:
 - No live comms, UTM/U-space, Remote ID, or traffic integrations: Tickets 070
   and 071.
 - No real-world calibration pipeline: Tickets 080–084.
+- Geofence feasibility is 2D only (no altitude bounds): Ticket 061.
+- Divert and landing-zone energy ignore wind: Ticket 062.
+- No RTH reserve check from every route point: Ticket 063.
+- Batch only supports estimate runs (no scenario or propagate): Ticket 064.
+- Geofence/landing-zone infeasibility not counted in stochastic feasibility_rate: Ticket 065.
 
 ## Validation and Calibration Track
 

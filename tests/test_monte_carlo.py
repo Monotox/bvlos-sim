@@ -337,8 +337,8 @@ def test_monte_carlo_non_estimator_error_propagates() -> None:
         )
 
 
-def test_monte_carlo_vehicle_without_energy_model_skips_overrides() -> None:
-    """If vehicle.energy is None, energy overrides are safely ignored."""
+def test_monte_carlo_vehicle_without_energy_model_raises_value_error() -> None:
+    """A vehicle with no energy model cannot produce a feasible baseline — fail fast."""
     vehicle = make_vehicle()
     vehicle.energy = None
     plan = UncertaintyPlan(
@@ -353,10 +353,29 @@ def test_monte_carlo_vehicle_without_energy_model_skips_overrides() -> None:
         ),
     )
 
-    result = run_monte_carlo(plan, make_mission(), vehicle)
+    with pytest.raises(ValueError, match="feasible baseline"):
+        run_monte_carlo(plan, make_mission(), vehicle)
 
-    assert result.sample_count == 5
-    assert result.failed_sample_count == 0
+
+def test_monte_carlo_infeasible_baseline_raises_value_error() -> None:
+    """An INFEASIBLE baseline (e.g. battery too small) must also be rejected."""
+    vehicle = make_vehicle()
+    # Tiny battery ensures energy infeasibility on the test mission.
+    vehicle.energy = vehicle.energy.model_copy(update={"battery_capacity_wh": 1.0})
+    plan = UncertaintyPlan(
+        schema_version="uncertainty.v1",
+        uncertainty_id="test-infeasible-baseline",
+        mission_file="m.yaml",
+        vehicle_file="v.yaml",
+        samples=5,
+        seed=1,
+        parameters=UncertaintyParameters(
+            wind_east_mps=NormalDistribution(kind="normal", mean=0.0, std=1.0),
+        ),
+    )
+
+    with pytest.raises(ValueError, match="feasible baseline"):
+        run_monte_carlo(plan, make_mission(), vehicle)
 
 
 def test_monte_carlo_negative_speed_sample_is_clamped_to_positive() -> None:

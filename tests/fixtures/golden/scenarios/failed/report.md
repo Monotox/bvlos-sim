@@ -58,3 +58,7 @@
 - Reserve at landing Wh: `858.49468783`
 - Reserve at landing percent: `95.38829865`
 - Energy legs: `5`
+
+## Warnings
+
+- `LOITER_ASSUMED_ZERO_GROUND_DISTANCE`: Loiter dwell modeled as station-keep hold with zero ground-path distance in estimator v1.

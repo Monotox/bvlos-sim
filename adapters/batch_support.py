@@ -44,6 +44,7 @@ class BatchRunResult:
     reserve_margin_percent: float | None
     flight_time_s: float | None
     envelope: EstimatorResultEnvelope | None
+    warning_count: int = 0
     error_message: str | None = None
 
 
@@ -97,6 +98,7 @@ def _run_estimate(run: BatchRun) -> BatchRunResult:
         reserve_margin_percent=_reserve_margin_percent(result),
         flight_time_s=result.total_time_s,
         envelope=envelope,
+        warning_count=len(result.warnings),
     )
 
 
@@ -156,12 +158,14 @@ def render_batch_table(results: list[BatchRunResult]) -> str:
     table.add_column("status")
     table.add_column("reserve")
     table.add_column("flight time")
+    table.add_column("warnings")
     for result in results:
         table.add_row(
             result.id,
             result.status,
             format_reserve_margin(result.reserve_margin_percent),
             format_flight_time(result.flight_time_s),
+            str(result.warning_count) if result.warning_count > 0 else "—",
         )
 
     summary = summarize_batch(results)

@@ -10,6 +10,7 @@ import math
 
 import pytest
 
+from estimator.core.enums import WarningCode
 from estimator import (
     DivertRouteEstimate,
     EstimationOptions,
@@ -296,8 +297,8 @@ def test_v1_and_v2_agree_on_vertical_leg_slant_path() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_no_planar_warning_for_short_divert() -> None:
-    """No warning for a short divert route."""
+def test_divert_carries_tas_only_warning_for_short_route() -> None:
+    """DIVERT_ENERGY_TAS_ONLY warning is emitted even for short divert routes."""
     mission = make_mission()
     vehicle = make_vehicle()
     zone = _point_zone("lz-near", lat=52.001, lon=4.001)
@@ -315,7 +316,7 @@ def test_no_planar_warning_for_short_divert() -> None:
     )
 
     assert isinstance(result, DivertRouteEstimate)
-    assert result.warnings == []
+    assert WarningCode.DIVERT_ENERGY_TAS_ONLY in result.warnings
 
 
 def test_planar_warning_retired_for_long_divert() -> None:
@@ -337,7 +338,7 @@ def test_planar_warning_retired_for_long_divert() -> None:
         vehicle=vehicle,
     )
 
-    assert result.warnings == []
+    assert WarningCode.DIVERT_ENERGY_TAS_ONLY in result.warnings
 
 
 def test_planar_warning_retired_regardless_of_heading_availability() -> None:
@@ -359,11 +360,11 @@ def test_planar_warning_retired_regardless_of_heading_availability() -> None:
         entry_heading_deg=None,
     )
 
-    assert result.warnings == []
+    assert WarningCode.DIVERT_ENERGY_TAS_ONLY in result.warnings
 
 
-def test_divert_warnings_empty_by_default() -> None:
-    """DivertRouteEstimate.warnings is an empty list when no warnings apply."""
+def test_divert_energy_tas_only_warning_always_emitted() -> None:
+    """Every successful divert estimate carries DIVERT_ENERGY_TAS_ONLY to alert operators."""
     mission = make_mission()
     vehicle = make_vehicle()
     zone = _point_zone("lz-near", lat=52.001, lon=4.001)
@@ -380,4 +381,4 @@ def test_divert_warnings_empty_by_default() -> None:
         vehicle=vehicle,
     )
 
-    assert result.warnings == []
+    assert WarningCode.DIVERT_ENERGY_TAS_ONLY in result.warnings

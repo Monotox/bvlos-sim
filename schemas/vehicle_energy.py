@@ -41,10 +41,12 @@ class EnergyModel(BaseModel):
 
 
 class FailsafeProfile(BaseModel):
-    """Failsafe thresholds reserved for later feasibility/policy layers.
+    """Failsafe thresholds used for advisory warnings.
 
-    The schema accepts these values today, but estimator v1 does not consume
-    them yet.
+    The estimator emits RESERVE_BELOW_FAILSAFE_ABORT_THRESHOLD or
+    RESERVE_BELOW_FAILSAFE_WARN_THRESHOLD warnings when the predicted
+    landing reserve falls below the corresponding threshold. These are
+    advisory only — the estimator does not abort the route.
     """
 
     model_config = ConfigDict(extra="forbid")

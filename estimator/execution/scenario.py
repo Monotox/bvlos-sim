@@ -47,12 +47,15 @@ from schemas.vehicle import VehicleProfile
 
 def _build_options(scenario: ScenarioPlan) -> EstimationOptions:
     ic = scenario.initial_conditions
+    explicit_fidelity = (
+        FidelityMode(ic.fidelity) if "fidelity" in ic.model_fields_set else None
+    )
     return EstimationOptions(
         wind_east_mps=ic.wind_east_mps,
         wind_north_mps=ic.wind_north_mps,
         max_segment_length_m=ic.max_segment_length_m,
         min_groundspeed_mps=ic.min_groundspeed_mps,
-        fidelity=FidelityMode(ic.fidelity),
+        fidelity=explicit_fidelity,
     )
 
 
@@ -260,7 +263,7 @@ def run_scenario(
     mission = _mission_with_scenario_link_systems(scenario, mission)
     options = _build_options(scenario)
     resolved_wind_provider = resolve_base_wind_provider(scenario, wind_provider)
-    estimate = estimate_with_wind_changes(
+    estimate, effective_wind_provider = estimate_with_wind_changes(
         scenario,
         mission,
         vehicle,
@@ -276,7 +279,7 @@ def run_scenario(
         vehicle,
         estimate,
         options=options,
-        wind_provider=resolved_wind_provider,
+        wind_provider=effective_wind_provider,
         terrain_provider=terrain_provider,
         geofences=geofences,
         landing_zones=landing_zones,

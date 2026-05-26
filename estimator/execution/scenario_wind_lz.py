@@ -175,9 +175,10 @@ def resolve_trigger_index(
     if event.trigger == ScenarioTriggerKind.AT_ROUTE_ITEM:
         return resolve_at_route_item(timeline, cast(str, event.trigger_route_item_id))
     if event.trigger == ScenarioTriggerKind.AT_ELAPSED_TIME:
-        return resolve_at_elapsed_time(
-            timeline, cast(float, event.trigger_elapsed_time_s)
-        )
+        target_s = cast(float, event.trigger_elapsed_time_s)
+        if not timeline or target_s > timeline[-1].elapsed_time_s:
+            return None
+        return resolve_at_elapsed_time(timeline, target_s)
     return None
 
 
@@ -271,17 +272,21 @@ def estimate_with_wind_changes(
     terrain_provider: TerrainProvider | None,
     geofences: Sequence[GeofenceZone] | None,
     landing_zones: Sequence[LandingZone] | None,
-) -> MissionEstimate:
+) -> tuple[MissionEstimate, WindProvider | None]:
+    """Return (estimate, effective_wind_provider) so callers can re-use the same wind."""
     wind_events = _wind_change_events(scenario.events)
     if not wind_events:
-        return _estimate_for_wind_provider(
-            mission,
-            vehicle,
-            options=options,
-            wind_provider=base_wind_provider,
-            terrain_provider=terrain_provider,
-            geofences=geofences,
-            landing_zones=landing_zones,
+        return (
+            _estimate_for_wind_provider(
+                mission,
+                vehicle,
+                options=options,
+                wind_provider=base_wind_provider,
+                terrain_provider=terrain_provider,
+                geofences=geofences,
+                landing_zones=landing_zones,
+            ),
+            base_wind_provider,
         )
 
     resolved_base_wind_provider = base_wind_provider or build_initial_wind_provider(
@@ -301,23 +306,27 @@ def estimate_with_wind_changes(
         build_timeline(mission, estimate),
     )
     if not previous_schedule:
-        return _record_wind_change_metadata(
-            estimate,
-            iterations=0,
-            schedule_count=0,
+        return (
+            _record_wind_change_metadata(
+                estimate,
+                iterations=0,
+                schedule_count=0,
+            ),
+            resolved_base_wind_provider,
         )
 
     max_iterations = len(wind_events) + _WIND_CHANGE_MAX_EXTRA_ITERATIONS
 
     for iteration in range(1, max_iterations + 1):
+        converged_provider = _wind_provider_for_schedule(
+            resolved_base_wind_provider,
+            previous_schedule,
+        )
         estimate = _estimate_for_wind_provider(
             mission,
             vehicle,
             options=options,
-            wind_provider=_wind_provider_for_schedule(
-                resolved_base_wind_provider,
-                previous_schedule,
-            ),
+            wind_provider=converged_provider,
             terrain_provider=terrain_provider,
             geofences=geofences,
             landing_zones=landing_zones,
@@ -325,17 +334,28 @@ def estimate_with_wind_changes(
         timeline = build_timeline(mission, estimate)
         schedule = _resolve_wind_change_schedule(wind_events, timeline)
         if _same_wind_change_schedule(previous_schedule, schedule):
-            return _record_wind_change_metadata(
-                estimate,
-                iterations=iteration,
-                schedule_count=len(schedule),
+            return (
+                _record_wind_change_metadata(
+                    estimate,
+                    iterations=iteration,
+                    schedule_count=len(schedule),
+                ),
+                converged_provider,
             )
 
         previous_schedule = schedule
-    return _record_wind_change_metadata(
-        estimate,
-        iterations=max_iterations,
-        schedule_count=len(previous_schedule),
+
+    converged_provider = _wind_provider_for_schedule(
+        resolved_base_wind_provider,
+        previous_schedule,
+    )
+    return (
+        _record_wind_change_metadata(
+            estimate,
+            iterations=max_iterations,
+            schedule_count=len(previous_schedule),
+        ),
+        converged_provider,
     )
 
 

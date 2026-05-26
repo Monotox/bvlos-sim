@@ -4,10 +4,13 @@ import pytest
 
 from adapters.batch_io import load_batch_manifest
 from adapters.batch_support import run_batch_manifest
+from adapters.cli import CliExitCode, app
 from adapters.io import InputLoadError
 from schemas.batch import BatchManifest, BatchRun
+from typer.testing import CliRunner
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+_runner = CliRunner()
 
 
 def _manifest(*runs: BatchRun) -> BatchManifest:
@@ -83,3 +86,69 @@ def test_invalid_batch_format_version_raises_input_load_error(tmp_path: Path) ->
 
     with pytest.raises(InputLoadError):
         load_batch_manifest(manifest_path)
+
+
+# ---------------------------------------------------------------------------
+# CLI-level tests for the batch command
+# ---------------------------------------------------------------------------
+
+
+def test_batch_cli_feasible_manifest_exits_zero() -> None:
+    result = _runner.invoke(
+        app,
+        [
+            "batch",
+            str(REPO_ROOT / "examples/batch/demo_batch.yaml"),
+        ],
+    )
+    assert result.exit_code == int(CliExitCode.INFEASIBLE)  # alpine_infeasible run
+
+
+def test_batch_cli_all_feasible_exits_zero(tmp_path: Path) -> None:
+    manifest_path = tmp_path / "batch.yaml"
+    manifest_path.write_text(
+        "\n".join(
+            [
+                "format_version: batch.v1",
+                "runs:",
+                "  - id: run1",
+                f"    mission: {REPO_ROOT / 'examples/missions/pipeline_demo_001.yaml'}",
+                f"    vehicle: {REPO_ROOT / 'examples/vehicles/quadplane_v1.yaml'}",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    result = _runner.invoke(app, ["batch", str(manifest_path)])
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+
+
+def test_batch_cli_invalid_manifest_exits_invalid_input(tmp_path: Path) -> None:
+    bad_path = tmp_path / "bad.yaml"
+    bad_path.write_text("format_version: batch.v99\nruns: []\n", encoding="utf-8")
+    result = _runner.invoke(app, ["batch", str(bad_path)])
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+
+
+def test_batch_cli_output_dir_writes_envelopes(tmp_path: Path) -> None:
+    manifest_path = tmp_path / "batch.yaml"
+    out_dir = tmp_path / "out"
+    manifest_path.write_text(
+        "\n".join(
+            [
+                "format_version: batch.v1",
+                "runs:",
+                "  - id: demo",
+                f"    mission: {REPO_ROOT / 'examples/missions/pipeline_demo_001.yaml'}",
+                f"    vehicle: {REPO_ROOT / 'examples/vehicles/quadplane_v1.yaml'}",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    result = _runner.invoke(
+        app, ["batch", str(manifest_path), "--output-dir", str(out_dir), "--format", "json"]
+    )
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    assert out_dir.is_dir()
+    files = list(out_dir.iterdir())
+    assert len(files) == 1
+    assert files[0].suffix == ".json"

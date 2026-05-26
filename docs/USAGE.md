@@ -87,10 +87,11 @@ waypoint, loiter-time, RTL, land, and VTOL land. Unsupported commands and
 ComplexItem entries are skipped with warnings to stderr so the rest of the
 route can still be converted.
 
-The output YAML intentionally leaves `vehicle_profile` empty and omits policy
-and asset references. Set `vehicle_profile`, review route altitudes and
-constraints, and add any geofence, landing-zone, terrain, or wind-grid assets
-before treating the converted mission as operational input.
+The output YAML sets `vehicle_profile` to the placeholder `FIXME-vehicle-profile`
+and omits policy and asset references. Replace the placeholder with the real
+vehicle profile id, review route altitudes and constraints, and add any
+geofence, landing-zone, terrain, or wind-grid assets before treating the
+converted mission as operational input.
 
 ## Batch Estimates
 

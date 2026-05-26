@@ -20,7 +20,7 @@
 
 ## Diagnostics
 
-- `error` `INVALID_MISSION_PROFILE`: loiter_time_s must be non-negative.
+- `error` `UNSUPPORTED_ALTITUDE_REFERENCE_TERRAIN`: terrain altitude reference requires a terrain provider. Set assets.terrain_file in the mission or pass terrain_provider at runtime.
 
 ## Assumptions
 
@@ -44,7 +44,7 @@
 ## Provenance
 
 - Estimator API: `estimator.try_estimate_mission_distance_time`
-- mission: `yaml` sha256 `5d6cab40974459fcdcde15d97cdb18d58382cf9a349de2421931654770ce36c0`
+- mission: `yaml` sha256 `21af6d54b0c209a30d152da80a7aba392a9fd9d6cb6e23df22f6b4c2d2ac6be2`
 - vehicle: `yaml` sha256 `4067f6697bba308915271afc95bf273ae7dc7637f3d921c71ac30b15a26453e5`
 
 ## Determinism

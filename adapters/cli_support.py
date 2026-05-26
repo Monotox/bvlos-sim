@@ -275,7 +275,7 @@ def _build_estimation_options(
         return None
     try:
         return EstimationOptions(
-            fidelity=fidelity or FidelityMode.V1,
+            fidelity=fidelity,
             max_segment_length_m=max_segment_length_m,
         )
     except ValidationError as exc:

@@ -31,7 +31,8 @@ _ROUTE_ID_BASES: dict[RouteAction, str] = {
 }
 _NUMBERED_ROUTE_ID_ACTIONS: set[RouteAction] = {"waypoint", "loiter_time"}
 _CONVERTED_PLAN_NOTE = (
-    "Converted from QGC .plan. Set vehicle_profile and review all values before use."
+    "Converted from QGC .plan. Replace FIXME-vehicle-profile with a real vehicle profile id "
+    "and review all values before use."
 )
 
 
@@ -75,19 +76,6 @@ class _QgcItem:
 
 # JSON primitive helpers — used across all parsing layers
 CommandHandler = Callable[[_QgcItem, RouteCounters], tuple[RouteItemDict | None, str | None]]
-
-
-def _diagnostic(
-    *,
-    item_index: int,
-    command: int | None,
-    message: str,
-) -> ConvertDiagnostic:
-    return ConvertDiagnostic(
-        item_index=item_index,
-        command=command,
-        message=message,
-    )
 
 
 def _mapping(value: object) -> JsonObject | None:
@@ -276,7 +264,14 @@ class _RouteConverter:
         )
         if altitude_m is None:
             return None, "takeoff altitude missing or invalid"
-        return self._route_item(action="vtol_takeoff", fields={"altitude_m": altitude_m}), None
+        warning = None
+        if item.command == _MAV_CMD_NAV_TAKEOFF:
+            warning = (
+                "MAV_CMD_NAV_TAKEOFF (22) normalised to vtol_takeoff; "
+                "fixed-wing-only takeoff is not a separate action in mission.v5. "
+                "Review vehicle_class after converting."
+            )
+        return self._route_item(action="vtol_takeoff", fields={"altitude_m": altitude_m}), warning
 
     def _convert_waypoint(self, item: _QgcItem) -> tuple[RouteItemDict | None, str | None]:
         if item.coordinate is None:
@@ -287,8 +282,8 @@ class _RouteConverter:
         if item.coordinate is None:
             return None, "loiter coordinate missing or invalid"
         loiter_time_s = _QgcItemParser.param_value(item.params, 0)
-        if loiter_time_s is None:
-            return None, "loiter time parameter missing or invalid"
+        if loiter_time_s is None or loiter_time_s <= 0:
+            return None, "loiter time must be a positive number"
         fields: JsonObject = {
             **item.coordinate.route_fields(),
             "loiter_time_s": loiter_time_s,
@@ -302,7 +297,9 @@ class _RouteConverter:
         return self._route_item(action="rtl"), None
 
     def _convert_land(self, item: _QgcItem) -> tuple[RouteItemDict | None, str | None]:
-        return self._route_item(action="land"), None
+        if item.coordinate is None:
+            return None, "land coordinate missing or invalid"
+        return self._route_item(action="land", fields=item.coordinate.route_fields()), None
 
     def _convert_item(
         self, item: _QgcItem
@@ -322,7 +319,16 @@ class _RouteConverter:
             )
         route_item, message = handler(item)
         if route_item is not None:
-            return route_item, None
+            diag = (
+                _make_diagnostic(
+                    item_index=item.item_index,
+                    command=item.command,
+                    message=message,
+                )
+                if message is not None
+                else None
+            )
+            return route_item, diag
         return None, _make_diagnostic(
             item_index=item.item_index,
             command=item.command,
@@ -405,10 +411,11 @@ class _MissionAssembler:
     ) -> JsonObject:
         return {
             "mission_id": mission_id,
-            "vehicle_profile": "",
+            "vehicle_profile": "FIXME-vehicle-profile",
             "planned_home": _MissionAssembler.planned_home(mission),
             "defaults": _MissionAssembler.defaults(mission, items),
             "route": route,
+            "constraints": {},
             "metadata": {"notes": _CONVERTED_PLAN_NOTE},
         }
 

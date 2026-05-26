@@ -303,10 +303,8 @@ class RouteItem(BaseModel):
     )
     loiter_time_s: float | None = Field(
         default=None,
-        description=(
-            "Loiter duration in seconds. Required for loiter_time actions. "
-            "Negative values are rejected at execution time by the estimator."
-        ),
+        gt=0,
+        description="Loiter duration in seconds. Required for loiter_time actions.",
     )
     loiter_radius_m: float | None = Field(
         default=None,
@@ -347,8 +345,9 @@ class MissionConstraints(BaseModel):
         default=None,
         ge=0,
         description=(
-            "Mission wind limit. Reserved for later feasibility layers; "
-            "estimator v1 does not enforce it."
+            "Mission-level wind limit in m/s. Reserved for future feasibility "
+            "layers; the estimator does not currently enforce this field. "
+            "Use vehicle.performance.max_wind_mps to trigger advisory warnings."
         ),
     )
     min_distance_to_landing_zone_m: float | None = Field(

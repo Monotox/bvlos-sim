@@ -89,6 +89,15 @@ def estimate_loiter_dwell_leg(
             },
         )
 
+    if item.loiter_radius_m is not None:
+        context.add_warning(
+            WarningCode.LOITER_RADIUS_IGNORED,
+            f"loiter_radius_m={item.loiter_radius_m} m is set but ignored; "
+            "station-keep loiter uses max_station_keep_wind_mps as authority.",
+            route_item_index=route_item_index,
+            route_item_id=item.id,
+        )
+
     context.add_warning(
         WarningCode.LOITER_ASSUMED_ZERO_GROUND_DISTANCE,
         "Loiter dwell modeled as station-keep hold with zero ground-path distance in estimator v1.",
@@ -137,6 +146,15 @@ def estimate_fw_circular_loiter_dwell_leg(
     Pre-condition: turn_radius_m is not None (enforced by executor before calling).
     """
     loiter_time_s = item.loiter_time_s  # guaranteed by schema and executor
+
+    if item.loiter_radius_m is not None:
+        context.add_warning(
+            WarningCode.LOITER_RADIUS_IGNORED,
+            f"loiter_radius_m={item.loiter_radius_m} m is set but ignored; "
+            "fixed-wing circular loiter uses vehicle.performance.turn_radius_m.",
+            route_item_index=route_item_index,
+            route_item_id=item.id,
+        )
 
     tas_mps, speed_source = resolve_transit_tas(
         context, item, route_item_index=route_item_index

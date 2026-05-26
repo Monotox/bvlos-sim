@@ -4,7 +4,7 @@ import random
 import statistics as stats_module
 from collections.abc import Sequence
 
-from estimator.core.errors import EstimatorError
+from estimator.core.enums import EstimateStatus
 from estimator.core.geofence import GeofenceZone
 from estimator.core.landing_zone import LandingZone
 from estimator.core.uncertainty import MonteCarloResult, SampledOutputStats
@@ -78,6 +78,14 @@ def run_monte_carlo(
         geofences=geofences,
         landing_zones=landing_zones,
     )
+    if baseline.status != EstimateStatus.SUCCESS:
+        failure = baseline.failure
+        message = (
+            failure.message
+            if failure is not None
+            else "Baseline mission estimate failed before sampling could start."
+        )
+        raise ValueError(f"Monte Carlo sampling requires a feasible baseline: {message}")
 
     rng = random.Random(plan.seed)
 
@@ -119,16 +127,15 @@ def run_monte_carlo(
             vehicle, sampled_cruise_power, sampled_battery_cap
         )
 
-        try:
-            result = try_estimate_mission_distance_time(
-                sample_mission,
-                sample_vehicle,
-                wind_provider=sample_wind_provider,
-                terrain_provider=terrain_provider,
-                geofences=geofences,
-                landing_zones=landing_zones,
-            )
-        except EstimatorError:
+        result = try_estimate_mission_distance_time(
+            sample_mission,
+            sample_vehicle,
+            wind_provider=sample_wind_provider,
+            terrain_provider=terrain_provider,
+            geofences=geofences,
+            landing_zones=landing_zones,
+        )
+        if result.status == EstimateStatus.ERROR:
             failed += 1
             continue
 

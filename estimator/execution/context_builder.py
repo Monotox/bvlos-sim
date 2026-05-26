@@ -46,7 +46,7 @@ class OptionSourceValues:
     wind_north_mps: float
     min_groundspeed_mps: float | None
     max_segment_length_m: float | None = None
-    fidelity: FidelityMode = FidelityMode.V1
+    fidelity: FidelityMode | None = None
 
 
 _DERIVED_CAPABILITIES: dict[VehicleClass, tuple[bool, bool]] = {
@@ -78,6 +78,12 @@ def derive_capabilities(vehicle: VehicleProfile) -> Capabilities:
     )
 
 
+def _mission_fidelity(mission: MissionPlan) -> FidelityMode:
+    if mission.estimation is not None:
+        return FidelityMode(mission.estimation.fidelity)
+    return FidelityMode.V1
+
+
 def resolve_option_source_values(
     mission: MissionPlan,
     options: EstimationOptions | None,
@@ -88,8 +94,15 @@ def resolve_option_source_values(
             wind_east_mps=options.wind_east_mps,
             wind_north_mps=options.wind_north_mps,
             min_groundspeed_mps=options.min_groundspeed_mps,
-            max_segment_length_m=options.max_segment_length_m,
-            fidelity=options.fidelity,
+            max_segment_length_m=(
+                options.max_segment_length_m
+                or (
+                    mission.estimation.max_segment_length_m
+                    if mission.estimation is not None
+                    else None
+                )
+            ),
+            fidelity=options.fidelity or _mission_fidelity(mission),
         )
 
     if mission.estimation is not None:
@@ -125,7 +138,7 @@ def resolve_options(
         min_groundspeed_mps=min_ground,
         options_source=source_values.source,
         max_segment_length_m=source_values.max_segment_length_m,
-        fidelity=source_values.fidelity,
+        fidelity=source_values.fidelity or FidelityMode.V1,
     )
 
 

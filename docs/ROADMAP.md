@@ -30,7 +30,7 @@ The current codebase implements Phases 1 through 4.11, plus Tickets 032, 033,
 - five community vehicle profiles (DJI Matrice 300 RTK, Wingtra One Gen II, QS Trinity F90+, Autel EVO Max 4T, generic survey hexacopter)
 - real-world data fetch scripts (`fetch_wind.py`, `fetch_terrain.py`, `fetch_landing_zones.py`) with pre-fetched Alpine demo example
 
-The Linux test suite currently passes with 571 tests and 9 skipped live or
+The Linux test suite currently passes with 589 tests and 9 skipped live or
 environment-dependent tests.
 
 bvlos-sim remains an engineering validation tool. It is not a flight-safety

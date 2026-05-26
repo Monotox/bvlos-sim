@@ -15,12 +15,12 @@ route:
     lon: 4.002
     altitude_m: 120.0
     acceptance_radius_m: 20.0
-  - id: loiter
-    action: loiter_time
+  - id: wp2_terrain
+    action: waypoint
     lat: 52.002
     lon: 4.004
-    altitude_m: 120.0
-    loiter_time_s: -1.0
+    altitude_m: 80.0
+    altitude_reference: terrain
 constraints:
   min_landing_reserve_percent: 25.0
   max_wind_mps: 10.0

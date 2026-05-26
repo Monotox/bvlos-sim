@@ -43,11 +43,13 @@ class PerformanceProfile(BaseModel):
             "for fixed-wing and VTOL profiles."
         ),
     )
-    max_wind_mps: float = Field(
+    max_wind_mps: float | None = Field(
+        default=None,
         ge=0,
         description=(
-            "Operational wind limit reserved for later feasibility layers. "
-            "Estimator v1 does not currently enforce it."
+            "Maximum operational wind speed in m/s. When set, the estimator emits "
+            "a MAX_WIND_EXCEEDED advisory warning on any leg where measured wind "
+            "exceeds this limit. The estimator does not abort the route."
         ),
     )
     max_crab_angle_deg: float | None = Field(

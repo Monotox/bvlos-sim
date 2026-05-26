@@ -302,6 +302,18 @@ def test_observe_at_route_item_with_unknown_id_not_fired() -> None:
     assert outcome.timeline_index is None
 
 
+def test_observe_at_elapsed_time_beyond_mission_end_not_fired() -> None:
+    plan = _plan(
+        events=[
+            _observe_event("late-ev", "at_elapsed_time", trigger_elapsed_time_s=999_999.0)
+        ]
+    )
+    result = run_scenario(plan, make_mission(), make_vehicle())
+    outcome = result.event_outcomes[0]
+    assert outcome.fired is False
+    assert outcome.timeline_index is None
+
+
 # ---------------------------------------------------------------------------
 # Event outcomes — wind_change
 # ---------------------------------------------------------------------------
@@ -627,3 +639,72 @@ def test_field_resolvers_and_supported_paths_are_in_sync() -> None:
     )
 
     assert set(_FIELD_RESOLVERS.keys()) == _SUPPORTED_FIELD_PATHS
+
+
+def _make_turning_mission():
+    """Mission with a ~90° heading change needed to produce v2 turn arcs."""
+    from schemas.mission import MissionAction, RouteItem
+
+    mission = make_mission()
+    wp_north = RouteItem(id="north", action=MissionAction.WAYPOINT, lat=52.01, lon=4.0, altitude_m=120.0)
+    wp_east = RouteItem(id="east", action=MissionAction.WAYPOINT, lat=52.01, lon=4.02, altitude_m=120.0)
+    rtl = RouteItem(id="rtl", action=MissionAction.RTL)
+    mission.route = [wp_north, wp_east, rtl]
+    return mission
+
+
+def test_scenario_without_explicit_fidelity_inherits_mission_fidelity_v2() -> None:
+    from estimator.core.enums import LegPhase
+    from schemas.mission import MissionEstimation
+
+    mission = _make_turning_mission()
+    mission.estimation = MissionEstimation(fidelity="v2")
+    vehicle = make_vehicle()
+
+    # Scenario with no explicit fidelity should inherit mission's v2 setting.
+    plan = ScenarioPlan.model_validate(
+        {
+            "schema_version": "scenario.v1",
+            "scenario_id": "fidelity-inherit",
+            "mission_file": "mission.yaml",
+            "vehicle_file": "vehicle.yaml",
+            "initial_conditions": {
+                "wind_east_mps": 0.0,
+                "wind_north_mps": 0.0,
+                # fidelity intentionally NOT set
+            },
+        }
+    )
+
+    result = run_scenario(plan, mission, vehicle)
+    assert result.estimate is not None
+    phases = {leg.phase for leg in result.estimate.legs}
+    assert LegPhase.TURN_ARC in phases, "v2 fidelity inherited from mission should produce turn arcs"
+
+
+def test_scenario_with_explicit_fidelity_v1_overrides_mission_v2() -> None:
+    from estimator.core.enums import LegPhase
+    from schemas.mission import MissionEstimation
+
+    mission = _make_turning_mission()
+    mission.estimation = MissionEstimation(fidelity="v2")
+    vehicle = make_vehicle()
+
+    plan = ScenarioPlan.model_validate(
+        {
+            "schema_version": "scenario.v1",
+            "scenario_id": "fidelity-override",
+            "mission_file": "mission.yaml",
+            "vehicle_file": "vehicle.yaml",
+            "initial_conditions": {
+                "wind_east_mps": 0.0,
+                "wind_north_mps": 0.0,
+                "fidelity": "v1",
+            },
+        }
+    )
+
+    result = run_scenario(plan, mission, vehicle)
+    assert result.estimate is not None
+    phases = {leg.phase for leg in result.estimate.legs}
+    assert LegPhase.TURN_ARC not in phases, "explicit v1 in scenario should override mission v2"

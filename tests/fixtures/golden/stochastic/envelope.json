@@ -273,6 +273,7 @@
     "cross_track_timeline": [],
     "dt_s": 5.0,
     "estimation_error_timeline": [],
+    "failed_sample_count": 0,
     "feasibility_rate": 1.0,
     "propagation_id": "golden-stochastic",
     "reserve_at_landing_wh": {

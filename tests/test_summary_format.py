@@ -4,8 +4,9 @@ from estimator.core.enums import (
     FailureCode,
     FailureKind,
     ScenarioStatus,
+    WarningCode,
 )
-from estimator.core.results import EnergyEstimate, EstimatorFailure, MissionEstimate
+from estimator.core.results import EnergyEstimate, EstimatorFailure, EstimatorWarning, MissionEstimate
 from estimator.core.scenario import (
     CommsLinkPolicyOutcome,
     ScenarioAssertionResult,
@@ -30,12 +31,17 @@ def _energy(
     )
 
 
+def _warning(code: WarningCode = WarningCode.MAX_WIND_EXCEEDED) -> EstimatorWarning:
+    return EstimatorWarning(code=code, message="test warning")
+
+
 def _estimate(
     *,
     status: EstimateStatus = EstimateStatus.SUCCESS,
     energy: EnergyEstimate | None = None,
     failure: EstimatorFailure | None = None,
     total_time_s: float = 1453.0,
+    warnings: list[EstimatorWarning] | None = None,
 ) -> MissionEstimate:
     return MissionEstimate(
         status=status,
@@ -46,6 +52,7 @@ def _estimate(
         totals_are_partial=False,
         energy=energy,
         failure=failure,
+        warnings=warnings or [],
     )
 
 
@@ -150,7 +157,7 @@ def test_passed_scenario_summary_starts_with_passed_count() -> None:
     output = format_scenario_summary(result)
 
     assert output.startswith("PASSED 2/2")
-    assert "policy NONE" in output
+    assert "policy" not in output
     _assert_one_line(output)
 
 
@@ -195,4 +202,54 @@ def test_passed_scenario_summary_ignores_skipped_assertion_tag() -> None:
 
     assert output.startswith("PASSED")
     assert "[ASSERTION:" not in output
+    _assert_one_line(output)
+
+
+def test_estimate_summary_includes_warnings_count_when_nonzero() -> None:
+    output = format_estimate_summary(
+        _estimate(
+            energy=_energy(),
+            warnings=[_warning(), _warning(WarningCode.LOITER_RADIUS_IGNORED)],
+        )
+    )
+
+    assert "warnings 2" in output
+    _assert_one_line(output)
+
+
+def test_estimate_summary_omits_warnings_field_when_no_warnings() -> None:
+    output = format_estimate_summary(_estimate(energy=_energy()))
+
+    assert "warnings" not in output
+    _assert_one_line(output)
+
+
+def test_scenario_summary_includes_warnings_count_when_nonzero() -> None:
+    result = ScenarioResult(
+        scenario_id="scenario-1",
+        status=ScenarioStatus.PASSED,
+        assertion_results=[_assertion("ok", AssertionOutcome.PASSED)],
+        estimate=_estimate(
+            energy=_energy(),
+            warnings=[_warning()],
+        ),
+    )
+
+    output = format_scenario_summary(result)
+
+    assert "warnings 1" in output
+    _assert_one_line(output)
+
+
+def test_scenario_summary_omits_warnings_field_when_no_warnings() -> None:
+    result = ScenarioResult(
+        scenario_id="scenario-1",
+        status=ScenarioStatus.PASSED,
+        assertion_results=[_assertion("ok", AssertionOutcome.PASSED)],
+        estimate=_estimate(energy=_energy()),
+    )
+
+    output = format_scenario_summary(result)
+
+    assert "warnings" not in output
     _assert_one_line(output)

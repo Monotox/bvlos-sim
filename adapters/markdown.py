@@ -164,7 +164,7 @@ def render_envelope_markdown(envelope: EstimatorResultEnvelope) -> str:
                     f"- Feasible: `{str(landing_zone.is_feasible).lower()}`",
                     f"- Checked zones: `{landing_zone.checked_zone_count}`",
                     f"- Checked states: `{landing_zone.checked_state_count}`",
-                    f"- Max allowed distance m: `{_fmt(landing_zone.max_allowed_distance_m)}`",
+                    f"- Max allowed distance m: `{_fmt(landing_zone.max_allowed_distance_m) if landing_zone.max_allowed_distance_m is not None else 'none'}`",
                     f"- Reserve threshold Wh: `{_fmt(landing_zone.reserve_threshold_wh)}`",
                 ]
             )

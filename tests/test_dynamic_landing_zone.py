@@ -373,3 +373,65 @@ def test_scenario_lz_unavailable_combined_with_wind_change() -> None:
     assert result.estimate.failure is not None
     assert result.estimate.failure.code == FailureCode.ALL_LANDING_ZONES_UNAVAILABLE
     assert result.estimate.metadata.get("scenario_lz_unavailability_event_count") == 1
+
+
+def test_lz_unavailability_rerun_uses_effective_wind_not_base_wind() -> None:
+    """Regression: apply_lz_unavailability must pass the converged wind provider.
+
+    When a scenario has both a wind_change event and a landing_zone_unavailable
+    event, the LZ re-run should use the same wind as the converged wind-change
+    estimate (which increases flight time via headwind groundspeed reduction).
+    If base wind is used instead, total_time_s is shorter and LZ energy wrong.
+    """
+    mission = make_mission()
+    mission.route = [mission.route[1]]
+    zone1 = _point_zone("lz1", lat=52.001, lon=4.002)
+    zone2 = _point_zone("lz2", lat=52.002, lon=4.003)
+
+    # Scenario with strong headwind + lz1 unavailable; lz2 remains.
+    plan_combined = _scenario(
+        events=[
+            {
+                "event_id": "wind",
+                "kind": "wind_change",
+                "trigger": "at_mission_start",
+                "wind_east_mps": 8.0,  # strong headwind cuts groundspeed significantly
+                "wind_north_mps": 0.0,
+            },
+            {
+                "event_id": "close-lz1",
+                "kind": "landing_zone_unavailable",
+                "trigger": "at_mission_start",
+                "unavailable_zone_ids": ["lz1"],
+            },
+        ],
+    )
+
+    # Scenario with the same strong headwind only (no LZ unavailability).
+    plan_wind_only = _scenario(
+        events=[
+            {
+                "event_id": "wind",
+                "kind": "wind_change",
+                "trigger": "at_mission_start",
+                "wind_east_mps": 8.0,
+                "wind_north_mps": 0.0,
+            },
+        ],
+    )
+
+    result_combined = run_scenario(
+        plan_combined, mission, make_vehicle(), landing_zones=[zone1, zone2]
+    )
+    result_wind_only = run_scenario(
+        plan_wind_only, mission, make_vehicle(), landing_zones=[zone1, zone2]
+    )
+
+    assert result_combined.estimate is not None
+    assert result_wind_only.estimate is not None
+
+    # Both should have the same total_time_s because the same wind was applied.
+    # If the bug existed, combined would use base wind (0 m/s) giving shorter time.
+    assert result_combined.estimate.total_time_s == pytest.approx(
+        result_wind_only.estimate.total_time_s, rel=1e-6
+    )

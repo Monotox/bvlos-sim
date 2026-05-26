@@ -8,7 +8,7 @@ from estimator.core.enums import (
     FailureCode,
     ScenarioStatus,
 )
-from estimator.core.results import EnergyEstimate, MissionEstimate
+from estimator.core.results import EnergyEstimate, MissionEstimate, EstimatorWarning
 from estimator.core.scenario import (
     CommsLinkPolicyOutcome,
     ScenarioAssertionResult,
@@ -76,6 +76,11 @@ def _failure_field(estimate: MissionEstimate) -> str | None:
     return f"[{code.name}]" if code is not None else None
 
 
+def _warnings_field(warnings: list[EstimatorWarning]) -> str | None:
+    n = len(warnings)
+    return f"warnings {n}" if n > 0 else None
+
+
 def format_estimate_summary(estimate: MissionEstimate) -> str:
     """Format an estimate as a single summary line."""
     return _join_fields(
@@ -83,6 +88,7 @@ def format_estimate_summary(estimate: MissionEstimate) -> str:
             _estimate_status_label(estimate),
             _reserve_margin_field(estimate.energy),
             _flight_time_field(estimate.total_time_s),
+            _warnings_field(estimate.warnings),
             _failure_field(estimate),
         )
     )
@@ -112,10 +118,11 @@ def _policy_outcome(
     )
 
 
-def _policy_action_field(result: ScenarioResult) -> str:
+def _policy_action_field(result: ScenarioResult) -> str | None:
     policy = _policy_outcome(result.event_outcomes)
-    action = "NONE" if policy is None else policy.action.upper()
-    return f"policy {action}"
+    if policy is None:
+        return None
+    return f"policy {policy.action.upper()}"
 
 
 def _first_failed_assertion(
@@ -151,11 +158,13 @@ def _estimate_fields(estimate: MissionEstimate | None) -> tuple[str | None, str 
 def format_scenario_summary(result: ScenarioResult) -> str:
     """Format a scenario result as a single summary line."""
     reserve_field, flight_time_field = _estimate_fields(result.estimate)
+    warnings = result.estimate.warnings if result.estimate is not None else []
     return _join_fields(
         (
             _scenario_status_field(result),
             reserve_field,
             flight_time_field,
+            _warnings_field(warnings),
             _policy_action_field(result),
             _failed_assertion_field(result),
         )

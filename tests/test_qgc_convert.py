@@ -41,7 +41,10 @@ def test_minimal_valid_plan_converts_takeoff_and_rtl() -> None:
         )
     )
 
-    assert diagnostics == []
+    # MAV_CMD_NAV_TAKEOFF (22) emits a normalisation warning
+    assert len(diagnostics) == 1
+    assert diagnostics[0].command == 22
+    assert "vtol_takeoff" in diagnostics[0].message
     assert mission["planned_home"] == {
         "lat": 52.0,
         "lon": 4.0,
@@ -56,7 +59,7 @@ def test_minimal_valid_plan_converts_takeoff_and_rtl() -> None:
         {"id": "takeoff", "action": "vtol_takeoff", "altitude_m": 80.0},
         {"id": "rtl", "action": "rtl"},
     ]
-    assert "constraints" not in mission
+    assert mission["constraints"] == {}
 
 
 def test_plan_with_waypoints_and_loiter_extracts_fields() -> None:
@@ -121,6 +124,50 @@ def test_unknown_command_produces_diagnostic_and_item_is_skipped() -> None:
     assert "unsupported MAVLink command" in diagnostics[0].message
 
 
+def test_loiter_with_zero_time_produces_diagnostic() -> None:
+    mission, diagnostics = parse_qgc_plan(
+        _plan([_simple_item(19, params=[0.0, 0, 80.0, 0, 0, 0, 120.0])])
+    )
+
+    assert mission["route"] == []
+    assert len(diagnostics) == 1
+    assert diagnostics[0].command == 19
+    assert "loiter time must be a positive number" in diagnostics[0].message
+
+
+def test_land_action_preserves_coordinates() -> None:
+    mission, diagnostics = parse_qgc_plan(
+        _plan([_simple_item(21, coordinate=[52.003, 4.005, 0.0])])
+    )
+
+    assert diagnostics == []
+    assert mission["route"] == [
+        {"id": "land", "action": "land", "lat": 52.003, "lon": 4.005, "altitude_m": 0.0}
+    ]
+
+
+def test_vtol_land_action_preserves_coordinates() -> None:
+    mission, diagnostics = parse_qgc_plan(
+        _plan([_simple_item(85, coordinate=[52.004, 4.006, 0.0])])
+    )
+
+    assert diagnostics == []
+    assert mission["route"] == [
+        {"id": "land", "action": "land", "lat": 52.004, "lon": 4.006, "altitude_m": 0.0}
+    ]
+
+
+def test_land_with_missing_coordinate_produces_diagnostic() -> None:
+    mission, diagnostics = parse_qgc_plan(
+        _plan([_simple_item(21, coordinate=[52.001, "bad-lon", 0.0])])
+    )
+
+    assert mission["route"] == []
+    assert len(diagnostics) == 1
+    assert diagnostics[0].command == 21
+    assert diagnostics[0].message == "land coordinate missing or invalid"
+
+
 def test_invalid_waypoint_coordinate_produces_diagnostic() -> None:
     mission, diagnostics = parse_qgc_plan(
         _plan([_simple_item(16, coordinate=[52.001, "bad-lon", 120.0])])
@@ -155,6 +202,18 @@ def test_missing_planned_home_raises_value_error() -> None:
         parse_qgc_plan({"fileType": "Plan", "mission": {"items": []}})
 
 
+def test_converted_mission_vehicle_profile_is_schema_valid_placeholder() -> None:
+    from schemas.mission import MissionPlan
+
+    mission, _ = parse_qgc_plan(_plan([_simple_item(16, coordinate=[52.001, 4.002, 120.0])]))
+
+    # Empty string fails MissionPlan.vehicle_profile min_length=1 validation.
+    # Placeholder must pass schema so the converted YAML can be loaded without errors.
+    assert mission["vehicle_profile"] != ""
+    loaded = MissionPlan.model_validate(mission)
+    assert loaded.vehicle_profile == mission["vehicle_profile"]
+
+
 def test_all_amsl_frames_sets_altitude_reference_amsl() -> None:
     mission, diagnostics = parse_qgc_plan(
         _plan(
@@ -171,6 +230,7 @@ def test_all_amsl_frames_sets_altitude_reference_amsl() -> None:
         )
     )
 
-    assert len(diagnostics) == 1
+    assert len(diagnostics) == 2
     assert diagnostics[0].message == "mission item is not an object; item skipped"
+    assert "vtol_takeoff" in diagnostics[1].message
     assert mission["defaults"]["altitude_reference"] == "amsl"

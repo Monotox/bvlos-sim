@@ -8,6 +8,7 @@ from shapely.geometry import Point
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import nearest_points, unary_union
 
+from estimator.core.enums import WarningCode
 from estimator.core.landing_zone import LandingZone
 from estimator.core.results import EnergyEstimate
 from estimator.core.scenario import DivertRouteEstimate
@@ -106,7 +107,7 @@ def compute_divert_estimate(
         infeasible_reason=None
         if is_feasible
         else "Insufficient reserve after completing the divert leg.",
-        warnings=[],
+        warnings=[WarningCode.DIVERT_ENERGY_TAS_ONLY],
     )
 
 

@@ -48,6 +48,7 @@ def test_propagate_command_result_has_expected_keys() -> None:
     payload = json.loads(result.output)
     r = payload["result"]
     assert "sample_count" in r
+    assert "failed_sample_count" in r
     assert "timeline" in r
     assert "feasibility_rate" in r
     assert "reserve_at_landing_wh" in r
@@ -125,6 +126,37 @@ def test_propagate_command_invalid_file_exits_invalid_input(tmp_path: Path) -> N
 def test_propagate_command_missing_file_exits_nonzero() -> None:
     result = _run(["propagate", "/does/not/exist.yaml"])
     assert result.exit_code != 0
+
+
+def test_propagate_infeasible_baseline_exits_invalid_input(tmp_path: Path) -> None:
+    MISSION_PATH = REPO_ROOT / "examples/missions/pipeline_demo_001.yaml"
+    VEHICLE_PATH = REPO_ROOT / "examples/vehicles/quadplane_v1.yaml"
+
+    # Write a vehicle without an energy model
+    import yaml as yaml_mod
+    with open(VEHICLE_PATH, encoding="utf-8") as f:
+        vehicle_data = yaml_mod.safe_load(f)
+    vehicle_data.pop("energy", None)
+    no_energy_vehicle = tmp_path / "no_energy_vehicle.yaml"
+    no_energy_vehicle.write_text(yaml_mod.dump(vehicle_data), encoding="utf-8")
+
+    stochastic = tmp_path / "test.yaml"
+    stochastic.write_text(
+        yaml_mod.dump(
+            {
+                "schema_version": "stochastic.v1",
+                "propagation_id": "test",
+                "mission_file": str(MISSION_PATH),
+                "vehicle_file": str(no_energy_vehicle),
+                "seed": 1,
+                "samples": 5,
+                "parameters": {},
+            }
+        ),
+        encoding="utf-8",
+    )
+    result = _run(["propagate", str(stochastic)])
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
 
 
 # ---------------------------------------------------------------------------

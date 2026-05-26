@@ -6,7 +6,7 @@ dispatch, and leg estimation are delegated to smaller execution modules.
 
 from collections.abc import Sequence
 
-from estimator.core.enums import EstimateStatus, FailureKind
+from estimator.core.enums import EstimateStatus, FailureKind, WarningCode
 from estimator.core.errors import EstimatorError
 from estimator.core.geofence import GeofenceZone
 from estimator.core.landing_zone import LandingZone
@@ -14,6 +14,7 @@ from estimator.core.options import EstimationOptions
 from estimator.core.results import (
     EnergyEstimate,
     EstimatorFailure,
+    EstimatorWarning,
     GeofenceEstimate,
     LandingZoneEstimate,
     LinkEstimate,
@@ -73,6 +74,7 @@ def run_estimation(
     """Execute the estimator against a prepared context."""
 
     validate_global_constraints(context)
+    _check_route_structure(context)
 
     for route_item_index, item in enumerate(context.mission.route):
         execute_route_item(
@@ -82,6 +84,7 @@ def run_estimation(
         )
 
     totals = sum_totals(context.route_legs)
+    _check_max_wind(context)
     explicit_resource_systems = bool(context.vehicle.resource_systems)
     energy_evaluation = evaluate_energy_feasibility(
         context,
@@ -113,6 +116,19 @@ def run_estimation(
         link=link_evaluation.link,
     )
 
+    if context.geofences:
+        context.warnings.append(
+            EstimatorWarning(
+                code=WarningCode.GEOFENCE_EVALUATED_2D_ONLY,
+                message=(
+                    "Geofence feasibility uses 2D lon/lat geometry only. "
+                    "Altitude bounds are not checked. See Ticket 061 for 3D geofence support."
+                ),
+                leg_index=None,
+                route_item_index=None,
+                route_item_id=None,
+            )
+        )
     geofence_evaluation = evaluate_geofence_feasibility(context)
     _raise_feasibility_failure(
         geofence_evaluation.failure,
@@ -123,6 +139,19 @@ def run_estimation(
         geofence=geofence_evaluation.geofence,
     )
 
+    if context.landing_zones:
+        context.warnings.append(
+            EstimatorWarning(
+                code=WarningCode.DIVERT_ENERGY_TAS_ONLY,
+                message=(
+                    "Landing-zone reachability uses TAS-based cruise energy without wind "
+                    "correction. In a headwind a zone declared reachable may not be in practice."
+                ),
+                leg_index=None,
+                route_item_index=None,
+                route_item_id=None,
+            )
+        )
     landing_zone_evaluation = evaluate_landing_zone_reachability(
         context,
         energy_evaluation.energy,
@@ -137,6 +166,7 @@ def run_estimation(
         geofence=geofence_evaluation.geofence,
         landing_zone=landing_zone_evaluation.landing_zone,
     )
+    _check_failsafe_thresholds(context, energy_evaluation.energy)
 
     return MissionEstimate(
         status=EstimateStatus.SUCCESS,
@@ -155,6 +185,101 @@ def run_estimation(
         failure=None,
         metadata=context.metadata,
     )
+
+
+def _check_max_wind(context: EstimationContext) -> None:
+    """Emit a warning for each leg where measured wind exceeds vehicle max_wind_mps."""
+    max_wind = context.vehicle.performance.max_wind_mps
+    if max_wind is None:
+        return
+    for leg in context.route_legs:
+        if leg.wind_speed_mps is not None and leg.wind_speed_mps > max_wind:
+            context.warnings.append(
+                EstimatorWarning(
+                    code=WarningCode.MAX_WIND_EXCEEDED,
+                    message=(
+                        f"Wind speed {leg.wind_speed_mps:.1f} m/s exceeds "
+                        f"vehicle.performance.max_wind_mps ({max_wind:.1f} m/s). "
+                        "The estimator does not enforce this limit; review feasibility."
+                    ),
+                    leg_index=leg.leg_index,
+                    route_item_index=leg.route_item_index,
+                    route_item_id=leg.route_item_id,
+                )
+            )
+
+
+def _check_failsafe_thresholds(
+    context: EstimationContext,
+    energy: EnergyEstimate | None,
+) -> None:
+    """Emit warnings when predicted reserve at landing violates failsafe thresholds."""
+    if energy is None or context.vehicle.failsafe is None:
+        return
+    reserve_pct = energy.reserve_at_landing_percent
+    failsafe = context.vehicle.failsafe
+    if (
+        failsafe.low_battery_abort_percent is not None
+        and reserve_pct < failsafe.low_battery_abort_percent
+    ):
+        context.warnings.append(
+            EstimatorWarning(
+                code=WarningCode.RESERVE_BELOW_FAILSAFE_ABORT_THRESHOLD,
+                message=(
+                    f"Predicted reserve at landing ({reserve_pct:.1f}%) is below "
+                    f"vehicle failsafe abort threshold "
+                    f"({failsafe.low_battery_abort_percent:.1f}%). "
+                    "The autopilot may trigger an emergency landing before completing the route."
+                ),
+                leg_index=None,
+                route_item_index=None,
+                route_item_id=None,
+            )
+        )
+    elif (
+        failsafe.low_battery_warn_percent is not None
+        and reserve_pct < failsafe.low_battery_warn_percent
+    ):
+        context.warnings.append(
+            EstimatorWarning(
+                code=WarningCode.RESERVE_BELOW_FAILSAFE_WARN_THRESHOLD,
+                message=(
+                    f"Predicted reserve at landing ({reserve_pct:.1f}%) is below "
+                    f"vehicle failsafe low-battery warning threshold "
+                    f"({failsafe.low_battery_warn_percent:.1f}%)."
+                ),
+                leg_index=None,
+                route_item_index=None,
+                route_item_id=None,
+            )
+        )
+
+
+def _check_route_structure(context: EstimationContext) -> None:
+    """Warn when route items appear after RTL, which produces misleading results."""
+    from schemas.mission import MissionAction  # local to avoid circular at module load
+
+    rtl_index: int | None = None
+    for i, item in enumerate(context.mission.route):
+        if item.action == MissionAction.RTL:
+            rtl_index = i
+            break
+    if rtl_index is not None and rtl_index < len(context.mission.route) - 1:
+        trailing = [
+            item.action.value for item in context.mission.route[rtl_index + 1 :]
+        ]
+        context.warnings.append(
+            EstimatorWarning(
+                code=WarningCode.ROUTE_ACTIONS_AFTER_RTL,
+                message=(
+                    f"RTL appears at route index {rtl_index} but is not the last item. "
+                    f"Actions after RTL ({trailing}) are estimated but operationally unreachable."
+                ),
+                leg_index=None,
+                route_item_index=rtl_index,
+                route_item_id=context.mission.route[rtl_index].id,
+            )
+        )
 
 
 def estimate_mission_distance_time(

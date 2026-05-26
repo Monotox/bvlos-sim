@@ -82,11 +82,16 @@ def test_cli_markdown_can_write_to_file(tmp_path: Path) -> None:
 
 def test_cli_partial_invalid_result_is_marked_partial(tmp_path: Path) -> None:
     mission_payload = make_mission_payload()
+    # Route: waypoint (succeeds) then terrain-referenced waypoint (fails at execution time
+    # without a terrain provider), producing a partial result after the first leg.
     mission_payload["route"] = [
         mission_payload["route"][1],
-        mission_payload["route"][2],
+        {
+            **mission_payload["route"][1],
+            "id": "wp2_terrain",
+            "altitude_reference": "terrain",
+        },
     ]
-    mission_payload["route"][1]["loiter_time_s"] = -1.0
 
     mission_path = tmp_path / "mission.yaml"
     vehicle_path = tmp_path / "vehicle.yaml"
@@ -95,13 +100,13 @@ def test_cli_partial_invalid_result_is_marked_partial(tmp_path: Path) -> None:
 
     result = runner.invoke(app, ["estimate", str(mission_path), str(vehicle_path)])
 
-    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+    assert result.exit_code == int(CliExitCode.UNSUPPORTED)
     envelope = json.loads(result.stdout)
     assert envelope["status"] == "error"
     assert envelope["result_validity"]["is_partial"] is True
     assert envelope["result_validity"]["scope"] == "completed_legs_only"
     assert envelope["result"]["totals_are_partial"] is True
-    assert envelope["diagnostics"][-1]["kind"] == "invalid_input"
+    assert envelope["diagnostics"][-1]["kind"] == "unsupported"
 
 
 def test_cli_unsupported_result_maps_to_exit_code(tmp_path: Path) -> None:
@@ -487,6 +492,29 @@ def test_cli_max_segment_length_m_zero_returns_invalid_input(tmp_path: Path) -> 
     envelope = json.loads(result.stdout)
     assert envelope["status"] == "error"
     assert envelope["diagnostics"][-1]["kind"] == "invalid_input"
+
+
+def test_cli_max_segment_length_without_fidelity_respects_mission_fidelity(
+    tmp_path: Path,
+) -> None:
+    """--max-segment-length-m alone must not downgrade mission estimation.fidelity."""
+    mission_payload = make_mission_payload()
+    mission_payload["estimation"] = {"fidelity": "v2"}
+
+    mission_path = tmp_path / "mission.yaml"
+    vehicle_path = tmp_path / "vehicle.yaml"
+    _write_yaml(mission_path, mission_payload)
+    _write_yaml(vehicle_path, make_vehicle_payload())
+
+    result = runner.invoke(
+        app,
+        ["estimate", str(mission_path), str(vehicle_path), "--max-segment-length-m", "5000"],
+    )
+
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    envelope = json.loads(result.stdout)
+    assert envelope["result"]["metadata"]["estimator_version"] == "v2"
+    assert envelope["result"]["metadata"]["options_source"] == "runtime_options"
 
 
 def test_cli_output_write_failure_falls_back_to_stdout_internal_error(

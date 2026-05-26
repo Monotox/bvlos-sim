@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 
 from adapters.landing_zone_geojson import LandingZoneLoadError, load_landing_zones
+from adapters.markdown import render_envelope_markdown
 from estimator import (
     EstimateStatus,
     FailureCode,
@@ -205,3 +206,28 @@ def test_geojson_landing_zone_importer_rejects_unsupported_geometry_type(
     error = exc_info.value
     assert error.failure.kind == FailureKind.UNSUPPORTED
     assert error.failure.code == FailureCode.UNSUPPORTED_LANDING_ZONE_GEOMETRY
+
+
+def test_markdown_render_does_not_crash_when_max_allowed_distance_is_none() -> None:
+    """Regression: _fmt(None) caused TypeError when max_allowed_distance_m was unset."""
+    from pathlib import Path as _Path
+
+    from adapters.envelope import EnvelopeInputs, build_estimator_envelope
+    from adapters.io import InputDocument
+
+    mission = make_mission()
+    mission.constraints.min_distance_to_landing_zone_m = None
+    zone = _point_zone("lz", lat=52.001, lon=4.001)
+    vehicle = make_vehicle()
+
+    result = try_estimate_mission_distance_time(mission, vehicle, landing_zones=[zone])
+    assert result.landing_zone is not None
+    assert result.landing_zone.max_allowed_distance_m is None
+
+    fake_doc = InputDocument(path=_Path("/fake/m.yaml"), format="yaml", sha256="0" * 64)
+    envelope = build_estimator_envelope(
+        result=result,
+        inputs=EnvelopeInputs(mission=fake_doc, vehicle=fake_doc),
+    )
+    md = render_envelope_markdown(envelope)
+    assert "Max allowed distance m: `none`" in md

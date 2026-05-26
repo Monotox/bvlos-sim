@@ -18,7 +18,7 @@ class EstimationOptions(BaseModel):
     wind_north_mps: float = 0.0
     min_groundspeed_mps: float | None = Field(default=None, gt=0)
     max_segment_length_m: float | None = Field(default=None, gt=0)
-    fidelity: FidelityMode = FidelityMode.V1
+    fidelity: FidelityMode | None = None
 
 
 __all__ = [

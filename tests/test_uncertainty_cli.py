@@ -174,3 +174,36 @@ def test_sample_invalid_input_emits_json_on_stdout(tmp_path: Path) -> None:
 def test_sample_command_missing_file_exits_nonzero() -> None:
     result = _run(["sample", "/nonexistent/path.yaml"])
     assert result.exit_code != 0
+
+
+def test_sample_infeasible_baseline_exits_invalid_input(tmp_path: Path) -> None:
+    MISSION_PATH = REPO_ROOT / "examples/missions/pipeline_demo_001.yaml"
+    VEHICLE_PATH = REPO_ROOT / "examples/vehicles/quadplane_v1.yaml"
+
+    import yaml as yaml_mod
+
+    with open(VEHICLE_PATH, encoding="utf-8") as f:
+        vehicle_data = yaml_mod.safe_load(f)
+    vehicle_data.pop("energy", None)
+    no_energy_vehicle = tmp_path / "no_energy_vehicle.yaml"
+    no_energy_vehicle.write_text(yaml_mod.dump(vehicle_data), encoding="utf-8")
+
+    uncertainty = tmp_path / "test.yaml"
+    uncertainty.write_text(
+        yaml_mod.dump(
+            {
+                "schema_version": "uncertainty.v1",
+                "uncertainty_id": "test",
+                "mission_file": str(MISSION_PATH),
+                "vehicle_file": str(no_energy_vehicle),
+                "samples": 5,
+                "seed": 1,
+                "parameters": {
+                    "cruise_power_w": {"kind": "normal", "mean": 450.0, "std": 10.0}
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    result = _run(["sample", str(uncertainty)])
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)

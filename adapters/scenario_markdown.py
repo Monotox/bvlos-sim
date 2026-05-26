@@ -44,13 +44,23 @@ def _fmt_point(point: TimelinePoint) -> str:
     )
 
 
-def _fmt_policy_outcome(policy: CommsLinkPolicyOutcome) -> str:
-    return (
+def _fmt_policy_outcome(policy: CommsLinkPolicyOutcome) -> Lines:
+    lines: Lines = [
         f"  - Policy: `{policy.action}` after `{policy.loiter_s:.1f}s` loiter"
         f" at t=`{policy.action_at_elapsed_s:.2f}s`"
         f" ({policy.action_lat:.5f}, {policy.action_lon:.5f})"
         f" alt=`{policy.action_altitude_amsl_m:.1f}m`"
-    )
+    ]
+    if policy.divert_estimate is not None:
+        de = policy.divert_estimate
+        lines.append(
+            f"  - Divert to `{de.target_zone_id}`: "
+            f"{de.distance_m:.0f}m, {de.time_s:.1f}s, "
+            f"feasible=`{str(de.is_feasible).lower()}`"
+        )
+        for w in de.warnings:
+            lines.append(f"  - Divert warning: `{w}`")
+    return lines
 
 
 def _fmt_event_outcome(outcome: ScenarioEventOutcome) -> Lines:
@@ -65,7 +75,7 @@ def _fmt_event_outcome(outcome: ScenarioEventOutcome) -> Lines:
             f" fired at timeline[{outcome.timeline_index}]"
         ]
         if outcome.policy_outcome is not None:
-            lines.append(_fmt_policy_outcome(outcome.policy_outcome))
+            lines.extend(_fmt_policy_outcome(outcome.policy_outcome))
         return lines
     return [f"- `{outcome.event_id}` ({outcome.kind}): not fired"]
 
@@ -186,7 +196,7 @@ def _render_landing_zone_section(envelope: ScenarioResultEnvelope) -> Lines:
         f"- Feasible: `{str(landing_zone.is_feasible).lower()}`",
         f"- Checked zones: `{landing_zone.checked_zone_count}`",
         f"- Checked states: `{landing_zone.checked_state_count}`",
-        f"- Max allowed distance m: `{_fmt(landing_zone.max_allowed_distance_m)}`",
+        f"- Max allowed distance m: `{_fmt(landing_zone.max_allowed_distance_m) if landing_zone.max_allowed_distance_m is not None else 'none'}`",
         f"- Reserve threshold Wh: `{_fmt(landing_zone.reserve_threshold_wh)}`",
     ]
     return _section("Landing-Zone Reachability", body)
@@ -206,6 +216,14 @@ def _render_estimate_summary(envelope: ScenarioResultEnvelope) -> Lines:
     return _section("Estimate Summary", body)
 
 
+def _render_warnings_section(envelope: ScenarioResultEnvelope) -> Lines:
+    warnings = envelope.estimate.warnings if envelope.estimate is not None else []
+    if not warnings:
+        return []
+    body = [f"- `{w.code}`: {w.message}" for w in warnings]
+    return _section("Warnings", body)
+
+
 _SECTION_RENDERERS: list[SectionRenderer] = [
     _render_assertion_results,
     _render_timeline,
@@ -218,6 +236,7 @@ _SECTION_RENDERERS: list[SectionRenderer] = [
     _render_link_section,
     _render_geofence_section,
     _render_landing_zone_section,
+    _render_warnings_section,
 ]
 
 

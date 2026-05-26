@@ -6,7 +6,7 @@ import statistics as stats_module
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from estimator.core.errors import EstimatorError
+from estimator.core.enums import EstimateStatus
 from estimator.core.geofence import GeofenceZone
 from estimator.core.landing_zone import LandingZone
 from estimator.core.results import EnergyLegEstimate, LegEstimate, MissionEstimate
@@ -275,21 +275,16 @@ class _ParticleSampler:
             position_legs=position_legs,
         )
 
-    def _estimate_sample(self, sample: _SampledParameters) -> MissionEstimate | None:
-        try:
-            return self.estimator_inputs.with_sample(sample).estimate()
-        except EstimatorError:
-            return None
+    def _estimate_sample(self, sample: _SampledParameters) -> MissionEstimate:
+        return self.estimator_inputs.with_sample(sample).estimate()
 
     @staticmethod
     def _particle_from_result(
-        result: MissionEstimate | None,
+        result: MissionEstimate,
         sample: _SampledParameters,
         sensors: SensorProfile | None,
         controller: ControllerProfile | None,
     ) -> _ParticleTrack | None:
-        if result is None:
-            return None
         return _ParticleTrack.from_estimate(
             estimate=result, sample=sample, sensors=sensors, controller=controller
         )
@@ -326,7 +321,6 @@ class _TimelineBuilder:
     position: _PositionInterpolator
     dt_s: float
     reserve_threshold_wh: float | None
-    sample_count: int
     rng: random.Random
     wind_process_noise_std_mps: float
     controller: ControllerProfile | None
@@ -464,7 +458,6 @@ class _TimelineBuilder:
             p_reserve_violation=_reserve_violation_rate(
                 policy_remaining,
                 reserve_threshold_wh=self.reserve_threshold_wh,
-                sample_count=self.sample_count,
             ),
         )
 
@@ -579,6 +572,14 @@ def run_stochastic_propagation(
         landing_zones=landing_zones,
     )
     baseline = estimator_inputs.estimate()
+    if baseline.status != EstimateStatus.SUCCESS:
+        failure = baseline.failure
+        message = (
+            failure.message
+            if failure is not None
+            else "Baseline mission estimate failed before propagation could start."
+        )
+        raise ValueError(f"Stochastic propagation requires a feasible baseline: {message}")
     rng = random.Random(plan.seed)
     population = _ParticleSampler(
         plan=plan,
@@ -598,7 +599,6 @@ def run_stochastic_propagation(
         ),
         dt_s=plan.dt_s,
         reserve_threshold_wh=reserve_threshold_wh,
-        sample_count=plan.samples,
         rng=rng,
         wind_process_noise_std_mps=plan.wind_process_noise_std_mps,
         controller=vehicle.controller,
@@ -607,11 +607,13 @@ def run_stochastic_propagation(
     # Compute final remaining after build so extra_energy_consumed_wh is fully accumulated
     final_remaining = [p.final_energy_remaining_wh for p in population.particles]
 
+    successful_samples = len(population.particles)
     return StochasticPropagationResult(
         propagation_id=plan.propagation_id,
         seed=plan.seed,
         dt_s=plan.dt_s,
-        sample_count=plan.samples,
+        sample_count=successful_samples,
+        failed_sample_count=plan.samples - successful_samples,
         timeline=timeline,
         estimation_error_timeline=estimation_error_timeline,
         cross_track_timeline=cross_track_timeline,
@@ -619,7 +621,6 @@ def run_stochastic_propagation(
         feasibility_rate=_feasibility_rate(
             final_remaining,
             reserve_threshold_wh=reserve_threshold_wh,
-            sample_count=plan.samples,
         ),
         baseline=baseline,
     )
@@ -721,24 +722,24 @@ def _reserve_violation_rate(
     values: list[float],
     *,
     reserve_threshold_wh: float | None,
-    sample_count: int,
 ) -> float:
-    if reserve_threshold_wh is None:
+    n = len(values)
+    if reserve_threshold_wh is None or n == 0:
         return 0.0
     violation_count = sum(value < reserve_threshold_wh for value in values)
-    return violation_count / sample_count
+    return violation_count / n
 
 
 def _feasibility_rate(
     values: list[float],
     *,
     reserve_threshold_wh: float | None,
-    sample_count: int,
 ) -> float:
-    if reserve_threshold_wh is None:
+    n = len(values)
+    if reserve_threshold_wh is None or n == 0:
         return 0.0
     feasible_count = sum(value >= reserve_threshold_wh for value in values)
-    return feasible_count / sample_count
+    return feasible_count / n
 
 
 def _build_sample_wind_provider(
@@ -784,7 +785,7 @@ def _apply_vehicle_overrides(
 
 
 def _active_leg_at(legs: list[LegEstimate], elapsed_time_s: float) -> LegEstimate | None:
-    """Return the leg active at elapsed_time_s, clamping to the last leg if past the end."""
+    """Return the leg active at elapsed_time_s, clamping to the last leg if past the end, or None if legs is empty."""
     elapsed = 0.0
     for leg in legs:
         if elapsed_time_s <= elapsed + leg.time_s:

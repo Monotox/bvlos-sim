@@ -56,7 +56,11 @@ class StochasticPropagationResult(BaseModel):
     propagation_id: str
     seed: int
     dt_s: float
-    sample_count: int
+    sample_count: int = Field(description="Number of samples that completed successfully.")
+    failed_sample_count: int = Field(
+        default=0,
+        description="Samples that raised an exception and were skipped.",
+    )
     timeline: list[PropagationTimelinePoint]
     estimation_error_timeline: list[EstimationErrorTimelinePoint] = Field(
         default_factory=list

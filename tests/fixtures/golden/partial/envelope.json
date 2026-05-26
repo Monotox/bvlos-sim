@@ -26,15 +26,15 @@
   },
   "diagnostics": [
     {
-      "code": "INVALID_MISSION_PROFILE",
+      "code": "UNSUPPORTED_ALTITUDE_REFERENCE_TERRAIN",
       "context": {
-        "loiter_time_s": -1.0
+        "action": "waypoint"
       },
-      "kind": "invalid_input",
+      "kind": "unsupported",
       "leg_index": 1,
       "level": "error",
-      "message": "loiter_time_s must be non-negative.",
-      "route_item_id": "loiter",
+      "message": "terrain altitude reference requires a terrain provider. Set assets.terrain_file in the mission or pass terrain_provider at runtime.",
+      "route_item_id": "wp2_terrain",
       "route_item_index": 1
     }
   ],
@@ -51,7 +51,7 @@
     "inputs": {
       "mission": {
         "format": "yaml",
-        "sha256": "5d6cab40974459fcdcde15d97cdb18d58382cf9a349de2421931654770ce36c0"
+        "sha256": "21af6d54b0c209a30d152da80a7aba392a9fd9d6cb6e23df22f6b4c2d2ac6be2"
       },
       "vehicle": {
         "format": "yaml",
@@ -62,14 +62,14 @@
   "result": {
     "energy": null,
     "failure": {
-      "code": "INVALID_MISSION_PROFILE",
+      "code": "UNSUPPORTED_ALTITUDE_REFERENCE_TERRAIN",
       "context": {
-        "loiter_time_s": -1.0
+        "action": "waypoint"
       },
-      "kind": "invalid_input",
+      "kind": "unsupported",
       "leg_index": 1,
-      "message": "loiter_time_s must be non-negative.",
-      "route_item_id": "loiter",
+      "message": "terrain altitude reference requires a terrain provider. Set assets.terrain_file in the mission or pass terrain_provider at runtime.",
+      "route_item_id": "wp2_terrain",
       "route_item_index": 1
     },
     "geofence": null,

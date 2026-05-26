@@ -744,6 +744,12 @@ def sample(
             command="sample",
             code=CliExitCode.INVALID_INPUT,
         )
+    except ValueError as exc:
+        _exit_with_cli_error(
+            str(exc),
+            command="sample",
+            code=CliExitCode.INVALID_INPUT,
+        )
     except OutputWriteError as exc:
         _exit_with_cli_error(
             str(exc),
@@ -815,6 +821,12 @@ def propagate(
         )
         raise typer.Exit(code=int(CliExitCode.SUCCESS))
     except InputLoadError as exc:
+        _exit_with_cli_error(
+            str(exc),
+            command="propagate",
+            code=CliExitCode.INVALID_INPUT,
+        )
+    except ValueError as exc:
         _exit_with_cli_error(
             str(exc),
             command="propagate",
