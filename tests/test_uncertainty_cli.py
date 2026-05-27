@@ -179,6 +179,31 @@ def test_sample_invalid_input_emits_json_on_stdout(tmp_path: Path) -> None:
     assert payload["status"] == "error"
 
 
+def test_sample_schema_error_includes_field_level_details(tmp_path: Path) -> None:
+    """Error output includes first_error_path when a required field is missing."""
+    bad_file = tmp_path / "no_params.yaml"
+    bad_file.write_text(
+        "\n".join(
+            [
+                "schema_version: uncertainty.v1",
+                "uncertainty_id: test",
+                "mission_file: m.yaml",
+                "vehicle_file: v.yaml",
+                "samples: 10",
+                "seed: 1",
+                # 'parameters' field missing intentionally
+            ]
+        ),
+        encoding="utf-8",
+    )
+    result = _run(["sample", str(bad_file)])
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+    payload = json.loads(result.output)
+    assert "details" in payload
+    assert payload["details"].get("first_error_path") == "parameters"
+    assert payload["details"].get("first_error_type") == "missing"
+
+
 def test_sample_command_missing_file_exits_nonzero() -> None:
     result = _run(["sample", "/nonexistent/path.yaml"])
     assert result.exit_code != 0

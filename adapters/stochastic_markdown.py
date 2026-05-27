@@ -112,6 +112,21 @@ def render_stochastic_markdown(envelope: StochasticResultEnvelope) -> str:
                 f"| {_fmt(point.path_length_excess_m.mean)} |"
             )
 
+    if r.reserve_at_landing_wh is not None:
+        s = r.reserve_at_landing_wh
+        lines.append("")
+        lines.append("## Reserve at Landing Distribution (Wh)")
+        lines.append("")
+        lines.append("| Stat | Value (Wh) |")
+        lines.append("|------|------------|")
+        lines.append(f"| min  | {_fmt(s.min)} |")
+        lines.append(f"| p5   | {_fmt(s.p5)} |")
+        lines.append(f"| p50  | {_fmt(s.p50)} |")
+        lines.append(f"| mean | {_fmt(s.mean)} |")
+        lines.append(f"| p95  | {_fmt(s.p95)} |")
+        lines.append(f"| max  | {_fmt(s.max)} |")
+        lines.append(f"| std  | {_fmt(s.std)} |")
+
     lines.append("")
     lines.append("## Baseline (Deterministic)")
     lines.append("")

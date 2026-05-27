@@ -136,6 +136,17 @@ StochasticEnvelopeRenderer = Callable[[StochasticResultEnvelope], str]
 def _render_estimate_summary(envelope: EstimatorResultEnvelope) -> str:
     result = envelope.result
     if result is None:
+        error_diag = next(
+            (d for d in envelope.diagnostics if d.level == "error"),
+            None,
+        )
+        if error_diag is not None:
+            code = str(error_diag.code)
+            input_name = error_diag.context.get("input_name")
+            stage = error_diag.context.get("stage")
+            if input_name and stage:
+                return f"ERROR   [{code}: {input_name} {stage}]"
+            return f"ERROR   [{code}]"
         return "ERROR"
     return format_estimate_summary(result)
 

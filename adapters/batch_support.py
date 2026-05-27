@@ -16,6 +16,8 @@ from adapters.terrain_grid import TerrainGridLoadError
 from adapters.wind_grid import WindGridLoadError
 from estimator import (
     EstimateStatus,
+    GeofenceZone,
+    LandingZone,
     MissionEstimate,
     try_estimate_mission_distance_time,
 )
@@ -44,6 +46,8 @@ class BatchRunResult:
     reserve_margin_percent: float | None
     flight_time_s: float | None
     envelope: EstimatorResultEnvelope | None
+    geofences: list[GeofenceZone] | None = None
+    landing_zones: list[LandingZone] | None = None
     warning_count: int = 0
     error_message: str | None = None
 
@@ -98,6 +102,8 @@ def _run_estimate(run: BatchRun) -> BatchRunResult:
         reserve_margin_percent=_reserve_margin_percent(result),
         flight_time_s=result.total_time_s,
         envelope=envelope,
+        geofences=mission_assets.geofences,
+        landing_zones=mission_assets.landing_zones,
         warning_count=len(result.warnings),
     )
 

@@ -59,14 +59,14 @@ def _add_route_placemarks(document: ET.Element, estimate: MissionEstimate) -> No
         placemark = ET.SubElement(document, _tag("Placemark"))
         ET.SubElement(placemark, _tag("name")).text = _leg_name(leg)
         ET.SubElement(placemark, _tag("styleUrl")).text = style_url
-        _add_extended_data(
-            placemark,
-            {
-                "layer": "route",
-                "leg_index": str(leg.leg_index),
-                "phase": leg.phase.name,
-            },
-        )
+        extended: dict[str, str] = {
+            "layer": "route",
+            "leg_index": str(leg.leg_index),
+            "phase": leg.phase.name,
+        }
+        if leg.route_item_id is not None:
+            extended["route_item_id"] = leg.route_item_id
+        _add_extended_data(placemark, extended)
         line_string = ET.SubElement(placemark, _tag("LineString"))
         ET.SubElement(line_string, _tag("altitudeMode")).text = "absolute"
         ET.SubElement(line_string, _tag("coordinates")).text = " ".join(
@@ -177,6 +177,8 @@ def _route_style_id(energy_margin_pct: float | None) -> str:
 
 
 def _leg_name(leg: LegEstimate) -> str:
+    if leg.route_item_id is not None:
+        return f"Leg {leg.leg_index} {leg.route_item_id} ({leg.phase.name})"
     return f"Leg {leg.leg_index} {leg.phase.name}"
 
 

@@ -60,7 +60,7 @@ sitl:
 metadata:
   calibration_status: placeholder_values
   notes: >
-    Extends quadplane_v1 with GPS sensor noise (T048), battery-meter noise (T048),
-    and proportional cross-track tracking controller (T049).
-    Enables estimation_error_timeline and cross_track_timeline in propagate output.
-    Replace sensor parameters with measured values before real analysis.
+    Extends quadplane_v1 with GPS and battery-meter sensor noise models and a
+    proportional cross-track tracking controller. Enables estimation_error_timeline
+    and cross_track_timeline in propagate output. Replace sensor parameters with
+    measured values before real analysis.

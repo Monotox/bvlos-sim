@@ -122,7 +122,7 @@ def run_estimation(
                 code=WarningCode.GEOFENCE_EVALUATED_2D_ONLY,
                 message=(
                     "Geofence feasibility uses 2D lon/lat geometry only. "
-                    "Altitude bounds are not checked. See Ticket 061 for 3D geofence support."
+                    "Altitude bounds are not checked."
                 ),
                 leg_index=None,
                 route_item_index=None,

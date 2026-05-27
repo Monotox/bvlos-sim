@@ -100,7 +100,8 @@ Stochastic propagation:
 - proportional cross-track and along-track tracking controller (`ControllerProfile`)
 - `propagate` CLI command and `stochastic.v1` input schema
 - `stochastic-envelope.v1` output contract with `timeline`, `estimation_error_timeline`,
-  `cross_track_timeline`, `reserve_at_landing_wh`, and `feasibility_rate`
+  `cross_track_timeline`, `reserve_at_landing_wh`, `feasibility_rate`, and
+  `spatial_infeasible_count` (geofence/LZ failures counted separately from energy failures)
 
 Interfaces and contracts:
 

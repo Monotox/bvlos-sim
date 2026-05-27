@@ -29,9 +29,13 @@ _SUPPORTED_FIELD_PATHS: frozenset[str] = frozenset(
         "estimate.total_horizontal_distance_m",
         "estimate.total_vertical_distance_m",
         "estimate.total_path_distance_m",
+        "estimate.totals_are_partial",
         "estimate.energy.is_feasible",
+        "estimate.energy.total_energy_wh",
         "estimate.energy.reserve_at_landing_percent",
         "estimate.energy.reserve_at_landing_wh",
+        "estimate.energy.reserve_threshold_wh",
+        "estimate.energy.reserve_threshold_percent",
         "estimate.resource.is_feasible",
         "estimate.link.is_feasible",
         "estimate.geofence.is_feasible",
@@ -47,14 +51,24 @@ _FIELD_RESOLVERS: dict[str, FieldResolver] = {
     "estimate.total_horizontal_distance_m": lambda e: e.total_horizontal_distance_m,
     "estimate.total_vertical_distance_m": lambda e: e.total_vertical_distance_m,
     "estimate.total_path_distance_m": lambda e: e.total_path_distance_m,
+    "estimate.totals_are_partial": lambda e: e.totals_are_partial,
     "estimate.energy.is_feasible": lambda e: (
         e.energy.is_feasible if e.energy is not None else None
+    ),
+    "estimate.energy.total_energy_wh": lambda e: (
+        e.energy.total_energy_wh if e.energy is not None else None
     ),
     "estimate.energy.reserve_at_landing_percent": lambda e: (
         e.energy.reserve_at_landing_percent if e.energy is not None else None
     ),
     "estimate.energy.reserve_at_landing_wh": lambda e: (
         e.energy.reserve_at_landing_wh if e.energy is not None else None
+    ),
+    "estimate.energy.reserve_threshold_wh": lambda e: (
+        e.energy.reserve_threshold_wh if e.energy is not None else None
+    ),
+    "estimate.energy.reserve_threshold_percent": lambda e: (
+        e.energy.reserve_threshold_percent if e.energy is not None else None
     ),
     "estimate.resource.is_feasible": lambda e: (
         e.resource.is_feasible if e.resource is not None else None
@@ -297,9 +311,10 @@ def _evaluate_field_assertion(
     field_path = cast(str, assertion.field_path)
 
     if field_path not in _SUPPORTED_FIELD_PATHS:
+        valid = ", ".join(sorted(_SUPPORTED_FIELD_PATHS))
         reason = (
             f"Field path '{field_path}' is not supported in scenario.v1. "
-            "See docs for supported field paths."
+            f"Supported paths: {valid}."
         )
         return _unsupported(assertion, reason)
 

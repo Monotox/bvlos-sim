@@ -13,7 +13,7 @@ from adapters.geojson import (
     polygon_payloads_from_geometry,
     read_geojson_object,
 )
-from adapters.io import InputDocument
+from adapters.io import InputDocument, validation_error_summary
 from estimator.core.enums import FailureCode, FailureKind, GeofenceKind
 from estimator.core.geofence import GeofenceZone
 from estimator.core.results import EstimatorContextValue, EstimatorFailure
@@ -130,16 +130,11 @@ def _schema_validation_error(
     document: InputDocument,
     feature_index: int,
 ) -> GeofenceLoadError:
-    first_error = exc.errors(include_url=False)[0]
     return _invalid_geometry_error(
         "GeoJSON geofence geometry failed schema validation.",
         path,
         GeofenceLoadStage.GEOMETRY,
-        {
-            "feature_index": feature_index,
-            "first_error_path": ".".join(str(part) for part in first_error["loc"]),
-            "first_error_type": str(first_error["type"]),
-        },
+        {"feature_index": feature_index, **validation_error_summary(exc)},
         document,
     )
 

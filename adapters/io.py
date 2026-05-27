@@ -65,14 +65,17 @@ def validation_error_summary(
     first_error = errors[0] if errors else None
     first_error_path = None
     first_error_type = None
+    first_error_message = None
     if first_error is not None:
         first_error_path = ".".join(str(part) for part in first_error["loc"])
         first_error_type = str(first_error["type"])
+        first_error_message = first_error.get("msg")
 
     return {
         "validation_error_count": len(errors),
         "first_error_path": first_error_path or None,
         "first_error_type": first_error_type,
+        "first_error_message": first_error_message,
     }
 
 

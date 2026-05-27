@@ -352,7 +352,7 @@ def test_divert_estimate_populated_on_divert_policy_outcome() -> None:
     assert divert.is_feasible is True
 
 
-def test_divert_estimate_none_when_no_landing_zones() -> None:
+def test_divert_estimate_infeasible_when_no_landing_zones() -> None:
     mission = make_mission()
     vehicle = make_vehicle()
     scenario = _divert_scenario(divert_target_id="lz-near")
@@ -361,10 +361,14 @@ def test_divert_estimate_none_when_no_landing_zones() -> None:
 
     outcome = result.event_outcomes[0]
     assert outcome.policy_outcome is not None
-    assert outcome.policy_outcome.divert_estimate is None
+    divert = outcome.policy_outcome.divert_estimate
+    assert divert is not None
+    assert divert.is_feasible is False
+    assert divert.infeasible_reason is not None
+    assert "not found" in divert.infeasible_reason
 
 
-def test_divert_estimate_none_when_landing_zones_empty() -> None:
+def test_divert_estimate_infeasible_when_landing_zones_empty() -> None:
     mission = make_mission()
     vehicle = make_vehicle()
     scenario = _divert_scenario(divert_target_id="lz-near")
@@ -373,7 +377,10 @@ def test_divert_estimate_none_when_landing_zones_empty() -> None:
 
     outcome = result.event_outcomes[0]
     assert outcome.policy_outcome is not None
-    assert outcome.policy_outcome.divert_estimate is None
+    divert = outcome.policy_outcome.divert_estimate
+    assert divert is not None
+    assert divert.is_feasible is False
+    assert divert.infeasible_reason is not None
 
 
 def test_non_divert_action_has_no_divert_estimate() -> None:

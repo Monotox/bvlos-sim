@@ -56,6 +56,7 @@ def _route_features(estimate: MissionEstimate) -> list[GeoJsonFeature]:
                 "layer": "route",
                 "phase": leg.phase.name,
                 "leg_index": leg.leg_index,
+                "route_item_id": leg.route_item_id,
                 "path_distance_m": leg.path_distance_m,
                 "energy_wh": energy_by_leg_index.get(leg.leg_index),
                 "energy_margin_pct": margin_pct,

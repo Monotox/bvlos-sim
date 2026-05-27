@@ -105,6 +105,14 @@ from estimator.execution.propagator import run_stochastic_propagation
 
 app = typer.Typer(name="bvlos-sim", add_completion=False, no_args_is_help=True)
 
+_VERSION = "0.22.0"
+
+
+def _version_callback(value: bool) -> None:
+    if value:
+        typer.echo(f"bvlos-sim {_VERSION}")
+        raise typer.Exit()
+
 
 class CliExitCode(IntEnum):
     SUCCESS = 0
@@ -165,22 +173,28 @@ _ROUTE_EXPORT_BUILDERS: dict[OutputFormat, RouteExportBuilder] = {
 
 
 @app.callback()
-def main() -> None:
+def main(
+    version: bool = typer.Option(
+        False,
+        "--version",
+        callback=_version_callback,
+        is_eager=True,
+        help="Show version and exit.",
+    ),
+) -> None:
     """BVLOS simulator command group."""
 
 
-def _render_cli_error(message: str, command: str) -> str:
-    return (
-        json.dumps(
-            {
-                "command": command,
-                "status": "error",
-                "message": message,
-            },
-            indent=2,
-        )
-        + "\n"
-    )
+def _render_cli_error(
+    message: str,
+    command: str,
+    *,
+    details: dict | None = None,
+) -> str:
+    payload: dict = {"command": command, "status": "error", "message": message}
+    if details:
+        payload["details"] = details
+    return json.dumps(payload, indent=2) + "\n"
 
 
 def _exit_with_cli_error(
@@ -188,8 +202,9 @@ def _exit_with_cli_error(
     *,
     command: str,
     code: CliExitCode,
+    details: dict | None = None,
 ) -> NoReturn:
-    typer.echo(_render_cli_error(message, command), nl=False)
+    typer.echo(_render_cli_error(message, command, details=details), nl=False)
     raise typer.Exit(code=int(code))
 
 
@@ -309,7 +324,7 @@ def convert(
             )
         rendered = yaml.dump(
             mission,
-            default_flow_style=None,
+            default_flow_style=False,
             sort_keys=False,
         )
         _write_output(rendered, output)
@@ -545,6 +560,7 @@ def compare(
             str(exc),
             command="compare",
             code=CliExitCode.INVALID_INPUT,
+            details=exc.to_context(),
         )
     except ValidationError as exc:
         first = exc.errors()[0]
@@ -759,6 +775,7 @@ def sample(
             str(exc),
             command="sample",
             code=CliExitCode.INVALID_INPUT,
+            details=exc.to_context(),
         )
     except ValueError as exc:
         _exit_with_cli_error(
@@ -841,6 +858,7 @@ def propagate(
             str(exc),
             command="propagate",
             code=CliExitCode.INVALID_INPUT,
+            details=exc.to_context(),
         )
     except ValueError as exc:
         _exit_with_cli_error(
@@ -943,6 +961,7 @@ def sitl(
             str(exc),
             command="sitl",
             code=CliExitCode.INVALID_INPUT,
+            details=exc.to_context(),
         )
     except (
         GeofenceLoadError,

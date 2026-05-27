@@ -111,6 +111,37 @@ def test_empty_events_and_assertions_accepted() -> None:
     assert plan.assertions == []
 
 
+def test_policy_assertion_with_unknown_event_id_rejected() -> None:
+    events = [_make_event(event_id="link-lost", kind="lost_link")]
+    assertions = [
+        _make_assertion(
+            assertion_id="check",
+            kind="policy_action_eq",
+            event_id="no-such-event",
+            expected="rtl",
+        )
+    ]
+    payload = _make_scenario_payload(events=events, assertions=assertions)
+    with pytest.raises(ValidationError) as exc_info:
+        ScenarioPlan.model_validate(payload)
+    assert any("no-such-event" in e["msg"] for e in exc_info.value.errors())
+
+
+def test_policy_assertion_with_valid_event_id_accepted() -> None:
+    events = [_make_event(event_id="link-lost", kind="lost_link")]
+    assertions = [
+        _make_assertion(
+            assertion_id="check",
+            kind="policy_action_eq",
+            event_id="link-lost",
+            expected="rtl",
+        )
+    ]
+    payload = _make_scenario_payload(events=events, assertions=assertions)
+    plan = ScenarioPlan.model_validate(payload)
+    assert plan.assertions[0].event_id == "link-lost"
+
+
 def test_initial_conditions_accept_link_systems() -> None:
     initial_conditions = ScenarioInitialConditions.model_validate(
         {

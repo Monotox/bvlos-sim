@@ -42,4 +42,4 @@ sitl:
 
 metadata:
   calibration_status: placeholder_values
-  notes: Reduced-battery variant for infeasible demo (Ticket 059). All other values identical to quadplane_v1.
+  notes: Reduced-battery variant for the infeasible demo. All other values identical to quadplane_v1. Demonstrates a failing reserve check against the alpine infeasible mission.

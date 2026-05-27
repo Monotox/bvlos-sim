@@ -28,7 +28,7 @@ _ESTIMATE_STATUS_LABELS: dict[EstimateStatus, str] = {
 _SCENARIO_STATUS_LABELS: dict[ScenarioStatus, str] = {
     ScenarioStatus.PASSED: "PASSED",
     ScenarioStatus.FAILED: "FAILED",
-    ScenarioStatus.ERROR: "FAILED",
+    ScenarioStatus.ERROR: "ERROR",
 }
 
 
@@ -101,9 +101,11 @@ def _passed_assertion_count(assertions: Iterable[ScenarioAssertionResult]) -> in
 
 
 def _scenario_status_field(result: ScenarioResult) -> str:
+    status = _SCENARIO_STATUS_LABELS.get(result.status, "FAILED")
+    if result.status == ScenarioStatus.ERROR:
+        return status
     passed_count = _passed_assertion_count(result.assertion_results)
     total_count = len(result.assertion_results)
-    status = _SCENARIO_STATUS_LABELS.get(result.status, "FAILED")
     return f"{status} {passed_count}/{total_count}"
 
 
@@ -138,6 +140,11 @@ def _first_failed_assertion(
         ),
         None,
     )
+
+
+def _unsupported_assertion_field(assertions: Iterable[ScenarioAssertionResult]) -> str | None:
+    count = sum(a.outcome == AssertionOutcome.UNSUPPORTED for a in assertions)
+    return f"[{count} unsupported]" if count > 0 else None
 
 
 def _failed_assertion_field(result: ScenarioResult) -> str | None:
@@ -176,7 +183,10 @@ def format_uncertainty_summary(result: MonteCarloResult) -> str:
         seconds = int(result.total_time_s.p50 % 60)
         time_field = f"time p50 {minutes}m {seconds:02d}s"
     samples_field = f"n={result.completed_sample_count}"
-    return _join_fields((feasibility_field, reserve_field, time_field, samples_field))
+    failed_field = (
+        f"failed={result.failed_sample_count}" if result.failed_sample_count > 0 else None
+    )
+    return _join_fields((feasibility_field, reserve_field, time_field, samples_field, failed_field))
 
 
 def format_stochastic_summary(result: StochasticPropagationResult) -> str:
@@ -196,7 +206,17 @@ def format_stochastic_summary(result: StochasticPropagationResult) -> str:
         seconds = int(total_time % 60)
         time_field = f"time {minutes}m {seconds:02d}s"
     samples_field = f"n={result.sample_count}"
-    return _join_fields((feasibility_field, reserve_field, time_field, samples_field))
+    failed_field = (
+        f"failed={result.failed_sample_count}" if result.failed_sample_count > 0 else None
+    )
+    spatial_field = (
+        f"spatial_infeasible={result.spatial_infeasible_count}"
+        if result.spatial_infeasible_count > 0
+        else None
+    )
+    return _join_fields(
+        (feasibility_field, reserve_field, time_field, samples_field, failed_field, spatial_field)
+    )
 
 
 def format_scenario_summary(result: ScenarioResult) -> str:
@@ -211,5 +231,6 @@ def format_scenario_summary(result: ScenarioResult) -> str:
             _warnings_field(warnings),
             _policy_action_field(result),
             _failed_assertion_field(result),
+            _unsupported_assertion_field(result.assertion_results),
         )
     )

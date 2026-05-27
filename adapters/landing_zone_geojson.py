@@ -16,7 +16,7 @@ from adapters.geojson import (
     position_payload_from_coordinates,
     read_geojson_object,
 )
-from adapters.io import InputDocument
+from adapters.io import InputDocument, validation_error_summary
 from estimator.core.enums import FailureCode, FailureKind
 from estimator.core.landing_zone import LandingZone
 from estimator.core.results import EstimatorContextValue, EstimatorFailure
@@ -178,16 +178,11 @@ def _schema_validation_error(
     document: InputDocument,
     feature_index: int,
 ) -> LandingZoneLoadError:
-    first_error = exc.errors(include_url=False)[0]
     return _invalid_geometry_error(
         "GeoJSON landing-zone geometry failed schema validation.",
         path,
         LandingZoneLoadStage.GEOMETRY,
-        {
-            "feature_index": feature_index,
-            "first_error_path": ".".join(str(part) for part in first_error["loc"]),
-            "first_error_type": str(first_error["type"]),
-        },
+        {"feature_index": feature_index, **validation_error_summary(exc)},
         document,
     )
 

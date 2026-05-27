@@ -92,6 +92,15 @@ def test_propagate_command_markdown_format() -> None:
     assert "# Stochastic Propagation Report" in result.output
 
 
+def test_propagate_command_markdown_includes_reserve_distribution() -> None:
+    result = _run(["propagate", str(EXAMPLE_STOCHASTIC), "--format", "markdown"])
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    assert "Reserve at Landing Distribution" in result.output
+    assert "p50" in result.output
+    assert "p5" in result.output
+    assert "p95" in result.output
+
+
 def test_propagate_command_summary_format() -> None:
     result = _run(["propagate", str(EXAMPLE_STOCHASTIC), "--format", "summary"])
     assert result.exit_code == int(CliExitCode.SUCCESS)
@@ -129,6 +138,33 @@ def test_propagate_command_invalid_file_exits_invalid_input(tmp_path: Path) -> N
     )
     result = _run(["propagate", str(bad_file)])
     assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+
+
+def test_propagate_command_schema_error_includes_details(tmp_path: Path) -> None:
+    """Error output includes field-level validation details for operator diagnosis."""
+    import json
+
+    bad_file = tmp_path / "no_params.yaml"
+    bad_file.write_text(
+        "\n".join(
+            [
+                "schema_version: stochastic.v1",
+                "propagation_id: x",
+                "mission_file: m.yaml",
+                "vehicle_file: v.yaml",
+                "samples: 10",
+                "seed: 1",
+                # 'parameters' field missing intentionally
+            ]
+        ),
+        encoding="utf-8",
+    )
+    result = _run(["propagate", str(bad_file)])
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+    payload = json.loads(result.output)
+    assert "details" in payload
+    assert payload["details"].get("first_error_path") == "parameters"
+    assert payload["details"].get("first_error_type") == "missing"
 
 
 def test_propagate_command_missing_file_exits_nonzero() -> None:

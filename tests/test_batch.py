@@ -129,6 +129,36 @@ def test_batch_cli_invalid_manifest_exits_invalid_input(tmp_path: Path) -> None:
     assert result.exit_code == int(CliExitCode.INVALID_INPUT)
 
 
+def test_batch_cli_output_dir_geojson_writes_geojson_files(tmp_path: Path) -> None:
+    manifest_path = tmp_path / "batch.yaml"
+    out_dir = tmp_path / "out"
+    manifest_path.write_text(
+        "\n".join(
+            [
+                "format_version: batch.v1",
+                "runs:",
+                "  - id: demo",
+                f"    mission: {REPO_ROOT / 'examples/missions/pipeline_demo_001.yaml'}",
+                f"    vehicle: {REPO_ROOT / 'examples/vehicles/quadplane_v1.yaml'}",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    result = _runner.invoke(
+        app,
+        ["batch", str(manifest_path), "--output-dir", str(out_dir), "--format", "geojson"],
+    )
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    files = list(out_dir.iterdir())
+    assert len(files) == 1
+    assert files[0].suffix == ".geojson"
+    import json
+    doc = json.loads(files[0].read_text(encoding="utf-8"))
+    assert doc["type"] == "FeatureCollection"
+    layers = {f["properties"]["layer"] for f in doc["features"]}
+    assert "route" in layers
+
+
 def test_batch_cli_output_dir_writes_envelopes(tmp_path: Path) -> None:
     manifest_path = tmp_path / "batch.yaml"
     out_dir = tmp_path / "out"

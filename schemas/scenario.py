@@ -444,3 +444,14 @@ class ScenarioPlan(BaseModel):
     def validate_unique_assertion_ids(self) -> "ScenarioPlan":
         _check_unique_ids([a.assertion_id for a in self.assertions], "assertion ids")
         return self
+
+    @model_validator(mode="after")
+    def validate_policy_assertion_event_ids(self) -> "ScenarioPlan":
+        event_ids = {e.event_id for e in self.events}
+        for assertion in self.assertions:
+            if assertion.event_id is not None and assertion.event_id not in event_ids:
+                raise ValueError(
+                    f"Assertion '{assertion.assertion_id}' references event_id "
+                    f"'{assertion.event_id}' which is not defined in events."
+                )
+        return self

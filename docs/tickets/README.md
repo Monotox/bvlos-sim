@@ -46,6 +46,7 @@ The current codebase includes:
 - advisory warnings for `MAX_WIND_EXCEEDED`, `RESERVE_BELOW_FAILSAFE_WARN_THRESHOLD`, and `RESERVE_BELOW_FAILSAFE_ABORT_THRESHOLD` emitted when vehicle failsafe or max_wind thresholds are crossed
 - MAV_CMD_NAV_TAKEOFF (fixed-wing) normalization diagnostic in the QGC `.plan` importer
 - denominator-correct stochastic feasibility and reserve-violation rates (use particle count, not requested sample count)
+- geofence/landing-zone spatial infeasibility tracked in stochastic propagation: `spatial_infeasible_count` in `StochasticPropagationResult`; three-way accounting `sample_count + failed_sample_count + spatial_infeasible_count == plan.samples`
 - `loiter_time_s` validated as strictly positive at schema load time; `loiter_radius_m` emits `LOITER_RADIUS_IGNORED` warning when set
 - `ROUTE_ACTIONS_AFTER_RTL` warning emitted when actions follow an RTL item (operationally unreachable legs)
 - `--format summary` output now includes a `warnings N` field when the estimate has advisory warnings
@@ -54,7 +55,7 @@ The current codebase includes:
 - wind-triangle correction applied to divert route estimates when a wind provider is available; DIVERT_ENERGY_TAS_ONLY warning suppressed when wind is corrected
 - `--format summary` for `sample` and `propagate` commands (feasibility rate, p5/p50/p95 reserve, time, sample count)
 - passing Linux estimator/schema/CLI/scenario/SITL comparison test suite with
-  622 passing tests and 9 skipped live or environment-dependent tests
+  636 passing tests and 9 skipped live or environment-dependent tests
 
 ## Implemented Integration Validation
 
@@ -109,24 +110,36 @@ path rather than through isolated examples. Current validation includes:
 31. [048-observation-model-and-twin-state.md](./048-observation-model-and-twin-state.md)
 32. [049-stochastic-closed-loop-control.md](./049-stochastic-closed-loop-control.md)
 33. [062-wind-corrected-divert-energy.md](./062-wind-corrected-divert-energy.md) *(divert estimate; landing-zone energy TAS-only remaining)*
+34. [065-geofence-and-lz-in-stochastic.md](./065-geofence-and-lz-in-stochastic.md)
 
 ### Planned
 
-34. [065-geofence-and-lz-in-stochastic.md](./065-geofence-and-lz-in-stochastic.md)
-35. [063-rth-reserve-check.md](./063-rth-reserve-check.md)
-36. [061-3d-geofence-altitude-bounds.md](./061-3d-geofence-altitude-bounds.md)
-37. [064-batch-scenario-and-propagate.md](./064-batch-scenario-and-propagate.md)
-38. [044-geodesic-dubins-divert.md](./044-geodesic-dubins-divert.md)
-39. [054-reference-inputs-for-calibration-and-import.md](./054-reference-inputs-for-calibration-and-import.md)
-40. [045-px4-sitl-launch-and-mission-upload.md](./045-px4-sitl-launch-and-mission-upload.md)
-41. [046-px4-sitl-telemetry-recorder-and-evidence-bundle.md](./046-px4-sitl-telemetry-recorder-and-evidence-bundle.md)
-42. [058-notam-live-airspace-integration.md](./058-notam-live-airspace-integration.md)
-43. [050-user-interfaces-and-service-adapters.md](./050-user-interfaces-and-service-adapters.md)
-44. [070-operational-integration-seams.md](./070-operational-integration-seams.md)
-45. [071-live-comms-remote-id-and-traffic-integrations.md](./071-live-comms-remote-id-and-traffic-integrations.md)
+35. [069-per-event-lost-link-policy-override.md](./069-per-event-lost-link-policy-override.md)
+36. [066-stochastic-geojson-export.md](./066-stochastic-geojson-export.md)
+37. [067-propagation-progress-feedback.md](./067-propagation-progress-feedback.md)
+38. [068-divert-route-geojson-layer.md](./068-divert-route-geojson-layer.md)
+39. [063-rth-reserve-check.md](./063-rth-reserve-check.md)
+40. [061-3d-geofence-altitude-bounds.md](./061-3d-geofence-altitude-bounds.md)
+41. [064-batch-scenario-and-propagate.md](./064-batch-scenario-and-propagate.md)
+42. [044-geodesic-dubins-divert.md](./044-geodesic-dubins-divert.md)
+43. [054-reference-inputs-for-calibration-and-import.md](./054-reference-inputs-for-calibration-and-import.md)
+44. [045-px4-sitl-launch-and-mission-upload.md](./045-px4-sitl-launch-and-mission-upload.md)
+45. [046-px4-sitl-telemetry-recorder-and-evidence-bundle.md](./046-px4-sitl-telemetry-recorder-and-evidence-bundle.md)
+46. [058-notam-live-airspace-integration.md](./058-notam-live-airspace-integration.md)
+47. [050-user-interfaces-and-service-adapters.md](./050-user-interfaces-and-service-adapters.md)
+48. [070-operational-integration-seams.md](./070-operational-integration-seams.md)
+49. [071-live-comms-remote-id-and-traffic-integrations.md](./071-live-comms-remote-id-and-traffic-integrations.md)
 
 ## Current Gaps
 
+- Lost-link events share one global policy; no per-event override: Ticket 069.
+- No GeoJSON/KML export for stochastic propagation results: Ticket 066.
+- No progress feedback during long particle propagation runs: Ticket 067.
+- No divert-route visual layer in scenario GeoJSON/KML export: Ticket 068.
+- No RTH reserve check from every route point: Ticket 063.
+- Geofence feasibility is 2D only (no altitude bounds): Ticket 061.
+- Batch only supports estimate runs (no scenario or propagate): Ticket 064.
+- Divert estimate now applies wind-triangle correction when wind provider is available; landing-zone reachability energy still uses TAS only (remaining scope of Ticket 062).
 - No geodesic-aware Dubins divert path sampling: Ticket 044.
 - No NOTAM/live airspace integration: Ticket 058.
 - No reference inputs for calibration and import: Ticket 054.
@@ -135,11 +148,6 @@ path rather than through isolated examples. Current validation includes:
 - No live comms, UTM/U-space, Remote ID, or traffic integrations: Tickets 070
   and 071.
 - No real-world calibration pipeline: Tickets 080–084.
-- Geofence feasibility is 2D only (no altitude bounds): Ticket 061.
-- Divert estimate now applies wind-triangle correction when wind provider is available; landing-zone reachability energy still uses TAS only (remaining scope of Ticket 062).
-- No RTH reserve check from every route point: Ticket 063.
-- Batch only supports estimate runs (no scenario or propagate): Ticket 064.
-- Geofence/landing-zone infeasibility not counted in stochastic feasibility_rate: Ticket 065.
 
 ## Validation and Calibration Track
 

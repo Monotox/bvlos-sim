@@ -13,7 +13,14 @@ from estimator.core.scenario import (
     ScenarioEventOutcome,
     ScenarioResult,
 )
-from adapters.summary import format_estimate_summary, format_scenario_summary
+from estimator.core.uncertainty import MonteCarloResult, SampledOutputStats
+from schemas.stochastic import PropagationTimelinePoint, StochasticPropagationResult
+from adapters.summary import (
+    format_estimate_summary,
+    format_scenario_summary,
+    format_stochastic_summary,
+    format_uncertainty_summary,
+)
 
 
 def _energy(
@@ -205,6 +212,39 @@ def test_passed_scenario_summary_ignores_skipped_assertion_tag() -> None:
     _assert_one_line(output)
 
 
+def test_passed_scenario_summary_shows_unsupported_count_when_nonzero() -> None:
+    result = ScenarioResult(
+        scenario_id="scenario-1",
+        status=ScenarioStatus.PASSED,
+        assertion_results=[
+            _assertion("ok", AssertionOutcome.PASSED),
+            _assertion("bad-path", AssertionOutcome.UNSUPPORTED),
+        ],
+        estimate=_estimate(energy=_energy()),
+    )
+
+    output = format_scenario_summary(result)
+
+    assert "[1 unsupported]" in output
+    assert output.startswith("PASSED 1/2")
+    _assert_one_line(output)
+
+
+def test_error_scenario_summary_shows_error_without_assertion_count() -> None:
+    result = ScenarioResult(
+        scenario_id="scenario-1",
+        status=ScenarioStatus.ERROR,
+        assertion_results=[],
+        event_outcomes=[],
+        estimate=None,
+    )
+
+    output = format_scenario_summary(result)
+
+    assert output == "ERROR"
+    _assert_one_line(output)
+
+
 def test_estimate_summary_includes_warnings_count_when_nonzero() -> None:
     output = format_estimate_summary(
         _estimate(
@@ -252,4 +292,155 @@ def test_scenario_summary_omits_warnings_field_when_no_warnings() -> None:
     output = format_scenario_summary(result)
 
     assert "warnings" not in output
+    _assert_one_line(output)
+
+
+# --- Stochastic summary format tests ---
+
+
+def _stats(mean: float = 850.0) -> SampledOutputStats:
+    return SampledOutputStats(
+        count=100,
+        mean=mean,
+        std=20.0,
+        min=mean - 60,
+        p5=mean - 40,
+        p50=mean,
+        p95=mean + 40,
+        max=mean + 60,
+    )
+
+
+def _timeline_point() -> PropagationTimelinePoint:
+    return PropagationTimelinePoint(
+        elapsed_time_s=10.0,
+        lat_mean=52.0,
+        lon_mean=4.0,
+        energy_remaining_wh=_stats(),
+        p_reserve_violation=0.0,
+    )
+
+
+def _stochastic_result(
+    *,
+    sample_count: int = 100,
+    failed_sample_count: int = 0,
+    spatial_infeasible_count: int = 0,
+    feasibility_rate: float = 1.0,
+    total_time_s: float = 169.0,
+    reserve: SampledOutputStats | None = None,
+) -> StochasticPropagationResult:
+    baseline = _estimate(total_time_s=total_time_s)
+    return StochasticPropagationResult(
+        propagation_id="test",
+        seed=42,
+        dt_s=2.0,
+        sample_count=sample_count,
+        failed_sample_count=failed_sample_count,
+        spatial_infeasible_count=spatial_infeasible_count,
+        timeline=[_timeline_point()],
+        reserve_at_landing_wh=reserve if reserve is not None else _stats(),
+        feasibility_rate=feasibility_rate,
+        baseline=baseline,
+    )
+
+
+def test_stochastic_summary_contains_feasibility_and_sample_count() -> None:
+    output = format_stochastic_summary(_stochastic_result())
+
+    assert "feasible 100%" in output
+    assert "n=100" in output
+    _assert_one_line(output)
+
+
+def test_stochastic_summary_omits_failed_field_when_zero() -> None:
+    output = format_stochastic_summary(_stochastic_result(failed_sample_count=0))
+
+    assert "failed=" not in output
+    _assert_one_line(output)
+
+
+def test_stochastic_summary_includes_failed_field_when_nonzero() -> None:
+    output = format_stochastic_summary(
+        _stochastic_result(sample_count=97, failed_sample_count=3)
+    )
+
+    assert "failed=3" in output
+    _assert_one_line(output)
+
+
+def test_stochastic_summary_omits_spatial_infeasible_field_when_zero() -> None:
+    output = format_stochastic_summary(_stochastic_result(spatial_infeasible_count=0))
+
+    assert "spatial_infeasible=" not in output
+    _assert_one_line(output)
+
+
+def test_stochastic_summary_includes_spatial_infeasible_field_when_nonzero() -> None:
+    output = format_stochastic_summary(
+        _stochastic_result(
+            sample_count=0,
+            spatial_infeasible_count=6,
+            feasibility_rate=0.0,
+        )
+    )
+
+    assert "spatial_infeasible=6" in output
+    assert "feasible 0%" in output
+    _assert_one_line(output)
+
+
+def test_stochastic_summary_includes_reserve_percentiles() -> None:
+    output = format_stochastic_summary(_stochastic_result(reserve=_stats(850.0)))
+
+    assert "p5" in output
+    assert "p50" in output
+    assert "p95" in output
+    _assert_one_line(output)
+
+
+# --- Uncertainty summary format tests ---
+
+
+def _mc_result(
+    *,
+    completed: int = 200,
+    failed: int = 0,
+    feasibility_rate: float = 1.0,
+) -> MonteCarloResult:
+    baseline = _estimate(total_time_s=169.0)
+    reserve = _stats(850.0)
+    return MonteCarloResult(
+        uncertainty_id="test",
+        seed=42,
+        sample_count=completed + failed,
+        completed_sample_count=completed,
+        failed_sample_count=failed,
+        feasibility_rate=feasibility_rate,
+        total_time_s=reserve,
+        reserve_at_landing_wh=reserve,
+        reserve_at_landing_percent=None,
+        baseline=baseline,
+    )
+
+
+def test_uncertainty_summary_contains_feasibility_and_sample_count() -> None:
+    output = format_uncertainty_summary(_mc_result())
+
+    assert "feasible 100%" in output
+    assert "n=200" in output
+    _assert_one_line(output)
+
+
+def test_uncertainty_summary_omits_failed_field_when_zero() -> None:
+    output = format_uncertainty_summary(_mc_result(failed=0))
+
+    assert "failed=" not in output
+    _assert_one_line(output)
+
+
+def test_uncertainty_summary_includes_failed_field_when_nonzero() -> None:
+    output = format_uncertainty_summary(_mc_result(completed=197, failed=3))
+
+    assert "failed=3" in output
     _assert_one_line(output)

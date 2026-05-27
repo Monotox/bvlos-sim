@@ -9,7 +9,7 @@
 
 - `estimate-succeeds` `passed`: Estimate status is 'success' (success).
 - `time-too-short` `failed`: 'estimate.total_time_s' field_lt 10.0 not satisfied (actual: 169.82027517).
-- `unsupported-field` `unsupported`: Assertion is not supported: Field path 'estimate.unknown_field' is not supported in scenario.v1. See docs for supported field paths.
+- `unsupported-field` `unsupported`: Assertion is not supported: Field path 'estimate.unknown_field' is not supported in scenario.v1. Supported paths: estimate.energy.is_feasible, estimate.energy.reserve_at_landing_percent, estimate.energy.reserve_at_landing_wh, estimate.energy.reserve_threshold_percent, estimate.energy.reserve_threshold_wh, estimate.energy.total_energy_wh, estimate.geofence.is_feasible, estimate.landing_zone.is_feasible, estimate.link.is_feasible, estimate.resource.is_feasible, estimate.status, estimate.total_horizontal_distance_m, estimate.total_path_distance_m, estimate.total_time_s, estimate.total_vertical_distance_m, estimate.totals_are_partial.
 - `policy-action` `passed`: Policy action for event 'link-lost' is 'rtl' as expected.
 
 ## Timeline

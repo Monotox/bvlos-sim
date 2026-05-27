@@ -113,8 +113,8 @@ class SitlSimulatorMetadata(BaseModel):
 class SitlObservedArtifacts(BaseModel):
     """Observed artifacts produced by a SITL adapter.
 
-    Ticket 040's no-op contract adapter leaves these lists empty. Later live
-    adapters fill them without changing the evidence bundle shape.
+    The contract-only adapter leaves these lists empty. Live adapters fill
+    them without changing the evidence bundle shape.
     """
 
     model_config = ConfigDict(extra="forbid")

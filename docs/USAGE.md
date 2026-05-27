@@ -30,7 +30,7 @@ bvlos-sim exposes eight commands:
 - `convert`: convert a QGroundControl `.plan` file to a `mission.v5` YAML
 - `batch`: run batch mission estimates from a manifest file
 - `sample`: run seeded Monte Carlo uncertainty sampling
-- `propagate`: run time-stepped stochastic particle propagation (Tickets 047–049)
+- `propagate`: run time-stepped stochastic particle propagation with EKF and tracking controller
 - `sitl`: build a contract-only or live SITL evidence bundle from an existing scenario
 - `compare`: compare a SITL evidence bundle against deterministic scenario expectations
 
@@ -55,9 +55,10 @@ dedicated command with JSON, Markdown, and `--output` support.
 Plan conversion and multi-run CI workflows are exposed through `convert` and
 `batch`.
 For terse terminal output, `estimate`, `scenario`, `sample`, and `propagate`
-support `--format summary`. `estimate` and `scenario` also support
-`--format geojson` and `--format kml` for map-ready route exports. `sitl` and
-`compare` remain JSON/Markdown only.
+support `--format summary`. `estimate` and `scenario` support `--format geojson`
+and `--format kml` for map-ready route exports. `batch` supports `--format
+geojson|kml` when used with `--output-dir` to write one map file per run.
+`sitl` and `compare` remain JSON/Markdown only.
 
 Command help:
 
@@ -117,8 +118,15 @@ runs:
 Paths are resolved relative to the manifest file. The command always prints a
 table with run id, status, reserve margin above or below threshold, and flight
 time, followed by a feasible/infeasible/error count. Use `--output-dir DIR` to
-write each successful run's envelope output for later CI collection; `--format`
-controls those per-run files while the table stays on stdout.
+write per-run output files for CI collection; `--format` controls those files
+while the table stays on stdout. Supported per-run file formats:
+
+- `--format json` — one `estimator-envelope.v5` JSON file per run (`.json`)
+- `--format markdown` — one Markdown report per run (`.md`)
+- `--format summary` — one one-line summary per run (`.txt`)
+- `--format geojson` — one GeoJSON map export per run (`.geojson`) with the
+  same route/landing-zone/geofence layers as `estimate --format geojson`
+- `--format kml` — one KML map export per run (`.kml`)
 
 Batch exits `0` only when all runs are feasible, `10` when any run is
 infeasible and no run had an input error, `11` when any run cannot load its
@@ -167,8 +175,11 @@ uv run bvlos-sim estimate \
 Example output:
 
 ```text
-FEASIBLE   reserve 281.6 %   flight 2m 49s
+FEASIBLE   reserve 281.6 %   flight 2m 49s   warnings 4
 ```
+
+The `warnings N` field appears when the estimate has advisory warnings
+(see [Advisory Warning Codes](#advisory-warning-codes)).
 
 Write GeoJSON route layers:
 
@@ -189,6 +200,41 @@ uv run bvlos-sim estimate \
   --format kml \
   --output /tmp/bvlos-route.kml
 ```
+
+### Energy Reserve Explained
+
+The `reserve` field in `--format summary` output is the margin above (positive) or
+below (negative) the reserve threshold, as a percentage of the threshold:
+
+```
+reserve_margin_% = (reserve_at_landing_wh / reserve_threshold_wh - 1) × 100
+```
+
+The reserve threshold is set in Wh and derived from a percent of battery capacity:
+
+```
+reserve_threshold_wh = battery_capacity_wh × reserve_threshold_percent / 100
+```
+
+The percent used is `mission.constraints.min_landing_reserve_percent` when set;
+otherwise it falls back to `vehicle.energy.reserve_percent_default`. Set one or
+both to control how much energy must remain at landing for the mission to be
+considered feasible.
+
+```yaml
+# mission.yaml
+constraints:
+  min_landing_reserve_percent: 25.0   # 25% of battery capacity must survive landing
+
+# vehicle.yaml
+energy:
+  battery_capacity_wh: 900.0
+  reserve_percent_default: 20.0       # used if mission doesn't override
+```
+
+A `reserve 281.6 %` summary means landing energy was 281.6% above the threshold
+(i.e., 3.8× the required reserve remained). A `reserve −12.4 %` means landing
+energy was 12.4% below the threshold and the mission is `INFEASIBLE`.
 
 ## Vehicle Profiles
 
@@ -259,8 +305,12 @@ uv run bvlos-sim scenario \
 Example output:
 
 ```text
-PASSED 3/3   reserve 281.6 %   flight 2m 49s   policy NONE
+PASSED 3/3   reserve 281.6 %   flight 2m 49s   warnings 4
 ```
+
+The `policy <ACTION>` field appears only when a lost-link event fires and a
+policy action is selected (e.g. `policy DIVERT`, `policy RTL`). The `warnings N`
+field appears only when the estimate has advisory warnings.
 
 Write GeoJSON route layers from the scenario estimate:
 
@@ -297,6 +347,31 @@ Supported event kinds:
 - `observe`: records that a timeline trigger fired
 - `lost_link`: records link-loss timing and evaluates `lost_link_policy` when configured
 - `wind_change`: changes the active wind from the trigger time onward
+- `landing_zone_unavailable`: marks one or more landing zones as unavailable from this point in the timeline onward
+
+All events require a `trigger` field. Supported triggers:
+
+| Trigger | Extra field required |
+|---------|----------------------|
+| `at_mission_start` | — |
+| `at_route_item` | `trigger_route_item_id` |
+| `at_elapsed_time` | `trigger_elapsed_time_s` |
+| `at_mission_end` | — |
+
+`landing_zone_unavailable` events require `unavailable_zone_ids` (a list of zone IDs from the
+landing-zone GeoJSON). When a zone is marked unavailable, reachability is re-evaluated from
+that route item onward. Any previously reachable zone that is now unavailable causes an
+infeasibility if no other zone remains reachable:
+
+```yaml
+events:
+  - event_id: lz-closed
+    kind: landing_zone_unavailable
+    trigger: at_route_item
+    trigger_route_item_id: wp1
+    unavailable_zone_ids:
+      - demo_landing_zone_wp1
+```
 
 `wind_change` events accept either scalar wind:
 
@@ -326,6 +401,103 @@ events:
         wind_east_mps: 5.0
         wind_north_mps: -1.0
 ```
+
+### Lost-Link Policy
+
+The `lost_link_policy` block defines what the vehicle does when the `lost_link` event fires.
+It can be set in the mission YAML (under `policy.lost_link_policy`) or overridden per scenario
+in `initial_conditions.lost_link_policy`. Set `policy.lost_link_policy: standard_lost_link_v1`
+in the mission to activate the default RTL-after-loiter policy.
+
+Inline `lost_link_policy` fields:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `action` | string | required | Contingency action: `rtl`, `land`, `loiter`, or `divert` |
+| `loiter_s` | float | `0.0` | Seconds to loiter at the link-loss point before acting |
+| `divert_target_id` | string | `null` | Landing zone ID to divert to; required when `action` is `divert` |
+
+Example — loiter 30 s then RTL:
+
+```yaml
+initial_conditions:
+  lost_link_policy:
+    action: rtl
+    loiter_s: 30.0
+```
+
+Example — divert to a named landing zone immediately:
+
+```yaml
+initial_conditions:
+  lost_link_policy:
+    action: divert
+    loiter_s: 0.0
+    divert_target_id: demo_landing_zone_wp1
+```
+
+The divert estimate (Dubins path distance, transit time, reserve remaining) is included in the
+`scenario-report.v2` envelope under each `event_outcome.policy_outcome.divert_estimate`.
+
+### Scenario Assertions
+
+Assertions run after the estimator completes and test fields on the result envelope or
+policy outcomes. Unrecognised or skipped assertions do not fail the scenario; when any
+assertions are `unsupported` (unrecognised `field_path` or unsupported kind), the
+`--format summary` line includes `[N unsupported]` to alert operators.
+
+| Kind | Required fields | Passes when |
+|------|-----------------|-------------|
+| `estimate_succeeds` | — | `estimate.status == "success"` |
+| `estimate_fails` | — | `estimate.status != "success"` |
+| `field_lt` | `field_path`, `expected` | field value `< expected` |
+| `field_gt` | `field_path`, `expected` | field value `> expected` |
+| `field_le` | `field_path`, `expected` | field value `<= expected` |
+| `field_ge` | `field_path`, `expected` | field value `>= expected` |
+| `field_eq` | `field_path`, `expected` | field value `== expected` (bool or float) |
+| `policy_action_eq` | `event_id`, `expected` | lost-link policy action for the event equals `expected` |
+
+`field_path` uses dot notation against the nested estimate result. All supported paths:
+
+```
+estimate.status                              # "success" | "infeasible" | "error"
+estimate.total_time_s
+estimate.total_horizontal_distance_m
+estimate.total_vertical_distance_m
+estimate.total_path_distance_m
+estimate.totals_are_partial                  # true if estimate was cut short
+estimate.energy.is_feasible
+estimate.energy.total_energy_wh
+estimate.energy.reserve_at_landing_wh
+estimate.energy.reserve_at_landing_percent
+estimate.energy.reserve_threshold_wh
+estimate.energy.reserve_threshold_percent
+estimate.geofence.is_feasible
+estimate.landing_zone.is_feasible
+estimate.resource.is_feasible
+estimate.link.is_feasible
+```
+
+An assertion with an unrecognised `field_path` yields `unsupported` outcome; the
+`unsupported_reason` field in the JSON result lists all valid paths.
+
+Example assertions block:
+
+```yaml
+assertions:
+  - assertion_id: estimate-succeeds
+    kind: estimate_succeeds
+  - assertion_id: reserve-margin-ok
+    kind: field_gt
+    field_path: estimate.energy.reserve_at_landing_wh
+    expected: 100.0
+  - assertion_id: policy-is-rtl
+    kind: policy_action_eq
+    event_id: link-lost
+    expected: rtl
+```
+
+`expected` for `field_eq` on boolean fields can be written as `true`/`false` (unquoted YAML).
 
 ## Monte Carlo Sampling
 
@@ -367,6 +539,35 @@ passes. Percentile fields such as `p95` describe tail behavior: for
 reserve-at-landing, low-end percentiles are usually the operational concern; for
 time or energy use, high-end percentiles show the conservative planning bound.
 
+### Uncertainty YAML reference
+
+Five parameters can be sampled independently. Unset parameters hold their
+deterministic value for every sample.
+
+| Parameter | Overrides | Example range |
+|-----------|-----------|---------------|
+| `wind_east_mps` | wind East component (m/s) | `mean: 0.0, std: 2.0` |
+| `wind_north_mps` | wind North component (m/s) | `mean: 0.0, std: 2.0` |
+| `cruise_speed_mps` | `mission.defaults.cruise_speed_mps` | `low: 14.0, high: 22.0` |
+| `cruise_power_w` | `vehicle.energy.cruise_power_w` | `mean: 450.0, std: 30.0` |
+| `battery_capacity_wh` | `vehicle.energy.battery_capacity_wh` | `mean: 900.0, std: 25.0` |
+
+Two distribution kinds are supported:
+
+```yaml
+# Normal (Gaussian) — fields: mean, std (must be > 0)
+wind_east_mps:
+  kind: normal
+  mean: 0.0
+  std: 2.0
+
+# Uniform — fields: low (inclusive), high (exclusive)
+cruise_speed_mps:
+  kind: uniform
+  low: 14.0
+  high: 22.0
+```
+
 ## Stochastic Propagation
 
 The `propagate` command runs a time-stepped particle propagator over the full
@@ -405,9 +606,24 @@ same sample count and parameters. `feasibility_rate` is the fraction of
 particles that landed with sufficient reserve. `reserve_at_landing_wh` gives
 distribution statistics (mean, std, p5, p50, p95) over particles.
 
+Sample accounting in the result uses three-way partitioning:
+`sample_count + failed_sample_count + spatial_infeasible_count == plan.samples`.
+A `spatial_infeasible_count > 0` means some particles were rejected because the
+route was geometrically infeasible for that sample — for example, a sampled
+battery capacity too low to afford the divert reserve to any available landing
+zone. These are counted as infeasible in `feasibility_rate`. When
+`--format summary` is used, non-zero counts appear as extra fields:
+
+```
+feasible 0%   time 2m 49s   n=0   spatial_infeasible=6
+```
+
+If the mission has no geofence or landing-zone assets, `spatial_infeasible_count`
+is always 0.
+
 To activate the twin-state EKF and cross-track controller, the vehicle file
 must include `sensors` and `controller` blocks. Without those blocks the
-propagator runs in basic mode (identical to T047 behavior) and
+propagator runs in basic mode (energy-only, no twin-state tracking) and
 `estimation_error_timeline` and `cross_track_timeline` are empty. An example
 EKF-equipped vehicle is provided at
 `examples/vehicles/quadplane_v1_ekf.yaml`:
@@ -419,17 +635,22 @@ uv run bvlos-sim propagate \
   --output /tmp/stochastic-ekf.json
 ```
 
-The `stochastic.v1` YAML format:
+The `stochastic.v1` YAML format accepts the same five parameters as `uncertainty.v1`
+(`wind_east_mps`, `wind_north_mps`, `cruise_speed_mps`, `cruise_power_w`,
+`battery_capacity_wh`) with the same `normal`/`uniform` distribution syntax.
+`wind_process_noise_std_mps` adds a per-step Gaussian perturbation to each
+particle's wind so wind state drifts continuously during propagation rather than
+staying fixed after initial sampling:
 
 ```yaml
 schema_version: stochastic.v1
 propagation_id: my-propagation
 mission_file: path/to/mission.yaml
 vehicle_file: path/to/vehicle.yaml
-dt_s: 2.0         # time step in seconds
-samples: 100      # number of particles
-seed: 42          # fixed seed for reproducibility
-wind_process_noise_std_mps: 0.5
+dt_s: 2.0                       # time step in seconds
+samples: 100                    # number of particles (max 10 000)
+seed: 42                        # fixed seed for reproducibility
+wind_process_noise_std_mps: 0.5 # per-step wind drift std; set 0 to disable
 parameters:
   wind_east_mps:
     kind: normal
@@ -439,6 +660,10 @@ parameters:
     kind: normal
     mean: 0.0
     std: 2.0
+  cruise_speed_mps:             # optional — omit to hold at mission default
+    kind: uniform
+    low: 14.0
+    high: 22.0
   cruise_power_w:
     kind: normal
     mean: 450.0
@@ -777,6 +1002,32 @@ when a scenario leaves initial wind unset, the `scenario` command can inherit
 the mission's `assets.wind_grid_file`.
 
 See `examples/wind/pipeline_wind_grid.yaml` for a working example grid.
+
+## Advisory Warning Codes
+
+Advisory warnings appear in `estimate`, `scenario`, `sample`, and `propagate` output when the
+estimator detects a condition that does not make the mission infeasible but may affect real
+operations. The `--format summary` line includes `warnings N` when any are present; the full
+JSON envelope lists each warning with its `code`, `message`, and the leg or route item index
+where it was raised.
+
+| Code | Raised by | Meaning | Operator action |
+|------|-----------|---------|-----------------|
+| `MAX_WIND_EXCEEDED` | transit legs | Measured wind speed on a leg exceeds `vehicle.performance.max_wind_mps`. The estimator does not enforce this limit; the energy model still completes. | Review each flagged leg. If the vehicle cannot fly safely at that wind, revise the route or reschedule. |
+| `RESERVE_BELOW_FAILSAFE_ABORT_THRESHOLD` | post-estimation | Predicted reserve at landing is below the vehicle's `failsafe.low_battery_abort_percent`. The autopilot may trigger an emergency landing before route completion. | Increase battery capacity, reduce distance, or add an intermediate landing. |
+| `RESERVE_BELOW_FAILSAFE_WARN_THRESHOLD` | post-estimation | Predicted reserve at landing is below `failsafe.low_battery_warn_percent`. The vehicle will likely trigger a low-battery alert mid-flight. | Add reserve margin or reduce energy consumption. |
+| `GEOFENCE_EVALUATED_2D_ONLY` | geofence check | Geofence intersection uses 2D lon/lat geometry. Altitude bounds in the GeoJSON are not checked. | If the geofence has altitude-dependent zones, verify altitude clearance manually. 3D altitude-bound checking is planned. |
+| `DIVERT_ENERGY_TAS_ONLY` | landing-zone reachability | Landing-zone divert energy is computed from true airspeed (TAS) without wind correction. In a headwind, a zone declared reachable may not be in practice. | Add headwind margin to landing-zone distances or use a closer alternate. |
+| `ROUTE_ACTIONS_AFTER_RTL` | route structure check | Route items appear after an RTL action. Those legs are estimated but operationally unreachable — the aircraft returns home before executing them. | Remove the trailing items or re-order the route so RTL is last. |
+| `LOITER_RADIUS_IGNORED` | loiter legs | `loiter_radius_m` is set on a loiter item but ignored; the estimator models loiter as a station-keep hold using `max_station_keep_wind_mps` as authority. | Confirm the loiter duration in `loiter_time_s` is correct. Radius will be used in a future fidelity update. |
+| `LOITER_ASSUMED_ZERO_GROUND_DISTANCE` | loiter legs | Loiter dwell is modeled as a station-keep hold with zero ground-path distance. The energy model accounts for hover power but not horizontal drift. | Acceptable for pre-flight checks. For precision loiter energy, use fidelity v2 when circular loiter support is added. |
+| `LOW_GROUNDSPEED_MARGIN` | transit legs | Computed groundspeed is within 10% of `min_groundspeed_mps`. Wind is strong relative to cruise speed, which may cause navigation issues. | Reduce cruise altitude where wind is weaker, or use a route that avoids the high-wind leg. |
+| `HIGH_CRAB_MARGIN` | transit legs | Crab angle is within 10% of `vehicle.performance.max_crab_angle_deg`. The cross-wind component is near the vehicle limit. | Route the mission to reduce cross-wind exposure or verify the vehicle can sustain the required crab angle. |
+| `HOVER_SPEED_USED_AS_STATION_KEEP_AUTHORITY` | loiter / hover legs | `max_station_keep_wind_mps` is not set in the vehicle profile; `hover_speed_mps` is used as a fallback for station-keep wind authority. | Set `performance.max_station_keep_wind_mps` in the vehicle YAML for a more accurate station-keep check. |
+
+Warnings are informational — the estimator still produces a result. They are attached to the
+envelope's `warnings` list and counted in the `--format summary` `warnings N` field. When no
+warnings are present, the field is omitted.
 
 ## Flight Team Workflow
 

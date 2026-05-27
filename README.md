@@ -99,6 +99,14 @@ uv run bvlos-sim sample \
   --format summary
 ```
 
+Run time-stepped stochastic propagation (per-step reserve-violation probability):
+
+```bash
+uv run bvlos-sim propagate \
+  examples/stochastic/pipeline_demo_001_stochastic.yaml \
+  --format summary
+```
+
 For SITL evidence recording and comparison against ArduPilot, see
 [SITL adapter contract](./docs/SITL_ADAPTER_CONTRACT.md).
 

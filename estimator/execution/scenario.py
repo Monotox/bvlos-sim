@@ -119,11 +119,7 @@ def _build_policy_outcome(
     action_point = timeline[action_index]
 
     divert_estimate = None
-    if (
-        policy.action == LostLinkAction.DIVERT
-        and policy.divert_target_id is not None
-        and landing_zones
-    ):
+    if policy.action == LostLinkAction.DIVERT and policy.divert_target_id is not None:
         entry_heading_deg = _entry_heading_at_index(legs, action_index)
         wind_east = 0.0
         wind_north = 0.0
@@ -143,7 +139,7 @@ def _build_policy_outcome(
             action_lon=action_point.lon,
             action_at_timeline_index=action_index,
             target_zone_id=policy.divert_target_id,
-            landing_zones=landing_zones,
+            landing_zones=landing_zones or [],
             energy=energy,
             mission=mission,
             vehicle=vehicle,

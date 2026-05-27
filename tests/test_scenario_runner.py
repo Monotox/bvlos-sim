@@ -1,5 +1,8 @@
 """Tests for deterministic scenario runner execution (scenario.v1)."""
 
+import pytest
+from pydantic import ValidationError
+
 from estimator.core.scenario import AssertionOutcome, ScenarioStatus
 from estimator.environment.wind import LayeredWindProvider, WindLayer
 from estimator.execution.scenario import run_scenario
@@ -236,6 +239,21 @@ def test_unsupported_field_path_gives_unsupported_outcome() -> None:
     assert result.assertion_results[0].outcome == AssertionOutcome.UNSUPPORTED
 
 
+def test_unsupported_field_path_message_lists_valid_paths() -> None:
+    plan = _plan(
+        assertions=[
+            _assertion(
+                "a1", "field_lt", field_path="estimate.unknown_field", expected=100.0
+            )
+        ]
+    )
+    result = run_scenario(plan, make_mission(), make_vehicle())
+    ar = result.assertion_results[0]
+    assert ar.outcome == AssertionOutcome.UNSUPPORTED
+    assert "estimate.energy.total_energy_wh" in (ar.unsupported_reason or "")
+    assert "estimate.totals_are_partial" in (ar.unsupported_reason or "")
+
+
 def test_unavailable_field_gives_skipped_outcome() -> None:
     # energy.geofence.is_feasible requires a geofence, which is not set up here.
     plan = _plan(
@@ -250,6 +268,66 @@ def test_unavailable_field_gives_skipped_outcome() -> None:
     )
     result = run_scenario(plan, make_mission(), make_vehicle())
     assert result.assertion_results[0].outcome == AssertionOutcome.SKIPPED
+
+
+def test_field_gt_total_energy_wh_passes_when_energy_positive() -> None:
+    plan = _plan(
+        assertions=[
+            _assertion(
+                "a1",
+                "field_gt",
+                field_path="estimate.energy.total_energy_wh",
+                expected=0.0,
+            )
+        ]
+    )
+    result = run_scenario(plan, make_mission(), make_vehicle())
+    assert result.assertion_results[0].outcome == AssertionOutcome.PASSED
+
+
+def test_field_gt_reserve_threshold_wh_passes_when_nonzero() -> None:
+    plan = _plan(
+        assertions=[
+            _assertion(
+                "a1",
+                "field_gt",
+                field_path="estimate.energy.reserve_threshold_wh",
+                expected=0.0,
+            )
+        ]
+    )
+    result = run_scenario(plan, make_mission(), make_vehicle())
+    assert result.assertion_results[0].outcome == AssertionOutcome.PASSED
+
+
+def test_field_eq_totals_are_partial_false_passes() -> None:
+    plan = _plan(
+        assertions=[
+            _assertion(
+                "a1",
+                "field_eq",
+                field_path="estimate.totals_are_partial",
+                expected=False,
+            )
+        ]
+    )
+    result = run_scenario(plan, make_mission(), make_vehicle())
+    assert result.assertion_results[0].outcome == AssertionOutcome.PASSED
+
+
+def test_field_gt_reserve_threshold_percent_passes_when_nonzero() -> None:
+    plan = _plan(
+        assertions=[
+            _assertion(
+                "a1",
+                "field_gt",
+                field_path="estimate.energy.reserve_threshold_percent",
+                expected=0.0,
+            )
+        ]
+    )
+    result = run_scenario(plan, make_mission(), make_vehicle())
+    assert result.assertion_results[0].outcome == AssertionOutcome.PASSED
 
 
 # ---------------------------------------------------------------------------
@@ -521,12 +599,10 @@ def test_policy_action_eq_skipped_when_no_policy_configured() -> None:
     assert result.assertion_results[0].outcome == AssertionOutcome.SKIPPED
 
 
-def test_policy_action_eq_skipped_when_event_id_not_in_outcomes() -> None:
-    plan = _plan(
-        assertions=[_policy_assertion("a1", "nonexistent-event", "rtl")],
-    )
-    result = run_scenario(plan, make_mission(), make_vehicle())
-    assert result.assertion_results[0].outcome == AssertionOutcome.SKIPPED
+def test_policy_assertion_with_unknown_event_id_raises_schema_error() -> None:
+    with pytest.raises(ValidationError) as exc_info:
+        _plan(assertions=[_policy_assertion("a1", "nonexistent-event", "rtl")])
+    assert any("nonexistent-event" in e["msg"] for e in exc_info.value.errors())
 
 
 def test_policy_action_eq_carries_expected_and_actual() -> None:
@@ -540,6 +616,20 @@ def test_policy_action_eq_carries_expected_and_actual() -> None:
     assert ar.outcome == AssertionOutcome.FAILED
     assert ar.expected == "land"
     assert ar.actual == "rtl"
+
+
+def test_divert_policy_without_landing_zones_produces_infeasible_divert_estimate() -> None:
+    plan = _plan(
+        events=[_lost_link_event("ll", "at_mission_start")],
+        lost_link_policy={"action": "divert", "loiter_s": 0.0, "divert_target_id": "lz-alpha"},
+    )
+    result = run_scenario(plan, make_mission(), make_vehicle())
+    po = result.event_outcomes[0].policy_outcome
+    assert po is not None
+    assert po.action == "divert"
+    assert po.divert_estimate is not None
+    assert po.divert_estimate.is_feasible is False
+    assert po.divert_estimate.infeasible_reason is not None
 
 
 # ---------------------------------------------------------------------------

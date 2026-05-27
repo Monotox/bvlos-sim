@@ -517,6 +517,23 @@ def test_cli_max_segment_length_without_fidelity_respects_mission_fidelity(
     assert envelope["result"]["metadata"]["options_source"] == "runtime_options"
 
 
+def test_cli_summary_format_input_load_error_includes_code_and_stage(
+    tmp_path: Path,
+) -> None:
+    mission_path = tmp_path / "mission.yaml"
+    vehicle_path = tmp_path / "vehicle.yaml"
+    _write_yaml(mission_path, make_mission_payload())
+    vehicle_path.write_text("bad yaml: [unclosed", encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        ["estimate", str(mission_path), str(vehicle_path), "--format", "summary"],
+    )
+
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+    assert result.stdout.startswith("ERROR   [INPUT_LOAD_ERROR: vehicle ")
+
+
 def test_cli_output_write_failure_falls_back_to_stdout_internal_error(
     tmp_path: Path,
     monkeypatch,
