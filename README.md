@@ -183,6 +183,14 @@ route as map-ready layers: one LineString per leg, landing-zone points with reac
 markers, and geofence polygons with conflict flags. GeoJSON opens in QGroundControl and
 QGIS; KML opens in Google Earth.
 
+`estimate --format checklist` (and the same on `scenario`) renders a pre-flight go/no-go
+checklist with `✓`, `✗`, and `◌` icons per category (energy, geofence, landing zone,
+resource, link, warnings) and a final `Status: GO/NO-GO` line suitable for briefing notes
+or CI gates.
+
+`estimate --format profile` (and the same on `scenario`) renders a per-leg altitude table
+with terrain elevation and clearance columns when a terrain provider is configured.
+
 ### Why not a spreadsheet
 
 A spreadsheet applies one wind speed to a flat total distance and checks whether a single

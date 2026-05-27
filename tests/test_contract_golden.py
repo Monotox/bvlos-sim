@@ -1,9 +1,11 @@
 import json
+import math
 from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
 
+from adapters.canonical_json import canonical_float, canonical_json_value, render_canonical_json
 from adapters.envelope import (
     EnvelopeInputs,
     EstimatorResultEnvelope,
@@ -12,11 +14,20 @@ from adapters.envelope import (
     build_invalid_input_envelope,
     render_envelope_json,
 )
-from adapters.io import InputLoadError, load_mission, load_vehicle
+from adapters.io import InputDocument, InputLoadError, load_mission, load_vehicle
 from adapters.markdown import render_envelope_markdown
 from adapters.terrain_grid import load_terrain_grid
 from adapters.wind_grid import load_wind_grid
 from estimator import EstimateStatus, try_estimate_mission_distance_time
+from estimator.core.enums import FailureCode, GeofenceKind, WarningCode
+from estimator.core.results import (
+    EstimatorWarning,
+    GeofenceConflict,
+    GeofenceEstimate,
+    LinkEstimate,
+    MissionEstimate,
+    ResourceEstimate,
+)
 from schemas import MissionPlan, VehicleProfile
 from tests.helpers import make_mission_payload, make_vehicle_payload
 
@@ -152,6 +163,20 @@ def test_invalid_input_envelope_uses_stable_schema_validation_context(
     assert "error" not in diagnostic.context
 
 
+def test_invalid_input_envelope_uses_stable_root_type_context(tmp_path: Path) -> None:
+    mission_path = tmp_path / "mission.yaml"
+    mission_path.write_text("- item1\n- item2\n", encoding="utf-8")
+
+    with pytest.raises(InputLoadError) as exc_info:
+        load_mission(mission_path)
+
+    envelope = build_invalid_input_envelope(error=exc_info.value)
+    diagnostic = envelope.diagnostics[0]
+
+    assert diagnostic.context["stage"] == "root_type"
+    assert diagnostic.context["root_type"] == "list"
+
+
 def test_internal_error_envelope_uses_stable_error_type_context() -> None:
     envelope = build_internal_error_envelope(error=RuntimeError("boom"))
     diagnostic = envelope.diagnostics[0]
@@ -161,3 +186,136 @@ def test_internal_error_envelope_uses_stable_error_type_context() -> None:
         diagnostic.message == "Unexpected internal error while running estimator CLI."
     )
     assert diagnostic.context == {"error_type": "RuntimeError"}
+
+
+# ---------------------------------------------------------------------------
+# canonical_json utility unit tests
+# ---------------------------------------------------------------------------
+
+
+def test_canonical_float_passes_through_inf() -> None:
+    assert canonical_float(math.inf) == math.inf
+
+
+def test_canonical_float_passes_through_nan() -> None:
+    assert math.isnan(canonical_float(math.nan))
+
+
+def test_canonical_float_normalizes_negative_zero_to_positive() -> None:
+    result = canonical_float(-0.0)
+    assert result == 0.0
+    assert math.copysign(1.0, result) == 1.0
+
+
+def test_canonical_json_value_recurses_into_nested_list_and_dict() -> None:
+    result = canonical_json_value({"vals": [1.23456789012345, None, "text"]})
+    assert isinstance(result["vals"][0], float)  # type: ignore[index]
+    assert result["vals"][1] is None  # type: ignore[index]
+    assert result["vals"][2] == "text"  # type: ignore[index]
+
+
+def test_render_canonical_json_sorts_keys_and_ends_with_newline() -> None:
+    output = render_canonical_json({"z": 1, "a": 2})
+    assert output.index('"a"') < output.index('"z"')
+    assert output.endswith("\n")
+
+
+# ---------------------------------------------------------------------------
+# Markdown sections: resource, link, geofence feasibility
+# ---------------------------------------------------------------------------
+
+
+def _fake_doc(name: str) -> InputDocument:
+    return InputDocument(path=Path(f"/fake/{name}.yaml"), format="yaml", sha256="0" * 64)
+
+
+def _bare_mission_estimate(**kwargs) -> MissionEstimate:
+    return MissionEstimate(
+        status=EstimateStatus.SUCCESS,
+        total_horizontal_distance_m=100.0,
+        total_vertical_distance_m=10.0,
+        total_path_distance_m=101.0,
+        total_time_s=60.0,
+        totals_are_partial=False,
+        **kwargs,
+    )
+
+
+def _build_minimal_envelope(result: MissionEstimate) -> str:
+    envelope = build_estimator_envelope(
+        result=result,
+        inputs=EnvelopeInputs(mission=_fake_doc("mission"), vehicle=_fake_doc("vehicle")),
+    )
+    return render_envelope_markdown(envelope)
+
+
+def test_markdown_includes_resource_feasibility_section_when_present() -> None:
+    result = _bare_mission_estimate(
+        resource=ResourceEstimate(
+            is_feasible=True,
+            selected_resource_id="fiber-power",
+            total_demand_wh=420.0,
+            peak_power_w=2000.0,
+            route_distance_m=100.0,
+            route_time_s=60.0,
+            max_observed_home_distance_m=50.0,
+        )
+    )
+    md = _build_minimal_envelope(result)
+    assert "## Resource Feasibility" in md
+    assert "fiber-power" in md
+
+
+def test_markdown_includes_link_feasibility_section_when_present() -> None:
+    result = _bare_mission_estimate(
+        link=LinkEstimate(
+            is_feasible=True,
+            selected_link_id="satcom",
+            required_link_count=1,
+            available_link_count=1,
+            max_observed_range_m=5000.0,
+        )
+    )
+    md = _build_minimal_envelope(result)
+    assert "## Link Feasibility" in md
+    assert "satcom" in md
+
+
+def test_markdown_includes_geofence_feasibility_section_when_present() -> None:
+    result = _bare_mission_estimate(
+        geofence=GeofenceEstimate(
+            is_feasible=False,
+            checked_zone_count=1,
+            checked_leg_count=2,
+            conflicts=[
+                GeofenceConflict(
+                    code=FailureCode.ROUTE_ENTERS_FORBIDDEN_ZONE,
+                    message="route enters forbidden zone",
+                    zone_id="EHR06A",
+                    zone_kind=GeofenceKind.FORBIDDEN,
+                    leg_index=0,
+                    route_item_index=0,
+                    route_item_id="wp-0",
+                )
+            ],
+        ),
+    )
+    md = _build_minimal_envelope(result)
+    assert "## Geofence Feasibility" in md
+    assert "Conflicts: `1`" in md
+
+
+def test_markdown_warning_without_leg_index_omits_leg_tag() -> None:
+    result = _bare_mission_estimate(
+        warnings=[
+            EstimatorWarning(
+                code=WarningCode.GEOFENCE_EVALUATED_2D_ONLY,
+                message="altitude bounds not checked",
+                leg_index=None,
+            )
+        ]
+    )
+    md = _build_minimal_envelope(result)
+    assert "## Warnings" in md
+    assert "GEOFENCE_EVALUATED_2D_ONLY" in md
+    assert "(leg " not in md

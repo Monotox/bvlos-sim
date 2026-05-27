@@ -298,6 +298,7 @@
       "event_id": "start",
       "fired": true,
       "kind": "observe",
+      "not_fired_reason": null,
       "policy_outcome": null,
       "timeline_index": 0,
       "unsupported": false,
@@ -307,6 +308,7 @@
       "event_id": "link-lost",
       "fired": true,
       "kind": "lost_link",
+      "not_fired_reason": null,
       "policy_outcome": {
         "action": "rtl",
         "action_altitude_amsl_m": 132.0,

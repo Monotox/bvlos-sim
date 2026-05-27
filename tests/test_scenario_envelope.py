@@ -5,16 +5,24 @@ from pathlib import Path
 
 import pytest
 
+from adapters.envelope import DeterminismMetadata, ProvenanceInput
 from adapters.io import load_mission, load_vehicle
 from adapters.scenario_envelope import (
     SCENARIO_REPORT_SCHEMA_VERSION,
+    ScenarioProvenance,
     ScenarioResultEnvelope,
     build_scenario_envelope,
     render_scenario_envelope_json,
 )
 from adapters.scenario_io import load_scenario, resolve_scenario_asset_path
 from adapters.scenario_markdown import render_scenario_markdown
-from estimator.core.scenario import ScenarioStatus
+from estimator.core.enums import WarningCode
+from estimator.core.scenario import (
+    CommsLinkPolicyOutcome,
+    DivertRouteEstimate,
+    ScenarioEventOutcome,
+    ScenarioStatus,
+)
 from estimator.execution.scenario import run_scenario
 
 FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "golden" / "scenarios"
@@ -158,3 +166,128 @@ def test_markdown_matches_golden_fixture(scenario_name: str) -> None:
     rendered = render_scenario_markdown(_build_envelope_for(scenario_name))
     expected = (FIXTURE_ROOT / scenario_name / "report.md").read_text(encoding="utf-8")
     assert rendered == expected
+
+
+# ---------------------------------------------------------------------------
+# scenario_markdown: event outcome branch coverage
+# ---------------------------------------------------------------------------
+
+
+def _minimal_envelope(event_outcomes: list[ScenarioEventOutcome]) -> ScenarioResultEnvelope:
+    return ScenarioResultEnvelope(
+        schema_version="scenario-report.v2",
+        tool_version="0.0.0",
+        scenario_schema_version="scenario.v1",
+        scenario_id="test",
+        status=ScenarioStatus.PASSED,
+        determinism_metadata=DeterminismMetadata(
+            deterministic=True,
+            randomness_used=False,
+            external_network_access_used=False,
+            canonical_json=True,
+            canonical_json_sort_keys=True,
+        ),
+        provenance=ScenarioProvenance(
+            scenario_runner_api="scenario_runner.run_scenario",
+            inputs={"scenario": ProvenanceInput(format="yaml", sha256="abc")},
+        ),
+        timeline=[],
+        event_outcomes=event_outcomes,
+        assertion_results=[],
+        estimate=None,
+    )
+
+
+def test_scenario_markdown_unsupported_event_shows_reason() -> None:
+    outcome = ScenarioEventOutcome(
+        event_id="wind-evt",
+        kind="wind_change",
+        fired=False,
+        unsupported=True,
+        unsupported_reason="wind_change events are not yet simulated",
+    )
+    output = render_scenario_markdown(_minimal_envelope([outcome]))
+    assert "unsupported" in output
+    assert "wind_change events are not yet simulated" in output
+
+
+def test_scenario_markdown_not_fired_with_reason_shows_reason() -> None:
+    outcome = ScenarioEventOutcome(
+        event_id="route-evt",
+        kind="observe",
+        fired=False,
+        not_fired_reason="route item 'missing-wp' not found in timeline",
+    )
+    output = render_scenario_markdown(_minimal_envelope([outcome]))
+    assert "not fired" in output
+    assert "route item 'missing-wp' not found in timeline" in output
+
+
+def test_scenario_markdown_not_fired_without_reason_shows_not_fired() -> None:
+    outcome = ScenarioEventOutcome(
+        event_id="end-evt",
+        kind="observe",
+        fired=False,
+    )
+    output = render_scenario_markdown(_minimal_envelope([outcome]))
+    assert "not fired" in output
+
+
+def _policy_outcome(*, is_feasible: bool = True, infeasible_reason: str | None = None, warnings: list[WarningCode] | None = None) -> CommsLinkPolicyOutcome:
+    divert = DivertRouteEstimate(
+        target_zone_id="lz-a",
+        distance_m=500.0,
+        time_s=60.0,
+        energy_wh=20.0,
+        energy_remaining_at_action_wh=200.0,
+        reserve_after_divert_wh=150.0,
+        reserve_after_divert_percent=16.7,
+        reserve_threshold_wh=100.0,
+        is_feasible=is_feasible,
+        infeasible_reason=infeasible_reason,
+        warnings=warnings or [],
+    )
+    return CommsLinkPolicyOutcome(
+        action="divert",
+        loiter_s=0.0,
+        link_lost_at_timeline_index=0,
+        link_lost_at_elapsed_s=0.0,
+        action_at_elapsed_s=0.0,
+        action_at_timeline_index=0,
+        action_lat=52.0,
+        action_lon=4.0,
+        action_altitude_amsl_m=100.0,
+        divert_target_id="lz-a",
+        divert_estimate=divert,
+    )
+
+
+def test_scenario_markdown_infeasible_divert_shows_reason() -> None:
+    outcome = ScenarioEventOutcome(
+        event_id="link-evt",
+        kind="lost_link",
+        fired=True,
+        timeline_index=2,
+        policy_outcome=_policy_outcome(
+            is_feasible=False,
+            infeasible_reason="reserve below threshold",
+        ),
+    )
+    output = render_scenario_markdown(_minimal_envelope([outcome]))
+    assert "Divert infeasible" in output
+    assert "reserve below threshold" in output
+
+
+def test_scenario_markdown_divert_warnings_are_shown() -> None:
+    outcome = ScenarioEventOutcome(
+        event_id="link-evt",
+        kind="lost_link",
+        fired=True,
+        timeline_index=2,
+        policy_outcome=_policy_outcome(
+            warnings=[WarningCode.DIVERT_ENERGY_TAS_ONLY],
+        ),
+    )
+    output = render_scenario_markdown(_minimal_envelope([outcome]))
+    assert "Divert warning" in output
+    assert "DIVERT_ENERGY_TAS_ONLY" in output

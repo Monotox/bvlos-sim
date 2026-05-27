@@ -1,6 +1,9 @@
+import json
+from pathlib import Path
+
 import pytest
 
-from adapters.qgc_plan import parse_qgc_plan
+from adapters.qgc_plan import load_and_convert_plan, parse_qgc_plan
 
 
 def _simple_item(
@@ -234,3 +237,84 @@ def test_all_amsl_frames_sets_altitude_reference_amsl() -> None:
     assert diagnostics[0].message == "mission item is not an object; item skipped"
     assert "vtol_takeoff" in diagnostics[1].message
     assert mission["defaults"]["altitude_reference"] == "amsl"
+
+
+def test_simple_item_with_null_command_produces_preflight_diagnostic() -> None:
+    plan = _plan([{"type": "SimpleItem", "command": None, "frame": 3, "coordinate": [52.0, 4.0, 80.0], "params": []}])
+    mission, diagnostics = parse_qgc_plan(plan)
+
+    assert mission["route"] == []
+    assert len(diagnostics) == 1
+    assert "command missing or invalid" in diagnostics[0].message
+
+
+def test_loiter_with_invalid_coordinate_produces_diagnostic() -> None:
+    plan = _plan([_simple_item(19, coordinate=[52.0, "bad", 0.0], params=[60.0, 0, 0, 0, 0, 0, 120.0])])
+    mission, diagnostics = parse_qgc_plan(plan)
+
+    assert mission["route"] == []
+    assert len(diagnostics) == 1
+    assert "loiter coordinate missing or invalid" in diagnostics[0].message
+
+
+def test_takeoff_with_missing_altitude_produces_diagnostic() -> None:
+    plan = _plan([{"type": "SimpleItem", "command": 22, "frame": 3, "coordinate": None, "params": [0, 0, 0, 0, 0, 0, None]}])
+    mission, diagnostics = parse_qgc_plan(plan)
+
+    assert mission["route"] == []
+    assert len(diagnostics) == 1
+    assert "takeoff altitude missing or invalid" in diagnostics[0].message
+
+
+def test_mission_without_cruise_or_hover_speed_defaults_are_omitted() -> None:
+    raw = {
+        "fileType": "Plan",
+        "mission": {
+            "plannedHomePosition": [52.0, 4.0, 12.0],
+            "items": [],
+        },
+    }
+    mission, diagnostics = parse_qgc_plan(raw)
+
+    assert diagnostics == []
+    assert "cruise_speed_mps" not in mission["defaults"]
+    assert "hover_speed_mps" not in mission["defaults"]
+
+
+# ---------------------------------------------------------------------------
+# load_and_convert_plan error paths
+# ---------------------------------------------------------------------------
+
+
+def test_load_and_convert_plan_raises_on_missing_file(tmp_path: Path) -> None:
+
+    with pytest.raises(ValueError, match="Unable to read"):
+        load_and_convert_plan(tmp_path / "nonexistent.plan")
+
+
+def test_load_and_convert_plan_raises_on_invalid_json(tmp_path: Path) -> None:
+
+    plan_file = tmp_path / "bad.plan"
+    plan_file.write_text("{bad json", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Unable to parse"):
+        load_and_convert_plan(plan_file)
+
+
+def test_load_and_convert_plan_raises_on_non_object_root(tmp_path: Path) -> None:
+
+    plan_file = tmp_path / "array.plan"
+    plan_file.write_text(json.dumps([1, 2, 3]), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="must be a JSON object"):
+        load_and_convert_plan(plan_file)
+
+
+def test_load_and_convert_plan_sets_mission_id_from_filename(tmp_path: Path) -> None:
+
+    plan_file = tmp_path / "my_mission.plan"
+    plan_file.write_text(json.dumps(_plan([])), encoding="utf-8")
+
+    mission, _ = load_and_convert_plan(plan_file)
+
+    assert mission["mission_id"] == "my_mission"

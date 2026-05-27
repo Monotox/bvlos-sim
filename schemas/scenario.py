@@ -56,6 +56,7 @@ class ScenarioAssertionKind(StrEnum):
     FIELD_GE = "field_ge"
     FIELD_EQ = "field_eq"
     POLICY_ACTION_EQ = "policy_action_eq"
+    POLICY_DIVERT_FEASIBLE = "policy_divert_feasible"
 
 
 FIELD_ASSERTION_KINDS: frozenset[ScenarioAssertionKind] = frozenset(
@@ -71,6 +72,7 @@ FIELD_ASSERTION_KINDS: frozenset[ScenarioAssertionKind] = frozenset(
 POLICY_ASSERTION_KINDS: frozenset[ScenarioAssertionKind] = frozenset(
     {
         ScenarioAssertionKind.POLICY_ACTION_EQ,
+        ScenarioAssertionKind.POLICY_DIVERT_FEASIBLE,
     }
 )
 
@@ -193,6 +195,8 @@ def _validate_policy_assertion_params(assertion: "ScenarioAssertion") -> None:
         return
     if assertion.event_id is None:
         raise ValueError(f"event_id is required for {assertion.kind} assertions")
+    if assertion.kind == ScenarioAssertionKind.POLICY_DIVERT_FEASIBLE:
+        return
     if assertion.expected is None:
         raise ValueError(f"expected is required for {assertion.kind} assertions")
     if assertion.kind == ScenarioAssertionKind.POLICY_ACTION_EQ:

@@ -60,6 +60,27 @@ and `--format kml` for map-ready route exports. `batch` supports `--format
 geojson|kml` when used with `--output-dir` to write one map file per run.
 `sitl` and `compare` remain JSON/Markdown only.
 
+`estimate` and `scenario` support `--format checklist` for a structured
+pre-flight go/no-go checklist. Each feasibility check is rendered on one line
+with a `✓`/`✗`/`◌` icon, and the output ends with `Status: GO` or
+`Status: NO-GO`. Suitable for terminal review or embedding in a flight brief.
+
+`batch` also supports `--format csv` to emit a comma-separated table
+(id, status, reserve_margin_percent, flight_time_s, warning_count) for
+import into spreadsheets. This outputs to stdout; use `--output` to redirect
+to a file.
+
+`estimate`, `scenario`, `propagate`, and `sample` support `--validate-only`: load
+and validate all input files against their schemas and exit without running the
+estimator. Exits 0 on success, 11 (invalid input) otherwise. Useful in CI to
+catch schema errors before long runs.
+
+```bash
+uv run bvlos-sim estimate mission.yaml vehicle.yaml --validate-only
+# mission: mission.yaml: OK
+# vehicle: vehicle.yaml: OK
+```
+
 Command help:
 
 ```bash
@@ -87,6 +108,18 @@ The converter reads `plannedHomePosition`, mission `cruiseSpeed` and
 waypoint, loiter-time, RTL, land, and VTOL land. Unsupported commands and
 ComplexItem entries are skipped with warnings to stderr so the rest of the
 route can still be converted.
+
+`MAV_CMD_NAV_TAKEOFF` (command 22) is normalised to `vtol_takeoff` in the
+output YAML and a diagnostic is emitted to stderr:
+
+```
+Warning: item 0 (command 22): MAV_CMD_NAV_TAKEOFF (22) normalised to vtol_takeoff;
+fixed-wing-only takeoff is not a separate action in mission.v5. Review vehicle_class
+after converting.
+```
+
+If your `.plan` file was designed for a fixed-wing-only aircraft rather than a VTOL,
+review the `vehicle_class` field in the output YAML and in your vehicle profile.
 
 The output YAML sets `vehicle_profile` to the placeholder `FIXME-vehicle-profile`
 and omits policy and asset references. Replace the placeholder with the real
@@ -200,6 +233,49 @@ uv run bvlos-sim estimate \
   --format kml \
   --output /tmp/bvlos-route.kml
 ```
+
+Write a route altitude profile (terrain clearance table):
+
+```bash
+uv run bvlos-sim estimate \
+  examples/missions/pipeline_demo_001.yaml \
+  examples/vehicles/quadplane_v1.yaml \
+  --format profile
+```
+
+The table shows one row per leg with start/end AMSL altitudes, and terrain
+elevation and clearance columns when `assets.terrain_file` is configured in
+the mission YAML. Without terrain data the Terrain and Clearance columns are
+omitted and a note is shown. The same `--format profile` flag works on the
+`scenario` command.
+
+Write a pre-flight go/no-go checklist:
+
+```bash
+uv run bvlos-sim estimate \
+  examples/missions/pipeline_demo_001.yaml \
+  examples/vehicles/quadplane_v1.yaml \
+  --format checklist
+```
+
+Example output:
+
+```text
+## Pre-Flight Checklist: mission
+
+✓ Energy feasibility       PASS   reserve 360.0 Wh above threshold (585.0 Wh at landing, 225.0 Wh threshold)
+◌ Geofence clearance       N/A    not evaluated
+◌ Landing-zone coverage    N/A    not evaluated
+◌ Resource availability    N/A    not evaluated
+◌ Link availability        N/A    not evaluated
+  Advisory warnings        4      LOITER_ASSUMED_ZERO_GROUND_DISTANCE, ...
+
+Status: GO
+```
+
+`Status: GO` means all evaluated checks passed. `Status: NO-GO` means at least
+one check failed. Categories not included in the estimate show `◌  N/A`.
+The same `--format checklist` flag works on the `scenario` command.
 
 ### Energy Reserve Explained
 
@@ -349,7 +425,11 @@ Supported event kinds:
 - `wind_change`: changes the active wind from the trigger time onward
 - `landing_zone_unavailable`: marks one or more landing zones as unavailable from this point in the timeline onward
 
-All events require a `trigger` field. Supported triggers:
+All events require `event_id` (slug pattern `[a-z0-9][a-z0-9-]*`) and a `trigger` field.
+An optional `description` string may be added to any event or assertion for human-readable
+documentation — it is stored in the schema but not interpreted by the runner.
+
+Supported triggers:
 
 | Trigger | Extra field required |
 |---------|----------------------|
@@ -357,6 +437,11 @@ All events require a `trigger` field. Supported triggers:
 | `at_route_item` | `trigger_route_item_id` |
 | `at_elapsed_time` | `trigger_elapsed_time_s` |
 | `at_mission_end` | — |
+
+When a trigger cannot be resolved (e.g. `trigger_route_item_id` not found in the timeline,
+`trigger_elapsed_time_s` exceeds mission duration), the event is marked `fired: false` and the
+`event_outcome.not_fired_reason` field in the JSON envelope contains a human-readable explanation
+— useful for debugging scenario YAML without re-running in verbose mode.
 
 `landing_zone_unavailable` events require `unavailable_zone_ids` (a list of zone IDs from the
 landing-zone GeoJSON). When a zone is marked unavailable, reachability is re-evaluated from
@@ -456,6 +541,7 @@ assertions are `unsupported` (unrecognised `field_path` or unsupported kind), th
 | `field_ge` | `field_path`, `expected` | field value `>= expected` |
 | `field_eq` | `field_path`, `expected` | field value `== expected` (bool or float) |
 | `policy_action_eq` | `event_id`, `expected` | lost-link policy action for the event equals `expected` |
+| `policy_divert_feasible` | `event_id` | divert route computed for the event is feasible (reserve ≥ threshold) |
 
 `field_path` uses dot notation against the nested estimate result. All supported paths:
 

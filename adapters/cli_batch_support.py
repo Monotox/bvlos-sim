@@ -12,6 +12,7 @@ from adapters.cli_support import (
 from adapters.envelope import OutputFormat
 from adapters.geojson_export import build_geojson_export
 from adapters.kml_export import build_kml_export
+from adapters.profile_markdown import render_profile_markdown
 
 
 def _batch_exit_code(results: list[BatchRunResult]) -> int:
@@ -24,7 +25,7 @@ def _batch_exit_code(results: list[BatchRunResult]) -> int:
 
 
 def _batch_output_extension(output_format: OutputFormat) -> str:
-    if output_format == OutputFormat.MARKDOWN:
+    if output_format in (OutputFormat.MARKDOWN, OutputFormat.CHECKLIST, OutputFormat.PROFILE):
         return ".md"
     if output_format == OutputFormat.SUMMARY:
         return ".txt"
@@ -32,6 +33,8 @@ def _batch_output_extension(output_format: OutputFormat) -> str:
         return ".geojson"
     if output_format == OutputFormat.KML:
         return ".kml"
+    if str(output_format) == "csv":
+        return ".csv"
     return ".json"
 
 
@@ -48,8 +51,10 @@ def _render_batch_run_output(output_format: OutputFormat, result: BatchRunResult
             geofence_zones=result.geofences,
             landing_zones=result.landing_zones,
         )
+    if output_format == OutputFormat.PROFILE and result.envelope is not None:
+        return render_profile_markdown(result.envelope, terrain_provider=None)
     rendered_format = _envelope_output_format(output_format)
-    return _render_output(rendered_format, result.envelope)
+    return _render_output(rendered_format, result.envelope, mission_id=result.id)
 
 
 def write_batch_outputs(

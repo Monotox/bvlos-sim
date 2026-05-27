@@ -51,7 +51,7 @@
 - Horizontal distance m: `707.0645449`
 - Vertical distance m: `240.0`
 - Path distance m: `787.0645449`
-- Time s: `169.06024195`
+- Time: `2m 49s (169.06024195 s)`
 - Legs: `5`
 
 ## Leg Breakdown

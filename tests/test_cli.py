@@ -385,6 +385,23 @@ def test_cli_wind_layer_malformed_entry_returns_invalid_input(tmp_path: Path) ->
     assert envelope["diagnostics"][-1]["kind"] == "invalid_input"
 
 
+def test_cli_wind_layer_non_numeric_returns_invalid_input(tmp_path: Path) -> None:
+    mission_path = tmp_path / "mission.yaml"
+    vehicle_path = tmp_path / "vehicle.yaml"
+    _write_yaml(mission_path, make_mission_payload())
+    _write_yaml(vehicle_path, make_vehicle_payload())
+
+    result = runner.invoke(
+        app,
+        ["estimate", str(mission_path), str(vehicle_path), "--wind-layer", "abc:5:0"],
+    )
+
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+    envelope = json.loads(result.stdout)
+    assert envelope["status"] == "error"
+    assert envelope["diagnostics"][-1]["kind"] == "invalid_input"
+
+
 def test_cli_fidelity_v2_returns_success(tmp_path: Path) -> None:
     mission_path = tmp_path / "mission.yaml"
     vehicle_path = tmp_path / "vehicle.yaml"
@@ -517,6 +534,59 @@ def test_cli_max_segment_length_without_fidelity_respects_mission_fidelity(
     assert envelope["result"]["metadata"]["options_source"] == "runtime_options"
 
 
+def test_cli_validate_only_exits_zero_for_valid_inputs(tmp_path: Path) -> None:
+    mission_path = tmp_path / "mission.yaml"
+    vehicle_path = tmp_path / "vehicle.yaml"
+    _write_yaml(mission_path, make_mission_payload())
+    _write_yaml(vehicle_path, make_vehicle_payload())
+
+    result = runner.invoke(
+        app,
+        ["estimate", str(mission_path), str(vehicle_path), "--validate-only"],
+    )
+
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    assert "mission.yaml: OK" in result.stdout
+    assert "vehicle.yaml: OK" in result.stdout
+
+
+def test_cli_validate_only_exits_invalid_input_for_bad_mission(tmp_path: Path) -> None:
+    mission_path = tmp_path / "mission.yaml"
+    vehicle_path = tmp_path / "vehicle.yaml"
+    mission_path.write_text("{", encoding="utf-8")
+    _write_yaml(vehicle_path, make_vehicle_payload())
+
+    result = runner.invoke(
+        app,
+        ["estimate", str(mission_path), str(vehicle_path), "--validate-only"],
+    )
+
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+
+
+def test_cli_validate_only_does_not_run_estimator(tmp_path: Path, monkeypatch) -> None:
+    mission_path = tmp_path / "mission.yaml"
+    vehicle_path = tmp_path / "vehicle.yaml"
+    _write_yaml(mission_path, make_mission_payload())
+    _write_yaml(vehicle_path, make_vehicle_payload())
+
+    called = []
+
+    def mock_estimator(*args, **kwargs):
+        called.append(True)
+        raise AssertionError("estimator must not be called with --validate-only")
+
+    monkeypatch.setattr(cli_module, "try_estimate_mission_distance_time", mock_estimator)
+
+    result = runner.invoke(
+        app,
+        ["estimate", str(mission_path), str(vehicle_path), "--validate-only"],
+    )
+
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    assert not called
+
+
 def test_cli_summary_format_input_load_error_includes_code_and_stage(
     tmp_path: Path,
 ) -> None:
@@ -565,3 +635,109 @@ def test_cli_output_write_failure_falls_back_to_stdout_internal_error(
     assert envelope["status"] == "error"
     assert envelope["diagnostics"][-1]["kind"] == "internal_error"
     assert envelope["diagnostics"][-1]["context"] == {"error_type": "OutputWriteError"}
+
+
+# ---------------------------------------------------------------------------
+# convert command
+# ---------------------------------------------------------------------------
+
+PLAN_FILE = Path(__file__).resolve().parents[1] / "examples" / "missions" / "pipeline_demo_001.plan"
+
+
+def test_convert_command_outputs_valid_yaml() -> None:
+    result = runner.invoke(app, ["convert", str(PLAN_FILE)])
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    yaml_text = "\n".join(
+        line for line in result.output.splitlines() if not line.startswith("Warning:")
+    )
+    payload = yaml.safe_load(yaml_text)
+    assert isinstance(payload, dict)
+    assert "mission_id" in payload
+    assert "route" in payload
+
+
+def test_convert_command_route_items_are_block_style() -> None:
+    result = runner.invoke(app, ["convert", str(PLAN_FILE)])
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    assert "- id:" in result.output
+    assert "  action:" in result.output
+
+
+def test_convert_command_writes_to_output_file(tmp_path: Path) -> None:
+    out_file = tmp_path / "mission.yaml"
+    result = runner.invoke(app, ["convert", str(PLAN_FILE), "--output", str(out_file)])
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    assert out_file.exists()
+    payload = yaml.safe_load(out_file.read_text(encoding="utf-8"))
+    assert "route" in payload
+
+
+def test_convert_command_invalid_json_exits_invalid_input(tmp_path: Path) -> None:
+    bad_plan = tmp_path / "bad.plan"
+    bad_plan.write_text("not valid json", encoding="utf-8")
+    result = runner.invoke(app, ["convert", str(bad_plan)])
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+
+
+# ---------------------------------------------------------------------------
+# --version flag
+# ---------------------------------------------------------------------------
+
+
+def test_version_flag_prints_version_and_exits() -> None:
+    result = runner.invoke(app, ["--version"])
+    assert result.exit_code == 0
+    assert tool_version() in result.output
+
+
+# ---------------------------------------------------------------------------
+# estimate --format geojson / kml
+# ---------------------------------------------------------------------------
+
+
+def test_estimate_geojson_format_produces_feature_collection(tmp_path: Path) -> None:
+    mission_path = tmp_path / "mission.yaml"
+    vehicle_path = tmp_path / "vehicle.yaml"
+    _write_yaml(mission_path, make_mission_payload())
+    _write_yaml(vehicle_path, make_vehicle_payload())
+
+    result = runner.invoke(
+        app, ["estimate", str(mission_path), str(vehicle_path), "--format", "geojson"]
+    )
+
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    payload = json.loads(result.output)
+    assert payload["type"] == "FeatureCollection"
+    layers = {f["properties"]["layer"] for f in payload["features"]}
+    assert "route" in layers
+
+
+def test_estimate_kml_format_produces_kml_document(tmp_path: Path) -> None:
+    mission_path = tmp_path / "mission.yaml"
+    vehicle_path = tmp_path / "vehicle.yaml"
+    _write_yaml(mission_path, make_mission_payload())
+    _write_yaml(vehicle_path, make_vehicle_payload())
+
+    result = runner.invoke(
+        app, ["estimate", str(mission_path), str(vehicle_path), "--format", "kml"]
+    )
+
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    assert result.output.startswith("<?xml")
+    assert "<kml" in result.output
+    assert "<Placemark" in result.output
+
+
+def test_estimate_checklist_format_shows_mission_id(tmp_path: Path) -> None:
+    mission_path = tmp_path / "mission.yaml"
+    vehicle_path = tmp_path / "vehicle.yaml"
+    _write_yaml(mission_path, make_mission_payload())
+    _write_yaml(vehicle_path, make_vehicle_payload())
+
+    result = runner.invoke(
+        app, ["estimate", str(mission_path), str(vehicle_path), "--format", "checklist"]
+    )
+
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    assert "## Pre-Flight Checklist: pipeline_demo_001" in result.output
+    assert "Status: GO" in result.output or "Status: NO-GO" in result.output

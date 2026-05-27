@@ -142,6 +142,8 @@ class OutputFormat(StrEnum):
     SUMMARY = "summary"
     GEOJSON = "geojson"
     KML = "kml"
+    CHECKLIST = "checklist"
+    PROFILE = "profile"
 
 
 class EnvelopeDiagnostic(BaseModel):

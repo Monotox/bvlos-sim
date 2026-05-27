@@ -157,6 +157,16 @@ def format_flight_time(flight_time_s: float | None) -> str:
     return f"{minutes}m {seconds:02d}s"
 
 
+def render_batch_csv(results: list[BatchRunResult]) -> str:
+    """Render the batch result table as CSV (suitable for import into spreadsheets)."""
+    rows = ["id,status,reserve_margin_percent,flight_time_s,warning_count"]
+    for r in results:
+        reserve = "" if r.reserve_margin_percent is None else f"{r.reserve_margin_percent:.2f}"
+        flight_time = "" if r.flight_time_s is None else f"{r.flight_time_s:.1f}"
+        rows.append(f"{r.id},{r.status},{reserve},{flight_time},{r.warning_count}")
+    return "\n".join(rows) + "\n"
+
+
 def render_batch_table(results: list[BatchRunResult]) -> str:
     """Render the batch result table with Rich."""
     table = Table(box=box.SIMPLE, show_edge=False)

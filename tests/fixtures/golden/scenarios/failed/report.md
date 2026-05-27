@@ -2,6 +2,7 @@
 
 - Scenario: `pipeline-failed-v1`
 - Status: `failed`
+- Assertions: 2 passed, 1 failed, 0 skipped, 1 unsupported
 - Envelope schema: `scenario-report.v2`
 - Tool version: `0.22.0`
 
@@ -44,7 +45,7 @@
 - Horizontal distance m: `707.0645449`
 - Vertical distance m: `240.0`
 - Path distance m: `787.0645449`
-- Time s: `169.82027517`
+- Time: `2m 49s (169.82027517 s)`
 - Legs: `5`
 
 ## Energy Feasibility

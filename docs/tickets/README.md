@@ -54,8 +54,22 @@ The current codebase includes:
 - batch summary table now includes a `warnings` column
 - wind-triangle correction applied to divert route estimates when a wind provider is available; DIVERT_ENERGY_TAS_ONLY warning suppressed when wind is corrected
 - `--format summary` for `sample` and `propagate` commands (feasibility rate, p5/p50/p95 reserve, time, sample count)
+- `policy_divert_feasible` assertion kind: evaluates whether the computed divert route for a lost-link event is energy-feasible; graceful SKIPPED when event didn't fire, no policy, or action isn't divert
+- `not_fired_reason` field on `ScenarioEventOutcome`: human-readable explanation when a trigger didn't match (e.g. route item not found, elapsed time exceeded mission duration)
+- scenario markdown report: assertion count summary line (`N passed, N failed, N skipped`) in header; human-readable flight time (`Xm YYs`) throughout estimate, scenario, stochastic, and uncertainty markdown reports
+- `route_item_id` included in GeoJSON route leg properties and KML placemark names so map tools can correlate legs with named waypoints
+- circular import between `schemas.stochastic` and `estimator.__init__` resolved; `test_scenario_schemas.py` now passes when run in isolation
+- `--validate-only` flag on `estimate`, `scenario`, and `propagate` commands: validates all input files against their schemas and exits 0 (OK) or 11 (invalid input) without running the estimator; CI-friendly for catching schema errors early
+- `--format checklist` output for `estimate` and `scenario` commands: pre-flight
+  go/no-go checklist with ✓/✗/◌ icon per feasibility category and `Status: GO/NO-GO`
+- `--format profile` output for `estimate` and `scenario` commands: per-leg altitude
+  table with terrain elevation and clearance columns when a terrain provider is configured
+- `--validate-only` flag on `sample` command matching `propagate`, `estimate`, and
+  `scenario`; validates uncertainty, mission, and vehicle files without running the sampler
+- `--format csv` output for `batch` command: comma-separated table importable into
+  spreadsheets (id, status, reserve_margin_percent, flight_time_s, warning_count)
 - passing Linux estimator/schema/CLI/scenario/SITL comparison test suite with
-  636 passing tests and 9 skipped live or environment-dependent tests
+  842 passing tests and 9 skipped live or environment-dependent tests
 
 ## Implemented Integration Validation
 
@@ -111,27 +125,37 @@ path rather than through isolated examples. Current validation includes:
 32. [049-stochastic-closed-loop-control.md](./049-stochastic-closed-loop-control.md)
 33. [062-wind-corrected-divert-energy.md](./062-wind-corrected-divert-energy.md) *(divert estimate; landing-zone energy TAS-only remaining)*
 34. [065-geofence-and-lz-in-stochastic.md](./065-geofence-and-lz-in-stochastic.md)
+35. [073-preflight-checklist-output.md](./073-preflight-checklist-output.md)
+36. [072-route-altitude-profile-report.md](./072-route-altitude-profile-report.md)
 
 ### Planned
 
-35. [069-per-event-lost-link-policy-override.md](./069-per-event-lost-link-policy-override.md)
-36. [066-stochastic-geojson-export.md](./066-stochastic-geojson-export.md)
-37. [067-propagation-progress-feedback.md](./067-propagation-progress-feedback.md)
-38. [068-divert-route-geojson-layer.md](./068-divert-route-geojson-layer.md)
-39. [063-rth-reserve-check.md](./063-rth-reserve-check.md)
-40. [061-3d-geofence-altitude-bounds.md](./061-3d-geofence-altitude-bounds.md)
-41. [064-batch-scenario-and-propagate.md](./064-batch-scenario-and-propagate.md)
-42. [044-geodesic-dubins-divert.md](./044-geodesic-dubins-divert.md)
-43. [054-reference-inputs-for-calibration-and-import.md](./054-reference-inputs-for-calibration-and-import.md)
-44. [045-px4-sitl-launch-and-mission-upload.md](./045-px4-sitl-launch-and-mission-upload.md)
-45. [046-px4-sitl-telemetry-recorder-and-evidence-bundle.md](./046-px4-sitl-telemetry-recorder-and-evidence-bundle.md)
-46. [058-notam-live-airspace-integration.md](./058-notam-live-airspace-integration.md)
-47. [050-user-interfaces-and-service-adapters.md](./050-user-interfaces-and-service-adapters.md)
-48. [070-operational-integration-seams.md](./070-operational-integration-seams.md)
-49. [071-live-comms-remote-id-and-traffic-integrations.md](./071-live-comms-remote-id-and-traffic-integrations.md)
+37. [074-energy-reserve-sensitivity.md](./074-energy-reserve-sensitivity.md)
+38. [075-minimum-battery-sizing.md](./075-minimum-battery-sizing.md)
+39. [076-departure-window-finder.md](./076-departure-window-finder.md)
+40. [077-mission-comparison-report.md](./077-mission-comparison-report.md)
+41. [069-per-event-lost-link-policy-override.md](./069-per-event-lost-link-policy-override.md)
+42. [066-stochastic-geojson-export.md](./066-stochastic-geojson-export.md)
+43. [067-propagation-progress-feedback.md](./067-propagation-progress-feedback.md)
+44. [068-divert-route-geojson-layer.md](./068-divert-route-geojson-layer.md)
+45. [063-rth-reserve-check.md](./063-rth-reserve-check.md)
+46. [061-3d-geofence-altitude-bounds.md](./061-3d-geofence-altitude-bounds.md)
+47. [064-batch-scenario-and-propagate.md](./064-batch-scenario-and-propagate.md)
+48. [044-geodesic-dubins-divert.md](./044-geodesic-dubins-divert.md)
+49. [054-reference-inputs-for-calibration-and-import.md](./054-reference-inputs-for-calibration-and-import.md)
+50. [045-px4-sitl-launch-and-mission-upload.md](./045-px4-sitl-launch-and-mission-upload.md)
+51. [046-px4-sitl-telemetry-recorder-and-evidence-bundle.md](./046-px4-sitl-telemetry-recorder-and-evidence-bundle.md)
+52. [058-notam-live-airspace-integration.md](./058-notam-live-airspace-integration.md)
+53. [050-user-interfaces-and-service-adapters.md](./050-user-interfaces-and-service-adapters.md)
+54. [070-operational-integration-seams.md](./070-operational-integration-seams.md)
+55. [071-live-comms-remote-id-and-traffic-integrations.md](./071-live-comms-remote-id-and-traffic-integrations.md)
 
 ## Current Gaps
 
+- No energy reserve sensitivity sweep (`--format sensitivity`): Ticket 074.
+- No minimum battery sizing calculator (`size-battery` command): Ticket 075.
+- No departure window finder for time-varying forecasts: Ticket 076.
+- No side-by-side mission comparison (`diff` command): Ticket 077.
 - Lost-link events share one global policy; no per-event override: Ticket 069.
 - No GeoJSON/KML export for stochastic propagation results: Ticket 066.
 - No progress feedback during long particle propagation runs: Ticket 067.

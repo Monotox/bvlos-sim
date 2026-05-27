@@ -57,5 +57,5 @@
 - Horizontal distance m: `0.0`
 - Vertical distance m: `0.0`
 - Path distance m: `0.0`
-- Time s: `0.0`
+- Time: `0m 00s (0.0 s)`
 - Legs: `0`

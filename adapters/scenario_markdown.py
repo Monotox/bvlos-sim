@@ -5,7 +5,9 @@ from collections.abc import Callable
 from adapters.canonical_json import format_canonical_float
 from adapters.scenario_envelope import ScenarioResultEnvelope
 from estimator.core.scenario import (
+    AssertionOutcome,
     CommsLinkPolicyOutcome,
+    ScenarioAssertionResult,
     ScenarioEventOutcome,
     TimelinePoint,
 )
@@ -58,6 +60,8 @@ def _fmt_policy_outcome(policy: CommsLinkPolicyOutcome) -> Lines:
             f"{de.distance_m:.0f}m, {de.time_s:.1f}s, "
             f"feasible=`{str(de.is_feasible).lower()}`"
         )
+        if not de.is_feasible and de.infeasible_reason:
+            lines.append(f"  - Divert infeasible: {de.infeasible_reason}")
         for w in de.warnings:
             lines.append(f"  - Divert warning: `{w}`")
     return lines
@@ -77,6 +81,8 @@ def _fmt_event_outcome(outcome: ScenarioEventOutcome) -> Lines:
         if outcome.policy_outcome is not None:
             lines.extend(_fmt_policy_outcome(outcome.policy_outcome))
         return lines
+    if outcome.not_fired_reason:
+        return [f"- `{outcome.event_id}` ({outcome.kind}): not fired — {outcome.not_fired_reason}"]
     return [f"- `{outcome.event_id}` ({outcome.kind}): not fired"]
 
 
@@ -202,6 +208,12 @@ def _render_landing_zone_section(envelope: ScenarioResultEnvelope) -> Lines:
     return _section("Landing-Zone Reachability", body)
 
 
+def _fmt_duration(total_s: float) -> str:
+    minutes = int(total_s // 60)
+    seconds = int(total_s % 60)
+    return f"{minutes}m {seconds:02d}s ({_fmt(total_s)} s)"
+
+
 def _render_estimate_summary(envelope: ScenarioResultEnvelope) -> Lines:
     estimate = envelope.estimate
     if estimate is None:
@@ -210,7 +222,7 @@ def _render_estimate_summary(envelope: ScenarioResultEnvelope) -> Lines:
         f"- Horizontal distance m: `{_fmt(estimate.total_horizontal_distance_m)}`",
         f"- Vertical distance m: `{_fmt(estimate.total_vertical_distance_m)}`",
         f"- Path distance m: `{_fmt(estimate.total_path_distance_m)}`",
-        f"- Time s: `{_fmt(estimate.total_time_s)}`",
+        f"- Time: `{_fmt_duration(estimate.total_time_s)}`",
         f"- Legs: `{len(estimate.legs)}`",
     ]
     return _section("Estimate Summary", body)
@@ -245,13 +257,26 @@ _SECTION_RENDERERS: list[SectionRenderer] = [
 # ---------------------------------------------------------------------------
 
 
+def _assertion_counts(results: list[ScenarioAssertionResult]) -> str:
+    n_pass = sum(1 for r in results if r.outcome == AssertionOutcome.PASSED)
+    n_fail = sum(1 for r in results if r.outcome == AssertionOutcome.FAILED)
+    n_skip = sum(1 for r in results if r.outcome == AssertionOutcome.SKIPPED)
+    n_unsupported = sum(1 for r in results if r.outcome == AssertionOutcome.UNSUPPORTED)
+    parts = [f"{n_pass} passed", f"{n_fail} failed", f"{n_skip} skipped"]
+    if n_unsupported:
+        parts.append(f"{n_unsupported} unsupported")
+    return ", ".join(parts)
+
+
 def render_scenario_markdown(envelope: ScenarioResultEnvelope) -> str:
     """Render a scenario result envelope as a human-readable Markdown report."""
+    assertion_summary = _assertion_counts(envelope.assertion_results)
     header: Lines = [
         "# Scenario Report",
         "",
         f"- Scenario: `{envelope.scenario_id}`",
         f"- Status: `{envelope.status}`",
+        f"- Assertions: {assertion_summary}",
         f"- Envelope schema: `{envelope.schema_version}`",
         f"- Tool version: `{envelope.tool_version}`",
     ]

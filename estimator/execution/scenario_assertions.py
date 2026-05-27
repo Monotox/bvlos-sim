@@ -368,6 +368,49 @@ def _evaluate_policy_action_eq(
     )
 
 
+def _evaluate_policy_divert_feasible(
+    assertion: ScenarioAssertion,
+    event_outcomes: list[ScenarioEventOutcome],
+) -> ScenarioAssertionResult:
+    event_id = cast(str, assertion.event_id)
+    outcome = next((o for o in event_outcomes if o.event_id == event_id), None)
+    if outcome is None:
+        return _skipped(
+            assertion,
+            f"No event with id '{event_id}' found in event outcomes.",
+        )
+    if not outcome.fired:
+        return _skipped(assertion, f"Event '{event_id}' did not fire.")
+    if outcome.policy_outcome is None:
+        return _skipped(
+            assertion,
+            f"Event '{event_id}' has no policy outcome; no lost_link_policy configured.",
+        )
+    if outcome.policy_outcome.action != "divert":
+        return _skipped(
+            assertion,
+            f"Event '{event_id}' policy action is '{outcome.policy_outcome.action}', "
+            "not 'divert'; divert feasibility cannot be assessed.",
+        )
+    divert = outcome.policy_outcome.divert_estimate
+    if divert is None:
+        return _failed(
+            assertion,
+            f"Event '{event_id}' has no divert estimate; divert route was not computed.",
+        )
+    if divert.is_feasible:
+        return _passed(
+            assertion,
+            f"Divert route for event '{event_id}' is feasible "
+            f"(reserve: {divert.reserve_after_divert_wh:.2f} Wh).",
+        )
+    reason = divert.infeasible_reason or "divert route is not feasible"
+    return _failed(
+        assertion,
+        f"Divert route for event '{event_id}' is not feasible: {reason}",
+    )
+
+
 _ASSERTION_EVALUATORS: dict[
     ScenarioAssertionKind,
     Callable[[ScenarioAssertion, MissionEstimate | None], ScenarioAssertionResult],
@@ -383,6 +426,7 @@ PolicyEvaluator = Callable[
 
 _POLICY_EVALUATORS: dict[ScenarioAssertionKind, PolicyEvaluator] = {
     ScenarioAssertionKind.POLICY_ACTION_EQ: _evaluate_policy_action_eq,
+    ScenarioAssertionKind.POLICY_DIVERT_FEASIBLE: _evaluate_policy_divert_feasible,
 }
 
 

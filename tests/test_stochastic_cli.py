@@ -204,6 +204,48 @@ def test_propagate_infeasible_baseline_exits_invalid_input(tmp_path: Path) -> No
 
 
 # ---------------------------------------------------------------------------
+# --validate-only
+# ---------------------------------------------------------------------------
+
+
+def test_propagate_validate_only_exits_zero_for_valid_inputs() -> None:
+    result = _run(["propagate", str(EXAMPLE_STOCHASTIC), "--validate-only"])
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    assert "stochastic" in result.output
+    assert "OK" in result.output
+
+
+def test_propagate_validate_only_exits_invalid_input_for_bad_stochastic(
+    tmp_path: Path,
+) -> None:
+    bad = tmp_path / "bad.yaml"
+    bad.write_text("{bad yaml: [unclosed", encoding="utf-8")
+    result = _run(["propagate", str(bad), "--validate-only"])
+    assert result.exit_code != 0
+
+
+# ---------------------------------------------------------------------------
+# EKF / twin-state example
+# ---------------------------------------------------------------------------
+
+EXAMPLE_STOCHASTIC_EKF = (
+    REPO_ROOT / "examples/stochastic/pipeline_demo_001_stochastic_ekf.yaml"
+)
+
+
+def test_propagate_ekf_example_exits_zero() -> None:
+    result = _run(["propagate", str(EXAMPLE_STOCHASTIC_EKF)])
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+
+
+def test_propagate_ekf_example_contains_estimation_error_timeline() -> None:
+    result = _run(["propagate", str(EXAMPLE_STOCHASTIC_EKF)])
+    payload = json.loads(result.output)
+    assert "estimation_error_timeline" in payload["result"]
+    assert len(payload["result"]["estimation_error_timeline"]) > 0
+
+
+# ---------------------------------------------------------------------------
 # Golden fixture regression test
 # ---------------------------------------------------------------------------
 

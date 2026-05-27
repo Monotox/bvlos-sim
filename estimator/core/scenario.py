@@ -150,6 +150,14 @@ class ScenarioEventOutcome(BaseModel):
     )
     unsupported: bool = False
     unsupported_reason: str | None = None
+    not_fired_reason: str | None = Field(
+        default=None,
+        description=(
+            "Human-readable explanation of why the event did not fire. "
+            "Populated when fired=False and the trigger was resolvable but the target was not found "
+            "(e.g. route_item_id not matched in timeline, elapsed time exceeded mission duration)."
+        ),
+    )
     policy_outcome: CommsLinkPolicyOutcome | None = Field(
         default=None,
         description="Policy outcome when a lost_link event fires with a configured policy.",

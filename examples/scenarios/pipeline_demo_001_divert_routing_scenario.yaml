@@ -53,3 +53,7 @@ assertions:
     event_id: lost-link-at-wp1
     expected: divert
     description: The configured divert policy action is recorded on the event outcome.
+  - assertion_id: divert-route-feasible
+    kind: policy_divert_feasible
+    event_id: lost-link-at-wp1
+    description: The computed divert route to demo_landing_zone_wp1 is energy-feasible.

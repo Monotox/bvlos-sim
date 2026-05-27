@@ -77,6 +77,11 @@ def render_envelope_markdown(envelope: EstimatorResultEnvelope) -> str:
         f"`{str(envelope.determinism_metadata.external_network_access_used).lower()}`"
     )
 
+    def _fmt_duration(total_s: float) -> str:
+        minutes = int(total_s // 60)
+        seconds = int(total_s % 60)
+        return f"{minutes}m {seconds:02d}s ({_fmt(total_s)} s)"
+
     if envelope.result is not None:
         lines.extend(
             [
@@ -86,7 +91,7 @@ def render_envelope_markdown(envelope: EstimatorResultEnvelope) -> str:
                 f"- Horizontal distance m: `{_fmt(envelope.result.total_horizontal_distance_m)}`",
                 f"- Vertical distance m: `{_fmt(envelope.result.total_vertical_distance_m)}`",
                 f"- Path distance m: `{_fmt(envelope.result.total_path_distance_m)}`",
-                f"- Time s: `{_fmt(envelope.result.total_time_s)}`",
+                f"- Time: `{_fmt_duration(envelope.result.total_time_s)}`",
                 f"- Legs: `{len(envelope.result.legs)}`",
             ]
         )

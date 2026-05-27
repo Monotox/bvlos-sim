@@ -55,9 +55,14 @@ def render_uncertainty_markdown(envelope: UncertaintyResultEnvelope) -> str:
     lines.append("")
     lines.append("## Baseline (Deterministic)")
     lines.append("")
+    def _fmt_duration(total_s: float) -> str:
+        minutes = int(total_s // 60)
+        seconds = int(total_s % 60)
+        return f"{minutes}m {seconds:02d}s ({_fmt(total_s)} s)"
+
     b = r.baseline
     lines.append(f"**Status:** {b.status}  ")
-    lines.append(f"**Total Time:** {_fmt(b.total_time_s)} s  ")
+    lines.append(f"**Total Time:** {_fmt_duration(b.total_time_s)}  ")
     lines.append(f"**Total Path Distance:** {_fmt(b.total_path_distance_m)} m  ")
     if b.energy is not None:
         lines.append(f"**Energy Feasible:** {str(b.energy.is_feasible).lower()}  ")

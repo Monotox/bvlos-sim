@@ -11,6 +11,7 @@ from pydantic import ValidationError
 from adapters.sitl.ardupilot_types import ArduPilotAdapterError
 from adapters.batch_io import load_batch_manifest
 from adapters.batch_support import (
+    render_batch_csv,
     render_batch_table,
     run_batch_manifest,
 )
@@ -57,6 +58,7 @@ from adapters.envelope import (
 )
 from adapters.geofence_geojson import GeofenceLoadError
 from adapters.geojson_export import build_geojson_export
+from adapters.profile_markdown import render_profile_markdown, render_profile_markdown_from_scenario
 from adapters.io import (
     InputDocument,
     InputLoadError,
@@ -138,6 +140,17 @@ class SummaryOutputFormat(StrEnum):
     JSON = "json"
     MARKDOWN = "markdown"
     SUMMARY = "summary"
+
+
+class BatchOutputFormat(StrEnum):
+    JSON = "json"
+    MARKDOWN = "markdown"
+    SUMMARY = "summary"
+    GEOJSON = "geojson"
+    KML = "kml"
+    CHECKLIST = "checklist"
+    PROFILE = "profile"
+    CSV = "csv"
 
 
 _DOCUMENT_OUTPUT_FORMATS: dict[DocumentOutputFormat, OutputFormat] = {
@@ -222,9 +235,11 @@ def _render_estimate_command_output(
     result: MissionEstimate,
     mission_assets: MissionAssetBundle,
 ) -> str:
+    if output_format == OutputFormat.PROFILE:
+        return render_profile_markdown(envelope, terrain_provider=mission_assets.terrain_provider)
     builder = _ROUTE_EXPORT_BUILDERS.get(output_format)
     if builder is None:
-        return _render_output(output_format, envelope)
+        return _render_output(output_format, envelope, mission_id=mission_assets.mission_id)
     return builder(
         result,
         geofence_zones=mission_assets.geofences,
@@ -245,6 +260,10 @@ def _render_scenario_command_output(
     result: ScenarioResult,
     mission_assets: MissionAssetBundle,
 ) -> str:
+    if output_format == OutputFormat.PROFILE:
+        return render_profile_markdown_from_scenario(
+            envelope, terrain_provider=mission_assets.terrain_provider
+        )
     builder = _ROUTE_EXPORT_BUILDERS.get(output_format)
     if builder is None:
         return _render_scenario_output(output_format, envelope)
@@ -370,6 +389,15 @@ def estimate(
             "Overrides mission estimation fidelity when provided."
         ),
     ),
+    validate_only: bool = typer.Option(
+        False,
+        "--validate-only",
+        help=(
+            "Validate mission and vehicle files against their schemas and exit "
+            "without running the estimator. "
+            "Exits 0 when both files are valid, INVALID_INPUT otherwise."
+        ),
+    ),
 ) -> None:
     """Run deterministic mission estimation and static feasibility checks."""
 
@@ -384,6 +412,11 @@ def estimate(
         )
         mission_model, mission_document = load_mission(mission)
         vehicle_model, vehicle_document = load_vehicle(vehicle)
+        if validate_only:
+            typer.echo(f"mission: {mission.name}: OK")
+            typer.echo(f"vehicle: {vehicle.name}: OK")
+            raise typer.Exit(code=int(CliExitCode.SUCCESS))
+        mission_assets.mission_id = mission_model.mission_id
         _populate_mission_assets(
             mission_assets,
             mission_model=mission_model,
@@ -486,7 +519,7 @@ def estimate(
 def batch(
     manifest: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True),
     output_dir: Path | None = typer.Option(None, "--output-dir"),
-    format: OutputFormat = typer.Option(OutputFormat.SUMMARY, "--format"),
+    format: BatchOutputFormat = typer.Option(BatchOutputFormat.SUMMARY, "--format"),
 ) -> None:
     """Run batch mission estimates from a batch.v1 manifest file."""
 
@@ -497,13 +530,16 @@ def batch(
             if result.error_message is None:
                 continue
             typer.echo(f"Warning: run {result.id}: {result.error_message}", err=True)
-        if output_dir is not None:
-            write_batch_outputs(
-                output_dir=output_dir,
-                output_format=format,
-                results=results,
-            )
-        _write_output(render_batch_table(results), None)
+        if format == BatchOutputFormat.CSV:
+            _write_output(render_batch_csv(results), None)
+        else:
+            if output_dir is not None:
+                write_batch_outputs(
+                    output_dir=output_dir,
+                    output_format=OutputFormat(format),
+                    results=results,
+                )
+            _write_output(render_batch_table(results), None)
         raise typer.Exit(code=_batch_exit_code(results))
     except InputLoadError as exc:
         typer.echo(str(exc), err=True)
@@ -617,6 +653,15 @@ def scenario(
     ),
     format: OutputFormat = typer.Option(OutputFormat.JSON, "--format"),
     output: Path | None = typer.Option(None, "--output", "-o"),
+    validate_only: bool = typer.Option(
+        False,
+        "--validate-only",
+        help=(
+            "Validate scenario, mission, and vehicle files against their schemas "
+            "and exit without running the scenario. "
+            "Exits 0 when all files are valid, INVALID_INPUT otherwise."
+        ),
+    ),
 ) -> None:
     """Run the deterministic scenario runner and emit a scenario result envelope."""
 
@@ -636,6 +681,11 @@ def scenario(
         )
         mission_model, mission_document = load_mission(mission_path)
         vehicle_model, vehicle_document = load_vehicle(vehicle_path)
+        if validate_only:
+            typer.echo(f"scenario: {scenario_file.name}: OK")
+            typer.echo(f"mission: {mission_path.name}: OK")
+            typer.echo(f"vehicle: {vehicle_path.name}: OK")
+            raise typer.Exit(code=int(CliExitCode.SUCCESS))
 
         _populate_mission_assets(
             mission_assets,
@@ -723,6 +773,15 @@ def sample(
     ),
     format: SummaryOutputFormat = typer.Option(SummaryOutputFormat.JSON, "--format"),
     output: Path | None = typer.Option(None, "--output", "-o"),
+    validate_only: bool = typer.Option(
+        False,
+        "--validate-only",
+        help=(
+            "Validate uncertainty, mission, and vehicle files against their schemas "
+            "and exit without running the sampler. "
+            "Exits 0 when all files are valid, INVALID_INPUT otherwise."
+        ),
+    ),
 ) -> None:
     """Run a seeded Monte Carlo uncertainty analysis and emit an uncertainty report."""
 
@@ -743,6 +802,11 @@ def sample(
 
         mission_model, mission_document = load_mission(mission_path)
         vehicle_model, vehicle_document = load_vehicle(vehicle_path)
+        if validate_only:
+            typer.echo(f"uncertainty: {uncertainty_file.name}: OK")
+            typer.echo(f"mission: {mission_path.name}: OK")
+            typer.echo(f"vehicle: {vehicle_path.name}: OK")
+            raise typer.Exit(code=int(CliExitCode.SUCCESS))
 
         _populate_mission_assets(
             mission_assets,
@@ -806,6 +870,15 @@ def propagate(
     ),
     format: SummaryOutputFormat = typer.Option(SummaryOutputFormat.JSON, "--format"),
     output: Path | None = typer.Option(None, "--output", "-o"),
+    validate_only: bool = typer.Option(
+        False,
+        "--validate-only",
+        help=(
+            "Validate stochastic, mission, and vehicle files against their schemas "
+            "and exit without running propagation. "
+            "Exits 0 when all files are valid, INVALID_INPUT otherwise."
+        ),
+    ),
 ) -> None:
     """Run stochastic state propagation and emit a stochastic-envelope.v1 report."""
 
@@ -826,6 +899,11 @@ def propagate(
 
         mission_model, mission_document = load_mission(mission_path)
         vehicle_model, vehicle_document = load_vehicle(vehicle_path)
+        if validate_only:
+            typer.echo(f"stochastic: {stochastic_file.name}: OK")
+            typer.echo(f"mission: {mission_path.name}: OK")
+            typer.echo(f"vehicle: {vehicle_path.name}: OK")
+            raise typer.Exit(code=int(CliExitCode.SUCCESS))
 
         _populate_mission_assets(
             mission_assets,

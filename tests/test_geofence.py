@@ -286,3 +286,23 @@ def test_geojson_importer_rejects_unsupported_geometry_type(tmp_path: Path) -> N
     error = exc_info.value
     assert error.failure.kind == FailureKind.UNSUPPORTED
     assert error.failure.code == FailureCode.UNSUPPORTED_GEOMETRY_TYPE
+
+
+def test_geojson_importer_rejects_invalid_json(tmp_path: Path) -> None:
+    path = tmp_path / "geofences.geojson"
+    path.write_text("{bad json", encoding="utf-8")
+
+    with pytest.raises(GeofenceLoadError) as exc_info:
+        load_geofences(path)
+
+    assert exc_info.value.failure.code == FailureCode.INVALID_GEOMETRY
+
+
+def test_geojson_importer_rejects_non_object_root(tmp_path: Path) -> None:
+    path = tmp_path / "geofences.geojson"
+    path.write_text("[1, 2, 3]", encoding="utf-8")
+
+    with pytest.raises(GeofenceLoadError) as exc_info:
+        load_geofences(path)
+
+    assert exc_info.value.failure.code == FailureCode.INVALID_GEOMETRY

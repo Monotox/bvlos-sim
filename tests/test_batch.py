@@ -3,8 +3,17 @@ from pathlib import Path
 import pytest
 
 from adapters.batch_io import load_batch_manifest
-from adapters.batch_support import run_batch_manifest
+from adapters.batch_support import (
+    BatchRunResult,
+    format_flight_time,
+    format_reserve_margin,
+    render_batch_csv,
+    render_batch_table,
+    run_batch_manifest,
+)
 from adapters.cli import CliExitCode, app
+from adapters.cli_batch_support import _batch_output_extension
+from adapters.envelope import OutputFormat
 from adapters.io import InputLoadError
 from schemas.batch import BatchManifest, BatchRun
 from typer.testing import CliRunner
@@ -182,3 +191,252 @@ def test_batch_cli_output_dir_writes_envelopes(tmp_path: Path) -> None:
     files = list(out_dir.iterdir())
     assert len(files) == 1
     assert files[0].suffix == ".json"
+
+
+# ---------------------------------------------------------------------------
+# Batch table formatting helpers
+# ---------------------------------------------------------------------------
+
+
+def _stub_result(
+    run_id: str = "run",
+    status: str = "FEASIBLE",
+    reserve: float | None = 12.5,
+    flight_time_s: float | None = 1628.0,
+    warning_count: int = 0,
+) -> BatchRunResult:
+    return BatchRunResult(
+        id=run_id,
+        status=status,
+        reserve_margin_percent=reserve,
+        flight_time_s=flight_time_s,
+        envelope=None,
+        warning_count=warning_count,
+    )
+
+
+def test_format_reserve_margin_positive() -> None:
+    assert format_reserve_margin(12.5) == "+12.5 %"
+
+
+def test_format_reserve_margin_negative() -> None:
+    assert format_reserve_margin(-4.1) == "−4.1 %"
+
+
+def test_format_reserve_margin_none_shows_dash() -> None:
+    assert format_reserve_margin(None) == "—"
+
+
+def test_format_flight_time_formats_minutes_and_seconds() -> None:
+    assert format_flight_time(1628.0) == "27m 08s"
+
+
+def test_format_flight_time_zero_seconds() -> None:
+    assert format_flight_time(120.0) == "2m 00s"
+
+
+def test_format_flight_time_none_shows_dash() -> None:
+    assert format_flight_time(None) == "—"
+
+
+def test_render_batch_table_contains_run_id() -> None:
+    output = render_batch_table([_stub_result("my-run")])
+    assert "my-run" in output
+
+
+def test_render_batch_table_shows_warnings_count_when_nonzero() -> None:
+    output = render_batch_table([_stub_result(warning_count=3)])
+    assert "3" in output
+
+
+def test_render_batch_table_shows_dash_for_zero_warnings() -> None:
+    output = render_batch_table([_stub_result(warning_count=0)])
+    assert "—" in output
+
+
+# ---------------------------------------------------------------------------
+# _batch_output_extension unit tests
+# ---------------------------------------------------------------------------
+
+
+def test_batch_output_extension_markdown_returns_md() -> None:
+    assert _batch_output_extension(OutputFormat.MARKDOWN) == ".md"
+
+
+def test_batch_output_extension_summary_returns_txt() -> None:
+    assert _batch_output_extension(OutputFormat.SUMMARY) == ".txt"
+
+
+def test_batch_output_extension_kml_returns_kml() -> None:
+    assert _batch_output_extension(OutputFormat.KML) == ".kml"
+
+
+def test_batch_output_extension_geojson_returns_geojson() -> None:
+    assert _batch_output_extension(OutputFormat.GEOJSON) == ".geojson"
+
+
+def test_batch_output_extension_json_returns_json() -> None:
+    assert _batch_output_extension(OutputFormat.JSON) == ".json"
+
+
+def test_batch_cli_output_dir_markdown_writes_md_files(tmp_path: Path) -> None:
+    manifest_path = tmp_path / "batch.yaml"
+    out_dir = tmp_path / "out"
+    manifest_path.write_text(
+        "\n".join(
+            [
+                "format_version: batch.v1",
+                "runs:",
+                "  - id: demo",
+                f"    mission: {REPO_ROOT / 'examples/missions/pipeline_demo_001.yaml'}",
+                f"    vehicle: {REPO_ROOT / 'examples/vehicles/quadplane_v1.yaml'}",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    result = _runner.invoke(
+        app,
+        ["batch", str(manifest_path), "--output-dir", str(out_dir), "--format", "markdown"],
+    )
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    files = list(out_dir.iterdir())
+    assert len(files) == 1
+    assert files[0].suffix == ".md"
+    content = files[0].read_text(encoding="utf-8")
+    assert "# Estimator Report" in content
+
+
+def test_batch_cli_output_dir_kml_writes_kml_files(tmp_path: Path) -> None:
+    manifest_path = tmp_path / "batch.yaml"
+    out_dir = tmp_path / "out"
+    manifest_path.write_text(
+        "\n".join(
+            [
+                "format_version: batch.v1",
+                "runs:",
+                "  - id: demo",
+                f"    mission: {REPO_ROOT / 'examples/missions/pipeline_demo_001.yaml'}",
+                f"    vehicle: {REPO_ROOT / 'examples/vehicles/quadplane_v1.yaml'}",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    result = _runner.invoke(
+        app,
+        ["batch", str(manifest_path), "--output-dir", str(out_dir), "--format", "kml"],
+    )
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    files = list(out_dir.iterdir())
+    assert len(files) == 1
+    assert files[0].suffix == ".kml"
+    content = files[0].read_text(encoding="utf-8")
+    assert "<?xml" in content
+    assert "<kml" in content
+
+
+def test_render_batch_table_summary_line_contains_counts() -> None:
+    results = [
+        _stub_result("r1", status="FEASIBLE"),
+        _stub_result("r2", status="INFEASIBLE", reserve=-3.0),
+        _stub_result("r3", status="ERROR", reserve=None, flight_time_s=None),
+    ]
+    output = render_batch_table(results)
+    assert "3 runs" in output
+    assert "1 feasible" in output
+    assert "1 infeasible" in output
+    assert "1 errors" in output
+
+
+def test_batch_cli_output_dir_profile_writes_md_files(tmp_path: Path) -> None:
+    manifest_path = tmp_path / "batch.yaml"
+    out_dir = tmp_path / "out"
+    manifest_path.write_text(
+        "\n".join(
+            [
+                "format_version: batch.v1",
+                "runs:",
+                "  - id: demo",
+                f"    mission: {REPO_ROOT / 'examples/missions/pipeline_demo_001.yaml'}",
+                f"    vehicle: {REPO_ROOT / 'examples/vehicles/quadplane_v1.yaml'}",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    result = _runner.invoke(
+        app,
+        ["batch", str(manifest_path), "--output-dir", str(out_dir), "--format", "profile"],
+    )
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    files = list(out_dir.iterdir())
+    assert len(files) == 1
+    assert files[0].suffix == ".md"
+    content = files[0].read_text(encoding="utf-8")
+    assert "## Route Altitude Profile" in content
+
+
+# ---------------------------------------------------------------------------
+# CSV format
+# ---------------------------------------------------------------------------
+
+
+def test_render_batch_csv_has_header_row() -> None:
+    output = render_batch_csv([_stub_result("run1")])
+    lines = output.strip().splitlines()
+    assert lines[0] == "id,status,reserve_margin_percent,flight_time_s,warning_count"
+
+
+def test_render_batch_csv_has_one_data_row_per_result() -> None:
+    results = [_stub_result("r1"), _stub_result("r2", status="INFEASIBLE", reserve=-5.0)]
+    output = render_batch_csv(results)
+    data_rows = output.strip().splitlines()[1:]
+    assert len(data_rows) == 2
+
+
+def test_render_batch_csv_none_fields_are_empty() -> None:
+    output = render_batch_csv([_stub_result("r1", reserve=None, flight_time_s=None)])
+    data_line = output.strip().splitlines()[1]
+    parts = data_line.split(",")
+    assert parts[2] == ""  # reserve_margin_percent empty
+    assert parts[3] == ""  # flight_time_s empty
+
+
+def test_render_batch_csv_ends_with_newline() -> None:
+    output = render_batch_csv([_stub_result("r1")])
+    assert output.endswith("\n")
+
+
+def test_batch_cli_csv_format_exits_zero() -> None:
+    result = _runner.invoke(
+        app,
+        ["batch", str(REPO_ROOT / "examples/batch/demo_batch.yaml"), "--format", "csv"],
+    )
+    assert result.exit_code in (int(CliExitCode.SUCCESS), int(CliExitCode.INFEASIBLE))
+    lines = result.output.strip().splitlines()
+    assert lines[0] == "id,status,reserve_margin_percent,flight_time_s,warning_count"
+    assert len(lines) >= 2
+
+
+def test_batch_cli_output_dir_checklist_shows_run_id(tmp_path: Path) -> None:
+    manifest_path = tmp_path / "batch.yaml"
+    out_dir = tmp_path / "out"
+    manifest_path.write_text(
+        "\n".join(
+            [
+                "format_version: batch.v1",
+                "runs:",
+                "  - id: my_named_run",
+                f"    mission: {REPO_ROOT / 'examples/missions/pipeline_demo_001.yaml'}",
+                f"    vehicle: {REPO_ROOT / 'examples/vehicles/quadplane_v1.yaml'}",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    result = _runner.invoke(
+        app,
+        ["batch", str(manifest_path), "--output-dir", str(out_dir), "--format", "checklist"],
+    )
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    files = list(out_dir.iterdir())
+    assert len(files) == 1
+    content = files[0].read_text(encoding="utf-8")
+    assert "## Pre-Flight Checklist: my_named_run" in content

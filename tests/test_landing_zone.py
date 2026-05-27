@@ -208,6 +208,26 @@ def test_geojson_landing_zone_importer_rejects_unsupported_geometry_type(
     assert error.failure.code == FailureCode.UNSUPPORTED_LANDING_ZONE_GEOMETRY
 
 
+def test_geojson_landing_zone_importer_rejects_invalid_json(tmp_path: Path) -> None:
+    path = tmp_path / "landing_zones.geojson"
+    path.write_text("{bad json", encoding="utf-8")
+
+    with pytest.raises(LandingZoneLoadError) as exc_info:
+        load_landing_zones(path)
+
+    assert exc_info.value.failure.code == FailureCode.INVALID_GEOMETRY
+
+
+def test_geojson_landing_zone_importer_rejects_non_object_root(tmp_path: Path) -> None:
+    path = tmp_path / "landing_zones.geojson"
+    path.write_text("[1, 2, 3]", encoding="utf-8")
+
+    with pytest.raises(LandingZoneLoadError) as exc_info:
+        load_landing_zones(path)
+
+    assert exc_info.value.failure.code == FailureCode.INVALID_GEOMETRY
+
+
 def test_markdown_render_does_not_crash_when_max_allowed_distance_is_none() -> None:
     """Regression: _fmt(None) caused TypeError when max_allowed_distance_m was unset."""
     from pathlib import Path as _Path

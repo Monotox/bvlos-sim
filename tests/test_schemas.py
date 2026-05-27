@@ -4,7 +4,9 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from schemas import MissionPlan, ScenarioPlan, VehicleProfile
+from schemas import MissionPlan, RouteItem, ScenarioPlan, VehicleProfile
+from schemas.vehicle_energy import EnergyModel, FailsafeProfile
+from schemas.vehicle_sensors import AirspeedModel, BatteryMeterModel, GpsModel, SensorProfile
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -198,6 +200,36 @@ def test_vehicle_profile_rejects_negative_station_keep_wind_limit() -> None:
         VehicleProfile.model_validate(payload)
 
 
+def test_vehicle_profile_rejects_cruise_speed_above_max_speed() -> None:
+    payload = valid_vehicle_payload()
+    payload["performance"]["cruise_speed_mps"] = 30.0  # max_speed_mps is 25.0
+
+    with pytest.raises(
+        ValidationError,
+        match="max_speed_mps must be greater than or equal to cruise_speed_mps",
+    ):
+        VehicleProfile.model_validate(payload)
+
+
+def test_vehicle_profile_rejects_max_crab_angle_at_90_degrees() -> None:
+    payload = valid_vehicle_payload()
+    payload["performance"]["max_crab_angle_deg"] = 90.0
+
+    with pytest.raises(ValidationError, match="less than 90"):
+        VehicleProfile.model_validate(payload)
+
+
+def test_vehicle_profile_requires_turn_radius_for_fixed_wing() -> None:
+    payload = valid_vehicle_payload()
+    payload["vehicle_class"] = "fixed_wing"
+    payload["performance"]["hover_speed_mps"] = None
+    payload["performance"]["turn_radius_m"] = None
+    payload["energy"]["hover_power_w"] = None
+
+    with pytest.raises(ValidationError, match="turn_radius_m is required"):
+        VehicleProfile.model_validate(payload)
+
+
 def test_mission_plan_accepts_valid_route() -> None:
     mission = MissionPlan.model_validate(valid_mission_payload())
 
@@ -334,3 +366,202 @@ def test_free_form_metadata_fields_accept_arbitrary_keys() -> None:
     assert mission.route[1].metadata["tags"] == ["demo"]
     assert vehicle.metadata["calibration"]["status"] == "placeholder"
     assert scenario.metadata["nested"]["ok"] is True
+
+
+# ---------------------------------------------------------------------------
+# RouteItem: loiter_time_s and loiter_radius_m validation
+# ---------------------------------------------------------------------------
+
+
+def _loiter_item(**overrides) -> dict:
+    base: dict = {
+        "id": "loiter",
+        "action": "loiter_time",
+        "lat": 52.002,
+        "lon": 4.004,
+        "altitude_m": 120.0,
+        "loiter_time_s": 60.0,
+    }
+    base.update(overrides)
+    return base
+
+
+def test_loiter_time_s_zero_rejected() -> None:
+    with pytest.raises(ValidationError):
+        RouteItem.model_validate(_loiter_item(loiter_time_s=0.0))
+
+
+def test_loiter_time_s_negative_rejected() -> None:
+    with pytest.raises(ValidationError):
+        RouteItem.model_validate(_loiter_item(loiter_time_s=-1.0))
+
+
+def test_loiter_time_action_without_loiter_time_s_rejected() -> None:
+    payload = _loiter_item()
+    del payload["loiter_time_s"]
+    with pytest.raises(ValidationError, match="loiter_time requires loiter_time_s"):
+        RouteItem.model_validate(payload)
+
+
+def test_loiter_radius_m_zero_rejected() -> None:
+    with pytest.raises(ValidationError):
+        RouteItem.model_validate(_loiter_item(loiter_radius_m=0.0))
+
+
+def test_loiter_radius_m_positive_accepted() -> None:
+    item = RouteItem.model_validate(_loiter_item(loiter_radius_m=50.0))
+    assert item.loiter_radius_m == 50.0
+
+
+def test_route_item_acceptance_radius_zero_rejected() -> None:
+    with pytest.raises(ValidationError):
+        RouteItem.model_validate(
+            {"id": "wp1", "action": "waypoint", "lat": 52.0, "lon": 4.0, "altitude_m": 100.0, "acceptance_radius_m": 0.0}
+        )
+
+
+def test_route_item_negative_altitude_rejected() -> None:
+    with pytest.raises(ValidationError):
+        RouteItem.model_validate(
+            {"id": "wp1", "action": "waypoint", "lat": 52.0, "lon": 4.0, "altitude_m": -1.0}
+        )
+
+
+def test_route_item_id_starting_with_dash_rejected() -> None:
+    with pytest.raises(ValidationError):
+        RouteItem.model_validate({"id": "-bad", "action": "rtl"})
+
+
+def test_mission_estimation_zero_segment_length_rejected() -> None:
+    payload = valid_mission_payload()
+    payload["estimation"] = {"max_segment_length_m": 0.0}
+    with pytest.raises(ValidationError):
+        MissionPlan.model_validate(payload)
+
+
+# ---------------------------------------------------------------------------
+# SensorProfile, GpsModel, BatteryMeterModel, AirspeedModel validation
+# ---------------------------------------------------------------------------
+
+
+def test_gps_model_rejects_zero_horizontal_accuracy() -> None:
+    with pytest.raises(ValidationError):
+        GpsModel(horizontal_accuracy_m=0.0)
+
+
+def test_gps_model_rejects_availability_above_one() -> None:
+    with pytest.raises(ValidationError):
+        GpsModel(availability=1.1)
+
+
+def test_gps_model_rejects_negative_availability() -> None:
+    with pytest.raises(ValidationError):
+        GpsModel(availability=-0.1)
+
+
+def test_gps_model_accepts_valid_defaults() -> None:
+    gps = GpsModel()
+    assert gps.horizontal_accuracy_m == 2.5
+    assert gps.availability == 1.0
+
+
+def test_battery_meter_model_rejects_zero_update_rate() -> None:
+    with pytest.raises(ValidationError):
+        BatteryMeterModel(update_rate_hz=0.0)
+
+
+def test_battery_meter_model_accepts_valid_noise() -> None:
+    meter = BatteryMeterModel(current_sensor_noise_pct=0.5)
+    assert meter.current_sensor_noise_pct == 0.5
+
+
+def test_airspeed_model_rejects_zero_update_rate() -> None:
+    with pytest.raises(ValidationError):
+        AirspeedModel(update_rate_hz=0.0)
+
+
+def test_airspeed_model_rejects_negative_noise_std() -> None:
+    with pytest.raises(ValidationError):
+        AirspeedModel(noise_std_mps=-0.1)
+
+
+def test_sensor_profile_accepts_partial_sensors() -> None:
+    profile = SensorProfile(gps=GpsModel(horizontal_accuracy_m=1.0))
+    assert profile.gps is not None
+    assert profile.battery_meter is None
+    assert profile.airspeed is None
+
+
+def test_sensor_profile_rejects_extra_fields() -> None:
+    with pytest.raises(ValidationError):
+        SensorProfile.model_validate({"gps": None, "lidar": {"range_m": 100.0}})
+
+
+# ---------------------------------------------------------------------------
+# FailsafeProfile threshold ordering validation
+# ---------------------------------------------------------------------------
+
+
+def test_failsafe_profile_accepts_valid_ordering() -> None:
+    profile = FailsafeProfile(
+        low_battery_warn_percent=30,
+        low_battery_abort_percent=25,
+        emergency_land_percent=10,
+    )
+    assert profile.low_battery_warn_percent == 30
+
+
+def test_failsafe_profile_rejects_abort_above_warn() -> None:
+    with pytest.raises(ValidationError, match="warn >= abort >= emergency land"):
+        FailsafeProfile(
+            low_battery_warn_percent=20,
+            low_battery_abort_percent=25,
+            emergency_land_percent=10,
+        )
+
+
+def test_failsafe_profile_rejects_emergency_above_abort() -> None:
+    with pytest.raises(ValidationError, match="warn >= abort >= emergency land"):
+        FailsafeProfile(
+            low_battery_warn_percent=30,
+            low_battery_abort_percent=15,
+            emergency_land_percent=20,
+        )
+
+
+def test_failsafe_profile_accepts_equal_thresholds() -> None:
+    profile = FailsafeProfile(
+        low_battery_warn_percent=25,
+        low_battery_abort_percent=25,
+        emergency_land_percent=25,
+    )
+    assert profile.emergency_land_percent == 25
+
+
+# ---------------------------------------------------------------------------
+# EnergyModel boundary validation
+# ---------------------------------------------------------------------------
+
+
+def test_energy_model_rejects_zero_battery_capacity() -> None:
+    with pytest.raises(ValidationError):
+        EnergyModel(battery_capacity_wh=0.0, reserve_percent_default=25.0, cruise_power_w=450.0)
+
+
+def test_energy_model_rejects_zero_cruise_power() -> None:
+    with pytest.raises(ValidationError):
+        EnergyModel(battery_capacity_wh=900.0, reserve_percent_default=25.0, cruise_power_w=0.0)
+
+
+def test_energy_model_rejects_reserve_above_100() -> None:
+    with pytest.raises(ValidationError):
+        EnergyModel(battery_capacity_wh=900.0, reserve_percent_default=101.0, cruise_power_w=450.0)
+
+
+def test_energy_model_accepts_valid_values() -> None:
+    model = EnergyModel(
+        battery_capacity_wh=900.0,
+        reserve_percent_default=25.0,
+        cruise_power_w=450.0,
+    )
+    assert model.battery_capacity_wh == 900.0

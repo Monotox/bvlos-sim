@@ -3,6 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
+from estimator import LandingZone
 from estimator.core.scenario import AssertionOutcome, ScenarioStatus
 from estimator.environment.wind import LayeredWindProvider, WindLayer
 from estimator.execution.scenario import run_scenario
@@ -590,6 +591,36 @@ def test_policy_action_eq_skipped_when_event_not_fired() -> None:
     assert result.assertion_results[0].outcome == AssertionOutcome.SKIPPED
 
 
+def test_not_fired_reason_set_for_unknown_route_item() -> None:
+    plan = _plan(
+        events=[_observe_event("obs", "at_route_item", trigger_route_item_id="no-such-wp")],
+    )
+    result = run_scenario(plan, make_mission(), make_vehicle())
+    outcome = result.event_outcomes[0]
+    assert outcome.fired is False
+    assert outcome.not_fired_reason is not None
+    assert "no-such-wp" in outcome.not_fired_reason
+
+
+def test_not_fired_reason_set_for_exceeded_elapsed_time() -> None:
+    plan = _plan(
+        events=[_observe_event("obs", "at_elapsed_time", trigger_elapsed_time_s=99999.0)],
+    )
+    result = run_scenario(plan, make_mission(), make_vehicle())
+    outcome = result.event_outcomes[0]
+    assert outcome.fired is False
+    assert outcome.not_fired_reason is not None
+    assert "99999.0" in outcome.not_fired_reason
+
+
+def test_not_fired_reason_none_when_event_fires() -> None:
+    plan = _plan(events=[_observe_event("obs", "at_mission_start")])
+    result = run_scenario(plan, make_mission(), make_vehicle())
+    outcome = result.event_outcomes[0]
+    assert outcome.fired is True
+    assert outcome.not_fired_reason is None
+
+
 def test_policy_action_eq_skipped_when_no_policy_configured() -> None:
     plan = _plan(
         events=[_lost_link_event("ll", "at_mission_start")],
@@ -630,6 +661,93 @@ def test_divert_policy_without_landing_zones_produces_infeasible_divert_estimate
     assert po.divert_estimate is not None
     assert po.divert_estimate.is_feasible is False
     assert po.divert_estimate.infeasible_reason is not None
+
+
+# ---------------------------------------------------------------------------
+# policy_divert_feasible assertion
+# ---------------------------------------------------------------------------
+
+
+def _divert_assertion(assertion_id: str, event_id: str) -> dict:
+    return {
+        "assertion_id": assertion_id,
+        "kind": "policy_divert_feasible",
+        "event_id": event_id,
+    }
+
+
+def test_policy_divert_feasible_skipped_when_event_not_fired() -> None:
+    plan = _plan(
+        events=[_lost_link_event("ll", "at_route_item", trigger_route_item_id="no-item")],
+        assertions=[_divert_assertion("a1", "ll")],
+        lost_link_policy={"action": "divert", "loiter_s": 0.0, "divert_target_id": "lz-x"},
+    )
+    result = run_scenario(plan, make_mission(), make_vehicle())
+    assert result.assertion_results[0].outcome == AssertionOutcome.SKIPPED
+
+
+def test_policy_divert_feasible_skipped_when_no_policy() -> None:
+    plan = _plan(
+        events=[_lost_link_event("ll", "at_mission_start")],
+        assertions=[_divert_assertion("a1", "ll")],
+    )
+    result = run_scenario(plan, make_mission(), make_vehicle())
+    assert result.assertion_results[0].outcome == AssertionOutcome.SKIPPED
+
+
+def test_policy_divert_feasible_skipped_when_action_is_rtl() -> None:
+    plan = _plan(
+        events=[_lost_link_event("ll", "at_mission_start")],
+        assertions=[_divert_assertion("a1", "ll")],
+        lost_link_policy={"action": "rtl", "loiter_s": 0.0},
+    )
+    result = run_scenario(plan, make_mission(), make_vehicle())
+    assert result.assertion_results[0].outcome == AssertionOutcome.SKIPPED
+
+
+def test_policy_divert_feasible_failed_when_no_landing_zones() -> None:
+    plan = _plan(
+        events=[_lost_link_event("ll", "at_mission_start")],
+        assertions=[_divert_assertion("a1", "ll")],
+        lost_link_policy={"action": "divert", "loiter_s": 0.0, "divert_target_id": "lz-alpha"},
+    )
+    result = run_scenario(plan, make_mission(), make_vehicle())
+    assert result.assertion_results[0].outcome == AssertionOutcome.FAILED
+    assert "not feasible" in result.assertion_results[0].message
+
+
+def test_policy_divert_feasible_requires_event_id_at_schema_level() -> None:
+    with pytest.raises(ValidationError):
+        ScenarioPlan.model_validate(
+            {
+                "schema_version": "scenario.v1",
+                "scenario_id": "test",
+                "mission_file": "m.yaml",
+                "vehicle_file": "v.yaml",
+                "events": [_lost_link_event("ll", "at_mission_start")],
+                "assertions": [
+                    {
+                        "assertion_id": "a1",
+                        "kind": "policy_divert_feasible",
+                    }
+                ],
+            }
+        )
+
+
+def test_policy_divert_feasible_passed_when_route_is_feasible() -> None:
+    zone = LandingZone.model_validate(
+        {"id": "lz-near", "geometry": {"points": [{"lat": 52.001, "lon": 4.001}]}}
+    )
+    plan = _plan(
+        events=[_lost_link_event("ll", "at_mission_start")],
+        assertions=[_divert_assertion("a1", "ll")],
+        lost_link_policy={"action": "divert", "loiter_s": 0.0, "divert_target_id": "lz-near"},
+    )
+    result = run_scenario(plan, make_mission(), make_vehicle(), landing_zones=[zone])
+    assert result.assertion_results[0].outcome == AssertionOutcome.PASSED
+    assert "feasible" in result.assertion_results[0].message
+    assert "reserve:" in result.assertion_results[0].message
 
 
 # ---------------------------------------------------------------------------

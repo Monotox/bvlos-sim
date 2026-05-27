@@ -14,13 +14,23 @@ from estimator.core.scenario import (
     ScenarioResult,
 )
 from estimator.core.uncertainty import MonteCarloResult, SampledOutputStats
-from schemas.stochastic import PropagationTimelinePoint, StochasticPropagationResult
+from schemas.stochastic import (
+    CrossTrackStats,
+    EstimationErrorTimelinePoint,
+    PropagationTimelinePoint,
+    StochasticPropagationResult,
+)
+from adapters.envelope import DeterminismMetadata, ProvenanceInput
+from adapters.stochastic_envelope import StochasticProvenance, StochasticResultEnvelope
+from adapters.stochastic_markdown import render_stochastic_markdown
 from adapters.summary import (
     format_estimate_summary,
     format_scenario_summary,
     format_stochastic_summary,
     format_uncertainty_summary,
 )
+from adapters.uncertainty_envelope import UncertaintyProvenance, UncertaintyResultEnvelope
+from adapters.uncertainty_markdown import render_uncertainty_markdown
 
 
 def _energy(
@@ -444,3 +454,239 @@ def test_uncertainty_summary_includes_failed_field_when_nonzero() -> None:
 
     assert "failed=3" in output
     _assert_one_line(output)
+
+
+def test_stochastic_summary_omits_reserve_when_none() -> None:
+    result = _stochastic_result()
+    result = result.model_copy(update={"reserve_at_landing_wh": None})
+    output = format_stochastic_summary(result)
+
+    assert "p5" not in output
+    assert "p50" not in output
+    _assert_one_line(output)
+
+
+def test_stochastic_summary_omits_time_field_when_total_time_zero() -> None:
+    output = format_stochastic_summary(_stochastic_result(total_time_s=0.0))
+
+    assert "time" not in output
+    _assert_one_line(output)
+
+
+def test_uncertainty_summary_omits_feasibility_when_rate_none() -> None:
+    result = _mc_result()
+    result = result.model_copy(update={"feasibility_rate": None})
+    output = format_uncertainty_summary(result)
+
+    assert "feasible" not in output
+    assert "n=200" in output
+    _assert_one_line(output)
+
+
+def test_uncertainty_summary_omits_reserve_when_none() -> None:
+    result = _mc_result()
+    result = result.model_copy(update={"reserve_at_landing_wh": None})
+    output = format_uncertainty_summary(result)
+
+    assert "reserve" not in output
+    _assert_one_line(output)
+
+
+# ---------------------------------------------------------------------------
+# render_uncertainty_markdown
+# ---------------------------------------------------------------------------
+
+
+def _prov_input() -> ProvenanceInput:
+    return ProvenanceInput(format="yaml", sha256="abc123")
+
+
+def _det_meta() -> DeterminismMetadata:
+    return DeterminismMetadata(
+        deterministic=False,
+        randomness_used=True,
+        external_network_access_used=False,
+        canonical_json=True,
+        canonical_json_sort_keys=True,
+    )
+
+
+def _uncertainty_envelope(result: MonteCarloResult) -> UncertaintyResultEnvelope:
+    return UncertaintyResultEnvelope(
+        schema_version="uncertainty-report.v1",
+        tool_version="0.0.0",
+        uncertainty_schema_version="uncertainty.v1",
+        uncertainty_id=result.uncertainty_id,
+        determinism_metadata=_det_meta(),
+        provenance=UncertaintyProvenance(
+            estimator_api="estimator.v1",
+            inputs={
+                "uncertainty": _prov_input(),
+                "mission": _prov_input(),
+                "vehicle": _prov_input(),
+            },
+        ),
+        result=result,
+    )
+
+
+def _stochastic_envelope(result: StochasticPropagationResult) -> StochasticResultEnvelope:
+    return StochasticResultEnvelope(
+        schema_version="stochastic-envelope.v1",
+        tool_version="0.0.0",
+        stochastic_schema_version="stochastic.v1",
+        propagation_id=result.propagation_id,
+        determinism_metadata=_det_meta(),
+        provenance=StochasticProvenance(
+            estimator_api="estimator.v1",
+            inputs={
+                "stochastic": _prov_input(),
+                "mission": _prov_input(),
+                "vehicle": _prov_input(),
+            },
+        ),
+        result=result,
+    )
+
+
+def test_uncertainty_markdown_contains_title() -> None:
+    output = render_uncertainty_markdown(_uncertainty_envelope(_mc_result()))
+    assert "# Uncertainty Report: test" in output
+
+
+def test_uncertainty_markdown_shows_failed_samples_when_nonzero() -> None:
+    output = render_uncertainty_markdown(_uncertainty_envelope(_mc_result(failed=5, completed=95)))
+    assert "failed" in output
+
+
+def test_uncertainty_markdown_shows_na_when_feasibility_rate_none() -> None:
+    result = _mc_result()
+    result = result.model_copy(update={"feasibility_rate": None})
+    output = render_uncertainty_markdown(_uncertainty_envelope(result))
+    assert "n/a" in output
+
+
+def test_uncertainty_markdown_shows_dashes_for_none_stats_row() -> None:
+    result = _mc_result()
+    assert result.reserve_at_landing_percent is None
+    output = render_uncertainty_markdown(_uncertainty_envelope(result))
+    assert "—" in output
+
+
+def test_uncertainty_markdown_shows_energy_not_available_when_baseline_has_no_energy() -> None:
+    result = _mc_result()
+    assert result.baseline.energy is None
+    output = render_uncertainty_markdown(_uncertainty_envelope(result))
+    assert "not available" in output
+
+
+# ---------------------------------------------------------------------------
+# render_stochastic_markdown
+# ---------------------------------------------------------------------------
+
+
+def test_stochastic_markdown_contains_title() -> None:
+    output = render_stochastic_markdown(_stochastic_envelope(_stochastic_result()))
+    assert "# Stochastic Propagation Report: test" in output
+
+
+def test_stochastic_markdown_shows_failed_samples_when_nonzero() -> None:
+    output = render_stochastic_markdown(
+        _stochastic_envelope(_stochastic_result(failed_sample_count=3))
+    )
+    assert "Failed Samples" in output
+
+
+def test_stochastic_markdown_omits_failed_samples_when_zero() -> None:
+    output = render_stochastic_markdown(
+        _stochastic_envelope(_stochastic_result(failed_sample_count=0))
+    )
+    assert "Failed Samples" not in output
+
+
+def test_stochastic_markdown_shows_spatial_infeasible_when_nonzero() -> None:
+    output = render_stochastic_markdown(
+        _stochastic_envelope(_stochastic_result(spatial_infeasible_count=2))
+    )
+    assert "Spatially Infeasible" in output
+
+
+def test_stochastic_markdown_shows_estimation_error_section_when_present() -> None:
+    error_point = EstimationErrorTimelinePoint(
+        elapsed_time_s=10.0,
+        position_error_m=_stats(mean=2.5),
+        energy_error_wh=_stats(mean=0.5),
+    )
+    result = _stochastic_result()
+    result = result.model_copy(update={"estimation_error_timeline": [error_point]})
+    output = render_stochastic_markdown(_stochastic_envelope(result))
+    assert "Estimation Error Timeline" in output
+
+
+def test_stochastic_markdown_shows_cross_track_section_when_present() -> None:
+    cross_point = CrossTrackStats(
+        elapsed_time_s=10.0,
+        cross_track_error_m=_stats(mean=3.0),
+        along_track_error_m=_stats(mean=1.0),
+        path_length_excess_m=_stats(mean=0.5),
+    )
+    result = _stochastic_result()
+    result = result.model_copy(update={"cross_track_timeline": [cross_point]})
+    output = render_stochastic_markdown(_stochastic_envelope(result))
+    assert "Cross-Track Timeline" in output
+
+
+def test_stochastic_markdown_omits_reserve_section_when_none() -> None:
+    result = _stochastic_result()
+    result = result.model_copy(update={"reserve_at_landing_wh": None})
+    output = render_stochastic_markdown(_stochastic_envelope(result))
+    assert "Reserve at Landing Distribution" not in output
+
+
+def test_stochastic_markdown_baseline_with_energy_shows_reserve_values() -> None:
+    energy = EnergyEstimate(
+        is_feasible=True,
+        total_energy_wh=100.0,
+        battery_capacity_wh=900.0,
+        usable_energy_wh=675.0,
+        reserve_threshold_percent=25.0,
+        reserve_threshold_wh=225.0,
+        reserve_at_landing_wh=580.0,
+        reserve_at_landing_percent=64.4,
+    )
+    result = _stochastic_result()
+    baseline_with_energy = result.baseline.model_copy(update={"energy": energy})
+    result = result.model_copy(update={"baseline": baseline_with_energy})
+    output = render_stochastic_markdown(_stochastic_envelope(result))
+    assert "580.00 Wh" in output
+
+
+def test_stochastic_markdown_long_timeline_is_downsampled_to_at_most_20_rows() -> None:
+    points = [
+        PropagationTimelinePoint(
+            elapsed_time_s=float(i),
+            lat_mean=52.0,
+            lon_mean=4.0,
+            energy_remaining_wh=_stats(),
+            p_reserve_violation=0.0,
+        )
+        for i in range(25)
+    ]
+    result = _stochastic_result()
+    result = result.model_copy(update={"timeline": points})
+    output = render_stochastic_markdown(_stochastic_envelope(result))
+    lines = output.splitlines()
+    # Find rows in the Timeline table (between ## Timeline header and the next ## section)
+    in_timeline = False
+    timeline_data_rows = []
+    for line in lines:
+        if line.startswith("## Timeline"):
+            in_timeline = True
+            continue
+        if in_timeline and line.startswith("## "):
+            break
+        if in_timeline and line.startswith("| ") and "Elapsed" not in line and "---" not in line:
+            timeline_data_rows.append(line)
+    assert len(timeline_data_rows) <= 20
+    # With 25 points and stride=2, we get 13 sampled rows
+    assert "| 1.00 |" not in output  # odd indices skipped by stride-2 sampling

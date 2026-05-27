@@ -209,6 +209,38 @@ def test_sample_command_missing_file_exits_nonzero() -> None:
     assert result.exit_code != 0
 
 
+# ---------------------------------------------------------------------------
+# --validate-only
+# ---------------------------------------------------------------------------
+
+
+def test_sample_validate_only_exits_zero_for_valid_inputs() -> None:
+    result = _run(["sample", str(EXAMPLE_UNCERTAINTY), "--validate-only"])
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    assert "uncertainty" in result.output
+    assert "OK" in result.output
+
+
+def test_sample_validate_only_does_not_run_sampler(monkeypatch) -> None:
+    from adapters import cli as cli_mod
+
+    def _fail(*args, **kwargs):
+        raise AssertionError("sampler must not be called with --validate-only")
+
+    monkeypatch.setattr(cli_mod, "run_monte_carlo", _fail)
+    result = _run(["sample", str(EXAMPLE_UNCERTAINTY), "--validate-only"])
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+
+
+def test_sample_validate_only_exits_invalid_input_for_bad_uncertainty(
+    tmp_path: Path,
+) -> None:
+    bad = tmp_path / "bad.yaml"
+    bad.write_text("{bad yaml: [unclosed", encoding="utf-8")
+    result = _run(["sample", str(bad), "--validate-only"])
+    assert result.exit_code != 0
+
+
 def test_sample_infeasible_baseline_exits_invalid_input(tmp_path: Path) -> None:
     MISSION_PATH = REPO_ROOT / "examples/missions/pipeline_demo_001.yaml"
     VEHICLE_PATH = REPO_ROOT / "examples/vehicles/quadplane_v1.yaml"

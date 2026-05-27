@@ -172,6 +172,49 @@ def test_markdown_format_produces_markdown() -> None:
     assert result.output.startswith("# Scenario Report")
 
 
+def test_summary_format_produces_single_line() -> None:
+    scenario_path = str(FIXTURE_ROOT / "passed" / "scenario.yaml")
+    result = _run(["scenario", scenario_path, "--format", "summary"])
+    assert result.exit_code == 0
+    lines = [line for line in result.output.splitlines() if line.strip()]
+    assert len(lines) == 1
+    assert "PASSED" in lines[0]
+
+
+def test_geojson_format_produces_feature_collection() -> None:
+    scenario_path = str(FIXTURE_ROOT / "passed" / "scenario.yaml")
+    result = _run(["scenario", scenario_path, "--format", "geojson"])
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["type"] == "FeatureCollection"
+    layers = {f["properties"]["layer"] for f in payload["features"]}
+    assert "route" in layers
+
+
+def test_kml_format_produces_kml_document() -> None:
+    scenario_path = str(FIXTURE_ROOT / "passed" / "scenario.yaml")
+    result = _run(["scenario", scenario_path, "--format", "kml"])
+    assert result.exit_code == 0
+    assert result.output.startswith("<?xml")
+    assert "<kml" in result.output
+    assert "<Placemark" in result.output
+
+
+def test_checklist_format_produces_go_no_go_status() -> None:
+    scenario_path = str(FIXTURE_ROOT / "passed" / "scenario.yaml")
+    result = _run(["scenario", scenario_path, "--format", "checklist"])
+    assert result.exit_code == 0
+    assert "## Pre-Flight Checklist:" in result.output
+    assert "Status: GO" in result.output or "Status: NO-GO" in result.output
+
+
+def test_profile_format_produces_altitude_table() -> None:
+    scenario_path = str(FIXTURE_ROOT / "passed" / "scenario.yaml")
+    result = _run(["scenario", scenario_path, "--format", "profile"])
+    assert result.exit_code == 0
+    assert "## Route Altitude Profile" in result.output
+
+
 # ---------------------------------------------------------------------------
 # Output file
 # ---------------------------------------------------------------------------
@@ -231,3 +274,35 @@ def test_output_file_contains_assertion_results(tmp_path: Path) -> None:
     _run(["scenario", scenario_path, "--output", str(out_file)])
     payload = json.loads(out_file.read_text())
     assert len(payload["assertion_results"]) > 0
+
+
+# ---------------------------------------------------------------------------
+# --validate-only
+# ---------------------------------------------------------------------------
+
+
+def test_scenario_validate_only_exits_zero_for_valid_inputs() -> None:
+    scenario_path = str(FIXTURE_ROOT / "passed" / "scenario.yaml")
+    result = _run(["scenario", scenario_path, "--validate-only"])
+    assert result.exit_code == 0
+    assert "scenario.yaml: OK" in result.output
+    assert "mission" in result.output
+    assert "vehicle" in result.output
+
+
+def test_scenario_validate_only_exits_nonzero_for_bad_scenario(tmp_path: Path) -> None:
+    bad = tmp_path / "bad.yaml"
+    bad.write_text("{bad yaml: [unclosed", encoding="utf-8")
+    result = _run(["scenario", str(bad), "--validate-only"])
+    assert result.exit_code != 0
+
+
+def test_scenario_validate_only_output_is_not_json() -> None:
+    scenario_path = str(FIXTURE_ROOT / "passed" / "scenario.yaml")
+    result = _run(["scenario", scenario_path, "--validate-only"])
+    assert result.exit_code == 0
+    try:
+        json.loads(result.output)
+        assert False, "output should not be JSON when --validate-only is used"
+    except (json.JSONDecodeError, ValueError):
+        pass

@@ -23,6 +23,10 @@ from adapters.io import (
     validation_error_summary,
 )
 from adapters.landing_zone_geojson import LandingZoneLoadError, load_landing_zones
+from adapters.checklist_markdown import (
+    render_checklist_markdown,
+    render_checklist_markdown_from_scenario,
+)
 from adapters.markdown import render_envelope_markdown
 from adapters.scenario_envelope import (
     ScenarioResultEnvelope,
@@ -82,6 +86,7 @@ class MissionAssetBundle:
     geofence_document: InputDocument | None = None
     landing_zones: list[LandingZone] | None = None
     landing_zone_document: InputDocument | None = None
+    mission_id: str | None = None
 
     def envelope_inputs(
         self,
@@ -171,12 +176,14 @@ _ESTIMATE_RENDERERS: dict[OutputFormat, EstimatorEnvelopeRenderer] = {
     OutputFormat.JSON: render_envelope_json,
     OutputFormat.MARKDOWN: render_envelope_markdown,
     OutputFormat.SUMMARY: _render_estimate_summary,
+    OutputFormat.CHECKLIST: render_checklist_markdown,
 }
 
 _SCENARIO_RENDERERS: dict[OutputFormat, ScenarioEnvelopeRenderer] = {
     OutputFormat.JSON: render_scenario_envelope_json,
     OutputFormat.MARKDOWN: render_scenario_markdown,
     OutputFormat.SUMMARY: _render_scenario_summary,
+    OutputFormat.CHECKLIST: render_checklist_markdown_from_scenario,
 }
 
 def _render_uncertainty_summary(envelope: UncertaintyResultEnvelope) -> str:
@@ -203,7 +210,11 @@ _STOCHASTIC_RENDERERS: dict[OutputFormat, StochasticEnvelopeRenderer] = {
 def _render_output(
     output_format: OutputFormat,
     envelope: EstimatorResultEnvelope,
+    *,
+    mission_id: str | None = None,
 ) -> str:
+    if output_format == OutputFormat.CHECKLIST and mission_id is not None:
+        return render_checklist_markdown(envelope, mission_id=mission_id)
     return _ESTIMATE_RENDERERS[output_format](envelope)
 
 

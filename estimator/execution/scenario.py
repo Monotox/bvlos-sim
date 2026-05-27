@@ -36,6 +36,7 @@ from schemas.scenario import (
     ScenarioEvent,
     ScenarioEventKind,
     ScenarioPlan,
+    ScenarioTriggerKind,
 )
 from schemas.vehicle import VehicleProfile
 
@@ -85,11 +86,28 @@ def _fired_event_outcome(
     )
 
 
-def _not_fired_event_outcome(event: ScenarioEvent) -> ScenarioEventOutcome:
+def _not_fired_reason(event: ScenarioEvent, timeline: list[TimelinePoint]) -> str | None:
+    if event.trigger == ScenarioTriggerKind.AT_ROUTE_ITEM:
+        return (
+            f"route_item_id '{event.trigger_route_item_id}' not found in mission timeline"
+        )
+    if event.trigger == ScenarioTriggerKind.AT_ELAPSED_TIME:
+        mission_duration_s = timeline[-1].elapsed_time_s if timeline else 0.0
+        return (
+            f"trigger_elapsed_time_s {event.trigger_elapsed_time_s} s "
+            f"exceeds mission duration {mission_duration_s:.2f} s"
+        )
+    return None
+
+
+def _not_fired_event_outcome(
+    event: ScenarioEvent, timeline: list[TimelinePoint]
+) -> ScenarioEventOutcome:
     return ScenarioEventOutcome(
         event_id=event.event_id,
         kind=event.kind,
         fired=False,
+        not_fired_reason=_not_fired_reason(event, timeline),
     )
 
 
@@ -215,7 +233,7 @@ def _process_event(
 ) -> ScenarioEventOutcome:
     trigger_index = resolve_trigger_index(event, timeline)
     if trigger_index is None:
-        return _not_fired_event_outcome(event)
+        return _not_fired_event_outcome(event, timeline)
     if event.kind == ScenarioEventKind.LOST_LINK:
         return _process_lost_link_event(
             event,
