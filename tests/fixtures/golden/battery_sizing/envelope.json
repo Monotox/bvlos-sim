@@ -1,0 +1,35 @@
+{
+  "determinism_metadata": {
+    "canonical_json": true,
+    "canonical_json_sort_keys": true,
+    "deterministic": true,
+    "external_network_access_used": false,
+    "randomness_used": false
+  },
+  "mission_id": "pipeline_demo_success",
+  "provenance": {
+    "estimator_api": "adapters.battery_sizer.compute_minimum_battery_capacity",
+    "inputs": {
+      "mission": {
+        "format": "yaml",
+        "sha256": "7bab3b2b9b996564f04f80c9cbb92051e2e187f2d4198b355e0939e9eec4473c"
+      },
+      "vehicle": {
+        "format": "yaml",
+        "sha256": "4067f6697bba308915271afc95bf273ae7dc7637f3d921c71ac30b15a26453e5"
+      }
+    }
+  },
+  "result": {
+    "current_capacity_wh": 900.0,
+    "current_reserve_pct": 95.38829865,
+    "current_reserve_wh": 858.49468783,
+    "is_current_feasible": true,
+    "minimum_capacity_wh": 55.37109375,
+    "mission_energy_wh": 41.50531217,
+    "reserve_threshold_wh": 225.0
+  },
+  "schema_version": "battery-sizing-report.v1",
+  "status": "feasible",
+  "tool_version": "0.22.0"
+}

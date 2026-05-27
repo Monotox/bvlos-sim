@@ -15,6 +15,17 @@ from adapters.batch_support import (
     render_batch_table,
     run_batch_manifest,
 )
+from adapters.battery_sizer import (
+    BatterySizingResult,
+    compute_minimum_battery_capacity,
+    render_battery_sizing_markdown,
+    render_battery_sizing_summary,
+)
+from adapters.battery_sizing_envelope import (
+    BatterySizingEnvelope,
+    build_battery_sizing_envelope,
+    render_battery_sizing_envelope_json,
+)
 from adapters.cli_batch_support import (
     _batch_exit_code,
     write_batch_outputs,
@@ -157,6 +168,12 @@ class BatchOutputFormat(StrEnum):
     CSV = "csv"
 
 
+class BatterySizingOutputFormat(StrEnum):
+    JSON = "json"
+    MARKDOWN = "markdown"
+    SUMMARY = "summary"
+
+
 _DOCUMENT_OUTPUT_FORMATS: dict[DocumentOutputFormat, OutputFormat] = {
     DocumentOutputFormat.JSON: OutputFormat.JSON,
     DocumentOutputFormat.MARKDOWN: OutputFormat.MARKDOWN,
@@ -268,6 +285,16 @@ def _parse_sensitivity_float_steps(raw: str, option_name: str) -> list[float]:
     return values
 
 
+def _validate_battery_sizing_margins(
+    margins: list[int] | None,
+) -> list[int] | None:
+    if margins is None:
+        return None
+    if any(margin < 0 for margin in margins):
+        raise ValueError("--margin values must be non-negative.")
+    return list(margins)
+
+
 def _render_estimate_command_output(
     output_format: OutputFormat,
     envelope: EstimatorResultEnvelope,
@@ -326,6 +353,28 @@ def _render_scenario_error_output(
     envelope: ScenarioResultEnvelope,
 ) -> str:
     return _render_scenario_output(_envelope_output_format(output_format), envelope)
+
+
+def _render_battery_sizing_command_output(
+    output_format: BatterySizingOutputFormat,
+    envelope: BatterySizingEnvelope,
+    result: BatterySizingResult,
+    *,
+    mission_id: str,
+    safety_margins: list[int] | None,
+) -> str:
+    if output_format == BatterySizingOutputFormat.JSON:
+        return render_battery_sizing_envelope_json(envelope)
+    if output_format == BatterySizingOutputFormat.MARKDOWN:
+        return render_battery_sizing_markdown(
+            result,
+            mission_id=mission_id,
+            safety_margins=safety_margins,
+        )
+    return render_battery_sizing_summary(
+        result,
+        safety_margins=safety_margins,
+    )
 
 
 def _exit_code_for_result(result: MissionEstimate) -> CliExitCode:
@@ -614,6 +663,101 @@ def estimate(
             retry_requested_output=True,
         )
         raise typer.Exit(code=int(CliExitCode.INTERNAL_ERROR)) from exc
+
+
+@app.command("size-battery")
+def size_battery(
+    mission: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True),
+    vehicle: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True),
+    format: BatterySizingOutputFormat = typer.Option(
+        BatterySizingOutputFormat.MARKDOWN,
+        "--format",
+    ),
+    output: Path | None = typer.Option(None, "--output", "-o"),
+    margin: list[int] | None = typer.Option(
+        None,
+        "--margin",
+        help="Safety margin percent. Repeat to show multiple recommendations.",
+    ),
+) -> None:
+    """Compute minimum battery capacity needed for mission feasibility."""
+
+    mission_document: InputDocument | None = None
+    vehicle_document: InputDocument | None = None
+    envelope_inputs: EnvelopeInputs | None = None
+    mission_assets = MissionAssetBundle()
+    try:
+        safety_margins = _validate_battery_sizing_margins(margin)
+        mission_model, mission_document = load_mission(mission)
+        vehicle_model, vehicle_document = load_vehicle(vehicle)
+        mission_assets.mission_id = mission_model.mission_id
+        _populate_mission_assets(
+            mission_assets,
+            mission_model=mission_model,
+            mission_document=mission_document,
+        )
+        envelope_inputs = mission_assets.envelope_inputs(
+            mission_document=mission_document,
+            vehicle_document=vehicle_document,
+        )
+        result = compute_minimum_battery_capacity(
+            mission_model,
+            vehicle_model,
+            wind_provider=mission_assets.wind_provider,
+            terrain_provider=mission_assets.terrain_provider,
+            geofences=mission_assets.geofences,
+            landing_zones=mission_assets.landing_zones,
+        )
+        mission_id = mission_assets.mission_id or mission.stem
+        envelope = build_battery_sizing_envelope(
+            result=result,
+            mission_id=mission_id,
+            inputs=envelope_inputs,
+        )
+        rendered = _render_battery_sizing_command_output(
+            format,
+            envelope,
+            result,
+            mission_id=mission_id,
+            safety_margins=safety_margins,
+        )
+        _write_output(rendered, output)
+        raise typer.Exit(code=int(CliExitCode.SUCCESS))
+    except InputLoadError as exc:
+        _exit_with_cli_error(
+            str(exc),
+            command="size-battery",
+            code=CliExitCode.INVALID_INPUT,
+            details=exc.to_context(),
+        )
+    except (GeofenceLoadError, LandingZoneLoadError, TerrainGridLoadError, WindGridLoadError) as exc:
+        _exit_with_cli_error(
+            str(exc),
+            command="size-battery",
+            code=CliExitCode.INVALID_INPUT,
+        )
+    except ValueError as exc:
+        _exit_with_cli_error(
+            str(exc),
+            command="size-battery",
+            code=CliExitCode.INVALID_INPUT,
+        )
+    except OutputWriteError as exc:
+        _exit_with_cli_error(
+            "Unable to write size-battery output.",
+            command="size-battery",
+            code=CliExitCode.INTERNAL_ERROR,
+            details={"error_type": type(exc).__name__},
+        )
+    except typer.Exit:
+        raise
+    except Exception as exc:
+        _exit_with_cli_error(
+            "Unexpected internal error while running size-battery.",
+            command="size-battery",
+            code=CliExitCode.INTERNAL_ERROR,
+            details={"error_type": type(exc).__name__},
+        )
 
 
 @app.command()

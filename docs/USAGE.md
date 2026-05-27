@@ -23,9 +23,10 @@ uv run bvlos-sim --help
 
 ## CLI Commands
 
-bvlos-sim exposes eight commands:
+bvlos-sim exposes nine commands:
 
 - `estimate`: run deterministic mission estimation and static feasibility checks
+- `size-battery`: compute the minimum battery capacity needed for feasibility
 - `scenario`: run deterministic scenario events and assertions
 - `convert`: convert a QGroundControl `.plan` file to a `mission.v5` YAML
 - `batch`: run batch mission estimates from a manifest file
@@ -37,6 +38,7 @@ bvlos-sim exposes eight commands:
 | Command | Exit 0 | Exit 10 | Exit 11 | Exit 12 | Exit 13 |
 |---------|--------|---------|---------|---------|---------|
 | estimate | success | infeasible | invalid input | unsupported | internal error |
+| size-battery | sizing succeeded | - | invalid input | - | internal error |
 | scenario | passed | failed | invalid input | - | internal error |
 | sample | success | - | invalid input | - | internal error |
 | propagate | success | - | invalid input | - | internal error |
@@ -85,6 +87,7 @@ Command help:
 
 ```bash
 uv run bvlos-sim estimate --help
+uv run bvlos-sim size-battery --help
 uv run bvlos-sim scenario --help
 uv run bvlos-sim convert --help
 uv run bvlos-sim batch --help
@@ -311,6 +314,48 @@ Baseline reserve: 858.5 Wh (95.4%)
 | -30% | 861.6 | 95.7 | FEASIBLE |
 | baseline | 858.5 | 95.4 | FEASIBLE |
 | +30% | 855.4 | 95.0 | FEASIBLE |
+```
+
+### Minimum Battery Sizing
+
+Use `size-battery` to search for the smallest battery capacity that makes a
+mission feasible under the same deterministic estimator used by `estimate`.
+The command exits `0` when sizing succeeds whether the current vehicle battery
+is already sufficient or needs to be increased.
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--format` | `markdown` | Output format: `markdown`, `json`, or `summary` |
+| `--margin` | `10`, `20`, `30` | Safety margin percent to recommend; repeat for multiple margins |
+| `--output`, `-o` | stdout | Write the report to a file |
+
+```bash
+uv run bvlos-sim size-battery \
+  examples/real_world/alpine_infeasible.yaml \
+  examples/real_world/quadplane_small_battery.yaml \
+  --margin 20
+```
+
+Example output excerpt:
+
+```text
+## Battery Sizing: alpine_infeasible_001
+
+Mission energy required:   69.2 Wh
+Reserve threshold (25 %):  21.2 Wh (of battery capacity)
+
+Minimum feasible capacity: 127.6 Wh
+With 20 % safety margin:      153.1 Wh
+
+Recommendation: use >= 153.1 Wh battery (20 % margin above minimum feasible)
+
+Status: SIZED
+```
+
+Write the versioned JSON envelope instead:
+
+```bash
+uv run bvlos-sim size-battery mission.yaml vehicle.yaml --format json
 ```
 
 ### Energy Reserve Explained
@@ -1270,6 +1315,8 @@ uv run bvlos-sim sample examples/uncertainty/pipeline_demo_001_wind_uncertainty.
 ## Output Contracts
 
 The estimator CLI emits `estimator-envelope.v5`.
+
+The battery sizing CLI emits `battery-sizing-report.v1` when `--format json` is used.
 
 The scenario CLI emits `scenario-report.v2`.
 

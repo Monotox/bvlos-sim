@@ -70,8 +70,10 @@ The current codebase includes:
   spreadsheets (id, status, reserve_margin_percent, flight_time_s, warning_count)
 - `--format sensitivity` output for `estimate`: deterministic reserve sweep across
   cruise power, headwind, and battery-capacity variations with ROBUST/MARGINAL status
+- `size-battery` command: binary-searches the minimum battery capacity needed
+  for mission energy feasibility and reports safety-margin recommendations
 - passing Linux estimator/schema/CLI/scenario/SITL comparison test suite with
-  853 passing tests and 9 skipped live or environment-dependent tests
+  861 passing tests and 9 skipped live or environment-dependent tests
 
 ## Implemented Integration Validation
 
@@ -130,10 +132,10 @@ path rather than through isolated examples. Current validation includes:
 35. [073-preflight-checklist-output.md](./073-preflight-checklist-output.md)
 36. [072-route-altitude-profile-report.md](./072-route-altitude-profile-report.md)
 37. [074-energy-reserve-sensitivity.md](./074-energy-reserve-sensitivity.md)
+38. [075-minimum-battery-sizing.md](./075-minimum-battery-sizing.md)
 
 ### Planned
 
-38. [075-minimum-battery-sizing.md](./075-minimum-battery-sizing.md)
 39. [076-departure-window-finder.md](./076-departure-window-finder.md)
 40. [077-mission-comparison-report.md](./077-mission-comparison-report.md)
 41. [069-per-event-lost-link-policy-override.md](./069-per-event-lost-link-policy-override.md)
@@ -154,7 +156,6 @@ path rather than through isolated examples. Current validation includes:
 
 ## Current Gaps
 
-- No minimum battery sizing calculator (`size-battery` command): Ticket 075.
 - No departure window finder for time-varying forecasts: Ticket 076.
 - No side-by-side mission comparison (`diff` command): Ticket 077.
 - Lost-link events share one global policy; no per-event override: Ticket 069.
