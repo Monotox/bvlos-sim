@@ -1,40 +1,52 @@
 # BVLOS Simulator
 
+> Preflight energy, geofence, and contingency checker for beyond-visual-line-of-sight (BVLOS) drone operations
+
 [![CI](https://github.com/Monotox/bvlos-sim/actions/workflows/ci.yml/badge.svg)](https://github.com/Monotox/bvlos-sim/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
-Answer the three questions no flight-planning app handles: does this aircraft have enough
-reserve given tomorrow's wind over this terrain, does the route cross any restricted
-airspace that went live this week, and what is the p5 reserve margin if wind is 2 m/s
-stronger than forecast?
+Two YAML files — a mission and a vehicle profile — answer the questions no spreadsheet handles: does this aircraft have enough reserve given tomorrow's wind over this terrain, does the route cross any restricted airspace, and what is the p5 reserve margin if wind is 2 m/s stronger than forecast?
 
-Two YAML files and one command. JSON envelopes, one-line go/no-go summaries, and
-GeoJSON exports that open in QGroundControl, QGIS, and Google Earth.
+```
+$ bvlos-sim estimate alpine_mission.yaml quadplane_v1.yaml --format checklist
 
-License: [MIT](./LICENSE)
+## Pre-Flight Checklist: alpine_demo_001
+
+✓ Energy feasibility        PASS   reserve 605.78 Wh above threshold (830.78 Wh at landing, 225.00 Wh threshold)
+✓ Geofence clearance        PASS   0 conflicts across 0 zone(s)
+✓ Landing-zone coverage     PASS   reachable zone found at all 4 checked state(s)
+◌ Resource availability     N/A    not evaluated
+◌ Link availability         N/A    not evaluated
+  Advisory warnings         1      DIVERT_ENERGY_TAS_ONLY
+
+Status: GO
+
+$ bvlos-sim estimate alpine_infeasible.yaml small_battery.yaml --format summary
+INFEASIBLE   reserve −25.7 %   flight 7m 55s   [RESERVE_BELOW_THRESHOLD]
+
+$ bvlos-sim sample wind_uncertainty.yaml --format summary
+feasible 100%   reserve p5 823.9 Wh   p50 858.2 Wh   p95 903.3 Wh   time p50 2m 50s   n=200
+```
+
+JSON envelopes, one-line go/no-go summaries, and GeoJSON/KML exports that open in QGroundControl, QGIS, and Google Earth.
 
 ## Quick Start
 
-Install dependencies:
-
 ```bash
+# install
 uv sync
-```
 
-Run the example mission:
-
-```bash
+# run the pre-fetched Alpine demo (SRTM terrain, Open-Meteo wind, Overpass LZs — no network)
 uv run bvlos-sim estimate \
-  examples/missions/pipeline_demo_001.yaml \
-  examples/vehicles/quadplane_v1.yaml
-```
+  examples/real_world/alpine_mission.yaml \
+  examples/real_world/quadplane_v1.yaml \
+  --format checklist
 
-Run with fidelity v2 (turn arcs, terrain-referenced altitude):
-
-```bash
+# see it fail with a smaller battery
 uv run bvlos-sim estimate \
-  examples/missions/pipeline_demo_001.yaml \
-  examples/vehicles/quadplane_v1.yaml \
-  --fidelity v2
+  examples/real_world/alpine_infeasible.yaml \
+  examples/real_world/quadplane_small_battery.yaml \
+  --format summary
 ```
 
 Five ready-to-use vehicle profiles are in
@@ -42,25 +54,7 @@ Five ready-to-use vehicle profiles are in
 Wingtra One Gen II, Trinity F90+, Autel EVO Max 4T, generic survey hexacopter).
 When swapping vehicles, set `mission.vehicle_profile` to the profile's `vehicle_id`.
 
-Run the real-world Alpine demo (pre-fetched SRTM terrain, Open-Meteo wind,
-and Overpass landing zones — no network required):
-
-```bash
-uv run bvlos-sim estimate \
-  examples/real_world/alpine_mission.yaml \
-  examples/real_world/quadplane_v1.yaml
-```
-
-Run the infeasible variant to see a failing reserve check:
-
-```bash
-uv run bvlos-sim estimate \
-  examples/real_world/alpine_infeasible.yaml \
-  examples/real_world/quadplane_small_battery.yaml \
-  --format summary
-```
-
-Fetch terrain, wind, and landing zones for any area in one command:
+Fetch live terrain, wind, and landing zones for any area:
 
 ```bash
 uv sync --extra scripts   # installs srtm.py (once)
@@ -70,6 +64,18 @@ uv run python scripts/fetch_all.py <lat> <lon> --departure-time HH:MM --output-d
 This writes `terrain.yaml`, `wind_grid.yaml`, and `landing_zones.geojson` and
 prints the `assets:` block to paste into your mission YAML. See
 [`examples/real_world/README.md`](./examples/real_world/README.md) for details.
+
+<details>
+<summary>More commands</summary>
+
+Run with fidelity v2 (turn arcs, sub-segment wind sampling):
+
+```bash
+uv run bvlos-sim estimate \
+  examples/missions/pipeline_demo_001.yaml \
+  examples/vehicles/quadplane_v1.yaml \
+  --fidelity v2
+```
 
 Run a scenario (lost-link injection and policy assertions):
 
@@ -109,6 +115,8 @@ uv run bvlos-sim propagate \
 
 For SITL evidence recording and comparison against ArduPilot, see
 [SITL adapter contract](./docs/SITL_ADAPTER_CONTRACT.md).
+
+</details>
 
 Run the checks:
 
