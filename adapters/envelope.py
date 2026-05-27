@@ -144,6 +144,7 @@ class OutputFormat(StrEnum):
     KML = "kml"
     CHECKLIST = "checklist"
     PROFILE = "profile"
+    SENSITIVITY = "sensitivity"
 
 
 class EnvelopeDiagnostic(BaseModel):

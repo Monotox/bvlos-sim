@@ -277,6 +277,42 @@ Status: GO
 one check failed. Categories not included in the estimate show `◌  N/A`.
 The same `--format checklist` flag works on the `scenario` command.
 
+### Energy Reserve Sensitivity
+
+Use `estimate --format sensitivity` to run a deterministic reserve sweep around
+one mission and vehicle. The report varies cruise power, uniform east-component
+headwind, and battery capacity around the baseline estimate, then marks the
+mission `ROBUST` when every variation remains feasible.
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--sensitivity-power-steps` | `10,20,30` | Cruise-power percent deltas to test in both directions |
+| `--sensitivity-wind-steps` | `1,2,3` | Headwind m/s deltas to test in both directions |
+| `--sensitivity-battery-steps` | `10,20,30` | Battery-capacity percent deltas to test in both directions |
+
+```bash
+uv run bvlos-sim estimate \
+  examples/missions/pipeline_demo_001.yaml \
+  examples/vehicles/quadplane_v1.yaml \
+  --format sensitivity
+```
+
+Example output excerpt:
+
+```text
+# Energy Reserve Sensitivity: pipeline_demo_001
+
+Status: ROBUST - all variations remain FEASIBLE with positive reserve
+Baseline reserve: 858.5 Wh (95.4%)
+
+## Cruise Power Variation
+| Variation | Reserve Wh | Reserve % | Status |
+|-----------|------------|-----------|--------|
+| -30% | 861.6 | 95.7 | FEASIBLE |
+| baseline | 858.5 | 95.4 | FEASIBLE |
+| +30% | 855.4 | 95.0 | FEASIBLE |
+```
+
 ### Energy Reserve Explained
 
 The `reserve` field in `--format summary` output is the margin above (positive) or

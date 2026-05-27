@@ -68,8 +68,10 @@ The current codebase includes:
   `scenario`; validates uncertainty, mission, and vehicle files without running the sampler
 - `--format csv` output for `batch` command: comma-separated table importable into
   spreadsheets (id, status, reserve_margin_percent, flight_time_s, warning_count)
+- `--format sensitivity` output for `estimate`: deterministic reserve sweep across
+  cruise power, headwind, and battery-capacity variations with ROBUST/MARGINAL status
 - passing Linux estimator/schema/CLI/scenario/SITL comparison test suite with
-  842 passing tests and 9 skipped live or environment-dependent tests
+  853 passing tests and 9 skipped live or environment-dependent tests
 
 ## Implemented Integration Validation
 
@@ -127,10 +129,10 @@ path rather than through isolated examples. Current validation includes:
 34. [065-geofence-and-lz-in-stochastic.md](./065-geofence-and-lz-in-stochastic.md)
 35. [073-preflight-checklist-output.md](./073-preflight-checklist-output.md)
 36. [072-route-altitude-profile-report.md](./072-route-altitude-profile-report.md)
+37. [074-energy-reserve-sensitivity.md](./074-energy-reserve-sensitivity.md)
 
 ### Planned
 
-37. [074-energy-reserve-sensitivity.md](./074-energy-reserve-sensitivity.md)
 38. [075-minimum-battery-sizing.md](./075-minimum-battery-sizing.md)
 39. [076-departure-window-finder.md](./076-departure-window-finder.md)
 40. [077-mission-comparison-report.md](./077-mission-comparison-report.md)
@@ -152,7 +154,6 @@ path rather than through isolated examples. Current validation includes:
 
 ## Current Gaps
 
-- No energy reserve sensitivity sweep (`--format sensitivity`): Ticket 074.
 - No minimum battery sizing calculator (`size-battery` command): Ticket 075.
 - No departure window finder for time-varying forecasts: Ticket 076.
 - No side-by-side mission comparison (`diff` command): Ticket 077.

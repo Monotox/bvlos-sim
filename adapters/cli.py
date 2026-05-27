@@ -58,7 +58,11 @@ from adapters.envelope import (
 )
 from adapters.geofence_geojson import GeofenceLoadError
 from adapters.geojson_export import build_geojson_export
-from adapters.profile_markdown import render_profile_markdown, render_profile_markdown_from_scenario
+from adapters.profile_markdown import (
+    render_profile_markdown,
+    render_profile_markdown_from_scenario,
+)
+from adapters.sensitivity import render_sensitivity_markdown, run_sensitivity_sweep
 from adapters.io import (
     InputDocument,
     InputLoadError,
@@ -229,6 +233,41 @@ def _summary_output_format(output_format: SummaryOutputFormat) -> OutputFormat:
     return _SUMMARY_OUTPUT_FORMATS[output_format]
 
 
+def _split_sensitivity_steps(raw: str, option_name: str) -> list[str]:
+    steps = [part.strip() for part in raw.split(",") if part.strip()]
+    if not steps:
+        raise ValueError(f"{option_name} must contain at least one numeric step.")
+    return steps
+
+
+def _parse_sensitivity_int_steps(raw: str, option_name: str) -> list[int]:
+    values: list[int] = []
+    for part in _split_sensitivity_steps(raw, option_name):
+        try:
+            value = int(part)
+        except ValueError as exc:
+            raise ValueError(
+                f"{option_name} step {part!r} must be an integer."
+            ) from exc
+        if value < 0:
+            raise ValueError(f"{option_name} steps must be non-negative.")
+        values.append(value)
+    return values
+
+
+def _parse_sensitivity_float_steps(raw: str, option_name: str) -> list[float]:
+    values: list[float] = []
+    for part in _split_sensitivity_steps(raw, option_name):
+        try:
+            value = float(part)
+        except ValueError as exc:
+            raise ValueError(f"{option_name} step {part!r} must be numeric.") from exc
+        if value < 0.0:
+            raise ValueError(f"{option_name} steps must be non-negative.")
+        values.append(value)
+    return values
+
+
 def _render_estimate_command_output(
     output_format: OutputFormat,
     envelope: EstimatorResultEnvelope,
@@ -236,10 +275,14 @@ def _render_estimate_command_output(
     mission_assets: MissionAssetBundle,
 ) -> str:
     if output_format == OutputFormat.PROFILE:
-        return render_profile_markdown(envelope, terrain_provider=mission_assets.terrain_provider)
+        return render_profile_markdown(
+            envelope, terrain_provider=mission_assets.terrain_provider
+        )
     builder = _ROUTE_EXPORT_BUILDERS.get(output_format)
     if builder is None:
-        return _render_output(output_format, envelope, mission_id=mission_assets.mission_id)
+        return _render_output(
+            output_format, envelope, mission_id=mission_assets.mission_id
+        )
     return builder(
         result,
         geofence_zones=mission_assets.geofences,
@@ -251,6 +294,8 @@ def _render_estimate_error_output(
     output_format: OutputFormat,
     envelope: EstimatorResultEnvelope,
 ) -> str:
+    if output_format == OutputFormat.SENSITIVITY:
+        return _render_output(OutputFormat.JSON, envelope)
     return _render_output(_envelope_output_format(output_format), envelope)
 
 
@@ -389,6 +434,21 @@ def estimate(
             "Overrides mission estimation fidelity when provided."
         ),
     ),
+    sensitivity_power_steps: str = typer.Option(
+        "10,20,30",
+        "--sensitivity-power-steps",
+        help="Comma-separated cruise-power percent steps for --format sensitivity.",
+    ),
+    sensitivity_wind_steps: str = typer.Option(
+        "1,2,3",
+        "--sensitivity-wind-steps",
+        help="Comma-separated headwind m/s steps for --format sensitivity.",
+    ),
+    sensitivity_battery_steps: str = typer.Option(
+        "10,20,30",
+        "--sensitivity-battery-steps",
+        help="Comma-separated battery-capacity percent steps for --format sensitivity.",
+    ),
     validate_only: bool = typer.Option(
         False,
         "--validate-only",
@@ -442,10 +502,51 @@ def estimate(
             result=result,
             inputs=envelope_inputs,
         )
-        _write_output(
-            _render_estimate_command_output(format, envelope, result, mission_assets),
-            output,
-        )
+        if format == OutputFormat.SENSITIVITY:
+            try:
+                power_steps = _parse_sensitivity_int_steps(
+                    sensitivity_power_steps,
+                    "--sensitivity-power-steps",
+                )
+                wind_steps = _parse_sensitivity_float_steps(
+                    sensitivity_wind_steps,
+                    "--sensitivity-wind-steps",
+                )
+                battery_steps = _parse_sensitivity_int_steps(
+                    sensitivity_battery_steps,
+                    "--sensitivity-battery-steps",
+                )
+            except ValueError as exc:
+                _exit_with_cli_error(
+                    str(exc),
+                    command="estimate",
+                    code=CliExitCode.INVALID_INPUT,
+                )
+            levels = run_sensitivity_sweep(
+                mission_model,
+                vehicle_model,
+                power_steps=power_steps,
+                wind_steps=wind_steps,
+                battery_steps=battery_steps,
+                wind_provider=wind_provider,
+                terrain_provider=mission_assets.terrain_provider,
+                geofences=mission_assets.geofences,
+                landing_zones=mission_assets.landing_zones,
+                options=options,
+            )
+            rendered = render_sensitivity_markdown(
+                result,
+                levels,
+                mission_id=mission_assets.mission_id or mission.stem,
+            )
+        else:
+            rendered = _render_estimate_command_output(
+                format,
+                envelope,
+                result,
+                mission_assets,
+            )
+        _write_output(rendered, output)
         raise typer.Exit(code=int(_exit_code_for_result(result)))
     except InputLoadError as exc:
         envelope = build_invalid_input_envelope(
@@ -664,6 +765,13 @@ def scenario(
     ),
 ) -> None:
     """Run the deterministic scenario runner and emit a scenario result envelope."""
+
+    if format == OutputFormat.SENSITIVITY:
+        _exit_with_cli_error(
+            "--format sensitivity is only supported by estimate.",
+            command="scenario",
+            code=CliExitCode.INVALID_INPUT,
+        )
 
     scenario_document: InputDocument | None = None
     mission_document: InputDocument | None = None
