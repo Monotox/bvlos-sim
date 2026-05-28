@@ -2,8 +2,17 @@ import json
 from pathlib import Path
 
 import pytest
+import yaml
+from typer.testing import CliRunner
 
+from adapters.cli import CliExitCode, app
 from adapters.qgc_plan import load_and_convert_plan, parse_qgc_plan
+
+_runner = CliRunner()
+
+PLAN_FILE = Path(__file__).resolve().parents[1] / "examples" / "missions" / "pipeline_demo_001.plan"
+
+_VP = "test_vehicle"
 
 
 def _simple_item(
@@ -41,7 +50,8 @@ def test_minimal_valid_plan_converts_takeoff_and_rtl() -> None:
                 _simple_item(22),
                 _simple_item(20, coordinate=[0, 0, 0], params=[0, 0, 0, 0, 0, 0, 0]),
             ]
-        )
+        ),
+        vehicle_profile=_VP,
     )
 
     # MAV_CMD_NAV_TAKEOFF (22) emits a normalisation warning
@@ -76,7 +86,8 @@ def test_plan_with_waypoints_and_loiter_extracts_fields() -> None:
                     params=[60.0, 0, 80.0, 0, 0, 0, 120.0],
                 ),
             ]
-        )
+        ),
+        vehicle_profile=_VP,
     )
 
     assert diagnostics == []
@@ -107,7 +118,8 @@ def test_complex_item_produces_diagnostic_and_rest_of_route_is_parsed() -> None:
                 {"type": "ComplexItem", "command": 16, "frame": 3},
                 _simple_item(20, coordinate=[0, 0, 0], params=[0, 0, 0, 0, 0, 0, 0]),
             ]
-        )
+        ),
+        vehicle_profile=_VP,
     )
 
     assert mission["route"] == [{"id": "rtl", "action": "rtl"}]
@@ -118,7 +130,10 @@ def test_complex_item_produces_diagnostic_and_rest_of_route_is_parsed() -> None:
 
 
 def test_unknown_command_produces_diagnostic_and_item_is_skipped() -> None:
-    mission, diagnostics = parse_qgc_plan(_plan([_simple_item(999)]))
+    mission, diagnostics = parse_qgc_plan(
+        _plan([_simple_item(999)]),
+        vehicle_profile=_VP,
+    )
 
     assert mission["route"] == []
     assert len(diagnostics) == 1
@@ -129,7 +144,8 @@ def test_unknown_command_produces_diagnostic_and_item_is_skipped() -> None:
 
 def test_loiter_with_zero_time_produces_diagnostic() -> None:
     mission, diagnostics = parse_qgc_plan(
-        _plan([_simple_item(19, params=[0.0, 0, 80.0, 0, 0, 0, 120.0])])
+        _plan([_simple_item(19, params=[0.0, 0, 80.0, 0, 0, 0, 120.0])]),
+        vehicle_profile=_VP,
     )
 
     assert mission["route"] == []
@@ -140,7 +156,8 @@ def test_loiter_with_zero_time_produces_diagnostic() -> None:
 
 def test_land_action_preserves_coordinates() -> None:
     mission, diagnostics = parse_qgc_plan(
-        _plan([_simple_item(21, coordinate=[52.003, 4.005, 0.0])])
+        _plan([_simple_item(21, coordinate=[52.003, 4.005, 0.0])]),
+        vehicle_profile=_VP,
     )
 
     assert diagnostics == []
@@ -151,7 +168,8 @@ def test_land_action_preserves_coordinates() -> None:
 
 def test_vtol_land_action_preserves_coordinates() -> None:
     mission, diagnostics = parse_qgc_plan(
-        _plan([_simple_item(85, coordinate=[52.004, 4.006, 0.0])])
+        _plan([_simple_item(85, coordinate=[52.004, 4.006, 0.0])]),
+        vehicle_profile=_VP,
     )
 
     assert diagnostics == []
@@ -162,7 +180,8 @@ def test_vtol_land_action_preserves_coordinates() -> None:
 
 def test_land_with_missing_coordinate_produces_diagnostic() -> None:
     mission, diagnostics = parse_qgc_plan(
-        _plan([_simple_item(21, coordinate=[52.001, "bad-lon", 0.0])])
+        _plan([_simple_item(21, coordinate=[52.001, "bad-lon", 0.0])]),
+        vehicle_profile=_VP,
     )
 
     assert mission["route"] == []
@@ -173,7 +192,8 @@ def test_land_with_missing_coordinate_produces_diagnostic() -> None:
 
 def test_invalid_waypoint_coordinate_produces_diagnostic() -> None:
     mission, diagnostics = parse_qgc_plan(
-        _plan([_simple_item(16, coordinate=[52.001, "bad-lon", 120.0])])
+        _plan([_simple_item(16, coordinate=[52.001, "bad-lon", 120.0])]),
+        vehicle_profile=_VP,
     )
 
     assert mission["route"] == []
@@ -187,7 +207,7 @@ def test_invalid_file_type_raises_value_error() -> None:
     plan["fileType"] = "Mission"
 
     with pytest.raises(ValueError, match="fileType"):
-        parse_qgc_plan(plan)
+        parse_qgc_plan(plan, vehicle_profile=_VP)
 
 
 def test_non_list_items_raises_value_error() -> None:
@@ -197,24 +217,48 @@ def test_non_list_items_raises_value_error() -> None:
     mission["items"] = "not-a-list"
 
     with pytest.raises(ValueError, match="mission.items"):
-        parse_qgc_plan(plan)
+        parse_qgc_plan(plan, vehicle_profile=_VP)
 
 
 def test_missing_planned_home_raises_value_error() -> None:
     with pytest.raises(ValueError, match="plannedHomePosition missing"):
-        parse_qgc_plan({"fileType": "Plan", "mission": {"items": []}})
+        parse_qgc_plan(
+            {"fileType": "Plan", "mission": {"items": []}},
+            vehicle_profile=_VP,
+        )
 
 
-def test_converted_mission_vehicle_profile_is_schema_valid_placeholder() -> None:
+def test_vehicle_profile_is_threaded_into_converted_mission() -> None:
     from schemas.mission import MissionPlan
 
-    mission, _ = parse_qgc_plan(_plan([_simple_item(16, coordinate=[52.001, 4.002, 120.0])]))
+    mission, _ = parse_qgc_plan(
+        _plan([_simple_item(16, coordinate=[52.001, 4.002, 120.0])]),
+        vehicle_profile="quadplane_v1",
+    )
 
-    # Empty string fails MissionPlan.vehicle_profile min_length=1 validation.
-    # Placeholder must pass schema so the converted YAML can be loaded without errors.
-    assert mission["vehicle_profile"] != ""
+    assert mission["vehicle_profile"] == "quadplane_v1"
     loaded = MissionPlan.model_validate(mission)
-    assert loaded.vehicle_profile == mission["vehicle_profile"]
+    assert loaded.vehicle_profile == "quadplane_v1"
+
+
+def test_converted_mission_contains_no_fixme_placeholder() -> None:
+    mission, _ = parse_qgc_plan(
+        _plan([_simple_item(22)]),
+        vehicle_profile="my_drone",
+    )
+
+    assert "FIXME" not in str(mission)
+
+
+def test_metadata_note_does_not_mention_placeholder() -> None:
+    mission, _ = parse_qgc_plan(
+        _plan([]),
+        vehicle_profile=_VP,
+    )
+
+    note = str(mission.get("metadata", {}).get("notes", ""))
+    assert "FIXME" not in note
+    assert "Replace" not in note
 
 
 def test_all_amsl_frames_sets_altitude_reference_amsl() -> None:
@@ -230,7 +274,8 @@ def test_all_amsl_frames_sets_altitude_reference_amsl() -> None:
                     params=[0, 0, 0, 0, 0, 0, 0],
                 ),
             ]
-        )
+        ),
+        vehicle_profile=_VP,
     )
 
     assert len(diagnostics) == 2
@@ -241,7 +286,7 @@ def test_all_amsl_frames_sets_altitude_reference_amsl() -> None:
 
 def test_simple_item_with_null_command_produces_preflight_diagnostic() -> None:
     plan = _plan([{"type": "SimpleItem", "command": None, "frame": 3, "coordinate": [52.0, 4.0, 80.0], "params": []}])
-    mission, diagnostics = parse_qgc_plan(plan)
+    mission, diagnostics = parse_qgc_plan(plan, vehicle_profile=_VP)
 
     assert mission["route"] == []
     assert len(diagnostics) == 1
@@ -250,7 +295,7 @@ def test_simple_item_with_null_command_produces_preflight_diagnostic() -> None:
 
 def test_loiter_with_invalid_coordinate_produces_diagnostic() -> None:
     plan = _plan([_simple_item(19, coordinate=[52.0, "bad", 0.0], params=[60.0, 0, 0, 0, 0, 0, 120.0])])
-    mission, diagnostics = parse_qgc_plan(plan)
+    mission, diagnostics = parse_qgc_plan(plan, vehicle_profile=_VP)
 
     assert mission["route"] == []
     assert len(diagnostics) == 1
@@ -259,7 +304,7 @@ def test_loiter_with_invalid_coordinate_produces_diagnostic() -> None:
 
 def test_takeoff_with_missing_altitude_produces_diagnostic() -> None:
     plan = _plan([{"type": "SimpleItem", "command": 22, "frame": 3, "coordinate": None, "params": [0, 0, 0, 0, 0, 0, None]}])
-    mission, diagnostics = parse_qgc_plan(plan)
+    mission, diagnostics = parse_qgc_plan(plan, vehicle_profile=_VP)
 
     assert mission["route"] == []
     assert len(diagnostics) == 1
@@ -274,7 +319,7 @@ def test_mission_without_cruise_or_hover_speed_defaults_are_omitted() -> None:
             "items": [],
         },
     }
-    mission, diagnostics = parse_qgc_plan(raw)
+    mission, diagnostics = parse_qgc_plan(raw, vehicle_profile=_VP)
 
     assert diagnostics == []
     assert "cruise_speed_mps" not in mission["defaults"]
@@ -282,39 +327,104 @@ def test_mission_without_cruise_or_hover_speed_defaults_are_omitted() -> None:
 
 
 # ---------------------------------------------------------------------------
-# load_and_convert_plan error paths
+# load_and_convert_plan
 # ---------------------------------------------------------------------------
 
 
 def test_load_and_convert_plan_raises_on_missing_file(tmp_path: Path) -> None:
-
     with pytest.raises(ValueError, match="Unable to read"):
-        load_and_convert_plan(tmp_path / "nonexistent.plan")
+        load_and_convert_plan(tmp_path / "nonexistent.plan", vehicle_profile=_VP)
 
 
 def test_load_and_convert_plan_raises_on_invalid_json(tmp_path: Path) -> None:
-
     plan_file = tmp_path / "bad.plan"
     plan_file.write_text("{bad json", encoding="utf-8")
 
     with pytest.raises(ValueError, match="Unable to parse"):
-        load_and_convert_plan(plan_file)
+        load_and_convert_plan(plan_file, vehicle_profile=_VP)
 
 
 def test_load_and_convert_plan_raises_on_non_object_root(tmp_path: Path) -> None:
-
     plan_file = tmp_path / "array.plan"
     plan_file.write_text(json.dumps([1, 2, 3]), encoding="utf-8")
 
     with pytest.raises(ValueError, match="must be a JSON object"):
-        load_and_convert_plan(plan_file)
+        load_and_convert_plan(plan_file, vehicle_profile=_VP)
 
 
 def test_load_and_convert_plan_sets_mission_id_from_filename(tmp_path: Path) -> None:
-
     plan_file = tmp_path / "my_mission.plan"
     plan_file.write_text(json.dumps(_plan([])), encoding="utf-8")
 
-    mission, _ = load_and_convert_plan(plan_file)
+    mission, _ = load_and_convert_plan(plan_file, vehicle_profile=_VP)
 
     assert mission["mission_id"] == "my_mission"
+
+
+def test_load_and_convert_plan_threads_vehicle_profile(tmp_path: Path) -> None:
+    plan_file = tmp_path / "demo.plan"
+    plan_file.write_text(json.dumps(_plan([])), encoding="utf-8")
+
+    mission, _ = load_and_convert_plan(plan_file, vehicle_profile="quadplane_v1")
+
+    assert mission["vehicle_profile"] == "quadplane_v1"
+
+
+# ---------------------------------------------------------------------------
+# CLI acceptance tests
+# ---------------------------------------------------------------------------
+
+
+def _yaml_from_output(output: str) -> str:
+    """Strip CLI warning lines so the remainder parses as YAML."""
+    return "\n".join(
+        line for line in output.splitlines() if not line.startswith("Warning:")
+    )
+
+
+def test_convert_cli_writes_vehicle_profile_in_output() -> None:
+    result = _runner.invoke(
+        app, ["convert", str(PLAN_FILE), "--vehicle-profile", "quadplane_v1"]
+    )
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    parsed = yaml.safe_load(_yaml_from_output(result.output))
+    assert parsed["vehicle_profile"] == "quadplane_v1"
+
+
+def test_convert_cli_output_contains_no_fixme() -> None:
+    result = _runner.invoke(
+        app, ["convert", str(PLAN_FILE), "--vehicle-profile", "my_vehicle"]
+    )
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    assert "FIXME" not in result.output
+
+
+def test_convert_cli_missing_vehicle_profile_exits_invalid_input() -> None:
+    result = _runner.invoke(app, ["convert", str(PLAN_FILE)])
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+    assert "--vehicle-profile" in result.output or "--vehicle-profile" in (result.stderr or "")
+
+
+def test_convert_cli_blank_vehicle_profile_exits_invalid_input() -> None:
+    result = _runner.invoke(app, ["convert", str(PLAN_FILE), "--vehicle-profile", "   "])
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+
+
+def test_convert_cli_validate_only_with_vehicle_profile_exits_success() -> None:
+    result = _runner.invoke(
+        app, ["convert", str(PLAN_FILE), "--vehicle-profile", "quadplane_v1", "--validate-only"]
+    )
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    assert "OK" in result.output
+    assert "route:" not in result.output
+
+
+def test_convert_cli_writes_to_output_file_with_profile(tmp_path: Path) -> None:
+    out = tmp_path / "mission.yaml"
+    result = _runner.invoke(
+        app, ["convert", str(PLAN_FILE), "--vehicle-profile", "quadplane_v1", "--output", str(out)]
+    )
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    parsed = yaml.safe_load(out.read_text(encoding="utf-8"))
+    assert parsed["vehicle_profile"] == "quadplane_v1"
+    assert "FIXME" not in out.read_text(encoding="utf-8")

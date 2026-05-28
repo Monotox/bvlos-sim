@@ -1,5 +1,9 @@
 # Ticket 085: QGC Convert Vehicle Profile Selection
 
+## Status
+
+Implemented.
+
 ## Goal
 
 Make `bvlos-sim convert` produce mission.v5 YAML with an explicit,

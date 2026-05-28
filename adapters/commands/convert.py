@@ -13,6 +13,15 @@ from adapters.qgc_plan import load_and_convert_plan
 
 def convert(
     plan: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True),
+    vehicle_profile: str | None = typer.Option(
+        None,
+        "--vehicle-profile",
+        help=(
+            "Vehicle profile id to write into the converted mission YAML. "
+            "Must match the vehicle_id in the vehicle profile YAML you intend to use. "
+            "Required."
+        ),
+    ),
     output: Path | None = typer.Option(None, "--output", "-o", help="Write converted YAML to file instead of stdout."),
     validate_only: bool = typer.Option(
         False,
@@ -25,8 +34,17 @@ def convert(
 ) -> None:
     """Convert a QGroundControl .plan file to a mission.v5 YAML."""
 
+    if not vehicle_profile or not vehicle_profile.strip():
+        typer.echo(
+            "Error: --vehicle-profile is required. "
+            "Pass the vehicle_id from the vehicle profile you intend to use, "
+            "e.g. --vehicle-profile quadplane_v1",
+            err=True,
+        )
+        raise typer.Exit(code=int(cli.CliExitCode.INVALID_INPUT))
+
     try:
-        mission, diagnostics = load_and_convert_plan(plan)
+        mission, diagnostics = load_and_convert_plan(plan, vehicle_profile=vehicle_profile.strip())
         for diagnostic in diagnostics:
             typer.echo(
                 "Warning: item "

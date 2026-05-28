@@ -1,6 +1,6 @@
 # Ticket Backlog
 
-**38 implemented · 20 planned · 865 tests passing**
+**39 implemented · 19 planned · 876 tests passing**
 
 This directory tracks every capability from idea to implementation. Completed
 tickets are kept as historical records. Open tickets describe what to build
@@ -19,7 +19,7 @@ next and why.
 | SITL (ArduPilot) | 040–043 | `sitl` command, MAVLink upload, telemetry recording, `compare` |
 | Stochastic propagation | 047–049 | `propagate` command, twin-state EKF, closed-loop tracking controller |
 | Output formats | 055, 057, 072–075 | GeoJSON/KML exports, `summary`, `checklist`, `profile`, `sensitivity`, `size-battery` |
-| Batch & import | 060 | `batch` command, `convert` QGC importer, `--format csv` |
+| Batch & import | 060, 085 | `batch` command, `convert` QGC importer with `--vehicle-profile`, `--format csv` |
 | Real-world data | 052–053, 056, 059 | Fetch scripts, community vehicle profiles, infeasible Alpine demo |
 | Correctness fixes | 062, 065 | Wind-triangle divert correction, stochastic spatial infeasibility tracking |
 
@@ -31,11 +31,10 @@ Full feature list: [`docs/tickets/README.md` implemented section](#implemented-t
 
 Items are ordered by impact. Pick one, read its ticket file, open a PR.
 
-### Quick wins (good first issues)
+### Quick wins
 
 | # | Ticket | What it adds |
 |---|---|---|
-| 085 | [QGC vehicle profile](./085-qgc-convert-vehicle-profile.md) | Replace `FIXME-vehicle-profile` placeholder in `convert` output with operator-selected profile |
 | 086 | [Stochastic module split](./086-stochastic-propagator-module-split.md) | Split `propagator.py` (816 lines) into focused submodules before adding exports |
 | 088 | [Performance benchmarks](./088-performance-benchmarking-and-regression-gates.md) | `pytest-benchmark` suite + CI regression gates (no production code changes) |
 | 089 | [Preflight report command](./089-preflight-report-command.md) | Single `preflight` command combining estimate + scenario + Monte Carlo into one operator briefing |
@@ -167,5 +166,6 @@ New capabilities should work *with* existing pieces, not alongside them in isola
 36. [073](./073-preflight-checklist-output.md) Pre-flight checklist output
 37. [074](./074-energy-reserve-sensitivity.md) Energy reserve sensitivity report
 38. [075](./075-minimum-battery-sizing.md) Minimum battery sizing command
+39. [085](./085-qgc-convert-vehicle-profile.md) QGC convert vehicle profile selection
 
 </details>

@@ -31,8 +31,7 @@ _ROUTE_ID_BASES: dict[RouteAction, str] = {
 }
 _NUMBERED_ROUTE_ID_ACTIONS: set[RouteAction] = {"waypoint", "loiter_time"}
 _CONVERTED_PLAN_NOTE = (
-    "Converted from QGC .plan. Replace FIXME-vehicle-profile with a real vehicle profile id "
-    "and review all values before use."
+    "Converted from QGC .plan. Review all values before operational use."
 )
 
 
@@ -405,13 +404,14 @@ class _MissionAssembler:
     def build(
         *,
         mission_id: str,
+        vehicle_profile: str,
         mission: JsonObject,
         items: list[object],
         route: list[RouteItemDict],
     ) -> JsonObject:
         return {
             "mission_id": mission_id,
-            "vehicle_profile": "FIXME-vehicle-profile",
+            "vehicle_profile": vehicle_profile,
             "planned_home": _MissionAssembler.planned_home(mission),
             "defaults": _MissionAssembler.defaults(mission, items),
             "route": route,
@@ -422,6 +422,8 @@ class _MissionAssembler:
 
 def parse_qgc_plan(
     raw: dict[str, object],
+    *,
+    vehicle_profile: str,
 ) -> tuple[dict[str, object], list[ConvertDiagnostic]]:
     """Parse a decoded QGC .plan dict and return a mission.v5 dict + diagnostics.
 
@@ -434,6 +436,7 @@ def parse_qgc_plan(
     route, diagnostics = _RouteConverter().convert_items(items)
     return _MissionAssembler.build(
         mission_id="imported",
+        vehicle_profile=vehicle_profile,
         mission=mission,
         items=items,
         route=route,
@@ -442,6 +445,8 @@ def parse_qgc_plan(
 
 def load_and_convert_plan(
     path: Path,
+    *,
+    vehicle_profile: str,
 ) -> tuple[dict[str, object], list[ConvertDiagnostic]]:
     """Read a .plan file, parse JSON, and return the converted mission dict."""
     try:
@@ -458,6 +463,6 @@ def load_and_convert_plan(
     if plan is None:
         raise ValueError(".plan root must be a JSON object")
 
-    mission, diagnostics = parse_qgc_plan(plan)
+    mission, diagnostics = parse_qgc_plan(plan, vehicle_profile=vehicle_profile)
     mission["mission_id"] = path.stem
     return mission, diagnostics

@@ -645,7 +645,7 @@ PLAN_FILE = Path(__file__).resolve().parents[1] / "examples" / "missions" / "pip
 
 
 def test_convert_command_outputs_valid_yaml() -> None:
-    result = runner.invoke(app, ["convert", str(PLAN_FILE)])
+    result = runner.invoke(app, ["convert", str(PLAN_FILE), "--vehicle-profile", "quadplane_v1"])
     assert result.exit_code == int(CliExitCode.SUCCESS)
     yaml_text = "\n".join(
         line for line in result.output.splitlines() if not line.startswith("Warning:")
@@ -657,7 +657,7 @@ def test_convert_command_outputs_valid_yaml() -> None:
 
 
 def test_convert_command_route_items_are_block_style() -> None:
-    result = runner.invoke(app, ["convert", str(PLAN_FILE)])
+    result = runner.invoke(app, ["convert", str(PLAN_FILE), "--vehicle-profile", "quadplane_v1"])
     assert result.exit_code == int(CliExitCode.SUCCESS)
     assert "- id:" in result.output
     assert "  action:" in result.output
@@ -665,7 +665,7 @@ def test_convert_command_route_items_are_block_style() -> None:
 
 def test_convert_command_writes_to_output_file(tmp_path: Path) -> None:
     out_file = tmp_path / "mission.yaml"
-    result = runner.invoke(app, ["convert", str(PLAN_FILE), "--output", str(out_file)])
+    result = runner.invoke(app, ["convert", str(PLAN_FILE), "--vehicle-profile", "quadplane_v1", "--output", str(out_file)])
     assert result.exit_code == int(CliExitCode.SUCCESS)
     assert out_file.exists()
     payload = yaml.safe_load(out_file.read_text(encoding="utf-8"))
@@ -680,7 +680,7 @@ def test_convert_command_invalid_json_exits_invalid_input(tmp_path: Path) -> Non
 
 
 def test_convert_validate_only_exits_success() -> None:
-    result = runner.invoke(app, ["convert", str(PLAN_FILE), "--validate-only"])
+    result = runner.invoke(app, ["convert", str(PLAN_FILE), "--vehicle-profile", "quadplane_v1", "--validate-only"])
     assert result.exit_code == int(CliExitCode.SUCCESS)
     assert "OK" in result.output
     assert "route:" not in result.output  # YAML must not be written

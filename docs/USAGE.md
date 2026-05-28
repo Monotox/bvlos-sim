@@ -99,10 +99,13 @@ uv run bvlos-sim compare --help
 
 ## QGroundControl Plan Conversion
 
-Convert QGroundControl `.plan` JSON into a starter `mission.v5` YAML:
+Convert a QGroundControl `.plan` JSON file into a starter `mission.v5` YAML.
+`--vehicle-profile` is required and must match the `vehicle_id` in the vehicle
+profile YAML you intend to use with `estimate` or `scenario`:
 
 ```bash
 uv run bvlos-sim convert examples/missions/pipeline_demo_001.plan \
+  --vehicle-profile quadplane_v1 \
   --output /tmp/pipeline_converted.yaml
 ```
 
@@ -124,11 +127,16 @@ after converting.
 If your `.plan` file was designed for a fixed-wing-only aircraft rather than a VTOL,
 review the `vehicle_class` field in the output YAML and in your vehicle profile.
 
-The output YAML sets `vehicle_profile` to the placeholder `FIXME-vehicle-profile`
-and omits policy and asset references. Replace the placeholder with the real
-vehicle profile id, review route altitudes and constraints, and add any
-geofence, landing-zone, terrain, or wind-grid assets before treating the
+The output YAML sets `vehicle_profile` to the value you supplied and omits
+policy and asset references. Review route altitudes and constraints, and add
+any geofence, landing-zone, terrain, or wind-grid assets before treating the
 converted mission as operational input.
+
+To validate the `.plan` file without writing output:
+
+```bash
+uv run bvlos-sim convert plan.plan --vehicle-profile quadplane_v1 --validate-only
+```
 
 ## Batch Estimates
 
