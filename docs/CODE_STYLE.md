@@ -39,16 +39,17 @@ Rules:
 Treat these as stable:
 
 - package-root `estimator` imports
-- `mission.v5`
-- `vehicle.v3`
+- `mission.v6`
+- `vehicle.v4`
 - `scenario.v1`
 - `uncertainty.v1`
-- `estimator-envelope.v5`
+- `estimator-envelope.v6`
 - `scenario-report.v2`
 - `uncertainty-report.v1`
 - `sitl-evidence.v1`
 - `geofence-geojson.v1`
 - `landing-zone-geojson.v1`
+- `population-grid.v1`
 - CLI exit-code semantics
 - Markdown report output covered by golden fixtures
 

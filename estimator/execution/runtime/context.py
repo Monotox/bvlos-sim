@@ -16,6 +16,7 @@ from estimator.core.results import (
     LegEstimate,
     WindVector,
 )
+from estimator.environment.population import GridPopulationProvider
 from estimator.environment.terrain import TerrainProvider
 from estimator.environment.wind import WindProvider
 from estimator.execution.runtime.capabilities import Capabilities
@@ -32,6 +33,7 @@ class EstimationContext:
     vehicle: VehicleProfile
     wind_provider: WindProvider
     terrain_provider: TerrainProvider | None
+    population_provider: GridPopulationProvider | None
     geod: Geod
     capabilities: Capabilities
     geofences: tuple[GeofenceZone, ...] | None

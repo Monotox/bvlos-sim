@@ -1,0 +1,8 @@
+origin_lat: 51.99
+origin_lon: 3.99
+step_lat_deg: 0.01
+step_lon_deg: 0.01
+density_ppl_km2:
+  - [12.0, 12.0, 12.0]
+  - [12.0, 12.0, 12.0]
+  - [12.0, 12.0, 12.0]

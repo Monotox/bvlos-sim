@@ -97,14 +97,16 @@ Typical output includes:
 
 Current input contracts:
 
-- `mission.v5`: route, planned home, defaults, constraints, assets, policy
-  references, link systems, and persisted estimator settings
-- `vehicle.v3`: vehicle class, mass, performance, energy, resource systems,
-  failsafe, capabilities, SITL metadata, and free-form notes
+- `mission.v6`: route, planned home, defaults, constraints, assets, policy
+  references, link systems, population grids, and persisted estimator settings
+- `vehicle.v4`: vehicle class, mass, performance, energy, characteristic
+  dimension, resource systems, failsafe, capabilities, SITL metadata, and
+  free-form notes
 - `scenario.v1`: referenced mission and vehicle files, initial conditions,
   events, assertions, and metadata
 - `geofence-geojson.v1`: static GeoJSON geofences
 - `landing-zone-geojson.v1`: static GeoJSON landing zones
+- `population-grid.v1`: offline population-density grids for SORA iGRC pre-assessment
 
 Mission, vehicle, and scenario files may be authored as YAML or JSON.
 
@@ -112,7 +114,7 @@ Mission, vehicle, and scenario files may be authored as YAML or JSON.
 
 Current output contracts:
 
-- `estimator-envelope.v5`: canonical estimator JSON envelope
+- `estimator-envelope.v6`: canonical estimator JSON envelope
 - `scenario-report.v2`: canonical scenario JSON envelope
 - `uncertainty-report.v1`: canonical uncertainty JSON envelope
 - `stochastic-envelope.v1`: canonical stochastic propagation JSON envelope
@@ -226,7 +228,7 @@ scenario assertions, and reproducible reporting.
 
 ## Development Direction
 
-Fetch scripts for wind, terrain, landing zones, and static airspace geofences
+Fetch scripts for wind, terrain, landing zones, static airspace geofences, and population grids
 are implemented (Tickets 052 and 053), with a single wrapper command for the
 Ticket 052 assets (`fetch_all.py <lat> <lon>`) and a pre-fetched Alpine example
 in `examples/real_world/`. Ticket 059 adds a deliberately infeasible demo, and
@@ -240,6 +242,11 @@ proportional cross-track tracking controller. The `estimation_error_timeline`
 and `cross_track_timeline` outputs are populated when the vehicle profile
 includes `sensors` and `controller` blocks; see
 `examples/vehicles/quadplane_v1_ekf.yaml` for a working example.
+
+Ticket 094 is implemented: `estimate --format ground-risk` computes a SORA
+iGRC pre-assessment from an offline population-density grid and the vehicle
+characteristic dimension. Ticket 095 is the next regulatory pre-assessment step,
+adding air risk and SAIL.
 
 Longer-term priorities are NOTAM/live airspace integration (Ticket 058), PX4 SITL adapter
 (Tickets 045–046), API/UI surfaces (Ticket 050), operational integration

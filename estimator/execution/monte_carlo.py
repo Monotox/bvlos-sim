@@ -8,6 +8,7 @@ from estimator.core.enums import EstimateStatus
 from estimator.core.geofence import GeofenceZone
 from estimator.core.landing_zone import LandingZone
 from estimator.core.uncertainty import MonteCarloResult, SampledOutputStats
+from estimator.environment.population import GridPopulationProvider
 from estimator.environment.terrain import TerrainProvider
 from estimator.environment.wind import ConstantWindProvider, WindProvider
 from estimator.execution.engine import try_estimate_mission_distance_time
@@ -55,6 +56,7 @@ def run_monte_carlo(
     *,
     wind_provider: WindProvider | None = None,
     terrain_provider: TerrainProvider | None = None,
+    population_provider: GridPopulationProvider | None = None,
     geofences: Sequence[GeofenceZone] | None = None,
     landing_zones: Sequence[LandingZone] | None = None,
 ) -> MonteCarloResult:
@@ -75,6 +77,7 @@ def run_monte_carlo(
         vehicle,
         wind_provider=wind_provider,
         terrain_provider=terrain_provider,
+        population_provider=population_provider,
         geofences=geofences,
         landing_zones=landing_zones,
     )
@@ -132,6 +135,7 @@ def run_monte_carlo(
             sample_vehicle,
             wind_provider=sample_wind_provider,
             terrain_provider=terrain_provider,
+            population_provider=population_provider,
             geofences=geofences,
             landing_zones=landing_zones,
         )

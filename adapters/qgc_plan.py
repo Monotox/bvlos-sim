@@ -1,4 +1,4 @@
-"""QGroundControl .plan JSON to mission.v5 YAML converter."""
+"""QGroundControl .plan JSON to mission.v6 YAML converter."""
 
 import json
 from collections import defaultdict
@@ -219,7 +219,7 @@ _ItemHandler = Callable[[_QgcItem], tuple[RouteItemDict | None, str | None]]
 
 
 class _RouteConverter:
-    """Converts parsed _QgcItem instances into mission.v5 route items."""
+    """Converts parsed _QgcItem instances into mission.v6 route items."""
 
     def __init__(self) -> None:
         self._counters: RouteCounters = defaultdict(int)
@@ -267,7 +267,7 @@ class _RouteConverter:
         if item.command == _MAV_CMD_NAV_TAKEOFF:
             warning = (
                 "MAV_CMD_NAV_TAKEOFF (22) normalised to vtol_takeoff; "
-                "fixed-wing-only takeoff is not a separate action in mission.v5. "
+                "fixed-wing-only takeoff is not a separate action in mission.v6. "
                 "Review vehicle_class after converting."
             )
         return self._route_item(action="vtol_takeoff", fields={"altitude_m": altitude_m}), warning
@@ -364,7 +364,7 @@ class _RouteConverter:
 
 
 class _MissionAssembler:
-    """Builds the final mission.v5 dict from parsed plan components."""
+    """Builds the final mission.v6 dict from parsed plan components."""
 
     @staticmethod
     def altitude_reference(items: list[object]) -> str:
@@ -425,7 +425,7 @@ def parse_qgc_plan(
     *,
     vehicle_profile: str,
 ) -> tuple[dict[str, object], list[ConvertDiagnostic]]:
-    """Parse a decoded QGC .plan dict and return a mission.v5 dict + diagnostics.
+    """Parse a decoded QGC .plan dict and return a mission.v6 dict + diagnostics.
 
     The returned mission dict has no policy or assets. The caller is responsible
     for filling operational values before use.

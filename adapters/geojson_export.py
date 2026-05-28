@@ -14,7 +14,7 @@ from adapters.route_export_support import (
 )
 from estimator.core.geofence import GeofencePolygon, GeofenceZone
 from estimator.core.landing_zone import LandingZone
-from estimator.core.results import EnergyEstimate, MissionEstimate
+from estimator.core.results import EnergyEstimate, GroundRiskEstimate, MissionEstimate
 
 GeoJsonFeature: TypeAlias = dict[str, JsonValue]
 
@@ -41,30 +41,36 @@ def build_geojson_export(
 
 def _route_features(estimate: MissionEstimate) -> list[GeoJsonFeature]:
     energy_by_leg_index = _energy_by_leg_index(estimate.energy)
+    igrc_by_leg_index = _igrc_by_leg_index(estimate.ground_risk)
     margin_pct = energy_margin_pct(estimate.energy)
     feasible = _energy_feasible(estimate.energy)
-    return [
-        _feature(
-            geometry={
-                "type": "LineString",
-                "coordinates": [
-                    [leg.start_lon, leg.start_lat, leg.start_alt_amsl_m],
-                    [leg.end_lon, leg.end_lat, leg.end_alt_amsl_m],
-                ],
-            },
-            properties={
-                "layer": "route",
-                "phase": leg.phase.name,
-                "leg_index": leg.leg_index,
-                "route_item_id": leg.route_item_id,
-                "path_distance_m": leg.path_distance_m,
-                "energy_wh": energy_by_leg_index.get(leg.leg_index),
-                "energy_margin_pct": margin_pct,
-                "feasible": feasible,
-            },
+    features: list[GeoJsonFeature] = []
+    for leg in estimate.legs:
+        properties: dict[str, JsonValue] = {
+            "layer": "route",
+            "phase": leg.phase.name,
+            "leg_index": leg.leg_index,
+            "route_item_id": leg.route_item_id,
+            "path_distance_m": leg.path_distance_m,
+            "energy_wh": energy_by_leg_index.get(leg.leg_index),
+            "energy_margin_pct": margin_pct,
+            "feasible": feasible,
+        }
+        if leg.leg_index in igrc_by_leg_index:
+            properties["igrc"] = igrc_by_leg_index[leg.leg_index]
+        features.append(
+            _feature(
+                geometry={
+                    "type": "LineString",
+                    "coordinates": [
+                        [leg.start_lon, leg.start_lat, leg.start_alt_amsl_m],
+                        [leg.end_lon, leg.end_lat, leg.end_alt_amsl_m],
+                    ],
+                },
+                properties=properties,
+            )
         )
-        for leg in estimate.legs
-    ]
+    return features
 
 
 def _landing_zone_features(
@@ -150,6 +156,12 @@ def _energy_by_leg_index(energy: EnergyEstimate | None) -> dict[int, float]:
     if energy is None:
         return {}
     return {leg.leg_index: leg.energy_wh for leg in energy.legs}
+
+
+def _igrc_by_leg_index(ground_risk: GroundRiskEstimate | None) -> dict[int, int]:
+    if ground_risk is None:
+        return {}
+    return {leg.leg_index: leg.igrc for leg in ground_risk.legs}
 
 
 def _energy_feasible(energy: EnergyEstimate | None) -> bool | None:

@@ -28,7 +28,7 @@ bvlos-sim exposes nine commands:
 - `estimate`: run deterministic mission estimation and static feasibility checks
 - `size-battery`: compute the minimum battery capacity needed for feasibility
 - `scenario`: run deterministic scenario events and assertions
-- `convert`: convert a QGroundControl `.plan` file to a `mission.v5` YAML
+- `convert`: convert a QGroundControl `.plan` file to a `mission.v6` YAML
 - `batch`: run batch mission estimates from a manifest file
 - `sample`: run seeded Monte Carlo uncertainty sampling
 - `propagate`: run time-stepped stochastic particle propagation with EKF and tracking controller
@@ -108,7 +108,7 @@ uv run bvlos-sim compare --help
 
 ## QGroundControl Plan Conversion
 
-Convert a QGroundControl `.plan` JSON file into a starter `mission.v5` YAML.
+Convert a QGroundControl `.plan` JSON file into a starter `mission.v6` YAML.
 `--vehicle-profile` is required and must match the `vehicle_id` in the vehicle
 profile YAML you intend to use with `estimate` or `scenario`:
 
@@ -129,7 +129,7 @@ output YAML and a diagnostic is emitted to stderr:
 
 ```
 Warning: item 0 (command 22): MAV_CMD_NAV_TAKEOFF (22) normalised to vtol_takeoff;
-fixed-wing-only takeoff is not a separate action in mission.v5. Review vehicle_class
+fixed-wing-only takeoff is not a separate action in mission.v6. Review vehicle_class
 after converting.
 ```
 
@@ -174,7 +174,7 @@ time, followed by a feasible/infeasible/error count. Use `--output-dir DIR` to
 write per-run output files for CI collection; `--format` controls those files
 while the table stays on stdout. Supported per-run file formats:
 
-- `--format json` — one `estimator-envelope.v5` JSON file per run (`.json`)
+- `--format json` — one `estimator-envelope.v6` JSON file per run (`.json`)
 - `--format markdown` — one Markdown report per run (`.md`)
 - `--format summary` — one one-line summary per run (`.txt`)
 - `--format geojson` — one GeoJSON map export per run (`.geojson`) with the
@@ -254,6 +254,70 @@ uv run bvlos-sim estimate \
   --output /tmp/bvlos-route.kml
 ```
 
+## Ground Risk (SORA iGRC)
+
+Use `estimate --format ground-risk` to compute a SORA intrinsic Ground Risk
+Class pre-assessment from an offline population-density grid and the vehicle
+characteristic dimension.
+
+This output is a pre-assessment aid, not a certified SORA determination. It
+does not apply M1/M2/M3 mitigations, Air Risk Class, SAIL, or operator-declared
+controlled-ground-area overrides.
+
+Mission asset:
+
+```yaml
+assets:
+  population_grid_file: assets/pipeline_population_grid.yaml
+```
+
+Population grid format (`population-grid.v1`):
+
+```yaml
+origin_lat: 51.99
+origin_lon: 3.99
+step_lat_deg: 0.01
+step_lon_deg: 0.01
+density_ppl_km2:
+  - [12.0, 12.0, 12.0]
+  - [12.0, 12.0, 12.0]
+  - [12.0, 12.0, 12.0]
+```
+
+Vehicle field:
+
+```yaml
+characteristic_dimension_m: 1.0
+```
+
+| Flag | Description |
+|------|-------------|
+| `--format ground-risk` | Markdown iGRC table with mission and per-leg values |
+| `--format geojson` | Adds `igrc` to route-leg properties when ground risk is computed |
+| `--format checklist` | Adds a "Ground risk class" row |
+
+Example:
+
+```bash
+uv run bvlos-sim estimate \
+  examples/missions/pipeline_demo_001_ground_risk.yaml \
+  examples/vehicles/quadplane_v1_ground_risk.yaml \
+  --format ground-risk
+```
+
+Example output excerpt:
+
+```text
+# Ground Risk Class
+
+- Characteristic dimension m: `1.00`
+- Mission iGRC: `3`
+
+| Leg | Route Item ID | Max Density (ppl/km^2) | iGRC |
+|----:|---------------|------------------------:|------|
+| 1 | wp1 | 12.00 | 3 |
+```
+
 Write a route altitude profile (terrain clearance table):
 
 ```bash
@@ -288,6 +352,7 @@ Example output:
 ◌ Landing-zone coverage    N/A    not evaluated
 ◌ Resource availability    N/A    not evaluated
 ◌ Link availability        N/A    not evaluated
+◌ Ground risk class        N/A    not evaluated
   Advisory warnings        4      LOITER_ASSUMED_ZERO_GROUND_DISTANCE, ...
 
 Status: GO
@@ -1202,6 +1267,7 @@ where it was raised.
 | `RESERVE_BELOW_FAILSAFE_WARN_THRESHOLD` | post-estimation | Predicted reserve at landing is below `failsafe.low_battery_warn_percent`. The vehicle will likely trigger a low-battery alert mid-flight. | Add reserve margin or reduce energy consumption. |
 | `GEOFENCE_EVALUATED_2D_ONLY` | geofence check | Geofence intersection uses 2D lon/lat geometry. Altitude bounds in the GeoJSON are not checked. | If the geofence has altitude-dependent zones, verify altitude clearance manually. 3D altitude-bound checking is planned. |
 | `DIVERT_ENERGY_TAS_ONLY` | landing-zone reachability | Landing-zone divert energy is computed from true airspeed (TAS) without wind correction. In a headwind, a zone declared reachable may not be in practice. | Add headwind margin to landing-zone distances or use a closer alternate. |
+| `POPULATION_DENSITY_DIMENSION_MISSING` | ground-risk pre-assessment | A mission references `assets.population_grid_file`, but the vehicle profile omits `characteristic_dimension_m`, so iGRC cannot be computed. | Add the vehicle's maximum span or rotor-tip diameter before using `--format ground-risk`. |
 | `ROUTE_ACTIONS_AFTER_RTL` | route structure check | Route items appear after an RTL action. Those legs are estimated but operationally unreachable — the aircraft returns home before executing them. | Remove the trailing items or re-order the route so RTL is last. |
 | `LOITER_RADIUS_IGNORED` | loiter legs | `loiter_radius_m` is set on a loiter item but ignored; the estimator models loiter as a station-keep hold using `max_station_keep_wind_mps` as authority. | Confirm the loiter duration in `loiter_time_s` is correct. Radius will be used in a future fidelity update. |
 | `LOITER_ASSUMED_ZERO_GROUND_DISTANCE` | loiter legs | Loiter dwell is modeled as a station-keep hold with zero ground-path distance. The energy model accounts for hover power but not horizontal drift. | Acceptable for pre-flight checks. For precision loiter energy, use fidelity v2 when circular loiter support is added. |
@@ -1331,7 +1397,7 @@ uv run bvlos-sim sample examples/uncertainty/pipeline_demo_001_wind_uncertainty.
 
 ## Output Contracts
 
-The estimator CLI emits `estimator-envelope.v5`.
+The estimator CLI emits `estimator-envelope.v6`.
 
 The battery sizing CLI emits `battery-sizing-report.v1` when `--format json` is used.
 

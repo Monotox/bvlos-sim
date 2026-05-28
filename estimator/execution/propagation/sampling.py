@@ -7,8 +7,9 @@ from dataclasses import dataclass
 from estimator.core.geofence import GeofenceZone
 from estimator.core.landing_zone import LandingZone
 from estimator.core.results import MissionEstimate
-from estimator.environment.wind import ConstantWindProvider, WindProvider
+from estimator.environment.population import GridPopulationProvider
 from estimator.environment.terrain import TerrainProvider
+from estimator.environment.wind import ConstantWindProvider, WindProvider
 from estimator.execution.engine import try_estimate_mission_distance_time
 from estimator.execution.propagation.curves import best_position_legs
 from estimator.execution.propagation.particles import ParticlePopulation, ParticleTrack
@@ -51,6 +52,7 @@ class EstimatorInputs:
     vehicle: VehicleProfile
     wind_provider: WindProvider | None
     terrain_provider: TerrainProvider | None
+    population_provider: GridPopulationProvider | None
     geofences: Sequence[GeofenceZone] | None
     landing_zones: Sequence[LandingZone] | None
 
@@ -60,6 +62,7 @@ class EstimatorInputs:
             self.vehicle,
             wind_provider=self.wind_provider,
             terrain_provider=self.terrain_provider,
+            population_provider=self.population_provider,
             geofences=self.geofences,
             landing_zones=self.landing_zones,
         )
@@ -78,6 +81,7 @@ class EstimatorInputs:
                 self.wind_provider,
             ),
             terrain_provider=self.terrain_provider,
+            population_provider=self.population_provider,
             geofences=self.geofences,
             landing_zones=self.landing_zones,
         )

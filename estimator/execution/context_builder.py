@@ -21,6 +21,10 @@ from estimator.core.geofence import GeofenceZone
 from estimator.core.landing_zone import LandingZone
 from estimator.core.options import EstimationOptions
 from estimator.core.results import EstimatorContextValue, EstimatorFailure
+from estimator.environment.population import (
+    GridPopulationProvider,
+    population_provider_id,
+)
 from estimator.environment.terrain import TerrainProvider, terrain_provider_id
 from estimator.environment.wind import (
     ConstantWindProvider,
@@ -179,6 +183,7 @@ def build_estimation_context(
     options: EstimationOptions | None = None,
     wind_provider: WindProvider | None = None,
     terrain_provider: TerrainProvider | None = None,
+    population_provider: GridPopulationProvider | None = None,
     geofences: Sequence[GeofenceZone] | None = None,
     landing_zones: Sequence[LandingZone] | None = None,
 ) -> EstimationContext:
@@ -226,6 +231,10 @@ def build_estimation_context(
 
     if terrain_provider is not None:
         metadata["terrain_provider_id"] = terrain_provider_id(terrain_provider)
+    if population_provider is not None:
+        metadata["population_provider_id"] = population_provider_id(
+            population_provider
+        )
 
     if resolved_options.min_groundspeed_mps == DEFAULT_MIN_GROUNDSPEED_MPS:
         metadata["applied_default_min_groundspeed_mps"] = DEFAULT_MIN_GROUNDSPEED_MPS
@@ -235,6 +244,7 @@ def build_estimation_context(
         vehicle=vehicle,
         wind_provider=wind_provider,
         terrain_provider=terrain_provider,
+        population_provider=population_provider,
         geod=Geod(ellps="WGS84"),
         capabilities=capabilities,
         geofences=None if geofences is None else tuple(geofences),

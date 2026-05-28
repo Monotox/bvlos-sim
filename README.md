@@ -131,7 +131,7 @@ Full usage details are in [docs/USAGE.md](./docs/USAGE.md).
 
 - `estimate`: deterministic mission estimation and static feasibility checks
 - `scenario`: deterministic scenario events and assertions
-- `convert`: convert a QGroundControl `.plan` file to a `mission.v5` YAML
+- `convert`: convert a QGroundControl `.plan` file to a `mission.v6` YAML
 - `batch`: batch mission estimates from a manifest file
 - `sample`: seeded Monte Carlo uncertainty sampling
 - `propagate`: time-stepped stochastic state propagation with EKF and tracking controller
@@ -150,15 +150,17 @@ unsupported comparison summaries.
 - **Geofence** — spatial intersection against real GeoJSON polygons (forbidden and caution zones) for every route leg.
 - **Landing zones** — confirms at least one suitable landing point is within transit range.
 - **Resource and link** — models battery, tethered, and hybrid power; direct, cellular, satellite, and hybrid failover link architectures.
+- **Ground risk** — computes SORA-style iGRC pre-assessment from an offline population-density grid and vehicle characteristic dimension.
 
 ### Environmental data
 
-Four fetch scripts pull real data into bvlos-sim's YAML asset format:
+Fetch scripts pull real data into bvlos-sim's YAML asset format:
 
 - `fetch_wind.py` — Open-Meteo forecast at 10 m, 80 m, 120 m, 180 m, aligned to your departure time.
 - `fetch_terrain.py` — SRTM tiles for any bounding box.
 - `fetch_landing_zones.py` — Overpass API helipads and aerodromes.
 - `fetch_geofences.py` — OpenAIP static airspace polygons with Overpass fallback.
+- `fetch_population.py` — WorldPop population-density samples for SORA iGRC pre-assessment.
 - `fetch_all.py` — terrain, wind, and landing zones in a single command.
 
 A pre-fetched Alpine example (Lucerne/Zug area) runs offline with no network calls.
@@ -174,7 +176,7 @@ A pre-fetched Alpine example (Lucerne/Zug area) runs offline with no network cal
 
 ### Output formats
 
-All commands emit versioned JSON envelopes (`estimator-envelope.v5`,
+All commands emit versioned JSON envelopes (`estimator-envelope.v6`,
 `scenario-report.v2`, `uncertainty-report.v1`, `stochastic-envelope.v1`) and
 optional Markdown reports.
 
@@ -198,6 +200,10 @@ or CI gates.
 
 `estimate --format profile` (and the same on `scenario`) renders a per-leg altitude table
 with terrain elevation and clearance columns when a terrain provider is configured.
+
+`estimate --format ground-risk` renders the mission and per-leg iGRC values when
+the mission references a population grid and the vehicle supplies
+`characteristic_dimension_m`.
 
 ### Why not a spreadsheet
 

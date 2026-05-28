@@ -21,12 +21,14 @@ from estimator.core.results import (
     MissionEstimate,
     ResourceEstimate,
 )
+from estimator.environment.population import GridPopulationProvider
 from estimator.environment.terrain import TerrainProvider
 from estimator.environment.wind import WindProvider
 from estimator.execution.context_builder import build_estimation_context
 from estimator.execution.energy import evaluate_energy_feasibility
 from estimator.execution.executors import execute_route_item
 from estimator.execution.geofence import evaluate_geofence_feasibility
+from estimator.execution.ground_risk import compute_ground_risk
 from estimator.execution.landing_zone import evaluate_landing_zone_reachability
 from estimator.execution.resource_link import (
     evaluate_link_feasibility,
@@ -168,7 +170,7 @@ def run_estimation(
     )
     _check_failsafe_thresholds(context, energy_evaluation.energy)
 
-    return MissionEstimate(
+    result = MissionEstimate(
         status=EstimateStatus.SUCCESS,
         total_horizontal_distance_m=totals.horizontal_distance_m,
         total_vertical_distance_m=totals.vertical_distance_m,
@@ -181,9 +183,21 @@ def run_estimation(
         link=link_evaluation.link,
         geofence=geofence_evaluation.geofence,
         landing_zone=landing_zone_evaluation.landing_zone,
-        warnings=context.warnings,
+        ground_risk=None,
+        warnings=list(context.warnings),
         failure=None,
         metadata=context.metadata,
+    )
+    ground_risk, ground_risk_warnings = compute_ground_risk(
+        result,
+        population_provider=context.population_provider,
+        characteristic_dimension_m=context.vehicle.characteristic_dimension_m,
+        geod=context.geod,
+        max_segment_length_m=context.resolved_options.max_segment_length_m,
+    )
+    context.warnings.extend(ground_risk_warnings)
+    return result.model_copy(
+        update={"ground_risk": ground_risk, "warnings": context.warnings}
     )
 
 
@@ -289,6 +303,7 @@ def estimate_mission_distance_time(
     options: EstimationOptions | None = None,
     wind_provider: WindProvider | None = None,
     terrain_provider: TerrainProvider | None = None,
+    population_provider: GridPopulationProvider | None = None,
     geofences: Sequence[GeofenceZone] | None = None,
     landing_zones: Sequence[LandingZone] | None = None,
     lz_unavailability: list[frozenset[str]] | None = None,
@@ -299,6 +314,7 @@ def estimate_mission_distance_time(
         options=options,
         wind_provider=wind_provider,
         terrain_provider=terrain_provider,
+        population_provider=population_provider,
         geofences=geofences,
         landing_zones=landing_zones,
     )
@@ -312,6 +328,7 @@ def try_estimate_mission_distance_time(
     options: EstimationOptions | None = None,
     wind_provider: WindProvider | None = None,
     terrain_provider: TerrainProvider | None = None,
+    population_provider: GridPopulationProvider | None = None,
     geofences: Sequence[GeofenceZone] | None = None,
     landing_zones: Sequence[LandingZone] | None = None,
     lz_unavailability: list[frozenset[str]] | None = None,
@@ -331,6 +348,7 @@ def try_estimate_mission_distance_time(
             options=options,
             wind_provider=wind_provider,
             terrain_provider=terrain_provider,
+            population_provider=population_provider,
             geofences=geofences,
             landing_zones=landing_zones,
             lz_unavailability=lz_unavailability,
@@ -354,6 +372,7 @@ def try_estimate_mission_distance_time(
             link=exc.link,
             geofence=exc.geofence,
             landing_zone=exc.landing_zone,
+            ground_risk=None,
             warnings=exc.warnings,
             failure=exc.failure,
             metadata=exc.metadata,

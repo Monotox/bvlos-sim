@@ -69,6 +69,7 @@ def _build_provenance(
     geofence_document: InputDocument | None = None,
     landing_zone_document: InputDocument | None = None,
     terrain_document: InputDocument | None = None,
+    population_document: InputDocument | None = None,
     wind_grid_document: InputDocument | None = None,
 ) -> ScenarioProvenance:
     inputs = {
@@ -80,6 +81,7 @@ def _build_provenance(
         "geofences": geofence_document,
         "landing_zones": landing_zone_document,
         "terrain": terrain_document,
+        "population": population_document,
         "wind_grid": wind_grid_document,
     }
     inputs.update(
@@ -151,6 +153,7 @@ def build_scenario_envelope(
     geofence_document: InputDocument | None = None,
     landing_zone_document: InputDocument | None = None,
     terrain_document: InputDocument | None = None,
+    population_document: InputDocument | None = None,
     wind_grid_document: InputDocument | None = None,
 ) -> ScenarioResultEnvelope:
     """Build the canonical scenario result envelope from a completed run."""
@@ -161,6 +164,7 @@ def build_scenario_envelope(
         geofence_document=geofence_document,
         landing_zone_document=landing_zone_document,
         terrain_document=terrain_document,
+        population_document=population_document,
         wind_grid_document=wind_grid_document,
     )
     return _base_envelope(

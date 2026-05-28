@@ -21,6 +21,7 @@ Top-level mission fields:
 - `assets.geofences_file`: static geofence file loaded by the CLI
 - `assets.landing_zones_file`: static landing-zone file loaded by the CLI
 - `assets.terrain_file`: offline elevation grid file loaded by the CLI for terrain-referenced altitude resolution
+- `assets.population_grid_file`: offline population-density grid loaded by the CLI for SORA ground-risk pre-assessment
 - `assets.wind_grid_file`: offline spatiotemporal wind grid file loaded by the CLI as a 4D wind provider
 - `estimation`: persisted estimator settings
 - `link_systems`: deterministic communication-link systems
@@ -59,6 +60,7 @@ Identity and class:
 
 - `vehicle_id`
 - `vehicle_class`
+- `characteristic_dimension_m`: maximum span or rotor-tip diameter used with `assets.population_grid_file` to compute intrinsic Ground Risk Class
 - `capabilities.hover`
 - `capabilities.forward_flight`
 

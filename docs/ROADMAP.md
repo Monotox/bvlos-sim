@@ -100,7 +100,7 @@ Interfaces and contracts:
 - `sample` CLI command
 - `propagate` CLI command
 - `sitl` CLI command for contract-only SITL evidence bundles
-- canonical estimator JSON envelope (`estimator-envelope.v5`)
+- canonical estimator JSON envelope (`estimator-envelope.v6`)
 - canonical scenario JSON envelope (`scenario-report.v2`)
 - canonical uncertainty JSON envelope (`uncertainty-report.v1`)
 - canonical stochastic propagation envelope (`stochastic-envelope.v1`)

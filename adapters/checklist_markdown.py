@@ -5,6 +5,7 @@ from adapters.scenario_envelope import ScenarioResultEnvelope
 from estimator.core.results import (
     EnergyEstimate,
     GeofenceEstimate,
+    GroundRiskEstimate,
     LandingZoneEstimate,
     LinkEstimate,
     MissionEstimate,
@@ -91,6 +92,15 @@ def _link_row(link: LinkEstimate | None) -> str:
     return _row(_FAIL, "Link availability", "FAIL", f"link {link.selected_link_id!r} unavailable")
 
 
+def _ground_risk_row(ground_risk: GroundRiskEstimate | None) -> str:
+    if ground_risk is None:
+        return _row(_NA, "Ground risk class", "N/A", "not evaluated")
+    detail = f"mission iGRC {ground_risk.mission_igrc}"
+    if ground_risk.mission_igrc > 7:
+        detail = f"{detail}; exceeds specific-category envelope"
+    return _row(" ", "Ground risk class", "INFO", detail)
+
+
 def _warnings_row(result: MissionEstimate) -> str:
     n = len(result.warnings)
     if n == 0:
@@ -117,6 +127,7 @@ def _render_checklist(result: MissionEstimate | None, mission_id: str) -> str:
     lines.append(_landing_zone_row(result.landing_zone))
     lines.append(_resource_row(result.resource))
     lines.append(_link_row(result.link))
+    lines.append(_ground_risk_row(result.ground_risk))
     lines.append(_warnings_row(result))
     lines.append("")
     status = "GO" if _is_go(result) else "NO-GO"

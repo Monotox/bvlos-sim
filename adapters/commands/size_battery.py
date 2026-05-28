@@ -96,7 +96,7 @@ def _render_battery_sizing_command_output(
 
 
 def size_battery(
-    mission: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True, help="Path to mission.v5 YAML file."),
+    mission: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True, help="Path to mission.v6 YAML file."),
     vehicle: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True, help="Path to vehicle profile YAML file."),
     format: cli.BatterySizingOutputFormat = typer.Option(
         cli.BatterySizingOutputFormat.MARKDOWN,

@@ -151,6 +151,20 @@ def _mission_payload() -> dict[str, Any]:
     }
 
 
+def _population_grid_payload(density_ppl_km2: float) -> dict[str, Any]:
+    return {
+        "origin_lat": 51.99,
+        "origin_lon": 3.99,
+        "step_lat_deg": 0.01,
+        "step_lon_deg": 0.01,
+        "density_ppl_km2": [
+            [density_ppl_km2, density_ppl_km2, density_ppl_km2],
+            [density_ppl_km2, density_ppl_km2, density_ppl_km2],
+            [density_ppl_km2, density_ppl_km2, density_ppl_km2],
+        ],
+    }
+
+
 def _scenario_payload(
     *,
     scenario_id: str = "audit-scenario",
@@ -294,6 +308,8 @@ def _write_contract_only_sitl_evidence(
         [sys.executable, "-m", "main", "sitl", str(scenario_path)],
         cwd=REPO_ROOT,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         capture_output=True,
         check=False,
     )
@@ -359,6 +375,22 @@ def _build_cases(root: Path) -> list[Case]:
         "max_segment_length_m": 250.0,
     }
     mission_layers_path = _write_yaml(root / "mission-layers.yaml", mission_with_layers)
+
+    population_grid_path = _write_yaml(
+        root / "population.yaml", _population_grid_payload(12.0)
+    )
+    ground_risk_vehicle = _payload_copy(_vehicle_payload())
+    ground_risk_vehicle["characteristic_dimension_m"] = 1.0
+    ground_risk_vehicle_path = _write_yaml(
+        root / "vehicle-ground-risk.yaml", ground_risk_vehicle
+    )
+    mission_ground_risk = _payload_copy(_mission_payload())
+    mission_ground_risk["assets"] = {
+        "population_grid_file": population_grid_path.name
+    }
+    mission_ground_risk_path = _write_yaml(
+        root / "mission-ground-risk.yaml", mission_ground_risk
+    )
 
     mission_bad_extension = root / "mission.txt"
     mission_bad_extension.write_text("not used", encoding="utf-8")
@@ -628,6 +660,18 @@ def _build_cases(root: Path) -> list[Case]:
             ],
             SUCCESS,
             _expect_markdown("# Estimator Report"),
+        ),
+        Case(
+            "estimate ground risk markdown",
+            [
+                "estimate",
+                str(mission_ground_risk_path),
+                str(ground_risk_vehicle_path),
+                "--format",
+                "ground-risk",
+            ],
+            SUCCESS,
+            _expect_markdown("# Ground Risk Class"),
         ),
         Case(
             "estimate json output file",
@@ -1156,6 +1200,8 @@ def _run_case(command: list[str], case: Case, *, env: dict[str, str]) -> Command
         cwd=REPO_ROOT,
         env=env,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         capture_output=True,
         check=False,
     )
@@ -1210,6 +1256,8 @@ def main() -> int:
     args = _parse_args()
     env = os.environ.copy()
     env.setdefault("UV_CACHE_DIR", ".uv-cache")
+    env.setdefault("PYTHONIOENCODING", "utf-8")
+    env.setdefault("PYTHONUTF8", "1")
 
     failures: list[str] = []
     temp_dir = tempfile.TemporaryDirectory(prefix="bvlos-cli-audit-")

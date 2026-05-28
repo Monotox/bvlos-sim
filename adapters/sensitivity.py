@@ -7,6 +7,7 @@ from estimator import (
     EstimateStatus,
     EstimationOptions,
     GeofenceZone,
+    GridPopulationProvider,
     GridTerrainProvider,
     LandingZone,
     MissionEstimate,
@@ -128,6 +129,7 @@ def _estimate_level(
     options: EstimationOptions | None,
     wind_provider: WindProvider | None,
     terrain_provider: GridTerrainProvider | None,
+    population_provider: GridPopulationProvider | None,
     geofences: Sequence[GeofenceZone] | None,
     landing_zones: Sequence[LandingZone] | None,
 ) -> SensitivityLevel:
@@ -137,6 +139,7 @@ def _estimate_level(
         options=options,
         wind_provider=wind_provider,
         terrain_provider=terrain_provider,
+        population_provider=population_provider,
         geofences=geofences,
         landing_zones=landing_zones,
     )
@@ -190,6 +193,7 @@ def run_sensitivity_sweep(
     battery_steps: list[int],
     wind_provider: SpatiotemporalWindProvider | WindProvider | None = None,
     terrain_provider: GridTerrainProvider | None = None,
+    population_provider: GridPopulationProvider | None = None,
     geofences: list[GeofenceZone] | None = None,
     landing_zones: list[LandingZone] | None = None,
     options: EstimationOptions | None = None,
@@ -207,6 +211,7 @@ def run_sensitivity_sweep(
                 options=options,
                 wind_provider=wind_provider,
                 terrain_provider=terrain_provider,
+                population_provider=population_provider,
                 geofences=geofences,
                 landing_zones=landing_zones,
             )
@@ -223,6 +228,7 @@ def run_sensitivity_sweep(
                 options=options,
                 wind_provider=_wind_provider_for_headwind(wind_provider, headwind_mps),
                 terrain_provider=terrain_provider,
+                population_provider=population_provider,
                 geofences=geofences,
                 landing_zones=landing_zones,
             )
@@ -239,6 +245,7 @@ def run_sensitivity_sweep(
                 options=options,
                 wind_provider=wind_provider,
                 terrain_provider=terrain_provider,
+                population_provider=population_provider,
                 geofences=geofences,
                 landing_zones=landing_zones,
             )

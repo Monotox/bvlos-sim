@@ -145,6 +145,7 @@ def _render_estimate_sensitivity_output(
         battery_steps=battery_steps,
         wind_provider=wind_provider,
         terrain_provider=mission_assets.terrain_provider,
+        population_provider=mission_assets.population_provider,
         geofences=mission_assets.geofences,
         landing_zones=mission_assets.landing_zones,
         options=options,
@@ -263,12 +264,12 @@ def _write_internal_error_envelope(
 
 
 def estimate(
-    mission: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True, help="Path to mission.v5 YAML file."),
+    mission: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True, help="Path to mission.v6 YAML file."),
     vehicle: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True, help="Path to vehicle profile YAML file."),
     format: OutputFormat = typer.Option(
         OutputFormat.JSON,
         "--format",
-        help="Output format. Use summary for a one-line result, checklist for pre-flight go/no-go, sensitivity for a reserve sweep.",
+        help="Output format. Use summary for a one-line result, checklist for pre-flight go/no-go, sensitivity for a reserve sweep, or ground-risk for SORA iGRC.",
     ),
     output: Path | None = typer.Option(None, "--output", "-o", help="Write output to file instead of stdout."),
     wind_layer: list[str] | None = typer.Option(
@@ -353,6 +354,7 @@ def estimate(
             options=options,
             wind_provider=wind_provider,
             terrain_provider=mission_assets.terrain_provider,
+            population_provider=mission_assets.population_provider,
             geofences=mission_assets.geofences,
             landing_zones=mission_assets.landing_zones,
         )

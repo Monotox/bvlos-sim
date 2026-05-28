@@ -376,6 +376,10 @@ class MissionAssets(BaseModel):
         default=None,
         description="Optional elevation grid file (YAML/JSON uniform grid) for terrain-referenced altitude resolution.",
     )
+    population_grid_file: Path | None = Field(
+        default=None,
+        description="Optional population-density grid file (YAML/JSON uniform grid) for SORA ground-risk classification.",
+    )
     wind_grid_file: Path | None = Field(
         default=None,
         description="Optional spatiotemporal wind grid file (YAML/JSON) for 4D wind estimation.",

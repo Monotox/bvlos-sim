@@ -14,6 +14,7 @@ from estimator.core.scenario import (
     ScenarioResult,
     TimelinePoint,
 )
+from estimator.environment.population import GridPopulationProvider
 from estimator.environment.terrain import TerrainProvider
 from estimator.environment.wind import WindProvider
 from estimator.execution.divert import compute_divert_estimate
@@ -290,6 +291,7 @@ def run_scenario(
     *,
     wind_provider: WindProvider | None = None,
     terrain_provider: TerrainProvider | None = None,
+    population_provider: GridPopulationProvider | None = None,
     geofences: Sequence[GeofenceZone] | None = None,
     landing_zones: Sequence[LandingZone] | None = None,
 ) -> ScenarioResult:
@@ -307,6 +309,7 @@ def run_scenario(
         options,
         resolved_wind_provider,
         terrain_provider,
+        population_provider,
         geofences,
         landing_zones,
     )
@@ -318,6 +321,7 @@ def run_scenario(
         options=options,
         wind_provider=effective_wind_provider,
         terrain_provider=terrain_provider,
+        population_provider=population_provider,
         geofences=geofences,
         landing_zones=landing_zones,
     )

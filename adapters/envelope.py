@@ -13,12 +13,13 @@ from estimator import EstimateStatus, MissionEstimate
 from estimator.core.enums import FailureCode, WarningCode
 from estimator.core.results import EstimatorContextValue
 
-RESULT_ENVELOPE_SCHEMA_VERSION = "estimator-envelope.v5"
-MISSION_SCHEMA_VERSION = "mission.v5"
-VEHICLE_SCHEMA_VERSION = "vehicle.v3"
+RESULT_ENVELOPE_SCHEMA_VERSION = "estimator-envelope.v6"
+MISSION_SCHEMA_VERSION = "mission.v6"
+VEHICLE_SCHEMA_VERSION = "vehicle.v4"
 GEOFENCE_SCHEMA_VERSION = "geofence-geojson.v1"
 LANDING_ZONE_SCHEMA_VERSION = "landing-zone-geojson.v1"
 TERRAIN_SCHEMA_VERSION = "terrain-grid.v1"
+POPULATION_SCHEMA_VERSION = "population-grid.v1"
 WIND_GRID_SCHEMA_VERSION = "wind-grid.v1"
 
 _ASSUMPTIONS = [
@@ -146,6 +147,7 @@ class OutputFormat(StrEnum):
     CHECKLIST = "checklist"
     PROFILE = "profile"
     SENSITIVITY = "sensitivity"
+    GROUND_RISK = "ground-risk"
 
 
 class EnvelopeDiagnostic(BaseModel):
@@ -218,6 +220,7 @@ class EnvelopeInputs:
     geofences: InputDocument | None = None
     landing_zones: InputDocument | None = None
     terrain: InputDocument | None = None
+    population: InputDocument | None = None
     wind_grid: InputDocument | None = None
 
 
@@ -247,6 +250,11 @@ def _build_provenance(inputs: EnvelopeInputs) -> Provenance:
             format=inputs.terrain.format,
             sha256=inputs.terrain.sha256,
         )
+    if inputs.population is not None:
+        provenance_inputs["population"] = ProvenanceInput(
+            format=inputs.population.format,
+            sha256=inputs.population.sha256,
+        )
     if inputs.wind_grid is not None:
         provenance_inputs["wind_grid"] = ProvenanceInput(
             format=inputs.wind_grid.format,
@@ -269,7 +277,7 @@ def _resolve_invalid_input_documents(
         "mission": mission_document,
         "vehicle": vehicle_document,
     }
-    if error.document is not None and documents[error.input_name] is None:
+    if error.document is not None:
         documents[error.input_name] = error.document
 
     return {
@@ -458,6 +466,7 @@ def _input_schema_versions() -> dict[str, str]:
         "geofences": GEOFENCE_SCHEMA_VERSION,
         "landing_zones": LANDING_ZONE_SCHEMA_VERSION,
         "terrain": TERRAIN_SCHEMA_VERSION,
+        "population": POPULATION_SCHEMA_VERSION,
         "wind_grid": WIND_GRID_SCHEMA_VERSION,
     }
 

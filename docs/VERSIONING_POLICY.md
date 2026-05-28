@@ -8,15 +8,16 @@ a published version.
 Current public contracts:
 
 - package-root `estimator` imports
-- mission input schema: `mission.v5`
-- vehicle input schema: `vehicle.v3`
+- mission input schema: `mission.v6`
+- vehicle input schema: `vehicle.v4`
 - scenario input schema: `scenario.v1`
 - uncertainty input schema: `uncertainty.v1`
 - stochastic propagation input schema: `stochastic.v1`
 - batch manifest input schema: `batch.v1`
 - geofence input schema: `geofence-geojson.v1`
 - landing-zone input schema: `landing-zone-geojson.v1`
-- estimator JSON envelope: `estimator-envelope.v5`
+- population-density input schema: `population-grid.v1`
+- estimator JSON envelope: `estimator-envelope.v6`
 - scenario JSON envelope: `scenario-report.v2`
 - uncertainty JSON envelope: `uncertainty-report.v1`
 - stochastic propagation envelope: `stochastic-envelope.v1`

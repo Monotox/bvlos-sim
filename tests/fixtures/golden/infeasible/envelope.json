@@ -45,9 +45,10 @@
   "input_schema_versions": {
     "geofences": "geofence-geojson.v1",
     "landing_zones": "landing-zone-geojson.v1",
-    "mission": "mission.v5",
+    "mission": "mission.v6",
+    "population": "population-grid.v1",
     "terrain": "terrain-grid.v1",
-    "vehicle": "vehicle.v3",
+    "vehicle": "vehicle.v4",
     "wind_grid": "wind-grid.v1"
   },
   "provenance": {
@@ -113,7 +114,7 @@
       "result.total_time_s"
     ]
   },
-  "schema_version": "estimator-envelope.v5",
+  "schema_version": "estimator-envelope.v6",
   "status": "infeasible",
   "tool_version": "0.30.0"
 }

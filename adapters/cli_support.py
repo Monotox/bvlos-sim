@@ -23,9 +23,14 @@ from adapters.io import (
     validation_error_summary,
 )
 from adapters.assets.landing_zone_geojson import LandingZoneLoadError, load_landing_zones
+from adapters.assets.population_grid import load_population_grid
 from adapters.checklist_markdown import (
     render_checklist_markdown,
     render_checklist_markdown_from_scenario,
+)
+from adapters.ground_risk_markdown import (
+    render_ground_risk_markdown,
+    render_ground_risk_markdown_from_scenario,
 )
 from adapters.markdown import render_envelope_markdown
 from adapters.scenario_envelope import (
@@ -55,6 +60,7 @@ from estimator import (
     FailureKind,
     FidelityMode,
     GeofenceZone,
+    GridPopulationProvider,
     GridTerrainProvider,
     LandingZone,
     MissionEstimate,
@@ -80,6 +86,8 @@ class MissionAssetBundle:
 
     terrain_provider: GridTerrainProvider | None = None
     terrain_document: InputDocument | None = None
+    population_provider: GridPopulationProvider | None = None
+    population_document: InputDocument | None = None
     wind_provider: SpatiotemporalWindProvider | None = None
     wind_grid_document: InputDocument | None = None
     geofences: list[GeofenceZone] | None = None
@@ -100,6 +108,7 @@ class MissionAssetBundle:
             geofences=self.geofence_document,
             landing_zones=self.landing_zone_document,
             terrain=self.terrain_document,
+            population=self.population_document,
             wind_grid=self.wind_grid_document,
         )
 
@@ -108,6 +117,7 @@ class MissionAssetBundle:
             "geofences": self.geofence_document,
             "landing_zones": self.landing_zone_document,
             "terrain": self.terrain_document,
+            "population": self.population_document,
             "wind_grid": self.wind_grid_document,
         }
 
@@ -177,6 +187,7 @@ _ESTIMATE_RENDERERS: dict[OutputFormat, EstimatorEnvelopeRenderer] = {
     OutputFormat.MARKDOWN: render_envelope_markdown,
     OutputFormat.SUMMARY: _render_estimate_summary,
     OutputFormat.CHECKLIST: render_checklist_markdown,
+    OutputFormat.GROUND_RISK: render_ground_risk_markdown,
 }
 
 _SCENARIO_RENDERERS: dict[OutputFormat, ScenarioEnvelopeRenderer] = {
@@ -184,6 +195,7 @@ _SCENARIO_RENDERERS: dict[OutputFormat, ScenarioEnvelopeRenderer] = {
     OutputFormat.MARKDOWN: render_scenario_markdown,
     OutputFormat.SUMMARY: _render_scenario_summary,
     OutputFormat.CHECKLIST: render_checklist_markdown_from_scenario,
+    OutputFormat.GROUND_RISK: render_ground_risk_markdown_from_scenario,
 }
 
 def _render_uncertainty_summary(envelope: UncertaintyResultEnvelope) -> str:
@@ -332,6 +344,11 @@ def _populate_mission_assets(
         mission_path=mission_path,
         loader=load_terrain_grid,
     )
+    bundle.population_provider, bundle.population_document = _load_optional_asset(
+        mission_model.assets.population_grid_file,
+        mission_path=mission_path,
+        loader=load_population_grid,
+    )
     bundle.wind_provider, bundle.wind_grid_document = _load_optional_asset(
         mission_model.assets.wind_grid_file,
         mission_path=mission_path,
@@ -373,6 +390,7 @@ def _envelope_inputs_for_static_asset_error(
             else mission_assets.landing_zone_document
         ),
         terrain=mission_assets.terrain_document,
+        population=mission_assets.population_document,
         wind_grid=mission_assets.wind_grid_document,
     )
 
@@ -423,6 +441,7 @@ def _run_scenario_with_assets(
         vehicle_model,
         wind_provider=mission_assets.wind_provider,
         terrain_provider=mission_assets.terrain_provider,
+        population_provider=mission_assets.population_provider,
         geofences=mission_assets.geofences,
         landing_zones=mission_assets.landing_zones,
     )
@@ -444,6 +463,7 @@ def _build_scenario_result_envelope(
         geofence_document=mission_assets.geofence_document,
         landing_zone_document=mission_assets.landing_zone_document,
         terrain_document=mission_assets.terrain_document,
+        population_document=mission_assets.population_document,
         wind_grid_document=mission_assets.wind_grid_document,
     )
 

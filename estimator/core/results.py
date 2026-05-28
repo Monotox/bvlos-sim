@@ -269,6 +269,23 @@ class LandingZoneEstimate(BaseModel):
     states: list[LandingZoneStateReachability] = Field(default_factory=list)
 
 
+class GroundRiskLegEstimate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    leg_index: int
+    route_item_id: str | None
+    max_density_ppl_km2: float
+    igrc: int
+
+
+class GroundRiskEstimate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    characteristic_dimension_m: float
+    mission_igrc: int
+    legs: list[GroundRiskLegEstimate]
+
+
 class MissionEstimate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -284,6 +301,9 @@ class MissionEstimate(BaseModel):
     link: LinkEstimate | None = None
     geofence: GeofenceEstimate | None = None
     landing_zone: LandingZoneEstimate | None = None
+    ground_risk: GroundRiskEstimate | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     warnings: list[EstimatorWarning] = Field(default_factory=list)
     failure: EstimatorFailure | None = None
     metadata: dict[str, EstimatorContextValue] = Field(default_factory=dict)

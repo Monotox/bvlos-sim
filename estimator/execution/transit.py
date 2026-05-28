@@ -104,6 +104,18 @@ def build_vertical_only_leg(
     )
 
 
+def sub_segment_midpoint_fractions(
+    horizontal_distance_m: float,
+    max_segment_length_m: float | None,
+) -> tuple[float, ...]:
+    if horizontal_distance_m <= 0.0:
+        return (0.0,)
+    if max_segment_length_m is None or horizontal_distance_m <= max_segment_length_m:
+        return (0.5,)
+    n = max(1, math.ceil(horizontal_distance_m / max_segment_length_m))
+    return tuple((i + 0.5) / n for i in range(n))
+
+
 def _wind_at_fraction(
     context: EstimationContext,
     *,
@@ -138,11 +150,13 @@ def _sub_segment_horizontal_time_s(
     max_segment_length_m: float,
     vertical_time_s: float,
 ) -> float:
-    n = max(1, math.ceil(geometry.horizontal_distance_m / max_segment_length_m))
+    fractions = sub_segment_midpoint_fractions(
+        geometry.horizontal_distance_m, max_segment_length_m
+    )
+    n = len(fractions)
     seg_len = geometry.horizontal_distance_m / n
     total_s = 0.0
-    for i in range(n):
-        mid_frac = (i + 0.5) / n
+    for i, mid_frac in enumerate(fractions):
         # Use time elapsed so far to interpolate altitude. This decouples
         # altitude from horizontal position: on climb-dominated legs the
         # aircraft hasn't gained as much altitude at each horizontal fraction

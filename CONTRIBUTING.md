@@ -126,8 +126,8 @@ without a link.
 
 The public contract surfaces must not change casually. These include:
 
-- schema versions such as `mission.v5`, `vehicle.v3`, and `scenario.v1`
-- canonical JSON envelopes such as `estimator-envelope.v5` and `scenario-report.v2`
+- schema versions such as `mission.v6`, `vehicle.v4`, and `scenario.v1`
+- canonical JSON envelopes such as `estimator-envelope.v6` and `scenario-report.v2`
 - CLI exit codes
 - documented package-root imports from `estimator`
 

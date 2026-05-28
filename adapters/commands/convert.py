@@ -32,7 +32,7 @@ def convert(
         ),
     ),
 ) -> None:
-    """Convert a QGroundControl .plan file to a mission.v5 YAML."""
+    """Convert a QGroundControl .plan file to a mission.v6 YAML."""
 
     if not vehicle_profile or not vehicle_profile.strip():
         typer.echo(

@@ -37,6 +37,8 @@ from estimator.core.results import (
     EstimatorWarning,
     GeofenceConflict,
     GeofenceEstimate,
+    GroundRiskEstimate,
+    GroundRiskLegEstimate,
     LandingZoneEstimate,
     LandingZoneStateReachability,
     LegEstimate,
@@ -57,6 +59,7 @@ from estimator.core.scenario import (
     ScenarioStatus,
     TimelinePoint,
 )
+from estimator.environment.population import GridPopulationProvider, PopulationProvider
 from estimator.environment.terrain import (
     ConstantElevationProvider,
     GridTerrainProvider,
@@ -83,6 +86,7 @@ __all__ = [
     "DivertRouteEstimate",
     "ConstantElevationProvider",
     "ConstantWindProvider",
+    "GridPopulationProvider",
     "GridTerrainProvider",
     "LayeredWindProvider",
     "WindLayer",
@@ -101,6 +105,8 @@ __all__ = [
     "GeofenceConflict",
     "GeofenceCoordinate",
     "GeofenceEstimate",
+    "GroundRiskEstimate",
+    "GroundRiskLegEstimate",
     "GeofenceGeometry",
     "GeofenceKind",
     "GeofencePolygon",
@@ -117,6 +123,7 @@ __all__ = [
     "LinkEstimate",
     "LinkSystemEstimate",
     "MissionEstimate",
+    "PopulationProvider",
     "ResourceEstimate",
     "ResourceSystemEstimate",
     "ScenarioAssertionResult",

@@ -67,6 +67,11 @@ class VehicleProfile(BaseModel):
     vehicle_class: VehicleClass = Field(
         description="Vehicle class used to select route and energy assumptions.",
     )
+    characteristic_dimension_m: float | None = Field(
+        default=None,
+        gt=0,
+        description="Maximum span or rotor-tip diameter in metres. Required to compute SORA Ground Risk Class.",
+    )
     mav_type: str = Field(
         min_length=1,
         description=(

@@ -9,6 +9,7 @@ Mission YAML files for the pipeline inspection demo route (Lat 52°N, Lon 4°E a
 | `pipeline_demo_001_integrated.yaml` | Same route with terrain and spatiotemporal wind assets enabled. |
 | `pipeline_demo_001_ekf.yaml` | Variant with GPS/battery sensor profile for EKF twin-state propagation. References `quadplane_v1_ekf`. |
 | `pipeline_demo_001_resource_link.yaml` | Variant with explicit resource and link systems. References `quadplane_resource_link`. |
+| `pipeline_demo_001_ground_risk.yaml` | Variant with a population-density grid for `estimate --format ground-risk`. References `quadplane_v1_ground_risk`. |
 
 ## Quick start
 
@@ -20,6 +21,10 @@ uv run bvlos-sim estimate examples/missions/pipeline_demo_001.yaml \
 # Pre-flight checklist
 uv run bvlos-sim estimate examples/missions/pipeline_demo_001.yaml \
   examples/vehicles/quadplane_v1.yaml --format checklist
+
+# SORA iGRC pre-assessment
+uv run bvlos-sim estimate examples/missions/pipeline_demo_001_ground_risk.yaml \
+  examples/vehicles/quadplane_v1_ground_risk.yaml --format ground-risk
 ```
 
 See `examples/vehicles/` for matching vehicle profiles.

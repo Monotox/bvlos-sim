@@ -2,7 +2,7 @@
 
 ## Status
 
-Planned.
+Implemented.
 
 ## Goal
 
@@ -17,7 +17,7 @@ their operation falls into.
 SORA (Specific Operations Risk Assessment) is the regulatory framework that
 governs BVLOS approvals in the EU, UK, and a growing number of other
 jurisdictions. The first number every SORA submission needs is the **intrinsic
-Ground Risk Class** — a 1–7 value derived from the aircraft's characteristic
+Ground Risk Class** — a table lookup derived from the aircraft's characteristic
 dimension and the population density beneath the flight path.
 
 bvlos-sim already models the route, terrain, wind, energy, and geofences. The
@@ -36,8 +36,9 @@ The intrinsic GRC is a lookup on two axes:
 - **Population density** beneath the operational volume: controlled ground area,
   <5 ppl/km², <50, <500, <5 000, <50 000, >50 000 (gatherings).
 
-The cell value is the iGRC (1–7). Higher dimension and higher population both
-raise the class. See the EASA SORA v2.5 ground risk table for the exact matrix.
+The cell value is the iGRC. Higher dimension and higher population both raise
+the class. Values above 7 are reported but annotated as outside the standard
+specific-category envelope.
 
 ## Scope
 
@@ -110,7 +111,6 @@ not part of core CI.
 
 | File | Change |
 |---|---|
-| `schemas/population_grid.py` | New `population-grid.v1` schema |
 | `schemas/vehicle.py` | Add `characteristic_dimension_m` |
 | `schemas/mission.py` | Add `assets.population_grid_file` |
 | `estimator/core/enums.py` | Add `POPULATION_DENSITY_DIMENSION_MISSING` warning |
@@ -142,7 +142,7 @@ not part of core CI.
 
 1. A mission over a 12 ppl/km² area with a 1 m aircraft returns the correct
    low iGRC; the same route over a 5 000 ppl/km² cell returns a higher iGRC,
-   matching the SORA v2.5 table.
+   matching the implemented SORA-style table.
 2. A vehicle with no `characteristic_dimension_m` emits
    `POPULATION_DENSITY_DIMENSION_MISSING` and omits the `ground_risk` block.
 3. `estimate --format ground-risk` produces a per-leg iGRC table and a
