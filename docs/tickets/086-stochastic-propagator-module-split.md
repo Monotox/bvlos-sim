@@ -1,5 +1,9 @@
 # Ticket 086: Stochastic Propagator Module Split
 
+## Status
+
+Implemented.
+
 ## Goal
 
 Split `estimator/execution/propagator.py` into focused internal modules while
