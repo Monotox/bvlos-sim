@@ -26,20 +26,24 @@ from adapters.envelope import (
     build_internal_error_envelope,
     build_invalid_input_envelope,
 )
-from adapters.geofence_geojson import GeofenceLoadError
+from adapters.assets.geofence_geojson import GeofenceLoadError
 from adapters.geojson_export import build_geojson_export
 from adapters.io import InputDocument, InputLoadError, load_mission, load_vehicle
 from adapters.kml_export import build_kml_export
-from adapters.landing_zone_geojson import LandingZoneLoadError
+from adapters.assets.landing_zone_geojson import LandingZoneLoadError
 from adapters.profile_markdown import render_profile_markdown
 from adapters.sensitivity import render_sensitivity_markdown, run_sensitivity_sweep
 from estimator import (
     EstimateStatus,
+    EstimationOptions,
     FailureKind,
     FidelityMode,
     LayeredWindProvider,
     MissionEstimate,
+    WindProvider,
 )
+from schemas.mission import MissionPlan
+from schemas.vehicle import VehicleProfile
 
 _FAILURE_KIND_EXIT_CODES = {
     FailureKind.INFEASIBLE: cli.CliExitCode.INFEASIBLE,
@@ -80,6 +84,76 @@ def _parse_sensitivity_float_steps(raw: str, option_name: str) -> list[float]:
             raise ValueError(f"{option_name} steps must be non-negative.")
         values.append(value)
     return values
+
+
+SensitivitySteps = tuple[list[int], list[float], list[int]]
+
+
+def _parse_sensitivity_step_options(
+    *,
+    power_steps_raw: str,
+    wind_steps_raw: str,
+    battery_steps_raw: str,
+) -> SensitivitySteps:
+    return (
+        _parse_sensitivity_int_steps(
+            power_steps_raw,
+            "--sensitivity-power-steps",
+        ),
+        _parse_sensitivity_float_steps(
+            wind_steps_raw,
+            "--sensitivity-wind-steps",
+        ),
+        _parse_sensitivity_int_steps(
+            battery_steps_raw,
+            "--sensitivity-battery-steps",
+        ),
+    )
+
+
+def _render_estimate_sensitivity_output(
+    *,
+    mission_model: MissionPlan,
+    vehicle_model: VehicleProfile,
+    result: MissionEstimate,
+    mission_assets: MissionAssetBundle,
+    mission_stem: str,
+    wind_provider: WindProvider | None,
+    options: EstimationOptions,
+    power_steps_raw: str,
+    wind_steps_raw: str,
+    battery_steps_raw: str,
+) -> str:
+    try:
+        power_steps, wind_steps, battery_steps = _parse_sensitivity_step_options(
+            power_steps_raw=power_steps_raw,
+            wind_steps_raw=wind_steps_raw,
+            battery_steps_raw=battery_steps_raw,
+        )
+    except ValueError as exc:
+        cli._exit_with_cli_error(
+            str(exc),
+            command="estimate",
+            code=cli.CliExitCode.INVALID_INPUT,
+        )
+
+    levels = run_sensitivity_sweep(
+        mission_model,
+        vehicle_model,
+        power_steps=power_steps,
+        wind_steps=wind_steps,
+        battery_steps=battery_steps,
+        wind_provider=wind_provider,
+        terrain_provider=mission_assets.terrain_provider,
+        geofences=mission_assets.geofences,
+        landing_zones=mission_assets.landing_zones,
+        options=options,
+    )
+    return render_sensitivity_markdown(
+        result,
+        levels,
+        mission_id=mission_assets.mission_id or mission_stem,
+    )
 
 
 EstimateOutputRenderer = Callable[
@@ -283,41 +357,17 @@ def estimate(
             inputs=envelope_inputs,
         )
         if format == OutputFormat.SENSITIVITY:
-            try:
-                power_steps = _parse_sensitivity_int_steps(
-                    sensitivity_power_steps,
-                    "--sensitivity-power-steps",
-                )
-                wind_steps = _parse_sensitivity_float_steps(
-                    sensitivity_wind_steps,
-                    "--sensitivity-wind-steps",
-                )
-                battery_steps = _parse_sensitivity_int_steps(
-                    sensitivity_battery_steps,
-                    "--sensitivity-battery-steps",
-                )
-            except ValueError as exc:
-                cli._exit_with_cli_error(
-                    str(exc),
-                    command="estimate",
-                    code=cli.CliExitCode.INVALID_INPUT,
-                )
-            levels = run_sensitivity_sweep(
-                mission_model,
-                vehicle_model,
-                power_steps=power_steps,
-                wind_steps=wind_steps,
-                battery_steps=battery_steps,
+            rendered = _render_estimate_sensitivity_output(
+                mission_model=mission_model,
+                vehicle_model=vehicle_model,
+                result=result,
+                mission_assets=mission_assets,
+                mission_stem=mission.stem,
                 wind_provider=wind_provider,
-                terrain_provider=mission_assets.terrain_provider,
-                geofences=mission_assets.geofences,
-                landing_zones=mission_assets.landing_zones,
                 options=options,
-            )
-            rendered = render_sensitivity_markdown(
-                result,
-                levels,
-                mission_id=mission_assets.mission_id or mission.stem,
+                power_steps_raw=sensitivity_power_steps,
+                wind_steps_raw=sensitivity_wind_steps,
+                battery_steps_raw=sensitivity_battery_steps,
             )
         else:
             rendered = _render_estimate_command_output(

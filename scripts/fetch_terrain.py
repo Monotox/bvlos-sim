@@ -81,7 +81,9 @@ def main() -> None:
 
     out = Path(args.output)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(yaml.dump(grid, default_flow_style=None, sort_keys=False))
+    out.write_text(
+        yaml.dump(grid, default_flow_style=None, sort_keys=False), encoding="utf-8"
+    )
     print(f"Wrote {out} ({len(lats)} rows × {len(lons)} cols)")
 
 

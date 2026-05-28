@@ -9,11 +9,11 @@ from rich.table import Table
 
 from adapters.cli_support import MissionAssetBundle, _populate_mission_assets
 from adapters.envelope import EstimatorResultEnvelope, build_estimator_envelope
-from adapters.geofence_geojson import GeofenceLoadError
+from adapters.assets.geofence_geojson import GeofenceLoadError
 from adapters.io import InputLoadError, load_mission, load_vehicle
-from adapters.landing_zone_geojson import LandingZoneLoadError
-from adapters.terrain_grid import TerrainGridLoadError
-from adapters.wind_grid import WindGridLoadError
+from adapters.assets.landing_zone_geojson import LandingZoneLoadError
+from adapters.assets.terrain_grid import TerrainGridLoadError
+from adapters.assets.wind_grid import WindGridLoadError
 from estimator import (
     EstimateStatus,
     GeofenceZone,

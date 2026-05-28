@@ -1,5 +1,6 @@
 """Deterministic mission energy feasibility evaluation."""
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from estimator.core.enums import EnergyPowerSource, FailureCode, FailureKind, LegPhase
@@ -187,47 +188,91 @@ def _validate_reserve_threshold_percent(
     )
 
 
+LegPowerResolver = Callable[
+    [EnergyModel, LegEstimate], tuple[EnergyPower, EstimatorFailure | None]
+]
+
+
+def _resolve_vertical_takeoff_power(
+    energy_model: EnergyModel,
+    leg: LegEstimate,
+) -> tuple[EnergyPower, EstimatorFailure | None]:
+    power_w = energy_model.climb_power_w
+    if power_w is not None:
+        return _validate_leg_power(power_w, EnergyPowerSource.CLIMB_POWER, leg)
+    return _resolve_cruise_power(energy_model, leg)
+
+
+def _resolve_hover_loiter_power(
+    energy_model: EnergyModel,
+    leg: LegEstimate,
+) -> tuple[EnergyPower, EstimatorFailure | None]:
+    return _require_leg_power(
+        energy_model.hover_power_w, EnergyPowerSource.HOVER_POWER, leg
+    )
+
+
+def _resolve_fixed_wing_loiter_power(
+    energy_model: EnergyModel,
+    leg: LegEstimate,
+) -> tuple[EnergyPower, EstimatorFailure | None]:
+    return _resolve_cruise_power(energy_model, leg)
+
+
+def _resolve_landing_transit_power(
+    energy_model: EnergyModel,
+    leg: LegEstimate,
+) -> tuple[EnergyPower, EstimatorFailure | None]:
+    power_w = energy_model.descent_power_w
+    if leg.vertical_delta_m < 0 and power_w is not None:
+        return _validate_leg_power(power_w, EnergyPowerSource.DESCENT_POWER, leg)
+    return _resolve_cruise_power(energy_model, leg)
+
+
+def _resolve_cruise_power(
+    energy_model: EnergyModel,
+    leg: LegEstimate,
+) -> tuple[EnergyPower, EstimatorFailure | None]:
+    return _validate_leg_power(
+        energy_model.cruise_power_w,
+        EnergyPowerSource.CRUISE_POWER,
+        leg,
+    )
+
+
+_CRUISE_POWER_RESOLVERS: dict[LegPhase, LegPowerResolver] = {
+    phase: _resolve_cruise_power for phase in _TRANSIT_POWER_PHASES
+}
+_HOVER_LOITER_POWER_RESOLVERS: dict[bool, LegPowerResolver] = {
+    True: _resolve_hover_loiter_power,
+    False: _resolve_fixed_wing_loiter_power,
+}
+_LEG_POWER_RESOLVERS: dict[LegPhase, LegPowerResolver] = {
+    **_CRUISE_POWER_RESOLVERS,
+    LegPhase.VERTICAL_TAKEOFF: _resolve_vertical_takeoff_power,
+    LegPhase.LANDING_TRANSIT: _resolve_landing_transit_power,
+}
+
+
 def _resolve_leg_power(
     energy_model: EnergyModel,
     leg: LegEstimate,
     *,
     hover_capable: bool,
 ) -> tuple[EnergyPower, EstimatorFailure | None]:
-    if leg.phase == LegPhase.VERTICAL_TAKEOFF:
-        source = EnergyPowerSource.CLIMB_POWER
-        power_w = energy_model.climb_power_w
-        if power_w is not None:
-            return _validate_leg_power(power_w, source, leg)
-        return _validate_leg_power(
-            energy_model.cruise_power_w,
-            EnergyPowerSource.CRUISE_POWER,
-            leg,
-        )
-
     if leg.phase == LegPhase.LOITER_DWELL:
-        if hover_capable:
-            # Station-keep hover requires hover_power_w.
-            return _require_leg_power(
-                energy_model.hover_power_w, EnergyPowerSource.HOVER_POWER, leg
-            )
-        # Fixed-wing circular orbit (fidelity v2): banked flight uses cruise power.
-        return _validate_leg_power(
-            energy_model.cruise_power_w, EnergyPowerSource.CRUISE_POWER, leg
-        )
+        return _HOVER_LOITER_POWER_RESOLVERS[hover_capable](energy_model, leg)
 
-    if leg.phase == LegPhase.LANDING_TRANSIT and leg.vertical_delta_m < 0:
-        source = EnergyPowerSource.DESCENT_POWER
-        power_w = energy_model.descent_power_w
-        if power_w is not None:
-            return _validate_leg_power(power_w, source, leg)
+    resolver = _LEG_POWER_RESOLVERS.get(leg.phase)
+    if resolver is not None:
+        return resolver(energy_model, leg)
 
-    if leg.phase in _TRANSIT_POWER_PHASES or leg.phase == LegPhase.LANDING_TRANSIT:
-        return _validate_leg_power(
-            energy_model.cruise_power_w,
-            EnergyPowerSource.CRUISE_POWER,
-            leg,
-        )
+    return _unsupported_phase_energy_failure(leg)
 
+
+def _unsupported_phase_energy_failure(
+    leg: LegEstimate,
+) -> tuple[EnergyPower, EstimatorFailure | None]:
     return (
         EnergyPower(power_w=0.0, source=EnergyPowerSource.CRUISE_POWER),
         _leg_energy_failure(

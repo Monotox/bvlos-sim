@@ -44,6 +44,16 @@ def _bbox(lat: float, lon: float, radius: float) -> tuple[float, float, float, f
     )
 
 
+def _time_axis_count(grid: dict[str, object]) -> int:
+    axes = grid.get("axes")
+    if not isinstance(axes, dict):
+        return 0
+    time_axis = axes.get("time_s")
+    if not isinstance(time_axis, list):
+        return 0
+    return len(time_axis)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -105,6 +115,8 @@ def main() -> None:
             f"Error: invalid --departure-time '{args.departure_time}'; expected HH:MM (00–23)"
         )
 
+    if args.window_hours <= 0:
+        sys.exit("Error: --window-hours must be positive")
     if args.step_deg <= 0:
         sys.exit("Error: --step-deg must be positive")
     if args.radius_deg <= 0:
@@ -140,7 +152,10 @@ def main() -> None:
             "step_lon_deg": args.step_deg,
             "elevations_m": rows,
         }
-        terrain_path.write_text(yaml.dump(terrain_grid, default_flow_style=None, sort_keys=False))
+        terrain_path.write_text(
+            yaml.dump(terrain_grid, default_flow_style=None, sort_keys=False),
+            encoding="utf-8",
+        )
         print(f"       → {terrain_path} ({len(lats)} rows × {len(lons)} cols)")
         step += 1
 
@@ -153,8 +168,10 @@ def main() -> None:
     )
     wind_data = _fetch_wind(args.lat, args.lon, target_date)
     wind_grid = _build_wind_grid(wind_data, args.lat, args.lon, dep_hour, args.window_hours)
-    wind_path.write_text(yaml.dump(wind_grid, default_flow_style=None, sort_keys=False))
-    n_times = len(wind_grid["axes"]["time_s"])  # type: ignore[arg-type]
+    wind_path.write_text(
+        yaml.dump(wind_grid, default_flow_style=None, sort_keys=False), encoding="utf-8"
+    )
+    n_times = _time_axis_count(wind_grid)
     print(f"       → {wind_path} ({n_times} time steps × {len(_ALTITUDES_M)} altitude bands)")
     step += 1
 
@@ -166,7 +183,10 @@ def main() -> None:
     )
     elements = _query_lz(lat_min, lat_max, lon_min, lon_max)
     features = [f for e in elements if (f := _to_feature(e)) is not None]
-    lz_path.write_text(json.dumps({"type": "FeatureCollection", "features": features}, indent=2))
+    lz_path.write_text(
+        json.dumps({"type": "FeatureCollection", "features": features}, indent=2),
+        encoding="utf-8",
+    )
     print(f"       → {lz_path} ({len(features)} features)")
 
     # --- summary ---

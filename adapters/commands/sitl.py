@@ -14,12 +14,12 @@ from adapters.cli_sitl_support import (
     _sitl_adapter_for_options,
 )
 from adapters.cli_support import OutputWriteError, _write_output
-from adapters.geofence_geojson import GeofenceLoadError
+from adapters.assets.geofence_geojson import GeofenceLoadError
 from adapters.io import InputLoadError
-from adapters.landing_zone_geojson import LandingZoneLoadError
+from adapters.assets.landing_zone_geojson import LandingZoneLoadError
 from adapters.sitl.ardupilot_types import ArduPilotAdapterError
-from adapters.terrain_grid import TerrainGridLoadError
-from adapters.wind_grid import WindGridLoadError
+from adapters.assets.terrain_grid import TerrainGridLoadError
+from adapters.assets.wind_grid import WindGridLoadError
 
 
 def sitl(

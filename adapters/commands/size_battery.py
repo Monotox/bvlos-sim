@@ -18,11 +18,11 @@ from adapters.battery_sizing_envelope import (
     render_battery_sizing_envelope_json,
 )
 from adapters.cli_support import MissionAssetBundle, OutputWriteError, _populate_mission_assets, _write_output
-from adapters.geofence_geojson import GeofenceLoadError
+from adapters.assets.geofence_geojson import GeofenceLoadError
 from adapters.io import InputDocument, InputLoadError, load_mission, load_vehicle
-from adapters.landing_zone_geojson import LandingZoneLoadError
-from adapters.terrain_grid import TerrainGridLoadError
-from adapters.wind_grid import WindGridLoadError
+from adapters.assets.landing_zone_geojson import LandingZoneLoadError
+from adapters.assets.terrain_grid import TerrainGridLoadError
+from adapters.assets.wind_grid import WindGridLoadError
 
 
 def _validate_battery_sizing_margins(

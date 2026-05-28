@@ -24,6 +24,25 @@ def _decompose(speed: float, direction_deg: float) -> tuple[float, float]:
     return -speed * math.sin(d), -speed * math.cos(d)
 
 
+def _object_dict(value: object) -> dict[str, object]:
+    if not isinstance(value, dict):
+        return {}
+    return {str(key): item for key, item in value.items()}
+
+
+def _object_list(value: object) -> list[object]:
+    if not isinstance(value, list):
+        return []
+    return value
+
+
+def _hourly_value(hourly: dict[str, object], key: str, index: int) -> object | None:
+    values = _object_list(hourly.get(key))
+    if index >= len(values):
+        return None
+    return values[index]
+
+
 def _fetch(lat: float, lon: float, target_date: date) -> dict[str, object]:
     hourly_vars = ",".join(
         f"wind_speed_{a}m,wind_direction_{a}m" for a in _ALTITUDES_M
@@ -39,7 +58,10 @@ def _fetch(lat: float, lon: float, target_date: date) -> dict[str, object]:
     url = _ARCHIVE_URL if target_date < date.today() else _FORECAST_URL
     resp = requests.get(url, params=params, timeout=30)
     resp.raise_for_status()
-    return resp.json()  # type: ignore[no-any-return]
+    payload: object = resp.json()
+    if not isinstance(payload, dict):
+        raise ValueError("Open-Meteo response root must be an object")
+    return {str(key): item for key, item in payload.items()}
 
 
 def _build_grid(
@@ -49,8 +71,9 @@ def _build_grid(
     dep_hour: int,
     window_hours: int,
 ) -> dict[str, object]:
-    hourly = data["hourly"]
-    assert isinstance(hourly, dict)
+    hourly = _object_dict(data.get("hourly"))
+    if not hourly:
+        raise ValueError("Open-Meteo response missing hourly wind data")
     end_hour = min(dep_hour + window_hours, 24)
     n = end_hour - dep_hour
     if n < 1:
@@ -63,8 +86,8 @@ def _build_grid(
         idx = dep_hour + i
         alt_blocks = []
         for alt in _ALTITUDES_M:
-            raw_speed = hourly[f"wind_speed_{alt}m"][idx]  # type: ignore[index]
-            raw_dir = hourly[f"wind_direction_{alt}m"][idx]  # type: ignore[index]
+            raw_speed = _hourly_value(hourly, f"wind_speed_{alt}m", idx)
+            raw_dir = _hourly_value(hourly, f"wind_direction_{alt}m", idx)
             speed = float(raw_speed) if raw_speed is not None else 0.0
             direction = float(raw_dir) if raw_dir is not None else 0.0
             east, north = _decompose(speed, direction)
@@ -110,6 +133,9 @@ def main() -> None:
     parser.add_argument("--output", default="wind_grid.yaml", metavar="PATH")
     args = parser.parse_args()
 
+    if args.window_hours <= 0:
+        sys.exit("Error: --window-hours must be positive")
+
     try:
         target_date = date.fromisoformat(args.date) if args.date else date.today()
     except ValueError:
@@ -135,7 +161,9 @@ def main() -> None:
 
     out = Path(args.output)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(yaml.dump(grid, default_flow_style=None, sort_keys=False))
+    out.write_text(
+        yaml.dump(grid, default_flow_style=None, sort_keys=False), encoding="utf-8"
+    )
     n_times = len(grid["axes"]["time_s"])
     print(f"Wrote {out} ({n_times} time steps × {len(_ALTITUDES_M)} altitude bands)")
 

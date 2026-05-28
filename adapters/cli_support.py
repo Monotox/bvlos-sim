@@ -15,14 +15,14 @@ from adapters.envelope import (
     OutputFormat,
     render_envelope_json,
 )
-from adapters.geofence_geojson import GeofenceLoadError, load_geofences
+from adapters.assets.geofence_geojson import GeofenceLoadError, load_geofences
 from adapters.io import (
     InputDocument,
     InputLoadError,
     InputLoadStage,
     validation_error_summary,
 )
-from adapters.landing_zone_geojson import LandingZoneLoadError, load_landing_zones
+from adapters.assets.landing_zone_geojson import LandingZoneLoadError, load_landing_zones
 from adapters.checklist_markdown import (
     render_checklist_markdown,
     render_checklist_markdown_from_scenario,
@@ -41,13 +41,13 @@ from adapters.stochastic_envelope import (
 )
 from adapters.stochastic_markdown import render_stochastic_markdown
 from adapters.summary import format_estimate_summary, format_scenario_summary, format_stochastic_summary, format_uncertainty_summary
-from adapters.terrain_grid import load_terrain_grid
+from adapters.assets.terrain_grid import load_terrain_grid
 from adapters.uncertainty_envelope import (
     UncertaintyResultEnvelope,
     render_uncertainty_envelope_json,
 )
 from adapters.uncertainty_markdown import render_uncertainty_markdown
-from adapters.wind_grid import load_wind_grid
+from adapters.assets.wind_grid import load_wind_grid
 from estimator import (
     EstimateStatus,
     EstimationOptions,

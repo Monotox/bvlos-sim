@@ -20,11 +20,11 @@ from adapters.cli_support import (
     _write_output,
 )
 from adapters.envelope import OutputFormat
-from adapters.geofence_geojson import GeofenceLoadError
+from adapters.assets.geofence_geojson import GeofenceLoadError
 from adapters.geojson_export import build_geojson_export
 from adapters.io import InputDocument, InputLoadError, load_mission, load_vehicle
 from adapters.kml_export import build_kml_export
-from adapters.landing_zone_geojson import LandingZoneLoadError
+from adapters.assets.landing_zone_geojson import LandingZoneLoadError
 from adapters.profile_markdown import render_profile_markdown_from_scenario
 from adapters.scenario_envelope import (
     ScenarioResultEnvelope,

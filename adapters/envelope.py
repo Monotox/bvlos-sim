@@ -1,5 +1,6 @@
 """Canonical result envelope for estimator CLI outputs."""
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
 
@@ -319,54 +320,75 @@ def _static_feasibility_result_validity(result: MissionEstimate) -> ResultValidi
     )
 
 
-def _build_result_validity(result: MissionEstimate | None) -> ResultValidity:
-    if result is None:
-        return ResultValidity(
-            is_complete=False,
-            is_partial=False,
-            is_valid_for_full_mission=False,
-            scope=ResultScope.NONE,
-            invalidated_fields=[],
-            unavailable_fields=["result"],
-        )
+ResultValidityPredicate = Callable[[MissionEstimate], bool]
+ResultValidityFactory = Callable[[MissionEstimate], ResultValidity]
 
-    if result.status == EstimateStatus.SUCCESS and not result.totals_are_partial:
-        return ResultValidity(
-            is_complete=True,
-            is_partial=False,
-            is_valid_for_full_mission=True,
-            scope=ResultScope.FULL_MISSION,
-        )
 
-    if (
+def _is_complete_success_result(result: MissionEstimate) -> bool:
+    return result.status == EstimateStatus.SUCCESS and not result.totals_are_partial
+
+
+def _has_static_feasibility_failure(result: MissionEstimate) -> bool:
+    return (
         result.failure is not None
         and result.failure.code in _STATIC_FEASIBILITY_FAILURE_CODES
         and not result.totals_are_partial
-    ):
-        return _static_feasibility_result_validity(result)
+    )
 
-    if (
+
+def _has_full_mission_failure_with_legs(result: MissionEstimate) -> bool:
+    return (
         result.failure is not None
         and result.failure.code not in _STATIC_FEASIBILITY_FAILURE_CODES
         and not result.totals_are_partial
-        and result.legs
-    ):
-        return ResultValidity(
-            is_complete=False,
-            is_partial=False,
-            is_valid_for_full_mission=False,
-            scope=ResultScope.FULL_MISSION,
-        )
+        and bool(result.legs)
+    )
 
-    if result.totals_are_partial:
-        return ResultValidity(
-            is_complete=False,
-            is_partial=True,
-            is_valid_for_full_mission=False,
-            scope=ResultScope.COMPLETED_LEGS_ONLY,
-            invalidated_fields=list(_TOTAL_FIELD_PATHS),
-        )
 
+def _is_partial_result(result: MissionEstimate) -> bool:
+    return result.totals_are_partial
+
+
+def _missing_result_validity() -> ResultValidity:
+    return ResultValidity(
+        is_complete=False,
+        is_partial=False,
+        is_valid_for_full_mission=False,
+        scope=ResultScope.NONE,
+        invalidated_fields=[],
+        unavailable_fields=["result"],
+    )
+
+
+def _complete_success_result_validity(_result: MissionEstimate) -> ResultValidity:
+    return ResultValidity(
+        is_complete=True,
+        is_partial=False,
+        is_valid_for_full_mission=True,
+        scope=ResultScope.FULL_MISSION,
+    )
+
+
+def _full_mission_failure_result_validity(_result: MissionEstimate) -> ResultValidity:
+    return ResultValidity(
+        is_complete=False,
+        is_partial=False,
+        is_valid_for_full_mission=False,
+        scope=ResultScope.FULL_MISSION,
+    )
+
+
+def _partial_result_validity(_result: MissionEstimate) -> ResultValidity:
+    return ResultValidity(
+        is_complete=False,
+        is_partial=True,
+        is_valid_for_full_mission=False,
+        scope=ResultScope.COMPLETED_LEGS_ONLY,
+        invalidated_fields=list(_TOTAL_FIELD_PATHS),
+    )
+
+
+def _unavailable_totals_result_validity() -> ResultValidity:
     return ResultValidity(
         is_complete=False,
         is_partial=False,
@@ -374,6 +396,27 @@ def _build_result_validity(result: MissionEstimate | None) -> ResultValidity:
         scope=ResultScope.NONE,
         unavailable_fields=list(_TOTAL_FIELD_PATHS),
     )
+
+
+_RESULT_VALIDITY_RULES: tuple[
+    tuple[ResultValidityPredicate, ResultValidityFactory], ...
+] = (
+    (_is_complete_success_result, _complete_success_result_validity),
+    (_has_static_feasibility_failure, _static_feasibility_result_validity),
+    (_has_full_mission_failure_with_legs, _full_mission_failure_result_validity),
+    (_is_partial_result, _partial_result_validity),
+)
+
+
+def _build_result_validity(result: MissionEstimate | None) -> ResultValidity:
+    if result is None:
+        return _missing_result_validity()
+
+    for predicate, factory in _RESULT_VALIDITY_RULES:
+        if predicate(result):
+            return factory(result)
+
+    return _unavailable_totals_result_validity()
 
 
 def _build_diagnostics(result: MissionEstimate | None) -> list[EnvelopeDiagnostic]:

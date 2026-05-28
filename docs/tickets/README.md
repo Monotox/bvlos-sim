@@ -136,29 +136,34 @@ path rather than through isolated examples. Current validation includes:
 
 ### Planned
 
-39. [076-departure-window-finder.md](./076-departure-window-finder.md)
-40. [077-mission-comparison-report.md](./077-mission-comparison-report.md)
-41. [069-per-event-lost-link-policy-override.md](./069-per-event-lost-link-policy-override.md)
-42. [066-stochastic-geojson-export.md](./066-stochastic-geojson-export.md)
-43. [067-propagation-progress-feedback.md](./067-propagation-progress-feedback.md)
-44. [068-divert-route-geojson-layer.md](./068-divert-route-geojson-layer.md)
-45. [063-rth-reserve-check.md](./063-rth-reserve-check.md)
-46. [061-3d-geofence-altitude-bounds.md](./061-3d-geofence-altitude-bounds.md)
-47. [064-batch-scenario-and-propagate.md](./064-batch-scenario-and-propagate.md)
-48. [044-geodesic-dubins-divert.md](./044-geodesic-dubins-divert.md)
-49. [054-reference-inputs-for-calibration-and-import.md](./054-reference-inputs-for-calibration-and-import.md)
-50. [045-px4-sitl-launch-and-mission-upload.md](./045-px4-sitl-launch-and-mission-upload.md)
-51. [046-px4-sitl-telemetry-recorder-and-evidence-bundle.md](./046-px4-sitl-telemetry-recorder-and-evidence-bundle.md)
-52. [058-notam-live-airspace-integration.md](./058-notam-live-airspace-integration.md)
-53. [050-user-interfaces-and-service-adapters.md](./050-user-interfaces-and-service-adapters.md)
-54. [070-operational-integration-seams.md](./070-operational-integration-seams.md)
-55. [071-live-comms-remote-id-and-traffic-integrations.md](./071-live-comms-remote-id-and-traffic-integrations.md)
+39. [085-qgc-convert-vehicle-profile.md](./085-qgc-convert-vehicle-profile.md)
+40. [076-departure-window-finder.md](./076-departure-window-finder.md)
+41. [077-mission-comparison-report.md](./077-mission-comparison-report.md)
+42. [086-stochastic-propagator-module-split.md](./086-stochastic-propagator-module-split.md)
+43. [069-per-event-lost-link-policy-override.md](./069-per-event-lost-link-policy-override.md)
+44. [066-stochastic-geojson-export.md](./066-stochastic-geojson-export.md)
+45. [067-propagation-progress-feedback.md](./067-propagation-progress-feedback.md)
+46. [068-divert-route-geojson-layer.md](./068-divert-route-geojson-layer.md)
+47. [063-rth-reserve-check.md](./063-rth-reserve-check.md)
+48. [061-3d-geofence-altitude-bounds.md](./061-3d-geofence-altitude-bounds.md)
+49. [064-batch-scenario-and-propagate.md](./064-batch-scenario-and-propagate.md)
+50. [044-geodesic-dubins-divert.md](./044-geodesic-dubins-divert.md)
+51. [054-reference-inputs-for-calibration-and-import.md](./054-reference-inputs-for-calibration-and-import.md)
+52. [045-px4-sitl-launch-and-mission-upload.md](./045-px4-sitl-launch-and-mission-upload.md)
+53. [046-px4-sitl-telemetry-recorder-and-evidence-bundle.md](./046-px4-sitl-telemetry-recorder-and-evidence-bundle.md)
+54. [058-notam-live-airspace-integration.md](./058-notam-live-airspace-integration.md)
+55. [050-user-interfaces-and-service-adapters.md](./050-user-interfaces-and-service-adapters.md)
+56. [070-operational-integration-seams.md](./070-operational-integration-seams.md)
+57. [071-live-comms-remote-id-and-traffic-integrations.md](./071-live-comms-remote-id-and-traffic-integrations.md)
 
 ## Current Gaps
 
+- QGC `.plan` conversion still writes a placeholder vehicle profile instead of requiring an operator-selected profile: Ticket 085.
 - No departure window finder for time-varying forecasts: Ticket 076.
 - No side-by-side mission comparison (`diff` command): Ticket 077.
 - Lost-link events share one global policy; no per-event override: Ticket 069.
+- Stochastic propagation internals are concentrated in one large module,
+  making future stochastic exports and progress feedback riskier: Ticket 086.
 - No GeoJSON/KML export for stochastic propagation results: Ticket 066.
 - No progress feedback during long particle propagation runs: Ticket 067.
 - No divert-route visual layer in scenario GeoJSON/KML export: Ticket 068.

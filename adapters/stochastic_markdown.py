@@ -1,73 +1,83 @@
 """Markdown rendering for stochastic propagation reports."""
 
 import math
+from collections.abc import Sequence
+from typing import TypeVar
 
 from adapters.stochastic_envelope import StochasticResultEnvelope
 from schemas.stochastic import (
     CrossTrackStats,
     EstimationErrorTimelinePoint,
     PropagationTimelinePoint,
+    StochasticPropagationResult,
 )
+
+T = TypeVar("T")
+Lines = list[str]
 
 
 def _fmt(value: float, decimals: int = 2) -> str:
     return f"{value:.{decimals}f}"
 
 
+def _fmt_duration(total_s: float) -> str:
+    minutes = int(total_s // 60)
+    seconds = int(total_s % 60)
+    return f"{minutes}m {seconds:02d}s ({_fmt(total_s)} s)"
+
+
+def _sample_points(points: Sequence[T]) -> list[T]:
+    if len(points) <= 20:
+        return list(points)
+    stride = math.ceil(len(points) / 20)
+    return list(points[::stride][:20])
+
+
 def _timeline_points(
     envelope: StochasticResultEnvelope,
 ) -> list[PropagationTimelinePoint]:
-    points = envelope.result.timeline
-    if len(points) <= 20:
-        return points
-    stride = math.ceil(len(points) / 20)
-    return points[::stride][:20]
+    return _sample_points(envelope.result.timeline)
 
 
 def _estimation_error_points(
     envelope: StochasticResultEnvelope,
 ) -> list[EstimationErrorTimelinePoint]:
-    points = envelope.result.estimation_error_timeline
-    if len(points) <= 20:
-        return points
-    stride = math.ceil(len(points) / 20)
-    return points[::stride][:20]
+    return _sample_points(envelope.result.estimation_error_timeline)
 
 
 def _cross_track_points(
     envelope: StochasticResultEnvelope,
 ) -> list[CrossTrackStats]:
-    points = envelope.result.cross_track_timeline
-    if len(points) <= 20:
-        return points
-    stride = math.ceil(len(points) / 20)
-    return points[::stride][:20]
+    return _sample_points(envelope.result.cross_track_timeline)
 
 
-def render_stochastic_markdown(envelope: StochasticResultEnvelope) -> str:
+def _render_header(envelope: StochasticResultEnvelope) -> Lines:
     r = envelope.result
-    lines: list[str] = []
-
-    lines.append(f"# Stochastic Propagation Report: {r.propagation_id}")
-    lines.append("")
-    lines.append(f"**Schema Version:** {envelope.schema_version}  ")
-    lines.append(f"**Tool Version:** {envelope.tool_version}  ")
-    lines.append(f"**Seed:** {r.seed}  ")
-    lines.append(f"**Samples:** {r.sample_count}  ")
+    lines = [
+        f"# Stochastic Propagation Report: {r.propagation_id}",
+        "",
+        f"**Schema Version:** {envelope.schema_version}  ",
+        f"**Tool Version:** {envelope.tool_version}  ",
+        f"**Seed:** {r.seed}  ",
+        f"**Samples:** {r.sample_count}  ",
+    ]
     if r.failed_sample_count > 0:
         lines.append(f"**Failed Samples:** {r.failed_sample_count}  ")
     if r.spatial_infeasible_count > 0:
         lines.append(f"**Spatially Infeasible Samples:** {r.spatial_infeasible_count}  ")
     lines.append(f"**dt_s:** {_fmt(r.dt_s)}  ")
     lines.append(f"**Feasibility Rate:** {r.feasibility_rate * 100:.1f}%  ")
+    return lines
 
-    lines.append("")
-    lines.append("## Timeline")
-    lines.append("")
-    lines.append(
-        "| Elapsed (s) | Energy Mean (Wh) | Energy Std | P(reserve violation) |"
-    )
-    lines.append("|-------------|------------------|------------|----------------------|")
+
+def _render_timeline(envelope: StochasticResultEnvelope) -> Lines:
+    lines = [
+        "",
+        "## Timeline",
+        "",
+        "| Elapsed (s) | Energy Mean (Wh) | Energy Std | P(reserve violation) |",
+        "|-------------|------------------|------------|----------------------|",
+    ]
     for point in _timeline_points(envelope):
         lines.append(
             f"| {_fmt(point.elapsed_time_s)} "
@@ -75,76 +85,97 @@ def render_stochastic_markdown(envelope: StochasticResultEnvelope) -> str:
             f"| {_fmt(point.energy_remaining_wh.std)} "
             f"| {_fmt(point.p_reserve_violation, 3)} |"
         )
+    return lines
 
-    if r.estimation_error_timeline:
-        lines.append("")
-        lines.append("## Estimation Error Timeline")
-        lines.append("")
+
+def _render_estimation_error_timeline(envelope: StochasticResultEnvelope) -> Lines:
+    if not envelope.result.estimation_error_timeline:
+        return []
+
+    lines = [
+        "",
+        "## Estimation Error Timeline",
+        "",
+        "| Elapsed (s) | Pos Error Mean (m) | Pos Error Std | Energy Error Mean (Wh) |",
+        "|-------------|---------------------|---------------|------------------------|",
+    ]
+    for point in _estimation_error_points(envelope):
         lines.append(
-            "| Elapsed (s) | Pos Error Mean (m) | Pos Error Std | Energy Error Mean (Wh) |"
+            f"| {_fmt(point.elapsed_time_s)} "
+            f"| {_fmt(point.position_error_m.mean)} "
+            f"| {_fmt(point.position_error_m.std)} "
+            f"| {_fmt(point.energy_error_wh.mean)} |"
         )
+    return lines
+
+
+def _render_cross_track_timeline(envelope: StochasticResultEnvelope) -> Lines:
+    if not envelope.result.cross_track_timeline:
+        return []
+
+    lines = [
+        "",
+        "## Cross-Track Timeline",
+        "",
+        "| Elapsed (s) | XTE Mean (m) | XTE Std | Path Excess Mean (m) |",
+        "|-------------|--------------|---------|----------------------|",
+    ]
+    for point in _cross_track_points(envelope):
         lines.append(
-            "|-------------|---------------------|---------------|------------------------|"
+            f"| {_fmt(point.elapsed_time_s)} "
+            f"| {_fmt(point.cross_track_error_m.mean)} "
+            f"| {_fmt(point.cross_track_error_m.std)} "
+            f"| {_fmt(point.path_length_excess_m.mean)} |"
         )
-        for point in _estimation_error_points(envelope):
-            lines.append(
-                f"| {_fmt(point.elapsed_time_s)} "
-                f"| {_fmt(point.position_error_m.mean)} "
-                f"| {_fmt(point.position_error_m.std)} "
-                f"| {_fmt(point.energy_error_wh.mean)} |"
-            )
+    return lines
 
-    if r.cross_track_timeline:
-        lines.append("")
-        lines.append("## Cross-Track Timeline")
-        lines.append("")
+
+def _render_reserve_distribution(result: StochasticPropagationResult) -> Lines:
+    if result.reserve_at_landing_wh is None:
+        return []
+
+    s = result.reserve_at_landing_wh
+    return [
+        "",
+        "## Reserve at Landing Distribution (Wh)",
+        "",
+        "| Stat | Value (Wh) |",
+        "|------|------------|",
+        f"| min  | {_fmt(s.min)} |",
+        f"| p5   | {_fmt(s.p5)} |",
+        f"| p50  | {_fmt(s.p50)} |",
+        f"| mean | {_fmt(s.mean)} |",
+        f"| p95  | {_fmt(s.p95)} |",
+        f"| max  | {_fmt(s.max)} |",
+        f"| std  | {_fmt(s.std)} |",
+    ]
+
+
+def _render_baseline(result: StochasticPropagationResult) -> Lines:
+    baseline = result.baseline
+    lines = [
+        "",
+        "## Baseline (Deterministic)",
+        "",
+        f"**Status:** {baseline.status}  ",
+        f"**Total Time:** {_fmt_duration(baseline.total_time_s)}  ",
+    ]
+    if baseline.energy is not None:
         lines.append(
-            "| Elapsed (s) | XTE Mean (m) | XTE Std | Path Excess Mean (m) |"
-        )
-        lines.append(
-            "|-------------|--------------|---------|----------------------|"
-        )
-        for point in _cross_track_points(envelope):
-            lines.append(
-                f"| {_fmt(point.elapsed_time_s)} "
-                f"| {_fmt(point.cross_track_error_m.mean)} "
-                f"| {_fmt(point.cross_track_error_m.std)} "
-                f"| {_fmt(point.path_length_excess_m.mean)} |"
-            )
-
-    if r.reserve_at_landing_wh is not None:
-        s = r.reserve_at_landing_wh
-        lines.append("")
-        lines.append("## Reserve at Landing Distribution (Wh)")
-        lines.append("")
-        lines.append("| Stat | Value (Wh) |")
-        lines.append("|------|------------|")
-        lines.append(f"| min  | {_fmt(s.min)} |")
-        lines.append(f"| p5   | {_fmt(s.p5)} |")
-        lines.append(f"| p50  | {_fmt(s.p50)} |")
-        lines.append(f"| mean | {_fmt(s.mean)} |")
-        lines.append(f"| p95  | {_fmt(s.p95)} |")
-        lines.append(f"| max  | {_fmt(s.max)} |")
-        lines.append(f"| std  | {_fmt(s.std)} |")
-
-    lines.append("")
-    lines.append("## Baseline (Deterministic)")
-    lines.append("")
-    b = r.baseline
-    def _fmt_duration(total_s: float) -> str:
-        minutes = int(total_s // 60)
-        seconds = int(total_s % 60)
-        return f"{minutes}m {seconds:02d}s ({_fmt(total_s)} s)"
-
-    lines.append(f"**Status:** {b.status}  ")
-    lines.append(f"**Total Time:** {_fmt_duration(b.total_time_s)}  ")
-    if b.energy is not None:
-        lines.append(
-            f"**Reserve at Landing:** {_fmt(b.energy.reserve_at_landing_wh)} Wh "
-            f"({_fmt(b.energy.reserve_at_landing_percent)}%)  "
+            f"**Reserve at Landing:** {_fmt(baseline.energy.reserve_at_landing_wh)} Wh "
+            f"({_fmt(baseline.energy.reserve_at_landing_percent)}%)  "
         )
     else:
         lines.append("**Reserve at Landing:** n/a  ")
+    return lines
 
+
+def render_stochastic_markdown(envelope: StochasticResultEnvelope) -> str:
+    lines = _render_header(envelope)
+    lines.extend(_render_timeline(envelope))
+    lines.extend(_render_estimation_error_timeline(envelope))
+    lines.extend(_render_cross_track_timeline(envelope))
+    lines.extend(_render_reserve_distribution(envelope.result))
+    lines.extend(_render_baseline(envelope.result))
     lines.append("")
     return "\n".join(lines)
