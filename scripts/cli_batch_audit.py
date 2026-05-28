@@ -538,9 +538,9 @@ def _build_cases(root: Path) -> list[Case]:
         _scenario_payload(
             assertions=[
                 {
-                    "assertion_id": "unknown-field",
+                    "assertion_id": "boolean-with-numeric-op",
                     "kind": "field_lt",
-                    "field_path": "estimate.not_a_field",
+                    "field_path": "estimate.energy.is_feasible",
                     "expected": 1.0,
                 }
             ]
@@ -866,7 +866,7 @@ def _build_cases(root: Path) -> list[Case]:
             "estimate geofence conflict",
             ["estimate", str(mission_geofence_path), str(paths["vehicle"])],
             INFEASIBLE,
-            _expect_json_field("diagnostics.0.code", "ROUTE_ENTERS_FORBIDDEN_ZONE"),
+            _expect_json_field("diagnostics.1.code", "ROUTE_ENTERS_FORBIDDEN_ZONE"),
         ),
         Case(
             "estimate geofence unsupported geometry",
@@ -890,7 +890,7 @@ def _build_cases(root: Path) -> list[Case]:
             "estimate no reachable landing zone",
             ["estimate", str(mission_no_lz_path), str(paths["vehicle"])],
             INFEASIBLE,
-            _expect_json_field("diagnostics.0.code", "NO_REACHABLE_LANDING_ZONE"),
+            _expect_json_field("diagnostics.1.code", "NO_REACHABLE_LANDING_ZONE"),
         ),
         Case(
             "scenario baseline passes",
@@ -1012,6 +1012,86 @@ def _build_cases(root: Path) -> list[Case]:
             ["scenario", str(scenario_policy_fail)],
             INFEASIBLE,
             _scenario_status("failed"),
+        ),
+        Case("propagate help", ["propagate", "--help"], SUCCESS),
+        Case("propagate no args usage error", ["propagate"], USAGE_ERROR),
+        Case(
+            "propagate example yaml",
+            [
+                "propagate",
+                str(
+                    Path(__file__).resolve().parents[1]
+                    / "examples/stochastic/pipeline_demo_001_stochastic.yaml"
+                ),
+                "--format",
+                "summary",
+            ],
+            SUCCESS,
+        ),
+        Case(
+            "propagate bad schema exits invalid input",
+            ["propagate", str(scenario_bad_schema)],
+            INVALID_INPUT,
+        ),
+        Case("convert help", ["convert", "--help"], SUCCESS),
+        Case("convert no args usage error", ["convert"], USAGE_ERROR),
+        Case(
+            "convert missing vehicle profile exits invalid input",
+            ["convert", str(paths["scenario"])],
+            INVALID_INPUT,
+        ),
+        Case(
+            "convert example plan",
+            [
+                "convert",
+                str(
+                    Path(__file__).resolve().parents[1]
+                    / "examples/missions/pipeline_demo_001.plan"
+                ),
+                "--vehicle-profile",
+                "quadplane_v1",
+                "--validate-only",
+            ],
+            SUCCESS,
+        ),
+        Case("batch help", ["batch", "--help"], SUCCESS),
+        Case("batch no args usage error", ["batch"], USAGE_ERROR),
+        Case(
+            "batch example manifest summary",
+            [
+                "batch",
+                str(
+                    Path(__file__).resolve().parents[1]
+                    / "examples/batch/demo_batch.yaml"
+                ),
+                "--format",
+                "summary",
+            ],
+            INFEASIBLE,
+        ),
+        Case(
+            "batch bad schema exits invalid input",
+            ["batch", str(scenario_bad_schema)],
+            INVALID_INPUT,
+        ),
+        Case("size-battery help", ["size-battery", "--help"], SUCCESS),
+        Case("size-battery no args usage error", ["size-battery"], USAGE_ERROR),
+        Case(
+            "size-battery example summary",
+            [
+                "size-battery",
+                str(
+                    Path(__file__).resolve().parents[1]
+                    / "examples/missions/pipeline_demo_001.yaml"
+                ),
+                str(
+                    Path(__file__).resolve().parents[1]
+                    / "examples/vehicles/quadplane_v1.yaml"
+                ),
+                "--format",
+                "summary",
+            ],
+            SUCCESS,
         ),
         Case("sample help", ["sample", "--help"], SUCCESS),
         Case("sample no args usage error", ["sample"], USAGE_ERROR),

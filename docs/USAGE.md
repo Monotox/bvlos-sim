@@ -72,7 +72,7 @@ with a `✓`/`✗`/`◌` icon, and the output ends with `Status: GO` or
 import into spreadsheets. This outputs to stdout; use `--output` to redirect
 to a file.
 
-`estimate`, `scenario`, `propagate`, and `sample` support `--validate-only`: load
+All commands that load input files support `--validate-only`: load
 and validate all input files against their schemas and exit without running the
 estimator. Exits 0 on success, 11 (invalid input) otherwise. Useful in CI to
 catch schema errors before long runs.
@@ -81,6 +81,15 @@ catch schema errors before long runs.
 uv run bvlos-sim estimate mission.yaml vehicle.yaml --validate-only
 # mission: mission.yaml: OK
 # vehicle: vehicle.yaml: OK
+
+uv run bvlos-sim batch manifest.yaml --validate-only
+# batch: manifest.yaml: OK (3 runs)
+#   mission: mission_a.yaml: OK
+#   vehicle: vehicle_a.yaml: OK
+#   ...
+
+uv run bvlos-sim convert plan.plan --vehicle-profile quadplane_v1 --validate-only
+# plan: plan.plan: OK (4 route items)
 ```
 
 Command help:

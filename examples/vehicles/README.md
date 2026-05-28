@@ -1,0 +1,28 @@
+# Example Vehicle Profiles
+
+Vehicle profiles for the pipeline demo and community reference aircraft.
+
+| File | Class | Description |
+|---|---|---|
+| `quadplane_v1.yaml` | VTOL | Baseline VTOL quadplane used by most pipeline demo missions. |
+| `quadplane_v1_ekf.yaml` | VTOL | Same airframe with GPS and battery sensor profiles for EKF twin-state stochastic propagation. |
+| `quadplane_resource_link.yaml` | VTOL | Variant with explicit resource and communication-link systems. |
+| `community/` | Various | Five manufacturer-sourced profiles — see `community/README.md`. |
+
+## Quick start
+
+```bash
+# Check a vehicle profile is valid
+uv run bvlos-sim estimate --help   # then pass a mission + vehicle
+
+# Estimate with the baseline VTOL
+uv run bvlos-sim estimate examples/missions/pipeline_demo_001.yaml \
+  examples/vehicles/quadplane_v1.yaml --format summary
+```
+
+## Adding your own profile
+
+Copy `quadplane_v1.yaml` as a starting point. Set `vehicle_id` to a unique
+slug (e.g. `my_hex_v1`), update `vehicle_class`, and fill in `mass`,
+`performance`, and `energy` from your aircraft's datasheet. Reference the same
+`vehicle_id` in your `mission.yaml` `vehicle_profile` field.

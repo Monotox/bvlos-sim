@@ -13,6 +13,10 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.13"]
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -20,10 +24,10 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v7
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
 
-      - name: Set up Python 3.12
-        run: uv python install 3.12
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
 
       - name: Install dependencies
         run: uv sync
@@ -33,3 +37,6 @@ jobs:
 
       - name: Run pytest
         run: uv run pytest
+
+      - name: Run CLI audit
+        run: uv run python scripts/cli_batch_audit.py

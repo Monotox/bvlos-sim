@@ -1,6 +1,6 @@
 # Ticket Backlog
 
-**40 implemented · 18 planned · 876 tests passing**
+**40 implemented · 24 planned · 906 tests passing**
 
 This directory tracks every capability from idea to implementation. Completed
 tickets are kept as historical records. Open tickets describe what to build
@@ -37,6 +37,25 @@ Items are ordered by impact. Pick one, read its ticket file, open a PR.
 |---|---|---|
 | 088 | [Performance benchmarks](./088-performance-benchmarking-and-regression-gates.md) | `pytest-benchmark` suite + CI regression gates (no production code changes) |
 | 089 | [Preflight report command](./089-preflight-report-command.md) | Single `preflight` command combining estimate + scenario + Monte Carlo into one operator briefing |
+| 090 | [Schema migration tooling](./090-schema-version-migration-tooling.md) | `bvlos-sim migrate` command to auto-upgrade YAML files when schema versions bump |
+
+### Regulatory pre-assessment — SORA (highest strategic value)
+
+The features most likely to make a professional BVLOS operator adopt the tool:
+they produce the headline numbers of an EASA/UK-CAA SORA submission.
+
+| # | Ticket | What it adds |
+|---|---|---|
+| 094 | [SORA Ground Risk Class (iGRC)](./094-sora-ground-risk-class.md) | Overlay route against a population-density grid + aircraft characteristic dimension to compute intrinsic Ground Risk Class per leg and per mission |
+| 095 | [SORA Air Risk & SAIL](./095-sora-air-risk-and-sail.md) | Air Risk Class from airspace context + GRC × ARC → SAIL determination with applicable OSOs; the `bvlos-sim sora` report (requires 094) |
+
+### Operator workflow (highest real-world impact)
+
+| # | Ticket | What it adds |
+|---|---|---|
+| 091 | [QGC mission export](./091-qgc-mission-export.md) | `bvlos-sim export` converts a mission YAML back to QGC `.plan` — closes the round-trip, makes bvlos-sim an authoring tool not just an analyser |
+| 092 | [Weather minimums & GO/NO-GO](./092-weather-minimums-and-go-nogo.md) | Enforce `max_wind_mps`, `max_gust_mps`, and `max_crosswind_mps` from the forecast grid — the check every BVLOS approval document requires |
+| 093 | [Time-varying geofence activation](./093-time-varying-geofence-activation.md) | TFRs and curfew zones only active during the planned flight window; prerequisite for Ticket 058 NOTAM ingestion |
 
 ### Core simulation gaps
 
