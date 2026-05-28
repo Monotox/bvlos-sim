@@ -69,6 +69,27 @@ FIELD_ASSERTION_KINDS: frozenset[ScenarioAssertionKind] = frozenset(
     }
 )
 
+SUPPORTED_ASSERTION_FIELD_PATHS: frozenset[str] = frozenset(
+    {
+        "estimate.status",
+        "estimate.total_time_s",
+        "estimate.total_horizontal_distance_m",
+        "estimate.total_vertical_distance_m",
+        "estimate.total_path_distance_m",
+        "estimate.totals_are_partial",
+        "estimate.energy.is_feasible",
+        "estimate.energy.total_energy_wh",
+        "estimate.energy.reserve_at_landing_percent",
+        "estimate.energy.reserve_at_landing_wh",
+        "estimate.energy.reserve_threshold_wh",
+        "estimate.energy.reserve_threshold_percent",
+        "estimate.resource.is_feasible",
+        "estimate.link.is_feasible",
+        "estimate.geofence.is_feasible",
+        "estimate.landing_zone.is_feasible",
+    }
+)
+
 POLICY_ASSERTION_KINDS: frozenset[ScenarioAssertionKind] = frozenset(
     {
         ScenarioAssertionKind.POLICY_ACTION_EQ,
@@ -186,6 +207,12 @@ def _validate_field_assertion_params(assertion: "ScenarioAssertion") -> None:
         return
     if assertion.field_path is None:
         raise ValueError(f"field_path is required for {assertion.kind} assertions")
+    if assertion.field_path not in SUPPORTED_ASSERTION_FIELD_PATHS:
+        valid = ", ".join(sorted(SUPPORTED_ASSERTION_FIELD_PATHS))
+        raise ValueError(
+            f"field_path '{assertion.field_path}' is not supported. "
+            f"Supported paths: {valid}."
+        )
     if assertion.expected is None:
         raise ValueError(f"expected is required for {assertion.kind} assertions")
 

@@ -148,10 +148,15 @@ def _scenario_exit_code_for_result(result: ScenarioResult) -> cli.ScenarioExitCo
 
 def scenario(
     scenario_file: Path = typer.Argument(
-        ..., exists=True, readable=True, resolve_path=True
+        ..., exists=True, readable=True, resolve_path=True,
+        help="Path to scenario.v1 YAML file.",
     ),
-    format: OutputFormat = typer.Option(OutputFormat.JSON, "--format"),
-    output: Path | None = typer.Option(None, "--output", "-o"),
+    format: OutputFormat = typer.Option(
+        OutputFormat.JSON,
+        "--format",
+        help="Output format. Use summary for a one-line result, checklist for pre-flight go/no-go.",
+    ),
+    output: Path | None = typer.Option(None, "--output", "-o", help="Write output to file instead of stdout."),
     validate_only: bool = typer.Option(
         False,
         "--validate-only",

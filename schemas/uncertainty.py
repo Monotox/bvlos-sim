@@ -110,7 +110,9 @@ class UncertaintyPlan(BaseModel):
         description="Schema version identifier."
     )
     uncertainty_id: str = Field(
-        description="Stable identifier for this uncertainty run."
+        min_length=1,
+        pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$",
+        description="Stable identifier for this uncertainty run.",
     )
     mission_file: str = Field(
         description="Path to the mission YAML file (relative to this file)."

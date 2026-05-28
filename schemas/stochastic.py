@@ -13,7 +13,11 @@ class StochasticPropagationPlan(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     schema_version: Literal["stochastic.v1"]
-    propagation_id: str = Field(min_length=1)
+    propagation_id: str = Field(
+        min_length=1,
+        pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$",
+        description="Stable identifier for this propagation run.",
+    )
     mission_file: str
     vehicle_file: str
     dt_s: float = Field(default=1.0, gt=0)

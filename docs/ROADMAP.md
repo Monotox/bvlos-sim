@@ -5,31 +5,21 @@ toward a broader BVLOS simulation platform.
 
 ## Current Status
 
-The current codebase implements Phases 1 through 4.11, plus Tickets 032–043,
-047–049, 052, 055–057, 059, and 060:
+The current codebase implements 38 tickets across Phases 1–4, including all
+core estimator, feasibility, scenario, SITL, stochastic, output-format, and
+batch capabilities:
 
-- estimator hardening
-- static feasibility checks
-- scenario runner and contingency policy outcomes
-- fidelity v2 trajectory and wind features
-- terrain-referenced altitude execution
-- continuous spatiotemporal wind grid
-- resource and communication-link feasibility abstractions
-- dynamic landing-zone availability via scenario events
-- computed divert route estimates on policy outcomes
-- Monte Carlo uncertainty analysis via `uncertainty.v1` YAML and `sample` CLI command
-- Dubins path solver and bank-angle-constrained divert distance
-- fidelity v2 tangent-point offset subtraction, 3D slant path for vertical legs, and Dubins divert planar limit warning
-- SITL adapter contract and `sitl-evidence.v1` evidence schema
-- connect-mode ArduPilot SITL mission upload
-- SITL telemetry, command-log, simulator-log, and adapter-log artifacts
-- SITL comparison reports via `sitl-comparison.v1`
-- one-line `--format summary` output for `estimate`, `scenario`, `sample`, and `propagate`
-- `--format geojson` and `--format kml` route exports with energy-margin layers
-- five community vehicle profiles (DJI Matrice 300 RTK, Wingtra One Gen II, QS Trinity F90+, Autel EVO Max 4T, generic survey hexacopter)
-- real-world data fetch scripts (`fetch_wind.py`, `fetch_terrain.py`, `fetch_landing_zones.py`) with pre-fetched Alpine demo example
+- estimator hardening, static feasibility checks, and scenario runner (Tickets 001–021)
+- fidelity v2 trajectory, wind, terrain, resource, link, and Dubins divert (Tickets 030–039)
+- SITL adapter contract, ArduPilot adapter, telemetry recording, and comparison reports (Tickets 040–043)
+- stochastic state propagation, twin-state EKF observation model, and closed-loop tracking controller (Tickets 047–049)
+- real-world data fetch scripts and pre-fetched Alpine demo (Tickets 052–053)
+- GeoJSON/KML route exports, community vehicle profiles, and `--format summary` (Tickets 055–057)
+- deliberately infeasible demo, QGC import, batch estimates, and `--format csv` (Tickets 059–060)
+- wind-corrected divert energy and stochastic spatial infeasibility tracking (Tickets 062, 065)
+- `--format checklist`, `--format profile`, energy reserve sensitivity, and `size-battery` command (Tickets 072–075)
 
-The Linux test suite currently passes with 622 tests and 9 skipped live or
+The test suite currently passes with 867 tests and 9 skipped live or
 environment-dependent tests.
 
 bvlos-sim remains an engineering validation tool. It is not a flight-safety

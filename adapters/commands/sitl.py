@@ -26,9 +26,11 @@ def sitl(
     scenario_file: Path = typer.Argument(
         ..., exists=True, readable=True, resolve_path=True
     ),
-    output: Path | None = typer.Option(None, "--output", "-o"),
+    output: Path | None = typer.Option(None, "--output", "-o", help="Write output to file instead of stdout."),
     format: cli.DocumentOutputFormat = typer.Option(
-        cli.DocumentOutputFormat.JSON, "--format"
+        cli.DocumentOutputFormat.JSON,
+        "--format",
+        help="Output format for the SITL evidence bundle.",
     ),
     live: bool = typer.Option(
         False,

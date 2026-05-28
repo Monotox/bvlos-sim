@@ -1,6 +1,5 @@
 """Markdown rendering adapter for estimator result envelopes."""
 
-from adapters.canonical_json import format_canonical_float
 from adapters.envelope import EstimatorResultEnvelope
 from estimator.core.results import (
     EnergyEstimate,
@@ -16,7 +15,7 @@ _MISSING = "\u2014"
 
 
 def _fmt(value: float) -> str:
-    return format_canonical_float(value)
+    return f"{value:.2f}"
 
 
 def _fmt_bool(value: bool) -> str:

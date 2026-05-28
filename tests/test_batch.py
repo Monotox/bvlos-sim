@@ -440,3 +440,61 @@ def test_batch_cli_output_dir_checklist_shows_run_id(tmp_path: Path) -> None:
     assert len(files) == 1
     content = files[0].read_text(encoding="utf-8")
     assert "## Pre-Flight Checklist: my_named_run" in content
+
+
+def test_batch_validate_only_exits_success(tmp_path: Path) -> None:
+    manifest_path = tmp_path / "batch.yaml"
+    manifest_path.write_text(
+        "\n".join(
+            [
+                "format_version: batch.v1",
+                "runs:",
+                "  - id: run_a",
+                f"    mission: {REPO_ROOT / 'examples/missions/pipeline_demo_001.yaml'}",
+                f"    vehicle: {REPO_ROOT / 'examples/vehicles/quadplane_v1.yaml'}",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    result = _runner.invoke(app, ["batch", str(manifest_path), "--validate-only"])
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    assert "batch.yaml: OK (1 runs)" in result.output
+    assert "pipeline_demo_001.yaml: OK" in result.output
+    assert "quadplane_v1.yaml: OK" in result.output
+
+
+def test_batch_validate_only_invalid_mission_exits_invalid_input(tmp_path: Path) -> None:
+    manifest_path = tmp_path / "batch.yaml"
+    bad_mission = tmp_path / "bad.yaml"
+    bad_mission.write_text("not: valid: mission", encoding="utf-8")
+    manifest_path.write_text(
+        "\n".join(
+            [
+                "format_version: batch.v1",
+                "runs:",
+                "  - id: run_a",
+                f"    mission: {bad_mission}",
+                f"    vehicle: {REPO_ROOT / 'examples/vehicles/quadplane_v1.yaml'}",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    result = _runner.invoke(app, ["batch", str(manifest_path), "--validate-only"])
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+
+
+def test_batch_manifest_rejects_duplicate_run_ids() -> None:
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError, match="Duplicate run id"):
+        _manifest(
+            _run("same_id", REPO_ROOT / "examples/missions/pipeline_demo_001.yaml", REPO_ROOT / "examples/vehicles/quadplane_v1.yaml"),
+            _run("same_id", REPO_ROOT / "examples/missions/pipeline_demo_001.yaml", REPO_ROOT / "examples/vehicles/quadplane_v1.yaml"),
+        )
+
+
+def test_batch_manifest_rejects_invalid_run_id_characters() -> None:
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError, match="pattern"):
+        _manifest(
+            _run("run/bad", REPO_ROOT / "examples/missions/pipeline_demo_001.yaml", REPO_ROOT / "examples/vehicles/quadplane_v1.yaml"),
+        )

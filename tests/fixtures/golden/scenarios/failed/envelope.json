@@ -22,13 +22,13 @@
     },
     {
       "actual": null,
-      "assertion_id": "unsupported-field",
+      "assertion_id": "unsupported-comparison",
       "expected": null,
-      "field_path": "estimate.unknown_field",
+      "field_path": "estimate.energy.is_feasible",
       "kind": "field_lt",
-      "message": "Assertion is not supported: Field path 'estimate.unknown_field' is not supported in scenario.v1. Supported paths: estimate.energy.is_feasible, estimate.energy.reserve_at_landing_percent, estimate.energy.reserve_at_landing_wh, estimate.energy.reserve_threshold_percent, estimate.energy.reserve_threshold_wh, estimate.energy.total_energy_wh, estimate.geofence.is_feasible, estimate.landing_zone.is_feasible, estimate.link.is_feasible, estimate.resource.is_feasible, estimate.status, estimate.total_horizontal_distance_m, estimate.total_path_distance_m, estimate.total_time_s, estimate.total_vertical_distance_m, estimate.totals_are_partial.",
+      "message": "Assertion is not supported: Field 'estimate.energy.is_feasible' has a non-numeric value; cannot apply 'field_lt' comparison.",
       "outcome": "unsupported",
-      "unsupported_reason": "Field path 'estimate.unknown_field' is not supported in scenario.v1. Supported paths: estimate.energy.is_feasible, estimate.energy.reserve_at_landing_percent, estimate.energy.reserve_at_landing_wh, estimate.energy.reserve_threshold_percent, estimate.energy.reserve_threshold_wh, estimate.energy.total_energy_wh, estimate.geofence.is_feasible, estimate.landing_zone.is_feasible, estimate.link.is_feasible, estimate.resource.is_feasible, estimate.status, estimate.total_horizontal_distance_m, estimate.total_path_distance_m, estimate.total_time_s, estimate.total_vertical_distance_m, estimate.totals_are_partial."
+      "unsupported_reason": "Field 'estimate.energy.is_feasible' has a non-numeric value; cannot apply 'field_lt' comparison."
     },
     {
       "actual": "rtl",
@@ -335,7 +335,7 @@
       },
       "scenario": {
         "format": "yaml",
-        "sha256": "1ec836db62b982e3d8f3be3dbd3367ea18f76026b8f82c21f6cd156fa26fcdf0"
+        "sha256": "ad795e8222b72a5146777901cddeb35582a8dfcaf34e5aa187347abcfb858222"
       },
       "vehicle": {
         "format": "yaml",
@@ -410,5 +410,5 @@
       "route_item_index": 3
     }
   ],
-  "tool_version": "0.22.0"
+  "tool_version": "0.30.0"
 }

@@ -2,7 +2,7 @@
 
 - Status: `success`
 - Envelope schema: `estimator-envelope.v5`
-- Tool version: `0.22.0`
+- Tool version: `0.30.0`
 
 ## Result Validity
 
@@ -47,32 +47,32 @@
 
 ## Estimate Summary
 
-- Horizontal distance m: `707.0645449`
-- Vertical distance m: `240.0`
-- Path distance m: `787.0645449`
-- Time: `2m 49s (169.82027517 s)`
+- Horizontal distance m: `707.06`
+- Vertical distance m: `240.00`
+- Path distance m: `787.06`
+- Time: `2m 49s (169.82 s)`
 - Legs: `5`
 
 ## Leg Breakdown
 
 | # | ID | Action | Dist m | Time s | Alt m | GS m/s | Wind m/s | Energy Wh |
 |---|-----|--------|-------:|-------:|------:|-------:|---------:|----------:|
-| 0 | takeoff | vtol_takeoff | 80.0 | 26.66666667 | 92.0 | — | — | 11.11111111 |
-| 1 | wp1 | waypoint | 176.76731937 | 13.33333333 | 132.0 | 18.0 | 0.0 | 1.66666667 |
-| 2 | loiter | loiter_time | 176.76495311 | 9.82027517 | 132.0 | 18.0 | 0.0 | 1.2275344 |
-| 3 | loiter | loiter_time | 0.0 | 60.0 | 132.0 | — | 0.0 | 20.0 |
-| 4 | rtl | rtl | 353.53227242 | 60.0 | 12.0 | 18.0 | 0.0 | 7.5 |
+| 0 | takeoff | vtol_takeoff | 80.00 | 26.67 | 92.00 | — | — | 11.11 |
+| 1 | wp1 | waypoint | 176.77 | 13.33 | 132.00 | 18.00 | 0.00 | 1.67 |
+| 2 | loiter | loiter_time | 176.76 | 9.82 | 132.00 | 18.00 | 0.00 | 1.23 |
+| 3 | loiter | loiter_time | 0.00 | 60.00 | 132.00 | — | 0.00 | 20.00 |
+| 4 | rtl | rtl | 353.53 | 60.00 | 12.00 | 18.00 | 0.00 | 7.50 |
 
 ## Energy Feasibility
 
 - Feasible: `true`
-- Total energy Wh: `41.50531217`
-- Battery capacity Wh: `900.0`
-- Usable energy Wh: `675.0`
-- Reserve threshold percent: `25.0`
-- Reserve threshold Wh: `225.0`
-- Reserve at landing Wh: `858.49468783`
-- Reserve at landing percent: `95.38829865`
+- Total energy Wh: `41.51`
+- Battery capacity Wh: `900.00`
+- Usable energy Wh: `675.00`
+- Reserve threshold percent: `25.00`
+- Reserve threshold Wh: `225.00`
+- Reserve at landing Wh: `858.49`
+- Reserve at landing percent: `95.39`
 - Energy legs: `5`
 
 ## Warnings

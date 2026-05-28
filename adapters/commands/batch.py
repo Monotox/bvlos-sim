@@ -16,7 +16,7 @@ from adapters.batch_support import (
 from adapters.cli_batch_support import BatchOutputFormat, _batch_exit_code, write_batch_outputs
 from adapters.cli_support import OutputWriteError, _write_output
 from adapters.envelope import OutputFormat
-from adapters.io import InputLoadError
+from adapters.io import InputLoadError, load_mission, load_vehicle
 
 
 BatchStdoutRenderer = Callable[[list[BatchRunResult]], str]
@@ -59,14 +59,46 @@ def _write_batch_file_outputs(
     )
 
 
+def _validate_batch_manifest(manifest: Path) -> None:
+    batch_manifest = load_batch_manifest(manifest)
+    typer.echo(f"batch: {manifest.name}: OK ({len(batch_manifest.runs)} runs)")
+    for run in batch_manifest.runs:
+        load_mission(run.mission)
+        typer.echo(f"  mission: {run.mission.name}: OK")
+        load_vehicle(run.vehicle)
+        typer.echo(f"  vehicle: {run.vehicle.name}: OK")
+
+
 def batch(
     manifest: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True),
-    output_dir: Path | None = typer.Option(None, "--output-dir"),
-    format: BatchOutputFormat = typer.Option(BatchOutputFormat.SUMMARY, "--format"),
+    output_dir: Path | None = typer.Option(None, "--output-dir", help="Directory for per-run output files. Required when --format is not csv or summary."),
+    format: BatchOutputFormat = typer.Option(
+        BatchOutputFormat.SUMMARY,
+        "--format",
+        help="Stdout format. Use csv for spreadsheet import. Use --output-dir with json/markdown/geojson/kml/checklist/profile to write per-run files.",
+    ),
+    validate_only: bool = typer.Option(
+        False,
+        "--validate-only",
+        help=(
+            "Validate the manifest and all referenced mission and vehicle files "
+            "against their schemas and exit without running estimates. "
+            "Exits 0 when all files are valid, INVALID_INPUT otherwise."
+        ),
+    ),
 ) -> None:
     """Run batch mission estimates from a batch.v1 manifest file."""
 
     try:
+        if validate_only:
+            _validate_batch_manifest(manifest)
+            raise typer.Exit(code=int(cli.CliExitCode.SUCCESS))
+        if output_dir is not None and format not in _BATCH_FILE_OUTPUT_FORMATS:
+            typer.echo(
+                f"Warning: --output-dir is ignored when --format {format} is used "
+                "(csv writes to stdout only).",
+                err=True,
+            )
         batch_manifest = load_batch_manifest(manifest)
         results = run_batch_manifest(batch_manifest)
         _emit_batch_warnings(results)

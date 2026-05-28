@@ -263,10 +263,14 @@ def _write_internal_error_envelope(
 
 
 def estimate(
-    mission: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True),
-    vehicle: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True),
-    format: OutputFormat = typer.Option(OutputFormat.JSON, "--format"),
-    output: Path | None = typer.Option(None, "--output", "-o"),
+    mission: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True, help="Path to mission.v5 YAML file."),
+    vehicle: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True, help="Path to vehicle profile YAML file."),
+    format: OutputFormat = typer.Option(
+        OutputFormat.JSON,
+        "--format",
+        help="Output format. Use summary for a one-line result, checklist for pre-flight go/no-go, sensitivity for a reserve sweep.",
+    ),
+    output: Path | None = typer.Option(None, "--output", "-o", help="Write output to file instead of stdout."),
     wind_layer: list[str] | None = typer.Option(
         None,
         "--wind-layer",

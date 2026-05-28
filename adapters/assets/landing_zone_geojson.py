@@ -194,12 +194,17 @@ def _invalid_geometry_error(
     context: dict[str, EstimatorContextValue],
     document: InputDocument | None,
 ) -> LandingZoneLoadError:
+    code = (
+        FailureCode.ASSET_LOAD_ERROR
+        if stage == LandingZoneLoadStage.READ
+        else FailureCode.INVALID_GEOMETRY
+    )
     return _error(
         message,
         path=path,
         stage=stage,
         kind=FailureKind.INVALID_INPUT,
-        code=FailureCode.INVALID_GEOMETRY,
+        code=code,
         context=context,
         document=document,
     )

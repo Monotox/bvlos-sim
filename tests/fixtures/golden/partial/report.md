@@ -2,7 +2,7 @@
 
 - Status: `error`
 - Envelope schema: `estimator-envelope.v5`
-- Tool version: `0.22.0`
+- Tool version: `0.30.0`
 
 ## Result Validity
 
@@ -54,14 +54,14 @@
 
 ## Estimate Summary
 
-- Horizontal distance m: `176.76731937`
-- Vertical distance m: `120.0`
-- Path distance m: `176.76731937`
-- Time: `0m 40s (40.0 s)`
+- Horizontal distance m: `176.77`
+- Vertical distance m: `120.00`
+- Path distance m: `176.77`
+- Time: `0m 40s (40.00 s)`
 - Legs: `1`
 
 ## Leg Breakdown
 
 | # | ID | Action | Dist m | Time s | Alt m | GS m/s | Wind m/s | Energy Wh |
 |---|-----|--------|-------:|-------:|------:|-------:|---------:|----------:|
-| 0 | wp1 | waypoint | 176.76731937 | 40.0 | 132.0 | 18.0 | 0.0 | — |
+| 0 | wp1 | waypoint | 176.77 | 40.00 | 132.00 | 18.00 | 0.00 | — |

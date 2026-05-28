@@ -251,16 +251,19 @@ def _fmt(value: float, decimals: int = 1) -> str:
     return f"{value:.{decimals}f}"
 
 
-def _overall_status(levels: list[SensitivityLevel]) -> str:
-    for level in levels:
-        if level.status != _FEASIBLE or level.reserve_wh <= 0.0:
-            return "MARGINAL"
+def _overall_status(baseline: MissionEstimate, levels: list[SensitivityLevel]) -> str:
+    if baseline.status != EstimateStatus.SUCCESS:
+        return "INFEASIBLE"
+    if any(level.status != _FEASIBLE or level.reserve_wh <= 0.0 for level in levels):
+        return "MARGINAL"
     return "ROBUST"
 
 
 def _status_description(status: str) -> str:
     if status == "ROBUST":
         return "all variations remain FEASIBLE with positive reserve"
+    if status == "INFEASIBLE":
+        return "baseline mission is infeasible — fix the base mission before interpreting variations"
     return "at least one variation becomes infeasible or sub-threshold"
 
 
@@ -285,11 +288,14 @@ def _section_rows(levels: list[SensitivityLevel], parameter: str) -> list[str]:
 def _baseline_line(baseline: MissionEstimate) -> str:
     if baseline.energy is None:
         return "Baseline reserve: not available"
-    return (
-        "Baseline reserve: "
+    reserve_line = (
+        f"Baseline reserve: "
         f"{_fmt(baseline.energy.reserve_at_landing_wh)} Wh "
         f"({_fmt(baseline.energy.reserve_at_landing_percent)}%)"
     )
+    if baseline.failure is not None:
+        return f"{reserve_line} — infeasible: {baseline.failure.code.value}"
+    return reserve_line
 
 
 def render_sensitivity_markdown(
@@ -298,7 +304,7 @@ def render_sensitivity_markdown(
     *,
     mission_id: str,
 ) -> str:
-    status = _overall_status(levels)
+    status = _overall_status(baseline, levels)
     parameter_count = len({level.parameter for level in levels})
     levels_per_parameter = len(levels) // parameter_count if parameter_count else 0
 

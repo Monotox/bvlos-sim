@@ -27,11 +27,11 @@ assertions:
     field_path: estimate.total_time_s
     expected: 10.0
     description: This should fail - mission takes longer than 10s.
-  - assertion_id: unsupported-field
+  - assertion_id: unsupported-comparison
     kind: field_lt
-    field_path: estimate.unknown_field
-    expected: 100.0
-    description: Should produce unsupported outcome.
+    field_path: estimate.energy.is_feasible
+    expected: 1.0
+    description: field_lt on a boolean field produces unsupported outcome.
   - assertion_id: policy-action
     kind: policy_action_eq
     event_id: link-lost

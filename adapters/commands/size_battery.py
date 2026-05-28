@@ -96,13 +96,14 @@ def _render_battery_sizing_command_output(
 
 
 def size_battery(
-    mission: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True),
-    vehicle: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True),
+    mission: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True, help="Path to mission.v5 YAML file."),
+    vehicle: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True, help="Path to vehicle profile YAML file."),
     format: cli.BatterySizingOutputFormat = typer.Option(
         cli.BatterySizingOutputFormat.MARKDOWN,
         "--format",
+        help="Output format. Defaults to markdown for a human-readable sizing report.",
     ),
-    output: Path | None = typer.Option(None, "--output", "-o"),
+    output: Path | None = typer.Option(None, "--output", "-o", help="Write output to file instead of stdout."),
     margin: list[int] | None = typer.Option(
         None,
         "--margin",

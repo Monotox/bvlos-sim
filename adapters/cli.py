@@ -8,13 +8,12 @@ import typer
 
 from adapters.cli_batch_support import BatchOutputFormat
 from adapters.envelope import OutputFormat
+from adapters.version import tool_version
 from estimator import try_estimate_mission_distance_time
 from estimator.execution.monte_carlo import run_monte_carlo
 from estimator.execution.propagator import run_stochastic_propagation
 
 app = typer.Typer(name="bvlos-sim", add_completion=False, no_args_is_help=True)
-
-_VERSION = "0.22.0"
 
 
 class CliExitCode(IntEnum):
@@ -77,7 +76,7 @@ __all__ = [
 
 def _version_callback(value: bool) -> None:
     if value:
-        typer.echo(f"bvlos-sim {_VERSION}")
+        typer.echo(f"bvlos-sim {tool_version()}")
         raise typer.Exit()
 
 

@@ -19,12 +19,15 @@ from adapters.uncertainty_io import load_uncertainty_plan, resolve_uncertainty_a
 
 def sample(
     uncertainty_file: Path = typer.Argument(
-        ..., exists=True, readable=True, resolve_path=True
+        ..., exists=True, readable=True, resolve_path=True,
+        help="Path to uncertainty.v1 YAML file.",
     ),
     format: cli.SummaryOutputFormat = typer.Option(
-        cli.SummaryOutputFormat.JSON, "--format"
+        cli.SummaryOutputFormat.JSON,
+        "--format",
+        help="Output format. Use summary for a one-line feasibility and reserve result.",
     ),
-    output: Path | None = typer.Option(None, "--output", "-o"),
+    output: Path | None = typer.Option(None, "--output", "-o", help="Write output to file instead of stdout."),
     validate_only: bool = typer.Option(
         False,
         "--validate-only",

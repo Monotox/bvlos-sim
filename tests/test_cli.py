@@ -679,6 +679,20 @@ def test_convert_command_invalid_json_exits_invalid_input(tmp_path: Path) -> Non
     assert result.exit_code == int(CliExitCode.INVALID_INPUT)
 
 
+def test_convert_validate_only_exits_success() -> None:
+    result = runner.invoke(app, ["convert", str(PLAN_FILE), "--validate-only"])
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    assert "OK" in result.output
+    assert "route:" not in result.output  # YAML must not be written
+
+
+def test_convert_validate_only_invalid_plan_exits_invalid_input(tmp_path: Path) -> None:
+    bad_plan = tmp_path / "bad.plan"
+    bad_plan.write_text("not valid json", encoding="utf-8")
+    result = runner.invoke(app, ["convert", str(bad_plan), "--validate-only"])
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+
+
 # ---------------------------------------------------------------------------
 # --version flag
 # ---------------------------------------------------------------------------

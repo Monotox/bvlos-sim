@@ -31,5 +31,5 @@
   },
   "schema_version": "battery-sizing-report.v1",
   "status": "feasible",
-  "tool_version": "0.22.0"
+  "tool_version": "0.30.0"
 }

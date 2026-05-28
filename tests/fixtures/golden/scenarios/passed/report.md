@@ -4,7 +4,7 @@
 - Status: `passed`
 - Assertions: 3 passed, 0 failed, 0 skipped
 - Envelope schema: `scenario-report.v2`
-- Tool version: `0.22.0`
+- Tool version: `0.30.0`
 
 ## Assertion Results
 
@@ -41,22 +41,22 @@
 
 ## Estimate Summary
 
-- Horizontal distance m: `707.0645449`
-- Vertical distance m: `240.0`
-- Path distance m: `787.0645449`
-- Time: `2m 49s (169.82027517 s)`
+- Horizontal distance m: `707.06`
+- Vertical distance m: `240.00`
+- Path distance m: `787.06`
+- Time: `2m 49s (169.82 s)`
 - Legs: `5`
 
 ## Energy Feasibility
 
 - Feasible: `true`
-- Total energy Wh: `41.50531217`
-- Battery capacity Wh: `900.0`
-- Usable energy Wh: `675.0`
-- Reserve threshold percent: `25.0`
-- Reserve threshold Wh: `225.0`
-- Reserve at landing Wh: `858.49468783`
-- Reserve at landing percent: `95.38829865`
+- Total energy Wh: `41.51`
+- Battery capacity Wh: `900.00`
+- Usable energy Wh: `675.00`
+- Reserve threshold percent: `25.00`
+- Reserve threshold Wh: `225.00`
+- Reserve at landing Wh: `858.49`
+- Reserve at landing percent: `95.39`
 - Energy legs: `5`
 
 ## Warnings

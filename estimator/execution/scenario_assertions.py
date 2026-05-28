@@ -14,33 +14,9 @@ from estimator.core.scenario import (
 )
 from schemas.scenario import (
     FIELD_ASSERTION_KINDS,
+    SUPPORTED_ASSERTION_FIELD_PATHS as _SUPPORTED_FIELD_PATHS,
     ScenarioAssertion,
     ScenarioAssertionKind,
-)
-
-# ---------------------------------------------------------------------------
-# Supported field paths and resolvers
-# ---------------------------------------------------------------------------
-
-_SUPPORTED_FIELD_PATHS: frozenset[str] = frozenset(
-    {
-        "estimate.status",
-        "estimate.total_time_s",
-        "estimate.total_horizontal_distance_m",
-        "estimate.total_vertical_distance_m",
-        "estimate.total_path_distance_m",
-        "estimate.totals_are_partial",
-        "estimate.energy.is_feasible",
-        "estimate.energy.total_energy_wh",
-        "estimate.energy.reserve_at_landing_percent",
-        "estimate.energy.reserve_at_landing_wh",
-        "estimate.energy.reserve_threshold_wh",
-        "estimate.energy.reserve_threshold_percent",
-        "estimate.resource.is_feasible",
-        "estimate.link.is_feasible",
-        "estimate.geofence.is_feasible",
-        "estimate.landing_zone.is_feasible",
-    }
 )
 
 FieldResolver = Callable[[MissionEstimate], AssertionFieldValue | None]

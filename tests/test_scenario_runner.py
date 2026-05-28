@@ -228,31 +228,31 @@ def test_field_eq_with_bool_false_fails_when_true() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_unsupported_field_path_gives_unsupported_outcome() -> None:
-    plan = _plan(
-        assertions=[
-            _assertion(
-                "a1", "field_lt", field_path="estimate.unknown_field", expected=100.0
-            )
-        ]
-    )
-    result = run_scenario(plan, make_mission(), make_vehicle())
-    assert result.assertion_results[0].outcome == AssertionOutcome.UNSUPPORTED
+def test_unsupported_field_path_rejected_at_schema_load() -> None:
+    with pytest.raises(ValidationError, match="field_path.*is not supported"):
+        _plan(
+            assertions=[
+                _assertion(
+                    "a1", "field_lt", field_path="estimate.unknown_field", expected=100.0
+                )
+            ]
+        )
 
 
-def test_unsupported_field_path_message_lists_valid_paths() -> None:
-    plan = _plan(
-        assertions=[
-            _assertion(
-                "a1", "field_lt", field_path="estimate.unknown_field", expected=100.0
-            )
-        ]
-    )
-    result = run_scenario(plan, make_mission(), make_vehicle())
-    ar = result.assertion_results[0]
-    assert ar.outcome == AssertionOutcome.UNSUPPORTED
-    assert "estimate.energy.total_energy_wh" in (ar.unsupported_reason or "")
-    assert "estimate.totals_are_partial" in (ar.unsupported_reason or "")
+def test_unsupported_field_path_error_lists_valid_paths() -> None:
+    try:
+        _plan(
+            assertions=[
+                _assertion(
+                    "a1", "field_lt", field_path="estimate.unknown_field", expected=100.0
+                )
+            ]
+        )
+        pytest.fail("Expected ValidationError")
+    except ValidationError as exc:
+        msg = str(exc)
+        assert "estimate.energy.total_energy_wh" in msg
+        assert "estimate.totals_are_partial" in msg
 
 
 def test_unavailable_field_gives_skipped_outcome() -> None:

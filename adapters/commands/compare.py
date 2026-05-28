@@ -36,9 +36,11 @@ def compare(
         help="Position proximity tolerance in metres.",
     ),
     format: cli.DocumentOutputFormat = typer.Option(
-        cli.DocumentOutputFormat.JSON, "--format"
+        cli.DocumentOutputFormat.JSON,
+        "--format",
+        help="Output format for the comparison report.",
     ),
-    output: Path | None = typer.Option(None, "--output", "-o"),
+    output: Path | None = typer.Option(None, "--output", "-o", help="Write output to file instead of stdout."),
 ) -> None:
     """Compare a SITL evidence bundle against its embedded scenario expectations."""
 

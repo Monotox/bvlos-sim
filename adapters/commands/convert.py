@@ -13,7 +13,15 @@ from adapters.qgc_plan import load_and_convert_plan
 
 def convert(
     plan: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True),
-    output: Path | None = typer.Option(None, "--output", "-o"),
+    output: Path | None = typer.Option(None, "--output", "-o", help="Write converted YAML to file instead of stdout."),
+    validate_only: bool = typer.Option(
+        False,
+        "--validate-only",
+        help=(
+            "Parse and validate the .plan file without writing output. "
+            "Exits 0 when the file is valid, INVALID_INPUT otherwise."
+        ),
+    ),
 ) -> None:
     """Convert a QGroundControl .plan file to a mission.v5 YAML."""
 
@@ -26,6 +34,9 @@ def convert(
                 f"{diagnostic.message}",
                 err=True,
             )
+        if validate_only:
+            typer.echo(f"plan: {plan.name}: OK ({len(mission.get('route', []))} route items)")
+            raise typer.Exit(code=int(cli.CliExitCode.SUCCESS))
         rendered = yaml.dump(
             mission,
             default_flow_style=False,

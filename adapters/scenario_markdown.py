@@ -2,7 +2,6 @@
 
 from collections.abc import Callable
 
-from adapters.canonical_json import format_canonical_float
 from adapters.scenario_envelope import ScenarioResultEnvelope
 from estimator.core.scenario import (
     AssertionOutcome,
@@ -21,7 +20,7 @@ SectionRenderer = Callable[[ScenarioResultEnvelope], Lines]
 
 
 def _fmt(value: float) -> str:
-    return format_canonical_float(value)
+    return f"{value:.2f}"
 
 
 def _section(title: str, body: Lines) -> Lines:

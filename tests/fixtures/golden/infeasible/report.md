@@ -2,7 +2,7 @@
 
 - Status: `infeasible`
 - Envelope schema: `estimator-envelope.v5`
-- Tool version: `0.22.0`
+- Tool version: `0.30.0`
 
 ## Result Validity
 
@@ -54,8 +54,8 @@
 
 ## Estimate Summary
 
-- Horizontal distance m: `0.0`
-- Vertical distance m: `0.0`
-- Path distance m: `0.0`
-- Time: `0m 00s (0.0 s)`
+- Horizontal distance m: `0.00`
+- Vertical distance m: `0.00`
+- Path distance m: `0.00`
+- Time: `0m 00s (0.00 s)`
 - Legs: `0`

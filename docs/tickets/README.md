@@ -1,217 +1,171 @@
 # Ticket Backlog
 
-This directory contains the project execution backlog. Completed tickets are
-kept as historical implementation records; open tickets describe planned work.
+**38 implemented · 20 planned · 865 tests passing**
 
-## Implemented Baseline
+This directory tracks every capability from idea to implementation. Completed
+tickets are kept as historical records. Open tickets describe what to build
+next and why.
 
-The current codebase includes:
+---
 
-- mission, vehicle, and scenario schemas
-- deterministic distance and time estimation
-- deterministic energy feasibility
-- static GeoJSON geofence feasibility
-- static GeoJSON landing-zone reachability
-- estimator and scenario CLI commands
-- canonical JSON envelopes and Markdown reports
-- deterministic scenario runner with lost-link policy outcomes
-- scenario wind-change events
-- layered wind, sub-segment sampling, turn arcs, and fixed-wing circular loiter
-- terrain-referenced altitude with offline uniform elevation grid
-- continuous spatiotemporal wind grid with quadrilinear interpolation
-- resource and communication-link feasibility abstractions
-- golden fixture regression tests
-- package-root public Python API
-- dynamic landing-zone availability via scenario `landing_zone_unavailable` events
-- computed divert route estimates on `CommsLinkPolicyOutcome.divert_estimate` (distance, time, energy, reserve, feasibility)
-- Monte Carlo uncertainty sampling via `uncertainty.v1` YAML and `sample` CLI command; seeded reproducible runs varying wind, cruise speed, cruise power, and battery capacity
-- Dubins path solver for bank-angle-constrained divert routing; divert distance uses RS/LS arc + straight when entry heading and turn radius are available
-- fidelity v2 tangent-point offset subtraction on transit legs adjacent to TURN_ARC legs for true Dubins-path total distance
-- 3D slant path distance for takeoff and landing-transit legs (`path_distance_m = vertical_distance_m`)
-- geodesic-aware Dubins divert sampling with the planar-limit warning retired
-- SITL adapter contract and `sitl-evidence.v1` evidence schema
-- connect-mode ArduPilot SITL adapter with MAVLink mission upload support
-- SITL telemetry, command, simulator, and adapter artifact recording for
-  ArduPilot evidence bundles
-- SITL scenario comparison reports through `sitl-comparison.v1` and `compare`
-- one-line `--format summary` output for `estimate` and `scenario` with reserve %, flight time, policy action, and first failing check
-- `--format geojson` and `--format kml` route exports with per-leg energy-margin layers, landing-zone reachability markers, and geofence conflict flags
-- five community vehicle profiles in `examples/vehicles/community/` (DJI Matrice 300 RTK, Wingtra One Gen II, QS Trinity F90+, Autel EVO Max 4T, generic survey hexacopter) with manufacturer-derived values and provenance links
-- `fetch_all.py` (one-command wrapper), `fetch_wind.py`, `fetch_terrain.py`, `fetch_landing_zones.py`, and `fetch_geofences.py` scripts for real SRTM terrain, Open-Meteo wind forecast, Overpass landing zones, and static airspace geofences; pre-fetched Alpine example in `examples/real_world/`
-- deliberately infeasible demo mission (`alpine_infeasible.yaml` + `quadplane_small_battery.yaml`) with README explanation of what failed and how to fix it
-- `bvlos-sim convert` QGC `.plan` importer and `bvlos-sim batch` multi-run estimate command with `batch.v1` manifest schema
-- stochastic state propagation via particle sampling with `propagate` CLI command and `stochastic-envelope.v1` output
-- twin-state stochastic observation model with per-particle estimated state and estimation-error timeline outputs
-- stochastic closed-loop tracking controller with proportional cross-track / along-track error feedback, per-particle true-state deviation, path-length excess accounting, and cross-track timeline outputs
-- advisory warnings for `MAX_WIND_EXCEEDED`, `RESERVE_BELOW_FAILSAFE_WARN_THRESHOLD`, and `RESERVE_BELOW_FAILSAFE_ABORT_THRESHOLD` emitted when vehicle failsafe or max_wind thresholds are crossed
-- MAV_CMD_NAV_TAKEOFF (fixed-wing) normalization diagnostic in the QGC `.plan` importer
-- denominator-correct stochastic feasibility and reserve-violation rates (use particle count, not requested sample count)
-- geofence/landing-zone spatial infeasibility tracked in stochastic propagation: `spatial_infeasible_count` in `StochasticPropagationResult`; three-way accounting `sample_count + failed_sample_count + spatial_infeasible_count == plan.samples`
-- `loiter_time_s` validated as strictly positive at schema load time; `loiter_radius_m` emits `LOITER_RADIUS_IGNORED` warning when set
-- `ROUTE_ACTIONS_AFTER_RTL` warning emitted when actions follow an RTL item (operationally unreachable legs)
-- `--format summary` output now includes a `warnings N` field when the estimate has advisory warnings
-- bug fix: `EstimationOptions.fidelity` is now optional; `--max-segment-length-m` without `--fidelity` no longer silently downgrades `estimation.fidelity: v2` missions to v1
-- batch summary table now includes a `warnings` column
-- wind-triangle correction applied to divert route estimates when a wind provider is available; DIVERT_ENERGY_TAS_ONLY warning suppressed when wind is corrected
-- `--format summary` for `sample` and `propagate` commands (feasibility rate, p5/p50/p95 reserve, time, sample count)
-- `policy_divert_feasible` assertion kind: evaluates whether the computed divert route for a lost-link event is energy-feasible; graceful SKIPPED when event didn't fire, no policy, or action isn't divert
-- `not_fired_reason` field on `ScenarioEventOutcome`: human-readable explanation when a trigger didn't match (e.g. route item not found, elapsed time exceeded mission duration)
-- scenario markdown report: assertion count summary line (`N passed, N failed, N skipped`) in header; human-readable flight time (`Xm YYs`) throughout estimate, scenario, stochastic, and uncertainty markdown reports
-- `route_item_id` included in GeoJSON route leg properties and KML placemark names so map tools can correlate legs with named waypoints
-- circular import between `schemas.stochastic` and `estimator.__init__` resolved; `test_scenario_schemas.py` now passes when run in isolation
-- `--validate-only` flag on `estimate`, `scenario`, and `propagate` commands: validates all input files against their schemas and exits 0 (OK) or 11 (invalid input) without running the estimator; CI-friendly for catching schema errors early
-- `--format checklist` output for `estimate` and `scenario` commands: pre-flight
-  go/no-go checklist with ✓/✗/◌ icon per feasibility category and `Status: GO/NO-GO`
-- `--format profile` output for `estimate` and `scenario` commands: per-leg altitude
-  table with terrain elevation and clearance columns when a terrain provider is configured
-- `--validate-only` flag on `sample` command matching `propagate`, `estimate`, and
-  `scenario`; validates uncertainty, mission, and vehicle files without running the sampler
-- `--format csv` output for `batch` command: comma-separated table importable into
-  spreadsheets (id, status, reserve_margin_percent, flight_time_s, warning_count)
-- `--format sensitivity` output for `estimate`: deterministic reserve sweep across
-  cruise power, headwind, and battery-capacity variations with ROBUST/MARGINAL status
-- `size-battery` command: binary-searches the minimum battery capacity needed
-  for mission energy feasibility and reports safety-margin recommendations
-- passing Linux estimator/schema/CLI/scenario/SITL comparison test suite with
-  861 passing tests and 9 skipped live or environment-dependent tests
+## What's already built
 
-## Implemented Integration Validation
+| Area | Tickets | Ships as |
+|---|---|---|
+| Core schemas & CLI | 001–003 | `estimate`, JSON envelopes, golden fixtures, public API |
+| Energy & feasibility | 010–012 | Energy budget, geofence (2D), landing-zone reachability |
+| Scenario runner | 020–021 | Lost-link policies, contingency events, assertions |
+| Route physics | 030–039 | Fidelity v2, layered/spatiotemporal wind, terrain alt, Dubins divert |
+| SITL (ArduPilot) | 040–043 | `sitl` command, MAVLink upload, telemetry recording, `compare` |
+| Stochastic propagation | 047–049 | `propagate` command, twin-state EKF, closed-loop tracking controller |
+| Output formats | 055, 057, 072–075 | GeoJSON/KML exports, `summary`, `checklist`, `profile`, `sensitivity`, `size-battery` |
+| Batch & import | 060 | `batch` command, `convert` QGC importer, `--format csv` |
+| Real-world data | 052–053, 056, 059 | Fetch scripts, community vehicle profiles, infeasible Alpine demo |
+| Correctness fixes | 062, 065 | Wind-triangle divert correction, stochastic spatial infeasibility tracking |
 
-Implemented tickets are expected to operate together through the same runtime
-path rather than through isolated examples. Current validation includes:
+Full feature list: [`docs/tickets/README.md` implemented section](#implemented-tickets) · Test coverage: `uv run pytest`
 
-- `estimate` loading mission YAML, vehicle YAML, terrain YAML, wind-grid YAML,
-  geofence GeoJSON, and landing-zone GeoJSON together.
-- `scenario` loading the same mission asset stack before executing events,
-  policies, assertions, and reports.
-- Integrated examples under `examples/missions/` and `examples/scenarios/`
-  combining fidelity v2, terrain, spatiotemporal wind, geofence checks,
-  landing-zone checks, energy feasibility, resource systems, link systems, and
-  lost-link policy assertions.
-- Golden fixtures and CLI tests covering canonical JSON, Markdown, exit codes,
-  provenance, and deterministic outputs.
+---
 
-## Main Execution Backlog
+## Planned work
 
-### Implemented
+Items are ordered by impact. Pick one, read its ticket file, open a PR.
 
-1. [001-estimator-cli-and-envelope.md](./001-estimator-cli-and-envelope.md)
-2. [002-versioning-and-golden-fixtures.md](./002-versioning-and-golden-fixtures.md)
-3. [003-technical-debt-hardening.md](./003-technical-debt-hardening.md)
-4. [010-deterministic-energy-feasibility.md](./010-deterministic-energy-feasibility.md)
-5. [011-static-geofence-feasibility.md](./011-static-geofence-feasibility.md)
-6. [012-static-landing-zone-reachability.md](./012-static-landing-zone-reachability.md)
-7. [020-scenario-runner-core.md](./020-scenario-runner-core.md)
-8. [021-comms-link-and-contingency-policies.md](./021-comms-link-and-contingency-policies.md)
-9. [030-fidelity-v2-layered-wind-and-subsegments.md](./030-fidelity-v2-layered-wind-and-subsegments.md)
-10. [031-fidelity-v2-turns-and-fixed-wing-loiter.md](./031-fidelity-v2-turns-and-fixed-wing-loiter.md)
-11. [032-terrain-referenced-altitude-execution.md](./032-terrain-referenced-altitude-execution.md)
-12. [033-continuous-spatiotemporal-wind-grid.md](./033-continuous-spatiotemporal-wind-grid.md)
-13. [034-resource-and-link-feasibility-abstractions.md](./034-resource-and-link-feasibility-abstractions.md)
-14. [035-dynamic-landing-zone-availability.md](./035-dynamic-landing-zone-availability.md)
-15. [036-computed-divert-routing.md](./036-computed-divert-routing.md)
-16. [037-monte-carlo-uncertainty-modeling.md](./037-monte-carlo-uncertainty-modeling.md)
-17. [038-bank-angle-and-dubins-path-optimization.md](./038-bank-angle-and-dubins-path-optimization.md)
-18. [039-path-planning-model-gaps.md](./039-path-planning-model-gaps.md)
-19. [040-sitl-adapter-contract-and-evidence-schema.md](./040-sitl-adapter-contract-and-evidence-schema.md)
-20. [041-ardupilot-sitl-launch-and-mission-upload.md](./041-ardupilot-sitl-launch-and-mission-upload.md)
-21. [042-sitl-telemetry-recorder-and-evidence-bundle.md](./042-sitl-telemetry-recorder-and-evidence-bundle.md)
-22. [043-sitl-scenario-comparison-report.md](./043-sitl-scenario-comparison-report.md)
-23. [057-summary-output-format.md](./057-summary-output-format.md)
-24. [055-geojson-kml-route-export.md](./055-geojson-kml-route-export.md)
-25. [056-community-vehicle-profiles.md](./056-community-vehicle-profiles.md)
-26. [052-real-world-data-fetch-scripts.md](./052-real-world-data-fetch-scripts.md)
-27. [053-airspace-geofence-fetch-script.md](./053-airspace-geofence-fetch-script.md)
-28. [059-infeasible-demo-mission.md](./059-infeasible-demo-mission.md)
-29. [060-import-export-and-batch-workflows.md](./060-import-export-and-batch-workflows.md)
-30. [047-stochastic-state-propagation.md](./047-stochastic-state-propagation.md)
-31. [048-observation-model-and-twin-state.md](./048-observation-model-and-twin-state.md)
-32. [049-stochastic-closed-loop-control.md](./049-stochastic-closed-loop-control.md)
-33. [062-wind-corrected-divert-energy.md](./062-wind-corrected-divert-energy.md) *(divert estimate; landing-zone energy TAS-only remaining)*
-34. [065-geofence-and-lz-in-stochastic.md](./065-geofence-and-lz-in-stochastic.md)
-35. [073-preflight-checklist-output.md](./073-preflight-checklist-output.md)
-36. [072-route-altitude-profile-report.md](./072-route-altitude-profile-report.md)
-37. [074-energy-reserve-sensitivity.md](./074-energy-reserve-sensitivity.md)
-38. [075-minimum-battery-sizing.md](./075-minimum-battery-sizing.md)
+### Quick wins (good first issues)
 
-### Planned
+| # | Ticket | What it adds |
+|---|---|---|
+| 085 | [QGC vehicle profile](./085-qgc-convert-vehicle-profile.md) | Replace `FIXME-vehicle-profile` placeholder in `convert` output with operator-selected profile |
+| 086 | [Stochastic module split](./086-stochastic-propagator-module-split.md) | Split `propagator.py` (816 lines) into focused submodules before adding exports |
+| 088 | [Performance benchmarks](./088-performance-benchmarking-and-regression-gates.md) | `pytest-benchmark` suite + CI regression gates (no production code changes) |
+| 089 | [Preflight report command](./089-preflight-report-command.md) | Single `preflight` command combining estimate + scenario + Monte Carlo into one operator briefing |
 
-39. [085-qgc-convert-vehicle-profile.md](./085-qgc-convert-vehicle-profile.md)
-40. [076-departure-window-finder.md](./076-departure-window-finder.md)
-41. [077-mission-comparison-report.md](./077-mission-comparison-report.md)
-42. [086-stochastic-propagator-module-split.md](./086-stochastic-propagator-module-split.md)
-43. [069-per-event-lost-link-policy-override.md](./069-per-event-lost-link-policy-override.md)
-44. [066-stochastic-geojson-export.md](./066-stochastic-geojson-export.md)
-45. [067-propagation-progress-feedback.md](./067-propagation-progress-feedback.md)
-46. [068-divert-route-geojson-layer.md](./068-divert-route-geojson-layer.md)
-47. [063-rth-reserve-check.md](./063-rth-reserve-check.md)
-48. [061-3d-geofence-altitude-bounds.md](./061-3d-geofence-altitude-bounds.md)
-49. [064-batch-scenario-and-propagate.md](./064-batch-scenario-and-propagate.md)
-50. [044-geodesic-dubins-divert.md](./044-geodesic-dubins-divert.md)
-51. [054-reference-inputs-for-calibration-and-import.md](./054-reference-inputs-for-calibration-and-import.md)
-52. [045-px4-sitl-launch-and-mission-upload.md](./045-px4-sitl-launch-and-mission-upload.md)
-53. [046-px4-sitl-telemetry-recorder-and-evidence-bundle.md](./046-px4-sitl-telemetry-recorder-and-evidence-bundle.md)
-54. [058-notam-live-airspace-integration.md](./058-notam-live-airspace-integration.md)
-55. [050-user-interfaces-and-service-adapters.md](./050-user-interfaces-and-service-adapters.md)
-56. [070-operational-integration-seams.md](./070-operational-integration-seams.md)
-57. [071-live-comms-remote-id-and-traffic-integrations.md](./071-live-comms-remote-id-and-traffic-integrations.md)
+### Core simulation gaps
 
-## Current Gaps
+| # | Ticket | What it adds |
+|---|---|---|
+| 069 | [Per-event lost-link policy](./069-per-event-lost-link-policy-override.md) | Override the global lost-link policy on individual scenario events |
+| 063 | [RTH reserve check](./063-rth-reserve-check.md) | Verify energy is sufficient to RTH from every route point, not just landing |
+| 061 | [3D geofence altitude bounds](./061-3d-geofence-altitude-bounds.md) | Extend geofence checks to include min/max altitude constraints |
+| 062 | [LZ reachability wind correction](./062-wind-corrected-divert-energy.md) | Apply wind-triangle correction to landing-zone reachability energy (divert already done) |
+| 064 | [Batch scenario & propagate](./064-batch-scenario-and-propagate.md) | Extend `batch` command to run scenario and propagate jobs, not only estimates |
 
-- QGC `.plan` conversion still writes a placeholder vehicle profile instead of requiring an operator-selected profile: Ticket 085.
-- No departure window finder for time-varying forecasts: Ticket 076.
-- No side-by-side mission comparison (`diff` command): Ticket 077.
-- Lost-link events share one global policy; no per-event override: Ticket 069.
-- Stochastic propagation internals are concentrated in one large module,
-  making future stochastic exports and progress feedback riskier: Ticket 086.
-- No GeoJSON/KML export for stochastic propagation results: Ticket 066.
-- No progress feedback during long particle propagation runs: Ticket 067.
-- No divert-route visual layer in scenario GeoJSON/KML export: Ticket 068.
-- No RTH reserve check from every route point: Ticket 063.
-- Geofence feasibility is 2D only (no altitude bounds): Ticket 061.
-- Batch only supports estimate runs (no scenario or propagate): Ticket 064.
-- Divert estimate now applies wind-triangle correction when wind provider is available; landing-zone reachability energy still uses TAS only (remaining scope of Ticket 062).
-- No geodesic-aware Dubins divert path sampling: Ticket 044.
-- No NOTAM/live airspace integration: Ticket 058.
-- No reference inputs for calibration and import: Ticket 054.
-- No PX4 SITL adapter: Tickets 045 (launch/upload) and 046 (telemetry/evidence).
-- No REST API or UI: Ticket 050.
-- No live comms, UTM/U-space, Remote ID, or traffic integrations: Tickets 070
-  and 071.
-- No real-world calibration pipeline: Tickets 080–084.
+### Output & visualisation gaps
 
-## Validation and Calibration Track
+| # | Ticket | What it adds |
+|---|---|---|
+| 076 | [Departure window finder](./076-departure-window-finder.md) | Scan a forecast window for the first feasible departure time |
+| 077 | [Mission comparison report](./077-mission-comparison-report.md) | Side-by-side `diff` of two mission estimates |
+| 066 | [Stochastic GeoJSON export](./066-stochastic-geojson-export.md) | `--format geojson/kml` for `propagate` command |
+| 067 | [Propagation progress feedback](./067-propagation-progress-feedback.md) | Progress bar / stderr updates during long particle runs |
+| 068 | [Divert route GeoJSON layer](./068-divert-route-geojson-layer.md) | Add computed divert paths as a separate layer in scenario GeoJSON/KML |
 
-1. [080-flight-log-ingestion-and-trace-normalization.md](./080-flight-log-ingestion-and-trace-normalization.md)
-2. [081-flight-phase-segmentation.md](./081-flight-phase-segmentation.md)
-3. [082-predicted-vs-observed-validation-metrics.md](./082-predicted-vs-observed-validation-metrics.md)
-4. [083-calibration-profile-data-and-fitting.md](./083-calibration-profile-data-and-fitting.md)
-5. [084-holdout-validation-reports.md](./084-holdout-validation-reports.md)
+### Hardware validation ladder
 
-## Backlog Rules
+| # | Ticket | What it adds |
+|---|---|---|
+| 045 | [PX4 SITL — launch & upload](./045-px4-sitl-launch-and-mission-upload.md) | PX4 SITL adapter behind the existing evidence contract |
+| 046 | [PX4 SITL — telemetry & evidence](./046-px4-sitl-telemetry-recorder-and-evidence-bundle.md) | PX4 artifact recording and evidence bundle assembly |
+| 087 | [HITL adapter](./087-hardware-in-the-loop-hitl-adapter.md) | Real flight controller hardware (Pixhawk) in the validation loop |
 
-- Keep core execution deterministic.
-- Add adapter layers only after core contracts are clear.
-- Keep schemas and public outputs versioned.
-- Reject unsupported inputs explicitly instead of approximating silently.
-- Do not add live external dependencies to core CI.
-- Update docs, tests, and fixtures in the same change when public behavior changes.
+### Integrations & platform
 
-## Integration Standard
+| # | Ticket | What it adds |
+|---|---|---|
+| 054 | [Reference calibration inputs](./054-reference-inputs-for-calibration-and-import.md) | Curated reference datasets for model calibration and import |
+| 058 | [NOTAM / live airspace](./058-notam-live-airspace-integration.md) | Dynamic no-fly zone ingestion from live NOTAM feeds |
+| 050 | [REST API & web UI](./050-user-interfaces-and-service-adapters.md) | HTTP service wrapper and browser-based preflight interface |
+| 070 | [Operational integration seams](./070-operational-integration-seams.md) | Hooks for flight-ops systems, flight plans, and operator dashboards |
+| 071 | [Live comms, Remote ID, traffic](./071-live-comms-remote-id-and-traffic-integrations.md) | UTM/U-space, Remote ID broadcast, and traffic awareness |
 
-Every new ticket must explain how the work composes with existing functionality.
-Unless a ticket explicitly states otherwise, implementation should integrate
-through the established surfaces:
+---
 
-- mission, vehicle, scenario, resource, link, terrain, wind, geofence, and
-  landing-zone YAML/JSON schemas
-- examples under `examples/missions`, `examples/vehicles`,
-  `examples/scenarios`, `examples/terrain`, and `examples/wind`
-- existing CLI commands such as `estimate`, `scenario`, `sample`, and `sitl`, or
-  adapter commands that reuse the same core execution path
-- canonical JSON envelopes, Markdown reports, golden fixtures, and regression
-  tests
-- package-root Python APIs and existing estimator/scenario execution contracts
+## Calibration & validation track
 
-New capabilities should work together with previously implemented pieces rather
-than requiring separate one-off input formats or isolated commands.
+A separate track for post-flight model calibration from real flight logs.
+Prerequisite: at least one completed live flight with recorded telemetry.
+
+| # | Ticket |
+|---|---|
+| 080 | [Flight log ingestion & trace normalisation](./080-flight-log-ingestion-and-trace-normalization.md) |
+| 081 | [Flight phase segmentation](./081-flight-phase-segmentation.md) |
+| 082 | [Predicted vs. observed validation metrics](./082-predicted-vs-observed-validation-metrics.md) |
+| 083 | [Calibration profile data & fitting](./083-calibration-profile-data-and-fitting.md) |
+| 084 | [Holdout validation reports](./084-holdout-validation-reports.md) |
+
+---
+
+## Contributing
+
+**Before opening a PR, read the ticket file for the work you're doing.**
+Each ticket states its acceptance criteria, composition with existing code, and
+what tests are expected.
+
+### Rules
+
+- Keep core execution **deterministic**. Randomness lives in Monte Carlo and stochastic layers only.
+- Add adapter layers only after core contracts are stable.
+- **All schemas and public outputs are versioned.** Bump the version string when the shape changes.
+- Reject unsupported inputs explicitly — never approximate silently.
+- No live external network calls in core CI.
+- **Update docs, tests, and golden fixtures in the same commit** when public behaviour changes.
+
+### Integration standard
+
+Every new ticket must compose through the existing surfaces:
+
+- YAML schemas: `mission.v5`, `vehicle`, `scenario.v1`, `uncertainty.v1`, `stochastic.v1`, `batch.v1`
+- Examples: `examples/missions/`, `examples/vehicles/`, `examples/scenarios/`
+- CLI commands: `estimate`, `scenario`, `sample`, `propagate`, `batch`, `convert`, `sitl`, `compare`, `size-battery`
+- Output contracts: canonical JSON envelopes, Markdown reports, golden fixtures
+- Public Python API: `estimator.try_estimate_mission_distance_time`, `estimator.run_scenario`, `estimator.execution.monte_carlo.run_monte_carlo`
+
+New capabilities should work *with* existing pieces, not alongside them in isolation.
+
+---
+
+## Implemented tickets
+
+<details>
+<summary>Full list (38 tickets)</summary>
+
+1. [001](./001-estimator-cli-and-envelope.md) Estimator CLI and envelope
+2. [002](./002-versioning-and-golden-fixtures.md) Versioning and golden fixtures
+3. [003](./003-technical-debt-hardening.md) Technical debt hardening
+4. [010](./010-deterministic-energy-feasibility.md) Deterministic energy feasibility
+5. [011](./011-static-geofence-feasibility.md) Static geofence feasibility
+6. [012](./012-static-landing-zone-reachability.md) Static landing-zone reachability
+7. [020](./020-scenario-runner-core.md) Scenario runner core
+8. [021](./021-comms-link-and-contingency-policies.md) Comms link and contingency policies
+9. [030](./030-fidelity-v2-layered-wind-and-subsegments.md) Fidelity v2 — layered wind and sub-segments
+10. [031](./031-fidelity-v2-turns-and-fixed-wing-loiter.md) Fidelity v2 — turns and fixed-wing loiter
+11. [032](./032-terrain-referenced-altitude-execution.md) Terrain-referenced altitude execution
+12. [033](./033-continuous-spatiotemporal-wind-grid.md) Continuous spatiotemporal wind grid
+13. [034](./034-resource-and-link-feasibility-abstractions.md) Resource and link feasibility abstractions
+14. [035](./035-dynamic-landing-zone-availability.md) Dynamic landing-zone availability
+15. [036](./036-computed-divert-routing.md) Computed divert routing
+16. [037](./037-monte-carlo-uncertainty-modeling.md) Monte Carlo uncertainty modelling
+17. [038](./038-bank-angle-and-dubins-path-optimization.md) Bank-angle and Dubins path optimisation
+18. [039](./039-path-planning-model-gaps.md) Path planning model gaps
+19. [040](./040-sitl-adapter-contract-and-evidence-schema.md) SITL adapter contract and evidence schema
+20. [041](./041-ardupilot-sitl-launch-and-mission-upload.md) ArduPilot SITL launch and mission upload
+21. [042](./042-sitl-telemetry-recorder-and-evidence-bundle.md) SITL telemetry recorder and evidence bundle
+22. [043](./043-sitl-scenario-comparison-report.md) SITL scenario comparison report
+23. [047](./047-stochastic-state-propagation.md) Stochastic state propagation
+24. [048](./048-observation-model-and-twin-state.md) Observation model and twin-state EKF
+25. [049](./049-stochastic-closed-loop-control.md) Stochastic closed-loop control
+26. [052](./052-real-world-data-fetch-scripts.md) Real-world data fetch scripts
+27. [053](./053-airspace-geofence-fetch-script.md) Airspace geofence fetch script
+28. [055](./055-geojson-kml-route-export.md) GeoJSON and KML route export
+29. [056](./056-community-vehicle-profiles.md) Community vehicle profiles
+30. [057](./057-summary-output-format.md) Summary output format
+31. [059](./059-infeasible-demo-mission.md) Infeasible demo mission
+32. [060](./060-import-export-and-batch-workflows.md) Import, export, and batch workflows
+33. [062](./062-wind-corrected-divert-energy.md) Wind-corrected divert energy *(LZ reachability TAS-only remaining — Ticket 062)*
+34. [065](./065-geofence-and-lz-in-stochastic.md) Geofence and LZ in stochastic propagation
+35. [072](./072-route-altitude-profile-report.md) Route altitude profile report
+36. [073](./073-preflight-checklist-output.md) Pre-flight checklist output
+37. [074](./074-energy-reserve-sensitivity.md) Energy reserve sensitivity report
+38. [075](./075-minimum-battery-sizing.md) Minimum battery sizing command
+
+</details>
