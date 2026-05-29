@@ -36,6 +36,8 @@ Status: GO
 - **[Roadmap](ROADMAP.md)** and **[Ticket Backlog](tickets/README.md)** — what is
   built and what is planned.
 
+The documentation site is built from this directory by GitHub Actions.
+
 ## Contributing
 
 The tool is open source and contributions are welcome. Read the
