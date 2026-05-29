@@ -30,6 +30,7 @@ from estimator.core.results import (
     LandingZoneStateReachability,
     LegEstimate,
     MissionEstimate,
+    RthReserveTimelinePoint,
 )
 
 
@@ -68,6 +69,27 @@ def _energy() -> EnergyEstimate:
             _energy_leg(0, energy_wh=21.0),
             _energy_leg(1, energy_wh=21.0),
         ],
+    )
+
+
+def _energy_with_rth_margin(*, margin_wh: float = 180.0) -> EnergyEstimate:
+    energy = _energy()
+    return energy.model_copy(
+        update={
+            "rth_reserve_timeline": [
+                RthReserveTimelinePoint(
+                    leg_index=0,
+                    route_item_index=0,
+                    route_item_id="wp-0",
+                    rth_distance_m=100.0,
+                    rth_energy_wh=10.0,
+                    energy_remaining_before_rth_wh=800.0,
+                    reserve_after_rth_wh=energy.reserve_threshold_wh + margin_wh,
+                    reserve_margin_wh=margin_wh,
+                    is_feasible=margin_wh >= 0.0,
+                )
+            ]
+        }
     )
 
 
@@ -247,6 +269,17 @@ def test_geojson_export_route_features_include_route_item_id() -> None:
     assert all("route_item_id" in f["properties"] for f in route_features)
     assert route_features[0]["properties"]["route_item_id"] == "wp-0"
     assert route_features[1]["properties"]["route_item_id"] == "wp-1"
+
+
+def test_geojson_export_colours_route_by_rth_margin() -> None:
+    payload = json.loads(build_geojson_export(_estimate(energy=_energy_with_rth_margin())))
+
+    route_features = _features_by_layer(payload, "route")
+
+    properties = route_features[0]["properties"]
+    assert properties["rth_reserve_margin_wh"] == 180.0
+    assert properties["rth_reserve_margin_pct"] == 20.0
+    assert properties["rth_reserve_color"] == "yellow"
 
 
 def test_kml_export_renders_document_with_placemarks() -> None:

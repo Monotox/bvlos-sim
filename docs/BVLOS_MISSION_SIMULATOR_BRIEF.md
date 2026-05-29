@@ -114,7 +114,7 @@ Mission, vehicle, and scenario files may be authored as YAML or JSON.
 
 Current output contracts:
 
-- `estimator-envelope.v6`: canonical estimator JSON envelope
+- `estimator-envelope.v7`: canonical estimator JSON envelope
 - `scenario-report.v2`: canonical scenario JSON envelope
 - `uncertainty-report.v1`: canonical uncertainty JSON envelope
 - `stochastic-envelope.v1`: canonical stochastic propagation JSON envelope

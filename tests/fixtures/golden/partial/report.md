@@ -1,7 +1,7 @@
 # Estimator Report
 
 - Status: `error`
-- Envelope schema: `estimator-envelope.v6`
+- Envelope schema: `estimator-envelope.v7`
 - Tool version: `0.30.0`
 
 ## Result Validity

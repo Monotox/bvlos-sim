@@ -19,6 +19,36 @@ def energy_margin_pct(energy: EnergyEstimate | None) -> float | None:
     return reserve_margin_wh / energy.battery_capacity_wh * 100.0
 
 
+def rth_margin_pct_by_leg(energy: EnergyEstimate | None) -> dict[int, float]:
+    if energy is None or energy.rth_reserve_timeline is None:
+        return {}
+    if energy.battery_capacity_wh == 0.0:
+        return {}
+    return {
+        point.leg_index: point.reserve_margin_wh / energy.battery_capacity_wh * 100.0
+        for point in energy.rth_reserve_timeline
+    }
+
+
+def rth_margin_wh_by_leg(energy: EnergyEstimate | None) -> dict[int, float]:
+    if energy is None or energy.rth_reserve_timeline is None:
+        return {}
+    return {
+        point.leg_index: point.reserve_margin_wh
+        for point in energy.rth_reserve_timeline
+    }
+
+
+def route_margin_color(margin_pct: float | None) -> str:
+    if margin_pct is None:
+        return "red"
+    if margin_pct > 30.0:
+        return "green"
+    if margin_pct >= 10.0:
+        return "yellow"
+    return "red"
+
+
 def reachable_zone_ids(estimate: MissionEstimate) -> frozenset[str]:
     if estimate.landing_zone is None:
         return frozenset()
@@ -66,4 +96,7 @@ __all__ = [
     "energy_margin_pct",
     "landing_zone_point",
     "reachable_zone_ids",
+    "route_margin_color",
+    "rth_margin_pct_by_leg",
+    "rth_margin_wh_by_leg",
 ]

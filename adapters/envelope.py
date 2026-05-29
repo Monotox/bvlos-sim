@@ -13,7 +13,7 @@ from estimator import EstimateStatus, MissionEstimate
 from estimator.core.enums import FailureCode, WarningCode
 from estimator.core.results import EstimatorContextValue
 
-RESULT_ENVELOPE_SCHEMA_VERSION = "estimator-envelope.v6"
+RESULT_ENVELOPE_SCHEMA_VERSION = "estimator-envelope.v7"
 MISSION_SCHEMA_VERSION = "mission.v6"
 VEHICLE_SCHEMA_VERSION = "vehicle.v4"
 GEOFENCE_SCHEMA_VERSION = "geofence-geojson.v1"

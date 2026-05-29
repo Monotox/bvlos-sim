@@ -1,7 +1,7 @@
 # Estimator Report
 
 - Status: `success`
-- Envelope schema: `estimator-envelope.v6`
+- Envelope schema: `estimator-envelope.v7`
 - Tool version: `0.30.0`
 
 ## Result Validity
@@ -75,6 +75,17 @@
 - Reserve at landing Wh: `858.59`
 - Reserve at landing percent: `95.40`
 - Energy legs: `5`
+- RTH feasible: `true`
+
+## RTH Reserve Timeline
+
+| Leg | ID | RTH Distance m | RTH Energy Wh | Reserve After RTH Wh | Margin Wh | Feasible |
+|----:|----|---------------:|--------------:|---------------------:|----------:|----------|
+| 0 | takeoff | 0.00 | 0.00 | 888.89 | 663.89 | true |
+| 1 | wp1 | 176.77 | 1.23 | 885.99 | 660.99 | true |
+| 2 | loiter | 353.53 | 2.46 | 883.63 | 658.63 | true |
+| 3 | loiter | 353.53 | 2.46 | 863.63 | 638.63 | true |
+| 4 | rtl | 0.00 | 0.00 | 858.59 | 633.59 | true |
 
 ## Warnings
 

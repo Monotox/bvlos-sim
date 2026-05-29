@@ -11,6 +11,9 @@ from adapters.route_export_support import (
     energy_margin_pct,
     landing_zone_point,
     reachable_zone_ids,
+    route_margin_color,
+    rth_margin_pct_by_leg,
+    rth_margin_wh_by_leg,
 )
 from estimator.core.geofence import GeofencePolygon, GeofenceZone
 from estimator.core.landing_zone import LandingZone
@@ -42,10 +45,13 @@ def build_geojson_export(
 def _route_features(estimate: MissionEstimate) -> list[GeoJsonFeature]:
     energy_by_leg_index = _energy_by_leg_index(estimate.energy)
     igrc_by_leg_index = _igrc_by_leg_index(estimate.ground_risk)
+    rth_margin_pct = rth_margin_pct_by_leg(estimate.energy)
+    rth_margin_wh = rth_margin_wh_by_leg(estimate.energy)
     margin_pct = energy_margin_pct(estimate.energy)
     feasible = _energy_feasible(estimate.energy)
     features: list[GeoJsonFeature] = []
     for leg in estimate.legs:
+        leg_rth_margin_pct = rth_margin_pct.get(leg.leg_index)
         properties: dict[str, JsonValue] = {
             "layer": "route",
             "phase": leg.phase.name,
@@ -56,6 +62,10 @@ def _route_features(estimate: MissionEstimate) -> list[GeoJsonFeature]:
             "energy_margin_pct": margin_pct,
             "feasible": feasible,
         }
+        if leg.leg_index in rth_margin_wh:
+            properties["rth_reserve_margin_wh"] = rth_margin_wh[leg.leg_index]
+            properties["rth_reserve_margin_pct"] = leg_rth_margin_pct
+            properties["rth_reserve_color"] = route_margin_color(leg_rth_margin_pct)
         if leg.leg_index in igrc_by_leg_index:
             properties["igrc"] = igrc_by_leg_index[leg.leg_index]
         features.append(

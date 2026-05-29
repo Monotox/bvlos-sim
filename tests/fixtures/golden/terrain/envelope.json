@@ -122,6 +122,63 @@
       "reserve_at_landing_wh": 858.8974656,
       "reserve_threshold_percent": 25.0,
       "reserve_threshold_wh": 225.0,
+      "rth_reserve_timeline": [
+        {
+          "energy_remaining_before_rth_wh": 889.16666667,
+          "is_feasible": true,
+          "leg_index": 0,
+          "reserve_after_rth_wh": 889.16666667,
+          "reserve_margin_wh": 664.16666667,
+          "route_item_id": "takeoff",
+          "route_item_index": 0,
+          "rth_distance_m": 0.0,
+          "rth_energy_wh": 0.0
+        },
+        {
+          "energy_remaining_before_rth_wh": 887.5,
+          "is_feasible": true,
+          "leg_index": 1,
+          "reserve_after_rth_wh": 886.27244917,
+          "reserve_margin_wh": 661.27244917,
+          "route_item_id": "wp1",
+          "route_item_index": 1,
+          "rth_distance_m": 176.76731937,
+          "rth_energy_wh": 1.22755083
+        },
+        {
+          "energy_remaining_before_rth_wh": 886.2724656,
+          "is_feasible": true,
+          "leg_index": 2,
+          "reserve_after_rth_wh": 883.81738038,
+          "reserve_margin_wh": 658.81738038,
+          "route_item_id": "loiter",
+          "route_item_index": 2,
+          "rth_distance_m": 353.53227242,
+          "rth_energy_wh": 2.45508523
+        },
+        {
+          "energy_remaining_before_rth_wh": 866.2724656,
+          "is_feasible": true,
+          "leg_index": 3,
+          "reserve_after_rth_wh": 863.81738038,
+          "reserve_margin_wh": 638.81738038,
+          "route_item_id": "loiter",
+          "route_item_index": 2,
+          "rth_distance_m": 353.53227242,
+          "rth_energy_wh": 2.45508523
+        },
+        {
+          "energy_remaining_before_rth_wh": 858.8974656,
+          "is_feasible": true,
+          "leg_index": 4,
+          "reserve_after_rth_wh": 858.8974656,
+          "reserve_margin_wh": 633.8974656,
+          "route_item_id": "rtl",
+          "route_item_index": 3,
+          "rth_distance_m": 0.0,
+          "rth_energy_wh": 0.0
+        }
+      ],
       "total_energy_wh": 41.1025344,
       "usable_energy_wh": 675.0
     },
@@ -292,6 +349,7 @@
       "wind_provider_id": "constant"
     },
     "resource": null,
+    "rth_is_feasible": true,
     "status": "success",
     "total_horizontal_distance_m": 707.0645449,
     "total_path_distance_m": 785.0645449,
@@ -316,7 +374,7 @@
     "scope": "full_mission",
     "unavailable_fields": []
   },
-  "schema_version": "estimator-envelope.v6",
+  "schema_version": "estimator-envelope.v7",
   "status": "success",
   "tool_version": "0.30.0"
 }

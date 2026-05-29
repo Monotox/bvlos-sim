@@ -17,7 +17,7 @@ Current public contracts:
 - geofence input schema: `geofence-geojson.v1`
 - landing-zone input schema: `landing-zone-geojson.v1`
 - population-density input schema: `population-grid.v1`
-- estimator JSON envelope: `estimator-envelope.v6`
+- estimator JSON envelope: `estimator-envelope.v7`
 - scenario JSON envelope: `scenario-report.v2`
 - uncertainty JSON envelope: `uncertainty-report.v1`
 - stochastic propagation envelope: `stochastic-envelope.v1`

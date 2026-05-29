@@ -176,7 +176,7 @@ A pre-fetched Alpine example (Lucerne/Zug area) runs offline with no network cal
 
 ### Output formats
 
-All commands emit versioned JSON envelopes (`estimator-envelope.v6`,
+All commands emit versioned JSON envelopes (`estimator-envelope.v7`,
 `scenario-report.v2`, `uncertainty-report.v1`, `stochastic-envelope.v1`) and
 optional Markdown reports.
 

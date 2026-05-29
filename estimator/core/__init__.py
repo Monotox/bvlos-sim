@@ -52,6 +52,7 @@ from estimator.core.results import (
     MissionEstimate,
     ResourceEstimate,
     ResourceSystemEstimate,
+    RthReserveTimelinePoint,
     WindVector,
 )
 
@@ -94,6 +95,7 @@ __all__ = [
     "MissionEstimate",
     "ResourceEstimate",
     "ResourceSystemEstimate",
+    "RthReserveTimelinePoint",
     "SpeedSource",
     "UnsupportedEstimatorFeatureError",
     "WarningCode",

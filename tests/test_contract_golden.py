@@ -21,12 +21,14 @@ from adapters.wind_grid import load_wind_grid
 from estimator import EstimateStatus, try_estimate_mission_distance_time
 from estimator.core.enums import FailureCode, GeofenceKind, WarningCode
 from estimator.core.results import (
+    EnergyEstimate,
     EstimatorWarning,
     GeofenceConflict,
     GeofenceEstimate,
     LinkEstimate,
     MissionEstimate,
     ResourceEstimate,
+    RthReserveTimelinePoint,
 )
 from schemas import MissionPlan, VehicleProfile
 from tests.helpers import make_mission_payload, make_vehicle_payload
@@ -303,6 +305,39 @@ def test_markdown_includes_geofence_feasibility_section_when_present() -> None:
     md = _build_minimal_envelope(result)
     assert "## Geofence Feasibility" in md
     assert "Conflicts: `1`" in md
+
+
+def test_markdown_includes_rth_reserve_timeline_when_present() -> None:
+    result = _bare_mission_estimate(
+        energy=EnergyEstimate(
+            is_feasible=True,
+            total_energy_wh=100.0,
+            battery_capacity_wh=900.0,
+            usable_energy_wh=675.0,
+            reserve_threshold_percent=25.0,
+            reserve_threshold_wh=225.0,
+            reserve_at_landing_wh=800.0,
+            reserve_at_landing_percent=88.88888888888889,
+            rth_reserve_timeline=[
+                RthReserveTimelinePoint(
+                    leg_index=0,
+                    route_item_index=0,
+                    route_item_id="wp0",
+                    rth_distance_m=1200.0,
+                    rth_energy_wh=10.0,
+                    energy_remaining_before_rth_wh=850.0,
+                    reserve_after_rth_wh=840.0,
+                    reserve_margin_wh=615.0,
+                    is_feasible=True,
+                )
+            ],
+        )
+    )
+
+    md = _build_minimal_envelope(result)
+
+    assert "## RTH Reserve Timeline" in md
+    assert "| 0 | wp0 |" in md
 
 
 def test_markdown_warning_without_leg_index_omits_leg_tag() -> None:

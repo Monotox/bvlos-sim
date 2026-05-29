@@ -43,7 +43,7 @@ Treat these as stable:
 - `vehicle.v4`
 - `scenario.v1`
 - `uncertainty.v1`
-- `estimator-envelope.v6`
+- `estimator-envelope.v7`
 - `scenario-report.v2`
 - `uncertainty-report.v1`
 - `sitl-evidence.v1`

@@ -118,6 +118,22 @@ class EnergyLegEstimate(BaseModel):
     energy_wh: float
 
 
+class RthReserveTimelinePoint(BaseModel):
+    """Per-leg return-to-home reserve margin estimate."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    leg_index: int
+    route_item_index: int
+    route_item_id: str | None
+    rth_distance_m: float
+    rth_energy_wh: float
+    energy_remaining_before_rth_wh: float
+    reserve_after_rth_wh: float
+    reserve_margin_wh: float
+    is_feasible: bool
+
+
 class EnergyEstimate(BaseModel):
     """Mission-level deterministic energy and reserve result."""
 
@@ -132,6 +148,9 @@ class EnergyEstimate(BaseModel):
     reserve_at_landing_wh: float
     reserve_at_landing_percent: float
     legs: list[EnergyLegEstimate] = Field(default_factory=list)
+    rth_reserve_timeline: list[RthReserveTimelinePoint] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 class ResourceSystemEstimate(BaseModel):
@@ -328,6 +347,9 @@ class MissionEstimate(BaseModel):
     totals_are_partial: bool
     legs: list[LegEstimate] = Field(default_factory=list)
     energy: EnergyEstimate | None = None
+    rth_is_feasible: bool | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     resource: ResourceEstimate | None = None
     link: LinkEstimate | None = None
     geofence: GeofenceEstimate | None = None

@@ -218,7 +218,7 @@ time, followed by a feasible/infeasible/error count. Use `--output-dir DIR` to
 write per-run output files for CI collection; `--format` controls those files
 while the table stays on stdout. Supported per-run file formats:
 
-- `--format json` — one `estimator-envelope.v6` JSON file per run (`.json`)
+- `--format json` — one `estimator-envelope.v7` JSON file per run (`.json`)
 - `--format markdown` — one Markdown report per run (`.md`)
 - `--format summary` — one one-line summary per run (`.txt`)
 - `--format geojson` — one GeoJSON map export per run (`.geojson`) with the
@@ -297,6 +297,37 @@ uv run bvlos-sim estimate \
   --format kml \
   --output /tmp/bvlos-route.kml
 ```
+
+## Return-to-Home Reserve Checks
+
+When a mission has a `planned_home`, deterministic energy output includes an
+RTH reserve timeline. Each point answers: after completing this leg, how much
+energy remains after flying straight home at cruise TAS and cruise power, minus
+the configured reserve threshold?
+
+JSON result fields:
+
+- `result.energy.rth_reserve_timeline`: one point per route leg with
+  `rth_distance_m`, `rth_energy_wh`, `energy_remaining_before_rth_wh`,
+  `reserve_after_rth_wh`, `reserve_margin_wh`, and `is_feasible`
+- `result.rth_is_feasible`: `true` only when every timeline point preserves the
+  reserve threshold after a hypothetical RTH
+
+Markdown reports include an **RTH Reserve Timeline** table:
+
+```bash
+uv run bvlos-sim estimate \
+  examples/missions/pipeline_demo_001.yaml \
+  examples/vehicles/quadplane_v1.yaml \
+  --format markdown
+```
+
+GeoJSON route features include `rth_reserve_margin_wh`,
+`rth_reserve_margin_pct`, and `rth_reserve_color` (`green`, `yellow`, `red`)
+when the timeline is available.
+
+The RTH check is an advisory reserve view. It does not replace the landing
+reserve feasibility check or change the estimate status by itself.
 
 ## Time-Varying Geofences
 
@@ -1627,7 +1658,7 @@ uv run bvlos-sim sample examples/uncertainty/pipeline_demo_001_wind_uncertainty.
 
 ## Output Contracts
 
-The estimator CLI emits `estimator-envelope.v6`.
+The estimator CLI emits `estimator-envelope.v7`.
 
 The battery sizing CLI emits `battery-sizing-report.v1` when `--format json` is used.
 

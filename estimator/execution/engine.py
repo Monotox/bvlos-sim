@@ -72,6 +72,12 @@ def _raise_feasibility_failure(
     )
 
 
+def _rth_is_feasible(energy: EnergyEstimate | None) -> bool | None:
+    if energy is None or energy.rth_reserve_timeline is None:
+        return None
+    return all(point.is_feasible for point in energy.rth_reserve_timeline)
+
+
 def run_estimation(
     context: EstimationContext,
     *,
@@ -195,6 +201,7 @@ def run_estimation(
         totals_are_partial=False,
         legs=context.route_legs,
         energy=energy_evaluation.energy,
+        rth_is_feasible=_rth_is_feasible(energy_evaluation.energy),
         resource=resource_evaluation.resource,
         link=link_evaluation.link,
         geofence=geofence_evaluation.geofence,
@@ -385,6 +392,7 @@ def try_estimate_mission_distance_time(
             totals_are_partial=exc.totals_are_partial,
             legs=exc.partial_legs,
             energy=exc.energy,
+            rth_is_feasible=_rth_is_feasible(exc.energy),
             resource=exc.resource,
             link=exc.link,
             geofence=exc.geofence,

@@ -137,7 +137,7 @@
     "scope": "completed_legs_only",
     "unavailable_fields": []
   },
-  "schema_version": "estimator-envelope.v6",
+  "schema_version": "estimator-envelope.v7",
   "status": "error",
   "tool_version": "0.30.0"
 }

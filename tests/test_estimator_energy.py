@@ -11,6 +11,11 @@ from estimator import (
     estimate_mission_distance_time,
     try_estimate_mission_distance_time,
 )
+from estimator.execution.context_builder import build_estimation_context
+from estimator.execution.energy import evaluate_energy_feasibility
+from estimator.execution.executors import execute_route_item
+from pyproj import Geod
+from schemas import MissionAction, RouteItem
 from tests.helpers import make_mission, make_vehicle
 
 
@@ -140,3 +145,135 @@ def test_hover_capable_vehicle_without_hover_power_fails_before_kinematics() -> 
     assert result.failure is not None
     assert result.failure.code == FailureCode.MISSING_ENERGY_MODEL
     assert "hover_power_w" in result.failure.message
+
+
+def test_rth_reserve_timeline_feasible_for_all_legs() -> None:
+    result = estimate_mission_distance_time(make_mission(), make_vehicle())
+
+    assert result.energy is not None
+    assert result.energy.rth_reserve_timeline is not None
+    assert len(result.energy.rth_reserve_timeline) == len(result.legs)
+    assert result.rth_is_feasible is True
+    assert all(point.is_feasible for point in result.energy.rth_reserve_timeline)
+
+
+def test_rth_distance_from_leg_endpoint_to_home_is_geodesic() -> None:
+    mission = make_mission()
+    mission.route = [
+        RouteItem(
+            id="east",
+            action=MissionAction.WAYPOINT,
+            lat=mission.planned_home.lat,
+            lon=mission.planned_home.lon + 0.01,
+            altitude_m=120.0,
+        )
+    ]
+
+    result = estimate_mission_distance_time(mission, make_vehicle())
+
+    assert result.energy is not None
+    assert result.energy.rth_reserve_timeline is not None
+    point = result.energy.rth_reserve_timeline[0]
+    _, _, expected_distance_m = Geod(ellps="WGS84").inv(
+        result.legs[0].end_lon,
+        result.legs[0].end_lat,
+        mission.planned_home.lon,
+        mission.planned_home.lat,
+    )
+    assert math.isclose(point.rth_distance_m, expected_distance_m, rel_tol=1e-9)
+
+
+def test_rth_energy_uses_cruise_power_and_tas() -> None:
+    mission = make_mission()
+    mission.route = [
+        RouteItem(
+            id="east",
+            action=MissionAction.WAYPOINT,
+            lat=mission.planned_home.lat,
+            lon=mission.planned_home.lon + 0.01,
+            altitude_m=120.0,
+        )
+    ]
+    vehicle = make_vehicle()
+
+    result = estimate_mission_distance_time(mission, vehicle)
+
+    assert result.energy is not None
+    assert result.energy.rth_reserve_timeline is not None
+    point = result.energy.rth_reserve_timeline[0]
+    expected_energy_wh = (
+        vehicle.energy.cruise_power_w
+        * (point.rth_distance_m / mission.defaults.cruise_speed_mps)
+        / 3600.0
+    )
+    assert math.isclose(point.rth_energy_wh, expected_energy_wh, rel_tol=1e-9)
+
+
+def test_rth_reserve_can_fail_at_intermediate_leg_without_landing_failure() -> None:
+    mission = make_mission()
+    mission.constraints.min_landing_reserve_percent = 25.0
+    mission.route = [
+        RouteItem(
+            id="far",
+            action=MissionAction.WAYPOINT,
+            lat=mission.planned_home.lat,
+            lon=mission.planned_home.lon + 0.05,
+            altitude_m=120.0,
+        ),
+        RouteItem(
+            id="near_far",
+            action=MissionAction.WAYPOINT,
+            lat=mission.planned_home.lat + 0.001,
+            lon=mission.planned_home.lon + 0.05,
+            altitude_m=120.0,
+        ),
+    ]
+    vehicle = make_vehicle()
+    vehicle.energy.battery_capacity_wh = 60.0
+
+    result = estimate_mission_distance_time(mission, vehicle)
+
+    assert result.energy is not None
+    assert result.energy.is_feasible is True
+    assert result.rth_is_feasible is False
+    assert result.energy.rth_reserve_timeline is not None
+    failed_points = [
+        point for point in result.energy.rth_reserve_timeline if not point.is_feasible
+    ]
+    assert failed_points
+    assert failed_points[0].route_item_id == "far"
+
+
+def test_rth_reserve_short_mission_is_feasible() -> None:
+    mission = make_mission()
+    mission.route = [
+        RouteItem(
+            id="home_hold",
+            action=MissionAction.WAYPOINT,
+            lat=mission.planned_home.lat,
+            lon=mission.planned_home.lon,
+            altitude_m=80.0,
+        )
+    ]
+
+    result = estimate_mission_distance_time(mission, make_vehicle())
+
+    assert result.rth_is_feasible is True
+    assert result.energy is not None
+    assert result.energy.rth_reserve_timeline is not None
+    assert result.energy.rth_reserve_timeline[0].rth_distance_m == 0.0
+    assert result.energy.rth_reserve_timeline[0].is_feasible is True
+
+
+def test_rth_reserve_timeline_is_none_when_home_is_missing() -> None:
+    mission = make_mission()
+    context = build_estimation_context(mission, make_vehicle())
+    for route_item_index, item in enumerate(context.mission.route):
+        execute_route_item(context, item, route_item_index=route_item_index)
+    context.mission = mission.model_copy(update={"planned_home": None})
+
+    evaluation = evaluate_energy_feasibility(context)
+
+    assert evaluation.failure is None
+    assert evaluation.energy is not None
+    assert evaluation.energy.rth_reserve_timeline is None

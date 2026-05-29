@@ -17,7 +17,7 @@ from estimator.core.results import (
     LandingZoneStateReachability,
     LegEstimate,
 )
-from estimator.execution.energy import SECONDS_PER_HOUR
+from estimator.execution.energy import cruise_energy_wh
 from estimator.execution.runtime import EstimationContext
 from estimator.execution.spatial import polygon_set_to_geometry_list
 
@@ -304,7 +304,11 @@ def _divert_energy_wh(
     tas_mps: float,
     cruise_power_w: float,
 ) -> float:
-    return cruise_power_w * (distance_m / tas_mps) / SECONDS_PER_HOUR
+    return cruise_energy_wh(
+        distance_m=distance_m,
+        tas_mps=tas_mps,
+        cruise_power_w=cruise_power_w,
+    )
 
 
 def _state_record(

@@ -114,7 +114,7 @@
       "result.total_time_s"
     ]
   },
-  "schema_version": "estimator-envelope.v6",
+  "schema_version": "estimator-envelope.v7",
   "status": "infeasible",
   "tool_version": "0.30.0"
 }

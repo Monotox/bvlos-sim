@@ -157,6 +157,12 @@ def _render_leg_breakdown(result: MissionEstimate) -> Lines:
 def _render_energy_feasibility(energy: EnergyEstimate | None) -> Lines:
     if energy is None:
         return []
+    rth_feasible = _rth_is_feasible(energy)
+    rth_line = (
+        []
+        if rth_feasible is None
+        else [f"- RTH feasible: `{_fmt_bool(rth_feasible)}`"]
+    )
     return [
         "",
         "## Energy Feasibility",
@@ -170,7 +176,37 @@ def _render_energy_feasibility(energy: EnergyEstimate | None) -> Lines:
         f"- Reserve at landing Wh: `{_fmt(energy.reserve_at_landing_wh)}`",
         f"- Reserve at landing percent: `{_fmt(energy.reserve_at_landing_percent)}`",
         f"- Energy legs: `{len(energy.legs)}`",
+        *rth_line,
     ]
+
+
+def _rth_is_feasible(energy: EnergyEstimate) -> bool | None:
+    if energy.rth_reserve_timeline is None:
+        return None
+    return all(point.is_feasible for point in energy.rth_reserve_timeline)
+
+
+def _render_rth_reserve_timeline(energy: EnergyEstimate | None) -> Lines:
+    if energy is None or energy.rth_reserve_timeline is None:
+        return []
+    lines = _section("RTH Reserve Timeline")
+    lines.append(
+        "| Leg | ID | RTH Distance m | RTH Energy Wh | Reserve After RTH Wh | Margin Wh | Feasible |"
+    )
+    lines.append(
+        "|----:|----|---------------:|--------------:|---------------------:|----------:|----------|"
+    )
+    for point in energy.rth_reserve_timeline:
+        route_item_id = point.route_item_id or _MISSING
+        lines.append(
+            f"| {point.leg_index} | {route_item_id} "
+            f"| {_fmt(point.rth_distance_m)} "
+            f"| {_fmt(point.rth_energy_wh)} "
+            f"| {_fmt(point.reserve_after_rth_wh)} "
+            f"| {_fmt(point.reserve_margin_wh)} "
+            f"| {_fmt_bool(point.is_feasible)} |"
+        )
+    return lines
 
 
 def _render_resource_feasibility(resource: ResourceEstimate | None) -> Lines:
@@ -257,6 +293,7 @@ def _render_result_sections(result: MissionEstimate | None) -> Lines:
     lines = _render_estimate_summary(result)
     lines.extend(_render_leg_breakdown(result))
     lines.extend(_render_energy_feasibility(result.energy))
+    lines.extend(_render_rth_reserve_timeline(result.energy))
     lines.extend(_render_resource_feasibility(result.resource))
     lines.extend(_render_link_feasibility(result.link))
     lines.extend(_render_geofence_feasibility(result.geofence))

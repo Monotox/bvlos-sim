@@ -1,6 +1,6 @@
 # Ticket 063 — Return-to-Home Reserve Check from Worst-Case Point
 
-## Status: Planned
+## Status: Implemented
 
 ## Problem
 

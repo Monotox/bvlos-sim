@@ -272,6 +272,14 @@ Result metadata field `estimator_version` records the actual fidelity used:
 - `climb_power_w` and `descent_power_w` fall back to `cruise_power_w` when omitted.
 - `hover_power_w` is required for hover-capable loiter dwell.
 - Fixed-wing circular loiter in fidelity v2 uses `cruise_power_w`.
+- Return-to-home reserve is evaluated at each route leg endpoint against
+  `mission.planned_home`. Distance is straight-line geodesic; energy uses
+  cruise TAS and `vehicle.energy.cruise_power_w`.
+- `result.energy.rth_reserve_timeline[].reserve_margin_wh` is
+  `energy_remaining_before_rth_wh - rth_energy_wh - reserve_threshold_wh`.
+- `result.rth_is_feasible` is `True` only when every RTH timeline point has a
+  non-negative reserve margin. It is informational and does not by itself make
+  the estimate status infeasible.
 - Energy infeasibility does not make distance/time totals partial.
 - When `vehicle.resource_systems` is configured, `result.energy` remains the
   legacy battery-only energy view and may report `is_feasible=false` while
@@ -455,7 +463,7 @@ Available on `estimate` and `scenario`. Emits a GeoJSON FeatureCollection to std
 
 Three feature layers:
 
-- `route`: one LineString per leg. Coordinates in `[lon, lat, altitude_m]` order (RFC 7946). Properties include `leg_id`, `action`, `energy_margin_pct`, and `energy_color` (`green` / `amber` / `red`).
+- `route`: one LineString per leg. Coordinates in `[lon, lat, altitude_m]` order (RFC 7946). Properties include `leg_id`, `action`, `energy_margin_pct`, `rth_reserve_margin_wh`, `rth_reserve_margin_pct`, and `rth_reserve_color` (`green` / `yellow` / `red`) when RTH reserve data is available.
 - `landing_zones`: one Point per configured landing zone. Properties include `zone_id`, `reachable` (boolean), and `surface` (from GeoJSON source or `"unknown"`).
 - `geofences`: one Polygon per configured geofence zone. Properties include `zone_id`, `kind` (`forbidden` / `caution`), and `conflict` (boolean).
 
@@ -467,6 +475,9 @@ Energy color thresholds:
 - `green`: `energy_margin_pct > 30`
 - `amber`: `10 ≤ energy_margin_pct ≤ 30`
 - `red`: `energy_margin_pct < 10`
+
+RTH reserve color thresholds use the same percentage bands, computed from
+`reserve_margin_wh / battery_capacity_wh Ã— 100`.
 
 Geofence and landing-zone layers are omitted when the corresponding asset is not configured in the mission.
 

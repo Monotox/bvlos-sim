@@ -10,6 +10,7 @@ from estimator.core.results import (
     EstimatorContextValue,
     EstimatorFailure,
     LegEstimate,
+    RthReserveTimelinePoint,
 )
 from estimator.execution.runtime import EstimationContext
 from schemas.vehicle_energy import EnergyModel
@@ -98,11 +99,16 @@ def evaluate_energy_feasibility(
             )
         )
 
-    energy = _build_energy_estimate(
+    energy, energy_failure = _build_energy_estimate(
+        context=context,
         energy_model=energy_model,
         threshold_percent=threshold_percent,
         legs=energy_legs,
     )
+    if energy_failure is not None:
+        return EnergyEvaluation(energy=None, failure=energy_failure)
+    if energy is None:
+        raise ValueError("Energy estimate construction failed without a failure.")
     return EnergyEvaluation(
         energy=energy,
         failure=_build_feasibility_failure(energy)
@@ -334,16 +340,25 @@ def _validate_leg_power(
 
 def _build_energy_estimate(
     *,
+    context: EstimationContext,
     energy_model: EnergyModel,
     threshold_percent: float,
     legs: list[EnergyLegEstimate],
-) -> EnergyEstimate:
+) -> tuple[EnergyEstimate | None, EstimatorFailure | None]:
     total_energy_wh = sum(leg.energy_wh for leg in legs)
     reserve_threshold_wh = energy_model.battery_capacity_wh * threshold_percent / 100.0
     reserve_at_landing_wh = energy_model.battery_capacity_wh - total_energy_wh
     reserve_at_landing_percent = (
         reserve_at_landing_wh / energy_model.battery_capacity_wh * 100.0
     )
+    rth_timeline, failure = _build_rth_reserve_timeline(
+        context=context,
+        energy_model=energy_model,
+        reserve_threshold_wh=reserve_threshold_wh,
+        legs=legs,
+    )
+    if failure is not None:
+        return None, failure
     return EnergyEstimate(
         is_feasible=(
             total_energy_wh <= energy_model.battery_capacity_wh
@@ -357,7 +372,108 @@ def _build_energy_estimate(
         reserve_at_landing_wh=reserve_at_landing_wh,
         reserve_at_landing_percent=reserve_at_landing_percent,
         legs=legs,
+        rth_reserve_timeline=rth_timeline,
+    ), None
+
+
+def _build_rth_reserve_timeline(
+    *,
+    context: EstimationContext,
+    energy_model: EnergyModel,
+    reserve_threshold_wh: float,
+    legs: list[EnergyLegEstimate],
+) -> tuple[list[RthReserveTimelinePoint] | None, EstimatorFailure | None]:
+    home = getattr(context.mission, "planned_home", None)
+    if home is None:
+        return None, None
+
+    tas_mps, failure = _resolve_rth_tas(context)
+    if failure is not None:
+        return None, failure
+
+    energy_used_by_leg = _energy_used_by_leg(legs)
+    timeline: list[RthReserveTimelinePoint] = []
+    for leg in context.route_legs:
+        _, _, rth_distance_m = context.geod.inv(
+            leg.end_lon,
+            leg.end_lat,
+            home.lon,
+            home.lat,
+        )
+        rth_energy_wh = cruise_energy_wh(
+            distance_m=rth_distance_m,
+            tas_mps=tas_mps,
+            cruise_power_w=energy_model.cruise_power_w,
+        )
+        energy_remaining_wh = (
+            energy_model.battery_capacity_wh
+            - energy_used_by_leg.get(leg.leg_index, 0.0)
+        )
+        reserve_after_rth_wh = energy_remaining_wh - rth_energy_wh
+        reserve_margin_wh = reserve_after_rth_wh - reserve_threshold_wh
+        timeline.append(
+            RthReserveTimelinePoint(
+                leg_index=leg.leg_index,
+                route_item_index=leg.route_item_index,
+                route_item_id=leg.route_item_id,
+                rth_distance_m=rth_distance_m,
+                rth_energy_wh=rth_energy_wh,
+                energy_remaining_before_rth_wh=energy_remaining_wh,
+                reserve_after_rth_wh=reserve_after_rth_wh,
+                reserve_margin_wh=reserve_margin_wh,
+                is_feasible=reserve_margin_wh >= 0.0,
+            )
+        )
+    return timeline, None
+
+
+def _energy_used_by_leg(legs: list[EnergyLegEstimate]) -> dict[int, float]:
+    energy_used_wh = 0.0
+    used_by_leg: dict[int, float] = {}
+    for leg in legs:
+        energy_used_wh += leg.energy_wh
+        used_by_leg[leg.leg_index] = energy_used_wh
+    return used_by_leg
+
+
+def _resolve_rth_tas(
+    context: EstimationContext,
+) -> tuple[float, EstimatorFailure | None]:
+    tas_mps = (
+        context.mission.defaults.cruise_speed_mps
+        if context.mission.defaults.cruise_speed_mps is not None
+        else context.vehicle.performance.cruise_speed_mps
     )
+    if tas_mps is None:
+        return (
+            0.0,
+            _mission_energy_failure(
+                kind=FailureKind.INVALID_INPUT,
+                code=FailureCode.MISSING_REQUIRED_SPEED_PROFILE,
+                message="A TAS source is required for RTH reserve estimation.",
+                context={},
+            ),
+        )
+    if tas_mps <= 0:
+        return (
+            tas_mps,
+            _mission_energy_failure(
+                kind=FailureKind.INVALID_INPUT,
+                code=FailureCode.INVALID_SPEED_PROFILE,
+                message="RTH reserve tas_mps must be greater than zero.",
+                context={"tas_mps": tas_mps},
+            ),
+        )
+    return tas_mps, None
+
+
+def cruise_energy_wh(
+    *,
+    distance_m: float,
+    tas_mps: float,
+    cruise_power_w: float,
+) -> float:
+    return cruise_power_w * (distance_m / tas_mps) / SECONDS_PER_HOUR
 
 
 def _build_feasibility_failure(energy: EnergyEstimate) -> EstimatorFailure | None:
