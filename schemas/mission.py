@@ -6,6 +6,7 @@ domain models.
 """
 
 from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Literal
@@ -495,6 +496,12 @@ class MissionPlan(BaseModel):
     vehicle_profile: str = Field(
         min_length=1,
         description="Vehicle profile id referenced by this mission.",
+    )
+    departure_time: datetime | None = Field(
+        default=None,
+        description=(
+            "Optional planned mission departure time as an ISO-8601 UTC timestamp."
+        ),
     )
     planned_home: PlannedHome = Field(
         description="Planned home position used for route planning and RTL assumptions.",

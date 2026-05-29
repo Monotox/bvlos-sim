@@ -1,6 +1,6 @@
 # Ticket Backlog
 
-**44 implemented · 20 planned · 1034 tests passing**
+**45 implemented · 19 planned · 1041 tests passing**
 
 This directory tracks every capability from idea to implementation. Completed
 tickets are kept as historical records. Open tickets describe what to build
@@ -22,7 +22,7 @@ next and why.
 | Batch, import & export | 060, 085, 091 | `batch` command, `convert` QGC importer with `--vehicle-profile`, `--format csv`, `export` mission→QGC `.plan` writer |
 | Real-world data | 052–053, 056, 059 | Fetch scripts, community vehicle profiles, infeasible Alpine demo |
 | Regulatory pre-assessment | 094–095 | SORA Ground Risk Class (iGRC), Air Risk Class, and GRC×ARC→SAIL with applicable OSOs via the `sora` command |
-| Weather & GO/NO-GO | 092 | Enforced `max_wind_mps`/`max_crosswind_mps` weather minimums with a checklist Weather-limits row |
+| Weather & GO/NO-GO | 092–093 | Enforced `max_wind_mps`/`max_crosswind_mps` weather minimums with a checklist Weather-limits row; time-varying geofence activation windows |
 | Correctness fixes | 062, 065 | Wind-triangle divert correction, stochastic spatial infeasibility tracking |
 
 Full feature list: [`docs/tickets/README.md` implemented section](#implemented-tickets) · Test coverage: `uv run pytest`
@@ -40,12 +40,6 @@ Items are ordered by impact. Pick one, read its ticket file, open a PR.
 | 088 | [Performance benchmarks](./088-performance-benchmarking-and-regression-gates.md) | `pytest-benchmark` suite + CI regression gates (no production code changes) |
 | 089 | [Preflight report command](./089-preflight-report-command.md) | Single `preflight` command combining estimate + scenario + Monte Carlo into one operator briefing |
 | 090 | [Schema migration tooling](./090-schema-version-migration-tooling.md) | `bvlos-sim migrate` command to auto-upgrade YAML files when schema versions bump |
-
-### Operator workflow (highest real-world impact)
-
-| # | Ticket | What it adds |
-|---|---|---|
-| 093 | [Time-varying geofence activation](./093-time-varying-geofence-activation.md) | TFRs and curfew zones only active during the planned flight window; prerequisite for Ticket 058 NOTAM ingestion |
 
 ### Core simulation gaps
 
@@ -134,7 +128,7 @@ New capabilities should work *with* existing pieces, not alongside them in isola
 ## Implemented tickets
 
 <details>
-<summary>Full list (44 tickets)</summary>
+<summary>Full list (45 tickets)</summary>
 
 1. [001](./001-estimator-cli-and-envelope.md) Estimator CLI and envelope
 2. [002](./002-versioning-and-golden-fixtures.md) Versioning and golden fixtures
@@ -180,5 +174,6 @@ New capabilities should work *with* existing pieces, not alongside them in isola
 42. [095](./095-sora-air-risk-and-sail.md) SORA Air Risk Class and SAIL determination
 43. [091](./091-qgc-mission-export.md) QGC mission export
 44. [092](./092-weather-minimums-and-go-nogo.md) Weather minimums and automatic GO/NO-GO
+45. [093](./093-time-varying-geofence-activation.md) Time-varying geofence activation
 
 </details>

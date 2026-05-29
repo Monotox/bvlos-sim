@@ -2,6 +2,7 @@
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from pyproj import Geod
 
@@ -157,6 +158,12 @@ def resolve_max_crab_angle_deg(
     return max_crab_angle
 
 
+def _utc_isoformat(value: datetime) -> str:
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=UTC)
+    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
+
+
 def validate_estimation_inputs(
     mission: MissionPlan,
     vehicle: VehicleProfile,
@@ -193,6 +200,8 @@ def build_estimation_context(
         "estimator_version": resolved_options.fidelity.value,
         "options_source": resolved_options.options_source,
     }
+    if mission.departure_time is not None:
+        metadata["departure_time"] = _utc_isoformat(mission.departure_time)
     capabilities = derive_capabilities(vehicle)
     metadata["capabilities_source"] = capabilities.source
 

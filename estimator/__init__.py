@@ -21,6 +21,7 @@ from estimator.core.geofence import (
     GeofenceCoordinate,
     GeofenceGeometry,
     GeofencePolygon,
+    GeofenceRecurrence,
     GeofenceZone,
 )
 from estimator.core.landing_zone import (
@@ -112,6 +113,7 @@ __all__ = [
     "GeofenceGeometry",
     "GeofenceKind",
     "GeofencePolygon",
+    "GeofenceRecurrence",
     "GeofenceZone",
     "InvalidEstimatorInputError",
     "LandingZone",

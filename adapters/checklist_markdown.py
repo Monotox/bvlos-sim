@@ -132,6 +132,13 @@ def _warnings_row(result: MissionEstimate) -> str:
     return _row(" ", "Advisory warnings", str(n), f"{codes}{suffix}")
 
 
+def _departure_time_row(result: MissionEstimate) -> str | None:
+    departure_time = result.metadata.get("departure_time")
+    if not isinstance(departure_time, str):
+        return None
+    return _row(" ", "Departure time", "INFO", departure_time)
+
+
 def _is_go(result: MissionEstimate) -> bool:
     checks = [
         result.energy,
@@ -158,6 +165,9 @@ def _render_checklist(result: MissionEstimate | None, mission_id: str) -> str:
     lines.append(_link_row(result.link))
     lines.append(_weather_row(result.weather))
     lines.append(_ground_risk_row(result.ground_risk))
+    departure_row = _departure_time_row(result)
+    if departure_row is not None:
+        lines.append(departure_row)
     lines.append(_warnings_row(result))
     lines.append("")
     status = "GO" if _is_go(result) else "NO-GO"

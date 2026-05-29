@@ -20,6 +20,12 @@ _OPENAIP_FORBIDDEN_CLASSES = {"RESTRICTED", "PROHIBITED", "DANGER"}
 _OVERPASS_FORBIDDEN_CLASSES = {"R", "P"}
 _OVERPASS_CAUTION_CLASSES = {"C", "D"}
 _SUPPORTED_GEOMETRY_TYPES = {"Polygon", "MultiPolygon"}
+_TIME_WINDOW_SOURCE_KEYS = {
+    "active_from": ("active_from", "activeFrom", "valid_from", "validFrom"),
+    "active_until": ("active_until", "activeUntil", "valid_until", "validUntil"),
+    "recurrence": ("recurrence",),
+}
+_SUPPORTED_RECURRENCES = {"daily", "weekdays"}
 
 
 def _object_dict(value: object) -> dict[str, object]:
@@ -34,6 +40,25 @@ def _object_list(value: object) -> list[object]:
     if not isinstance(value, list):
         return []
     return value
+
+
+def _time_window_properties(source: dict[str, object]) -> dict[str, str]:
+    """Return estimator time-window properties copied from source metadata."""
+    properties: dict[str, str] = {}
+    for target_key, source_keys in _TIME_WINDOW_SOURCE_KEYS.items():
+        raw_value = next(
+            (source[key] for key in source_keys if key in source),
+            None,
+        )
+        if raw_value is None:
+            continue
+        value = str(raw_value)
+        if target_key == "recurrence":
+            value = value.lower()
+            if value not in _SUPPORTED_RECURRENCES:
+                continue
+        properties[target_key] = value
+    return properties
 
 
 def _openaip_features(
@@ -67,10 +92,12 @@ def _openaip_feature(feature: dict[str, object]) -> dict[str, object] | None:
     properties = _object_dict(feature.get("properties"))
     name_value = properties.get("name")
     name = "Unknown" if name_value is None else str(name_value)
+    output_properties = {"kind": _openaip_kind(properties), "name": name}
+    output_properties.update(_time_window_properties(properties))
     return {
         "type": "Feature",
         "geometry": geometry,
-        "properties": {"kind": _openaip_kind(properties), "name": name},
+        "properties": output_properties,
     }
 
 
@@ -115,10 +142,12 @@ def _way_to_feature(element: dict[str, object]) -> dict[str, object] | None:
         ring.append(ring[0])
 
     tags = _object_dict(element.get("tags"))
+    properties = {"kind": _overpass_kind(tags), "name": _overpass_name(tags)}
+    properties.update(_time_window_properties(tags))
     return {
         "type": "Feature",
         "geometry": {"type": "Polygon", "coordinates": [ring]},
-        "properties": {"kind": _overpass_kind(tags), "name": _overpass_name(tags)},
+        "properties": properties,
     }
 
 

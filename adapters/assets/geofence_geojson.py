@@ -24,6 +24,7 @@ _SUPPORTED_ROOT_GEOMETRIES = {
     GeoJsonGeometryType.POLYGON,
     GeoJsonGeometryType.MULTI_POLYGON,
 }
+_TIME_WINDOW_PROPERTY_NAMES = ("active_from", "active_until", "recurrence")
 
 
 @dataclass(frozen=True)
@@ -88,13 +89,13 @@ def _zone_from_entry(
     )
 
     try:
-        return GeofenceZone.model_validate(
-            {
-                "id": entry.id,
-                "kind": kind,
-                "geometry": {"polygons": polygons},
-            }
-        )
+        payload = {
+            "id": entry.id,
+            "kind": kind,
+            "geometry": {"polygons": polygons},
+            **_time_window_properties(entry),
+        }
+        return GeofenceZone.model_validate(payload)
     except ValidationError as exc:
         raise _schema_validation_error(
             exc,
@@ -102,6 +103,14 @@ def _zone_from_entry(
             document=document,
             feature_index=entry.index,
         ) from exc
+
+
+def _time_window_properties(entry: GeoJsonEntry) -> dict[str, object]:
+    return {
+        name: entry.properties[name]
+        for name in _TIME_WINDOW_PROPERTY_NAMES
+        if name in entry.properties
+    }
 
 
 def _parse_kind(

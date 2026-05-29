@@ -4,6 +4,8 @@ These models intentionally use lat/lon domain coordinates. External formats
 such as GeoJSON are converted in adapters before reaching the estimator core.
 """
 
+from datetime import datetime
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -52,6 +54,11 @@ class GeofenceGeometry(BaseModel):
     polygons: list[GeofencePolygon] = Field(min_length=1)
 
 
+class GeofenceRecurrence(StrEnum):
+    DAILY = "daily"
+    WEEKDAYS = "weekdays"
+
+
 class GeofenceZone(BaseModel):
     """A named static geofence zone."""
 
@@ -60,6 +67,9 @@ class GeofenceZone(BaseModel):
     id: str = Field(min_length=1)
     kind: GeofenceKind
     geometry: GeofenceGeometry
+    active_from: datetime | None = None
+    active_until: datetime | None = None
+    recurrence: GeofenceRecurrence | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -67,5 +77,6 @@ __all__ = [
     "GeofenceCoordinate",
     "GeofenceGeometry",
     "GeofencePolygon",
+    "GeofenceRecurrence",
     "GeofenceZone",
 ]

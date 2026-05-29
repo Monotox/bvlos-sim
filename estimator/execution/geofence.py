@@ -1,17 +1,19 @@
-"""Deterministic static geofence feasibility evaluation."""
+"""Deterministic static and time-windowed geofence feasibility evaluation."""
 
 from dataclasses import dataclass
+from datetime import UTC, datetime, time, timedelta
 
 from shapely.geometry import LineString, Point
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 from shapely.validation import explain_validity
 
-from estimator.core.enums import FailureCode, FailureKind, GeofenceKind
-from estimator.core.geofence import GeofenceZone
+from estimator.core.enums import FailureCode, FailureKind, GeofenceKind, WarningCode
+from estimator.core.geofence import GeofenceRecurrence, GeofenceZone
 from estimator.core.results import (
     EstimatorContextValue,
     EstimatorFailure,
+    EstimatorWarning,
     GeofenceConflict,
     GeofenceEstimate,
     LegEstimate,
@@ -45,20 +47,45 @@ def evaluate_geofence_feasibility(context: EstimationContext) -> GeofenceEvaluat
             return GeofenceEvaluation(geofence=None, failure=failure)
         compiled_zones.append(compiled)
 
+    departure_time = _mission_departure_time(context)
+    time_windowed = _has_time_windowed_zones(compiled_zones)
+    if time_windowed and departure_time is None:
+        _append_departure_time_missing_warning(context)
+
     forbidden_zones = [
         zone for zone in compiled_zones if zone.zone.kind == GeofenceKind.FORBIDDEN
     ]
     required_zones = [
         zone for zone in compiled_zones if zone.zone.kind == GeofenceKind.REQUIRED
     ]
-    required_union = _required_union(required_zones)
 
     conflicts: list[GeofenceConflict] = []
+    elapsed_start_s = 0.0
     for leg in context.route_legs:
+        elapsed_end_s = elapsed_start_s + leg.time_s
+        if time_windowed:
+            active_forbidden_zones = _active_zones_for_leg(
+                forbidden_zones,
+                departure_time=departure_time,
+                elapsed_start_s=elapsed_start_s,
+                elapsed_end_s=elapsed_end_s,
+            )
+            active_required_zones = _active_zones_for_leg(
+                required_zones,
+                departure_time=departure_time,
+                elapsed_start_s=elapsed_start_s,
+                elapsed_end_s=elapsed_end_s,
+            )
+            required_union = _required_union(active_required_zones)
+        else:
+            active_forbidden_zones = forbidden_zones
+            active_required_zones = required_zones
+            required_union = _required_union(required_zones)
+
         leg_geometry = _leg_geometry(leg)
         conflicts.extend(
             _forbidden_conflicts(
-                forbidden_zones=forbidden_zones,
+                forbidden_zones=active_forbidden_zones,
                 leg=leg,
                 leg_geometry=leg_geometry,
             )
@@ -71,6 +98,7 @@ def evaluate_geofence_feasibility(context: EstimationContext) -> GeofenceEvaluat
         )
         if required_conflict is not None:
             conflicts.append(required_conflict)
+        elapsed_start_s = elapsed_end_s
 
     geofence = GeofenceEstimate(
         is_feasible=not conflicts,
@@ -99,6 +127,155 @@ def _compile_zone(
         )
 
     return CompiledGeofence(zone=zone, geometry=geometry), None
+
+
+def _mission_departure_time(context: EstimationContext) -> datetime | None:
+    departure_time = context.mission.departure_time
+    if departure_time is None:
+        return None
+    return _normalise_datetime(departure_time)
+
+
+def _normalise_datetime(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
+def _has_time_windowed_zones(zones: list[CompiledGeofence]) -> bool:
+    return any(_zone_has_time_window(zone.zone) for zone in zones)
+
+
+def _zone_has_time_window(zone: GeofenceZone) -> bool:
+    return (
+        zone.active_from is not None
+        or zone.active_until is not None
+        or zone.recurrence is not None
+    )
+
+
+def _append_departure_time_missing_warning(context: EstimationContext) -> None:
+    context.warnings.append(
+        EstimatorWarning(
+            code=WarningCode.DEPARTURE_TIME_MISSING,
+            message=(
+                "Time-windowed geofence zones are configured but "
+                "mission.departure_time is not set; treating those zones as "
+                "always active."
+            ),
+            leg_index=None,
+            route_item_index=None,
+            route_item_id=None,
+        )
+    )
+
+
+def _active_zones_for_leg(
+    zones: list[CompiledGeofence],
+    *,
+    departure_time: datetime | None,
+    elapsed_start_s: float,
+    elapsed_end_s: float,
+) -> list[CompiledGeofence]:
+    return [
+        zone
+        for zone in zones
+        if _zone_active_for_leg(
+            zone.zone,
+            departure_time=departure_time,
+            elapsed_start_s=elapsed_start_s,
+            elapsed_end_s=elapsed_end_s,
+        )
+    ]
+
+
+def _zone_active_for_leg(
+    zone: GeofenceZone,
+    *,
+    departure_time: datetime | None,
+    elapsed_start_s: float,
+    elapsed_end_s: float,
+) -> bool:
+    if not _zone_has_time_window(zone):
+        return True
+    if departure_time is None:
+        return True
+
+    leg_start = departure_time + timedelta(seconds=elapsed_start_s)
+    leg_end = departure_time + timedelta(seconds=elapsed_end_s)
+    if zone.recurrence is not None:
+        return _recurring_window_overlaps(zone, leg_start, leg_end)
+    return _absolute_window_overlaps(zone, leg_start, leg_end)
+
+
+def _absolute_window_overlaps(
+    zone: GeofenceZone,
+    leg_start: datetime,
+    leg_end: datetime,
+) -> bool:
+    active_from = (
+        _normalise_datetime(zone.active_from) if zone.active_from is not None else None
+    )
+    active_until = (
+        _normalise_datetime(zone.active_until)
+        if zone.active_until is not None
+        else None
+    )
+    if active_from is not None and active_from > leg_end:
+        return False
+    if active_until is not None and active_until < leg_start:
+        return False
+    return True
+
+
+def _recurring_window_overlaps(
+    zone: GeofenceZone,
+    leg_start: datetime,
+    leg_end: datetime,
+) -> bool:
+    start_time = _time_of_day(zone.active_from, default=time.min)
+    end_time = _time_of_day(zone.active_until, default=time.max)
+    crosses_midnight = (
+        zone.active_from is not None
+        and zone.active_until is not None
+        and end_time <= start_time
+    )
+    date = (leg_start - timedelta(days=1)).date()
+    last_date = (leg_end + timedelta(days=1)).date()
+    while date <= last_date:
+        if _recurrence_allows_date(zone.recurrence, date.weekday()):
+            window_start = datetime.combine(date, start_time, tzinfo=UTC)
+            window_end = datetime.combine(date, end_time, tzinfo=UTC)
+            if crosses_midnight:
+                window_end += timedelta(days=1)
+            if _intervals_overlap(window_start, window_end, leg_start, leg_end):
+                return True
+        date += timedelta(days=1)
+    return False
+
+
+def _time_of_day(value: datetime | None, *, default: time) -> time:
+    if value is None:
+        return default
+    return _normalise_datetime(value).time()
+
+
+def _recurrence_allows_date(
+    recurrence: GeofenceRecurrence | None,
+    weekday: int,
+) -> bool:
+    if recurrence == GeofenceRecurrence.WEEKDAYS:
+        return weekday < 5
+    return True
+
+
+def _intervals_overlap(
+    left_start: datetime,
+    left_end: datetime,
+    right_start: datetime,
+    right_end: datetime,
+) -> bool:
+    return left_start <= right_end and left_end >= right_start
 
 
 def _leg_geometry(leg: LegEstimate) -> BaseGeometry:

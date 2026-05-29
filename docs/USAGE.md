@@ -298,6 +298,40 @@ uv run bvlos-sim estimate \
   --output /tmp/bvlos-route.kml
 ```
 
+## Time-Varying Geofences
+
+Geofence GeoJSON features can carry optional activation windows. Use these for
+temporary flight restrictions, curfew zones, or airspace reservations that are
+only active during part of the planned flight window.
+
+Mission departure time:
+
+```yaml
+departure_time: "2026-06-01T14:00:00Z"
+```
+
+Geofence feature properties:
+
+```json
+{
+  "kind": "forbidden",
+  "active_from": "2026-06-01T20:00:00Z",
+  "active_until": "2026-06-01T22:00:00Z",
+  "recurrence": "daily"
+}
+```
+
+| Property | Description |
+|----------|-------------|
+| `active_from` | Optional ISO-8601 UTC start time. Omitted means active from the beginning of the mission window. |
+| `active_until` | Optional ISO-8601 UTC end time. Omitted means active after `active_from`. |
+| `recurrence` | Optional `daily` or `weekdays`; when set, the times of day recur on matching dates. |
+
+If a zone has any time-window property but the mission omits `departure_time`,
+the estimator emits `DEPARTURE_TIME_MISSING` and treats the zone as always
+active. Zones without time-window properties keep the historical always-active
+behavior. `--format checklist` shows the mission departure time when it is set.
+
 ## Weather Minimums (GO/NO-GO)
 
 Mission constraints can declare operational weather limits. When a wind provider
@@ -1427,6 +1461,7 @@ where it was raised.
 | `RESERVE_BELOW_FAILSAFE_ABORT_THRESHOLD` | post-estimation | Predicted reserve at landing is below the vehicle's `failsafe.low_battery_abort_percent`. The autopilot may trigger an emergency landing before route completion. | Increase battery capacity, reduce distance, or add an intermediate landing. |
 | `RESERVE_BELOW_FAILSAFE_WARN_THRESHOLD` | post-estimation | Predicted reserve at landing is below `failsafe.low_battery_warn_percent`. The vehicle will likely trigger a low-battery alert mid-flight. | Add reserve margin or reduce energy consumption. |
 | `GEOFENCE_EVALUATED_2D_ONLY` | geofence check | Geofence intersection uses 2D lon/lat geometry. Altitude bounds in the GeoJSON are not checked. | If the geofence has altitude-dependent zones, verify altitude clearance manually. 3D altitude-bound checking is planned. |
+| `DEPARTURE_TIME_MISSING` | geofence check | At least one geofence has an activation window, but the mission omits `departure_time`, so the estimator treats time-windowed zones as always active. | Add a UTC mission `departure_time` to evaluate temporary restrictions against the planned flight window. |
 | `DIVERT_ENERGY_TAS_ONLY` | landing-zone reachability | Landing-zone divert energy is computed from true airspeed (TAS) without wind correction. In a headwind, a zone declared reachable may not be in practice. | Add headwind margin to landing-zone distances or use a closer alternate. |
 | `POPULATION_DENSITY_DIMENSION_MISSING` | ground-risk pre-assessment | A mission references `assets.population_grid_file`, but the vehicle profile omits `characteristic_dimension_m`, so iGRC cannot be computed. | Add the vehicle's maximum span or rotor-tip diameter before using `--format ground-risk`. |
 | `GUST_DATA_UNAVAILABLE` | weather minimums | `constraints.max_gust_mps` is set, but the per-leg wind model carries no gust data, so the gust limit is not enforced. | Treat the gust limit as informational; verify gusts against an external forecast until gust data is modelled. |

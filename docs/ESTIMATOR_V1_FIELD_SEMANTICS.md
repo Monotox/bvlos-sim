@@ -13,6 +13,7 @@ sub-segment wind sampling.
 Top-level mission fields:
 
 - `vehicle_profile`: checked against `vehicle.vehicle_id`
+- `departure_time`: UTC departure timestamp used to evaluate time-windowed geofences
 - `planned_home`: used as the initial state and RTL target
 - `defaults.cruise_speed_mps`: fallback cruise speed
 - `defaults.altitude_reference`: default altitude frame for route items
@@ -329,6 +330,11 @@ Result metadata field `estimator_version` records the actual fidelity used:
 - Supported geometries are `Polygon` and `MultiPolygon`.
 - Forbidden-zone boundary contact is a conflict.
 - Required zones are evaluated as a union; route segments must be covered by that union.
+- `active_from`, `active_until`, and `recurrence` are optional GeoJSON feature
+  properties. When present and `mission.departure_time` is set, route legs are
+  checked only when their absolute time interval overlaps the zone's active
+  window. When `departure_time` is missing, time-windowed zones are treated as
+  always active and emit `DEPARTURE_TIME_MISSING`.
 
 ## Landing-Zone Semantics
 
