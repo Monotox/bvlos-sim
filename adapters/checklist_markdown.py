@@ -10,6 +10,7 @@ from estimator.core.results import (
     LinkEstimate,
     MissionEstimate,
     ResourceEstimate,
+    WeatherEstimate,
 )
 
 _PASS = "✓"   # ✓
@@ -92,6 +93,27 @@ def _link_row(link: LinkEstimate | None) -> str:
     return _row(_FAIL, "Link availability", "FAIL", f"link {link.selected_link_id!r} unavailable")
 
 
+def _weather_row(weather: WeatherEstimate | None) -> str:
+    if weather is None:
+        return _row(_NA, "Weather limits", "N/A", "not evaluated")
+    worst = weather.worst_wind_speed_mps
+    where = (
+        f" at leg {weather.worst_leg_index}"
+        f" ({weather.worst_route_item_id})"
+        if weather.worst_leg_index is not None
+        else ""
+    )
+    worst_text = f"worst wind {_fmt(worst)} m/s{where}" if worst is not None else "no wind data"
+    if weather.is_feasible:
+        return _row(_PASS, "Weather limits", "PASS", worst_text)
+    violation = weather.violations[0]
+    detail = (
+        f"{violation.code.value}: {_fmt(violation.observed_mps)} m/s "
+        f"exceeds {_fmt(violation.limit_mps)} m/s at leg {violation.leg_index}"
+    )
+    return _row(_FAIL, "Weather limits", "FAIL", detail)
+
+
 def _ground_risk_row(ground_risk: GroundRiskEstimate | None) -> str:
     if ground_risk is None:
         return _row(_NA, "Ground risk class", "N/A", "not evaluated")
@@ -111,7 +133,14 @@ def _warnings_row(result: MissionEstimate) -> str:
 
 
 def _is_go(result: MissionEstimate) -> bool:
-    checks = [result.energy, result.geofence, result.landing_zone, result.resource, result.link]
+    checks = [
+        result.energy,
+        result.geofence,
+        result.landing_zone,
+        result.resource,
+        result.link,
+        result.weather,
+    ]
     return all(c is None or c.is_feasible for c in checks)
 
 
@@ -127,6 +156,7 @@ def _render_checklist(result: MissionEstimate | None, mission_id: str) -> str:
     lines.append(_landing_zone_row(result.landing_zone))
     lines.append(_resource_row(result.resource))
     lines.append(_link_row(result.link))
+    lines.append(_weather_row(result.weather))
     lines.append(_ground_risk_row(result.ground_risk))
     lines.append(_warnings_row(result))
     lines.append("")

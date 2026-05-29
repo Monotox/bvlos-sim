@@ -47,6 +47,8 @@ from estimator.core.results import (
     MissionEstimate,
     ResourceEstimate,
     ResourceSystemEstimate,
+    WeatherEstimate,
+    WeatherViolation,
     WindVector,
 )
 from estimator.core.scenario import (
@@ -136,6 +138,8 @@ __all__ = [
     "TerrainProvider",
     "UnsupportedEstimatorFeatureError",
     "WarningCode",
+    "WeatherEstimate",
+    "WeatherViolation",
     "WindProvider",
     "WindVector",
     "MonteCarloResult",

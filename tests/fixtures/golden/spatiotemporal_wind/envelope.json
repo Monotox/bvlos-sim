@@ -305,7 +305,19 @@
         "route_item_id": "loiter",
         "route_item_index": 2
       }
-    ]
+    ],
+    "weather": {
+      "checked_leg_count": 4,
+      "is_feasible": true,
+      "max_crosswind_mps": null,
+      "max_gust_mps": null,
+      "max_wind_mps": 10.0,
+      "violations": [],
+      "worst_crosswind_mps": 1.25895172,
+      "worst_leg_index": 1,
+      "worst_route_item_id": "wp1",
+      "worst_wind_speed_mps": 2.0
+    }
   },
   "result_validity": {
     "invalidated_fields": [],

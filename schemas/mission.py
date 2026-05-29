@@ -345,9 +345,45 @@ class MissionConstraints(BaseModel):
         default=None,
         ge=0,
         description=(
-            "Mission-level wind limit in m/s. Reserved for future feasibility "
-            "layers; the estimator does not currently enforce this field. "
-            "Use vehicle.performance.max_wind_mps to trigger advisory warnings."
+            "Mission-level sustained wind limit in m/s. When a wind provider is "
+            "configured, any route leg whose sampled wind speed exceeds this "
+            "limit makes the mission INFEASIBLE (WIND_LIMIT_EXCEEDED)."
+        ),
+    )
+    max_gust_mps: float | None = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Maximum gust speed in m/s. Enforcement requires gust data in the "
+            "wind grid; when unavailable a GUST_DATA_UNAVAILABLE advisory is "
+            "emitted and the gust check is skipped."
+        ),
+    )
+    max_crosswind_mps: float | None = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Maximum wind component perpendicular to a route leg's ground track "
+            "in m/s. Any leg exceeding this makes the mission INFEASIBLE "
+            "(CROSSWIND_LIMIT_EXCEEDED) when a wind provider is configured."
+        ),
+    )
+    min_visibility_m: float | None = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Minimum horizontal visibility in metres. Accepted for operational "
+            "documentation; enforcement requires an external visibility data "
+            "source and is not performed by the estimator."
+        ),
+    )
+    max_precipitation_mm_h: float | None = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Maximum precipitation rate in mm/h. Accepted for operational "
+            "documentation; enforcement requires an external precipitation data "
+            "source and is not performed by the estimator."
         ),
     )
     min_distance_to_landing_zone_m: float | None = Field(

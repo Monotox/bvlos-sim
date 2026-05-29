@@ -286,6 +286,37 @@ class GroundRiskEstimate(BaseModel):
     legs: list[GroundRiskLegEstimate]
 
 
+class WeatherViolation(BaseModel):
+    """A single weather-limit breach on a route leg."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    code: FailureCode
+    message: str
+    leg_index: int
+    route_item_index: int
+    route_item_id: str | None = None
+    observed_mps: float
+    limit_mps: float
+
+
+class WeatherEstimate(BaseModel):
+    """Mission-level weather-minimums feasibility result."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    is_feasible: bool
+    checked_leg_count: int
+    max_wind_mps: float | None = None
+    max_crosswind_mps: float | None = None
+    max_gust_mps: float | None = None
+    worst_wind_speed_mps: float | None = None
+    worst_crosswind_mps: float | None = None
+    worst_leg_index: int | None = None
+    worst_route_item_id: str | None = None
+    violations: list[WeatherViolation] = Field(default_factory=list)
+
+
 class MissionEstimate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -302,6 +333,9 @@ class MissionEstimate(BaseModel):
     geofence: GeofenceEstimate | None = None
     landing_zone: LandingZoneEstimate | None = None
     ground_risk: GroundRiskEstimate | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    weather: WeatherEstimate | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
     warnings: list[EstimatorWarning] = Field(default_factory=list)

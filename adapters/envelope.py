@@ -68,6 +68,10 @@ _LANDING_ZONE_FIELD_PATHS = [
     "result.landing_zone",
 ]
 
+_WEATHER_FIELD_PATHS = [
+    "result.weather",
+]
+
 _ENERGY_FAILURE_CODES = frozenset(
     {
         FailureCode.INSUFFICIENT_ENERGY,
@@ -106,12 +110,21 @@ _LANDING_ZONE_FAILURE_CODES = frozenset(
     }
 )
 
+_WEATHER_FAILURE_CODES = frozenset(
+    {
+        FailureCode.WIND_LIMIT_EXCEEDED,
+        FailureCode.GUST_LIMIT_EXCEEDED,
+        FailureCode.CROSSWIND_LIMIT_EXCEEDED,
+    }
+)
+
 _STATIC_FEASIBILITY_FAILURE_CODES = (
     _ENERGY_FAILURE_CODES
     | _RESOURCE_FAILURE_CODES
     | _LINK_FAILURE_CODES
     | _GEOFENCE_FAILURE_CODES
     | _LANDING_ZONE_FAILURE_CODES
+    | _WEATHER_FAILURE_CODES
 )
 
 
@@ -310,6 +323,11 @@ def _static_feasibility_result_validity(result: MissionEstimate) -> ResultValidi
             result.failure.code in _LANDING_ZONE_FAILURE_CODES,
             result.landing_zone is not None,
             _LANDING_ZONE_FIELD_PATHS,
+        ),
+        (
+            result.failure.code in _WEATHER_FAILURE_CODES,
+            result.weather is not None,
+            _WEATHER_FIELD_PATHS,
         ),
     )
     unavailable_fields = [

@@ -20,6 +20,7 @@ from estimator.core.results import (
     LinkEstimate,
     MissionEstimate,
     ResourceEstimate,
+    WeatherEstimate,
 )
 from estimator.environment.population import GridPopulationProvider
 from estimator.environment.terrain import TerrainProvider
@@ -36,6 +37,7 @@ from estimator.execution.resource_link import (
 )
 from estimator.execution.rules import validate_global_constraints
 from estimator.execution.runtime import EstimationContext
+from estimator.execution.weather import evaluate_weather_feasibility
 from estimator.execution.runtime.failure_translation import error_from_failure
 from estimator.execution.totals import sum_totals
 from schemas.mission import MissionPlan
@@ -51,6 +53,7 @@ def _raise_feasibility_failure(
     link: LinkEstimate | None = None,
     geofence: GeofenceEstimate | None = None,
     landing_zone: LandingZoneEstimate | None = None,
+    weather: WeatherEstimate | None = None,
 ) -> None:
     if failure is None:
         return
@@ -62,6 +65,7 @@ def _raise_feasibility_failure(
         link=link,
         geofence=geofence,
         landing_zone=landing_zone,
+        weather=weather,
         totals_are_partial=False,
         warnings=context.warnings,
         metadata=context.metadata,
@@ -168,6 +172,18 @@ def run_estimation(
         geofence=geofence_evaluation.geofence,
         landing_zone=landing_zone_evaluation.landing_zone,
     )
+
+    weather_evaluation = evaluate_weather_feasibility(context)
+    _raise_feasibility_failure(
+        weather_evaluation.failure,
+        context,
+        energy=energy_evaluation.energy,
+        resource=resource_evaluation.resource,
+        link=link_evaluation.link,
+        geofence=geofence_evaluation.geofence,
+        landing_zone=landing_zone_evaluation.landing_zone,
+        weather=weather_evaluation.weather,
+    )
     _check_failsafe_thresholds(context, energy_evaluation.energy)
 
     result = MissionEstimate(
@@ -183,6 +199,7 @@ def run_estimation(
         link=link_evaluation.link,
         geofence=geofence_evaluation.geofence,
         landing_zone=landing_zone_evaluation.landing_zone,
+        weather=weather_evaluation.weather,
         ground_risk=None,
         warnings=list(context.warnings),
         failure=None,
@@ -372,6 +389,7 @@ def try_estimate_mission_distance_time(
             link=exc.link,
             geofence=exc.geofence,
             landing_zone=exc.landing_zone,
+            weather=exc.weather,
             ground_risk=None,
             warnings=exc.warnings,
             failure=exc.failure,

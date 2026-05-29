@@ -127,6 +127,7 @@ def test_low_groundspeed_margin_warning_is_emitted_before_infeasible() -> None:
     waypoint.altitude_m = mission.planned_home.altitude_amsl_m
     mission.route = [waypoint]
     mission.defaults.cruise_speed_mps = 20.0
+    mission.constraints.max_wind_mps = None
 
     result = estimate_mission_distance_time(
         mission,
@@ -152,6 +153,7 @@ def test_high_crab_margin_warning_is_emitted_before_limit() -> None:
     waypoint.altitude_m = mission.planned_home.altitude_amsl_m
     mission.route = [waypoint]
     mission.defaults.cruise_speed_mps = 20.0
+    mission.constraints.max_wind_mps = None
 
     result = estimate_mission_distance_time(
         mission,

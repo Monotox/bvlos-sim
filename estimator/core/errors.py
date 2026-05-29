@@ -10,6 +10,7 @@ from estimator.core.results import (
     LegEstimate,
     LinkEstimate,
     ResourceEstimate,
+    WeatherEstimate,
 )
 
 
@@ -26,6 +27,7 @@ class EstimatorError(Exception):
         link: LinkEstimate | None = None,
         geofence: GeofenceEstimate | None = None,
         landing_zone: LandingZoneEstimate | None = None,
+        weather: WeatherEstimate | None = None,
         totals_are_partial: bool | None = None,
         warnings: list[EstimatorWarning] | None = None,
         metadata: dict[str, EstimatorContextValue] | None = None,
@@ -39,6 +41,7 @@ class EstimatorError(Exception):
         self.link = link
         self.geofence = geofence
         self.landing_zone = landing_zone
+        self.weather = weather
         self.totals_are_partial = (
             len(legs) > 0 if totals_are_partial is None else totals_are_partial
         )

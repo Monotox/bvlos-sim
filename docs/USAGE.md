@@ -298,6 +298,61 @@ uv run bvlos-sim estimate \
   --output /tmp/bvlos-route.kml
 ```
 
+## Weather Minimums (GO/NO-GO)
+
+Mission constraints can declare operational weather limits. When a wind provider
+is configured (constant, layered, or a spatiotemporal grid), the estimator
+enforces them against the per-leg sampled wind and returns `INFEASIBLE` if a
+limit is exceeded — turning "energy OK" into "energy OK **and** weather within
+approved limits".
+
+```yaml
+constraints:
+  max_wind_mps: 12.0          # sustained wind; exceeding -> WIND_LIMIT_EXCEEDED
+  max_crosswind_mps: 8.0      # wind component across a leg's ground track ->
+                              # CROSSWIND_LIMIT_EXCEEDED
+  max_gust_mps: 15.0          # advisory: requires gust data not yet modelled
+  min_visibility_m: 5000.0    # accepted for documentation; not enforced
+  max_precipitation_mm_h: 0.0 # accepted for documentation; not enforced
+```
+
+Enforcement notes:
+
+- `max_wind_mps` and `max_crosswind_mps` are enforced per route leg. The first
+  exceeded leg makes the mission `INFEASIBLE` with the corresponding failure
+  code in the result diagnostics.
+- When no wind provider is configured, the limits are accepted but **not
+  enforced** (consistent with other provider-dependent checks); no weather block
+  appears.
+- `max_gust_mps` is accepted, but the per-leg wind model carries no gust data, so
+  a `GUST_DATA_UNAVAILABLE` advisory is emitted and the gust check is skipped.
+- `min_visibility_m` and `max_precipitation_mm_h` are accepted for operational
+  documentation only; enforcement requires external data sources.
+
+The `--format checklist` output gains a **Weather limits** row showing the
+worst-case wind and the leg where it occurs, and `--format summary` adds a
+`weather FAIL` field when a limit is exceeded. The `--format json` result
+envelope includes a `weather` block with the worst observed values and any
+violations.
+
+```bash
+uv run bvlos-sim estimate \
+  examples/missions/pipeline_demo_001.yaml \
+  examples/vehicles/quadplane_v1.yaml \
+  --wind-layer 0:6:0 \
+  --format checklist
+```
+
+The Weather-limits row reports the worst wind and the leg where it occurs:
+
+```text
+✓ Weather limits            PASS   worst wind 6.00 m/s at leg 1 (wp1)
+```
+
+A wind above `constraints.max_wind_mps` makes the mission `INFEASIBLE` with
+`WIND_LIMIT_EXCEEDED`; the checklist then shows `✗ Weather limits FAIL` and
+`Status: NO-GO`.
+
 ## Ground Risk (SORA iGRC)
 
 Use `estimate --format ground-risk` to compute a SORA intrinsic Ground Risk
@@ -1374,6 +1429,7 @@ where it was raised.
 | `GEOFENCE_EVALUATED_2D_ONLY` | geofence check | Geofence intersection uses 2D lon/lat geometry. Altitude bounds in the GeoJSON are not checked. | If the geofence has altitude-dependent zones, verify altitude clearance manually. 3D altitude-bound checking is planned. |
 | `DIVERT_ENERGY_TAS_ONLY` | landing-zone reachability | Landing-zone divert energy is computed from true airspeed (TAS) without wind correction. In a headwind, a zone declared reachable may not be in practice. | Add headwind margin to landing-zone distances or use a closer alternate. |
 | `POPULATION_DENSITY_DIMENSION_MISSING` | ground-risk pre-assessment | A mission references `assets.population_grid_file`, but the vehicle profile omits `characteristic_dimension_m`, so iGRC cannot be computed. | Add the vehicle's maximum span or rotor-tip diameter before using `--format ground-risk`. |
+| `GUST_DATA_UNAVAILABLE` | weather minimums | `constraints.max_gust_mps` is set, but the per-leg wind model carries no gust data, so the gust limit is not enforced. | Treat the gust limit as informational; verify gusts against an external forecast until gust data is modelled. |
 | `ROUTE_ACTIONS_AFTER_RTL` | route structure check | Route items appear after an RTL action. Those legs are estimated but operationally unreachable — the aircraft returns home before executing them. | Remove the trailing items or re-order the route so RTL is last. |
 | `LOITER_RADIUS_IGNORED` | loiter legs | `loiter_radius_m` is set on a loiter item but ignored; the estimator models loiter as a station-keep hold using `max_station_keep_wind_mps` as authority. | Confirm the loiter duration in `loiter_time_s` is correct. Radius will be used in a future fidelity update. |
 | `LOITER_ASSUMED_ZERO_GROUND_DISTANCE` | loiter legs | Loiter dwell is modeled as a station-keep hold with zero ground-path distance. The energy model accounts for hover power but not horizontal drift. | Acceptable for pre-flight checks. For precision loiter energy, use fidelity v2 when circular loiter support is added. |

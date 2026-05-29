@@ -83,6 +83,13 @@ def _warnings_field(warnings: list[EstimatorWarning]) -> str | None:
     return f"warnings {n}" if n > 0 else None
 
 
+def _weather_field(estimate: MissionEstimate) -> str | None:
+    weather = estimate.weather
+    if weather is None or weather.is_feasible:
+        return None
+    return "weather FAIL"
+
+
 def format_estimate_summary(estimate: MissionEstimate) -> str:
     """Format an estimate as a single summary line."""
     return _join_fields(
@@ -90,6 +97,7 @@ def format_estimate_summary(estimate: MissionEstimate) -> str:
             _estimate_status_label(estimate),
             _reserve_margin_field(estimate.energy),
             _flight_time_field(estimate.total_time_s),
+            _weather_field(estimate),
             _warnings_field(estimate.warnings),
             _failure_field(estimate),
         )
