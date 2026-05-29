@@ -127,8 +127,7 @@ New capabilities should work *with* existing pieces, not alongside them in isola
 
 ## Implemented tickets
 
-<details>
-<summary>Full list (48 tickets)</summary>
+### Full list (48 tickets)
 
 1. [001](./001-estimator-cli-and-envelope.md) Estimator CLI and envelope
 2. [002](./002-versioning-and-golden-fixtures.md) Versioning and golden fixtures
@@ -178,5 +177,3 @@ New capabilities should work *with* existing pieces, not alongside them in isola
 46. [092](./092-weather-minimums-and-go-nogo.md) Weather minimums and automatic GO/NO-GO
 47. [093](./093-time-varying-geofence-activation.md) Time-varying geofence activation
 48. [096](./096-docs-github-pages.md) Documentation site on GitHub Pages
-
-</details>
