@@ -3,6 +3,23 @@
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
+class UsableCapacityPoint(BaseModel):
+    """Battery usable-capacity fraction at a state of charge."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    soc: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="State of charge fraction, from 0.0 to 1.0.",
+    )
+    usable_fraction: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="Usable capacity fraction available at this state of charge.",
+    )
+
+
 class EnergyModel(BaseModel):
     """Deterministic phase-power energy model used by estimator feasibility."""
 
@@ -38,6 +55,46 @@ class EnergyModel(BaseModel):
         gt=0,
         description="Nominal power draw during descent. Falls back to cruise_power_w if omitted.",
     )
+    reference_mass_kg: float | None = Field(
+        default=None,
+        gt=0,
+        description="All-up mass at which phase power values were calibrated.",
+    )
+    reference_density_kgm3: float | None = Field(
+        default=None,
+        gt=0,
+        description="Air density at which phase power values were calibrated.",
+    )
+    induced_power_mass_exponent: float = Field(
+        default=1.5,
+        gt=0,
+        description="Mass-scaling exponent for induced hover and climb power.",
+    )
+    usable_capacity_curve: list[UsableCapacityPoint] | None = Field(
+        default=None,
+        min_length=1,
+        description="Optional state-of-charge to usable-capacity curve.",
+    )
+
+    @model_validator(mode="after")
+    def validate_usable_capacity_curve(self) -> "EnergyModel":
+        if self.usable_capacity_curve is None:
+            return self
+
+        previous_soc = -1.0
+        previous_fraction = -1.0
+        for point in self.usable_capacity_curve:
+            if point.soc <= previous_soc:
+                raise ValueError(
+                    "usable_capacity_curve points must be strictly increasing by soc"
+                )
+            if point.usable_fraction < previous_fraction:
+                raise ValueError(
+                    "usable_capacity_curve usable_fraction must be non-decreasing"
+                )
+            previous_soc = point.soc
+            previous_fraction = point.usable_fraction
+        return self
 
 
 class FailsafeProfile(BaseModel):
@@ -86,4 +143,5 @@ class FailsafeProfile(BaseModel):
 __all__ = [
     "EnergyModel",
     "FailsafeProfile",
+    "UsableCapacityPoint",
 ]

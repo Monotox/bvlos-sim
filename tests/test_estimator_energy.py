@@ -1,22 +1,43 @@
 import math
+from pathlib import Path
 
 import pytest
 
+from adapters.envelope import EnvelopeInputs, build_estimator_envelope
+from adapters.io import InputDocument
+from adapters.markdown import render_envelope_markdown
 from estimator import (
     EnergyPowerSource,
     EstimateStatus,
     FailureCode,
     InvalidEstimatorInputError,
+    LandingZone,
     LegPhase,
+    WarningCode,
     estimate_mission_distance_time,
     try_estimate_mission_distance_time,
 )
 from estimator.execution.context_builder import build_estimation_context
 from estimator.execution.energy import evaluate_energy_feasibility
 from estimator.execution.executors import execute_route_item
+from estimator.math.atmosphere import isa_air_density_kgm3
 from pyproj import Geod
-from schemas import MissionAction, RouteItem
+from schemas import MissionAction, RouteItem, UsableCapacityPoint, VehicleProfile
 from tests.helpers import make_mission, make_vehicle
+
+
+def _point_zone(zone_id: str, *, lat: float, lon: float) -> LandingZone:
+    return LandingZone.model_validate(
+        {"id": zone_id, "geometry": {"points": [{"lat": lat, "lon": lon}]}}
+    )
+
+
+def _scaled_energy_vehicle(*, operating_mass_kg: float = 12.0) -> VehicleProfile:
+    vehicle = make_vehicle()
+    vehicle.mass.operating_mass_kg = operating_mass_kg
+    vehicle.energy.reference_mass_kg = 10.0
+    vehicle.energy.induced_power_mass_exponent = 2.0
+    return vehicle
 
 
 def test_successful_estimate_includes_energy_breakdown_and_reserve() -> None:
@@ -277,3 +298,150 @@ def test_rth_reserve_timeline_is_none_when_home_is_missing() -> None:
     assert evaluation.failure is None
     assert evaluation.energy is not None
     assert evaluation.energy.rth_reserve_timeline is None
+
+
+def test_isa_air_density_matches_reference_values() -> None:
+    assert math.isclose(isa_air_density_kgm3(0.0), 1.225, rel_tol=1e-3)
+    assert math.isclose(isa_air_density_kgm3(1_000.0), 1.1116, rel_tol=1e-3)
+    assert math.isclose(isa_air_density_kgm3(2_000.0), 1.0065, rel_tol=1e-3)
+    assert isa_air_density_kgm3(1_000.0, temperature_offset_c=15.0) < (
+        isa_air_density_kgm3(1_000.0)
+    )
+
+
+def test_default_energy_model_omits_power_scaling_fields() -> None:
+    result = estimate_mission_distance_time(make_mission(), make_vehicle())
+
+    assert result.energy is not None
+    assert all(leg.mass_multiplier is None for leg in result.energy.legs)
+    assert all(leg.density_multiplier is None for leg in result.energy.legs)
+    assert "mass_multiplier" not in result.energy.legs[0].model_dump(mode="json")
+    assert "density_multiplier" not in result.energy.legs[0].model_dump(mode="json")
+
+
+def test_operating_mass_increases_induced_leg_energy() -> None:
+    base_vehicle = _scaled_energy_vehicle(operating_mass_kg=10.0)
+    heavy_vehicle = _scaled_energy_vehicle(operating_mass_kg=12.0)
+
+    base = estimate_mission_distance_time(make_mission(), base_vehicle)
+    heavy = estimate_mission_distance_time(make_mission(), heavy_vehicle)
+
+    assert base.energy is not None
+    assert heavy.energy is not None
+    base_takeoff = base.energy.legs[0]
+    heavy_takeoff = heavy.energy.legs[0]
+    assert base_takeoff.power_source == EnergyPowerSource.CLIMB_POWER
+    assert heavy_takeoff.mass_multiplier == pytest.approx(1.44)
+    assert heavy_takeoff.energy_wh > base_takeoff.energy_wh
+
+
+def test_lower_air_density_increases_power_at_altitude() -> None:
+    low_mission = make_mission()
+    high_mission = make_mission()
+    high_mission.planned_home.altitude_amsl_m = 2_000.0
+    vehicle = make_vehicle()
+    vehicle.energy.reference_density_kgm3 = isa_air_density_kgm3(0.0)
+
+    low = estimate_mission_distance_time(low_mission, vehicle)
+    high = estimate_mission_distance_time(high_mission, vehicle)
+
+    assert low.energy is not None
+    assert high.energy is not None
+    assert high.energy.total_energy_wh > low.energy.total_energy_wh
+    assert high.energy.legs[0].density_multiplier is not None
+    assert high.energy.legs[0].density_multiplier > 1.0
+
+
+def test_usable_capacity_curve_derates_usable_energy_not_reserve_threshold() -> None:
+    mission = make_mission()
+    vehicle = make_vehicle()
+    vehicle.energy.usable_capacity_curve = [
+        UsableCapacityPoint(soc=0.0, usable_fraction=0.0),
+        UsableCapacityPoint(soc=1.0, usable_fraction=0.8),
+    ]
+
+    result = estimate_mission_distance_time(mission, vehicle)
+
+    assert result.energy is not None
+    assert result.energy.reserve_threshold_wh == pytest.approx(225.0)
+    assert result.energy.usable_energy_wh == pytest.approx(495.0)
+
+
+def test_missing_energy_reference_conditions_warns() -> None:
+    vehicle = make_vehicle()
+    vehicle.mass.operating_mass_kg = 11.0
+
+    result = estimate_mission_distance_time(make_mission(), vehicle)
+
+    assert any(
+        warning.code == WarningCode.ENERGY_REFERENCE_CONDITIONS_MISSING
+        for warning in result.warnings
+    )
+
+
+def test_rth_energy_uses_adjusted_cruise_power() -> None:
+    mission = make_mission()
+    mission.route = [
+        RouteItem(
+            id="east",
+            action=MissionAction.WAYPOINT,
+            lat=mission.planned_home.lat,
+            lon=mission.planned_home.lon + 0.01,
+            altitude_m=120.0,
+        )
+    ]
+
+    base = estimate_mission_distance_time(mission, make_vehicle())
+    scaled = estimate_mission_distance_time(mission, _scaled_energy_vehicle())
+
+    assert base.energy is not None
+    assert scaled.energy is not None
+    assert base.energy.rth_reserve_timeline is not None
+    assert scaled.energy.rth_reserve_timeline is not None
+    assert (
+        scaled.energy.rth_reserve_timeline[0].rth_energy_wh
+        > base.energy.rth_reserve_timeline[0].rth_energy_wh
+    )
+
+
+def test_landing_zone_divert_energy_uses_adjusted_cruise_power() -> None:
+    mission = make_mission()
+    mission.route = [mission.route[0]]
+    mission.constraints.min_distance_to_landing_zone_m = 10_000.0
+    zone = _point_zone("distant_lz", lat=52.045, lon=4.0)
+
+    base = estimate_mission_distance_time(
+        mission,
+        make_vehicle(),
+        landing_zones=[zone],
+    )
+    scaled = estimate_mission_distance_time(
+        mission,
+        _scaled_energy_vehicle(),
+        landing_zones=[zone],
+    )
+
+    assert base.landing_zone is not None
+    assert scaled.landing_zone is not None
+    assert base.landing_zone.states[0].divert_energy_wh is not None
+    assert scaled.landing_zone.states[0].divert_energy_wh is not None
+    assert (
+        scaled.landing_zone.states[0].divert_energy_wh
+        > base.landing_zone.states[0].divert_energy_wh
+    )
+
+
+def test_markdown_report_includes_energy_power_factors() -> None:
+    result = estimate_mission_distance_time(
+        make_mission(),
+        _scaled_energy_vehicle(),
+    )
+    fake_doc = InputDocument(path=Path("/fake/input.yaml"), format="yaml", sha256="0" * 64)
+    envelope = build_estimator_envelope(
+        result=result,
+        inputs=EnvelopeInputs(mission=fake_doc, vehicle=fake_doc),
+    )
+
+    output = render_envelope_markdown(envelope)
+
+    assert "| Leg | ID | Mass factor | Density factor |" in output

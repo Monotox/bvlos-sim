@@ -88,6 +88,7 @@ from schemas.vehicle import (
     VehicleClass,
     VehicleProfile,
 )
+from schemas.vehicle_energy import UsableCapacityPoint
 
 __all__ = [
     "Airspace",
@@ -160,6 +161,7 @@ __all__ = [
     "SitlSimulatorMetadata",
     "StochasticPropagationPlan",
     "StochasticPropagationResult",
+    "UsableCapacityPoint",
     "VehicleCapabilities",
     "VehicleClass",
     "VehicleProfile",

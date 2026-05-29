@@ -17,7 +17,7 @@ from estimator.core.results import (
     LandingZoneStateReachability,
     LegEstimate,
 )
-from estimator.execution.energy import cruise_energy_wh
+from estimator.execution.energy import adjusted_cruise_power_w, cruise_energy_wh
 from estimator.execution.runtime import EstimationContext
 from estimator.execution.spatial import polygon_set_to_geometry_list
 
@@ -233,9 +233,10 @@ def _evaluate_state(
         )
 
     divert_energy_wh = _divert_energy_wh(
+        context=context,
+        leg=leg,
         distance_m=reachable.distance_m,
         tas_mps=tas_mps,
-        cruise_power_w=context.vehicle.energy.cruise_power_w,
     )
     reserve_after_divert_wh = energy_remaining_wh - divert_energy_wh
     reserve_after_divert_percent = (
@@ -300,14 +301,18 @@ def _distance_to_geometry_m(
 
 def _divert_energy_wh(
     *,
+    context: EstimationContext,
+    leg: LegEstimate,
     distance_m: float,
     tas_mps: float,
-    cruise_power_w: float,
 ) -> float:
     return cruise_energy_wh(
         distance_m=distance_m,
         tas_mps=tas_mps,
-        cruise_power_w=cruise_power_w,
+        cruise_power_w=adjusted_cruise_power_w(
+            context,
+            altitude_amsl_m=leg.end_alt_amsl_m,
+        ),
     )
 
 
