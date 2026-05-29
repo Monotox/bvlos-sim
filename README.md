@@ -219,11 +219,31 @@ per-assertion scenario report showing whether your RTL policy leaves the aircraf
 positive reserve after a Dubins-constrained divert, and a per-step reserve-violation
 probability from the particle propagator. Two YAML files, no Python.
 
-## Disclaimer
+## Scope & limitations
 
-bvlos-sim is not a flight-safety system, operational approval tool, or complete
-BVLOS compliance system. Do not use it as the sole basis for operational BVLOS
-decisions.
+bvlos-sim is a deterministic, offline **feasibility model** — a transparent
+pre-flight sanity check, not a flight-safety system, operational approval tool,
+or complete BVLOS compliance system. Do not use it as the sole basis for
+operational BVLOS decisions. Be aware of what it deliberately does **not**
+provide:
+
+- **No regulatory standing.** Its outputs (including the SORA pre-assessment) are
+  not recognised or accepted by any aviation authority and do not constitute an
+  authorization, a LAANC clearance, or a certified SORA determination.
+- **No live or guaranteed-current data.** Airspace, weather, terrain, and
+  population come from static files you fetch and commit yourself; there is no
+  real-time feed and no currency guarantee. A "GO" is only as current as your
+  inputs.
+- **An unvalidated model with sample data.** The shipped vehicle profiles are
+  placeholders, and the physics is not yet calibrated against real flight logs.
+  Replace profiles with measured data and treat results as indicative.
+- **No warranty, support, or liability transfer.** MIT-licensed and provided
+  "as is" (see [LICENSE](./LICENSE)).
+
+Where it is genuinely useful: an early, reproducible, auditable feasibility gate
+*before* you engage regulator-facing tooling and real flight testing. See the
+[ticket backlog](./docs/tickets/README.md) for planned accuracy and integration
+work, and the [roadmap](./docs/ROADMAP.md) for known limitations.
 
 ## Documentation
 

@@ -1,6 +1,6 @@
 # Ticket Backlog
 
-**48 implemented · 19 planned · 1069 tests passing**
+**48 implemented · 22 planned · 1069 tests passing**
 
 This directory tracks every capability from idea to implementation. Completed
 tickets are kept as historical records. Open tickets describe what to build
@@ -47,6 +47,9 @@ Items are ordered by impact. Pick one, read its ticket file, open a PR.
 
 | # | Ticket | What it adds |
 |---|---|---|
+| 100 | [Obstacle database & vertical clearance](./100-obstacle-database-and-clearance.md) | Flag legs passing within separation of towers/wires/terrain — the biggest "declared safe but isn't" gap for low-altitude BVLOS |
+| 099 | [Energy-model fidelity](./099-energy-model-fidelity.md) | Make energy depend on mass, air density (altitude/temperature), and state of charge instead of constant power per phase |
+| 101 | [SORA mitigation depth (M1–M3)](./101-sora-mitigation-depth.md) | Apply declared ground-risk mitigations and tactical air-risk reduction so the SAIL reflects the operator's actual case |
 | 097 | [Opt-in RTH reserve feasibility gate](./097-rth-reserve-feasibility-gate.md) | Let a mission require RTH reserve at every leg so a breach gates status, exit code, and the checklist GO/NO-GO (today RTH is advisory only) |
 | 061 | [3D geofence altitude bounds](./061-3d-geofence-altitude-bounds.md) | Extend geofence checks to include min/max altitude constraints |
 | 062 | [LZ reachability wind correction](./062-wind-corrected-divert-energy.md) | Apply wind-triangle correction to landing-zone reachability energy (divert already done) |
