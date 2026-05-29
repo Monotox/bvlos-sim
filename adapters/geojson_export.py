@@ -17,6 +17,7 @@ from adapters.route_export_support import (
 )
 from estimator.core.geofence import GeofencePolygon, GeofenceZone
 from estimator.core.landing_zone import LandingZone
+from estimator.core.obstacle import Obstacle, ObstacleGeometryType
 from estimator.core.results import EnergyEstimate, GroundRiskEstimate, MissionEstimate
 
 GeoJsonFeature: TypeAlias = dict[str, JsonValue]
@@ -27,6 +28,7 @@ def build_geojson_export(
     *,
     geofence_zones: list[GeofenceZone] | None = None,
     landing_zones: list[LandingZone] | None = None,
+    obstacles: tuple[Obstacle, ...] | None = None,
 ) -> str:
     """Render a mission estimate as a three-layer GeoJSON FeatureCollection."""
 
@@ -34,6 +36,7 @@ def build_geojson_export(
         *_route_features(estimate),
         *_landing_zone_features(estimate, landing_zones),
         *_geofence_features(estimate, geofence_zones),
+        *_obstacle_features(estimate, obstacles),
     ]
     feature_collection: dict[str, JsonValue] = {
         "type": "FeatureCollection",
@@ -147,6 +150,63 @@ def _geofence_feature(
             "name": zone.id,
             "conflict": zone.id in conflict_zone_ids,
         },
+    )
+
+
+def _obstacle_features(
+    estimate: MissionEstimate,
+    obstacles: tuple[Obstacle, ...] | None,
+) -> list[GeoJsonFeature]:
+    if obstacles is None:
+        return []
+    conflict_ids = _obstacle_conflict_ids(estimate)
+    return [_obstacle_feature(obstacle, conflict_ids) for obstacle in obstacles]
+
+
+def _obstacle_feature(
+    obstacle: Obstacle,
+    conflict_ids: frozenset[str],
+) -> GeoJsonFeature:
+    return _feature(
+        geometry=_obstacle_geometry(obstacle),
+        properties={
+            "layer": "obstacles",
+            "name": obstacle.id,
+            "height_m": obstacle.height_m,
+            "radius_m": obstacle.radius_m,
+            "uncertainty_m": obstacle.uncertainty_m,
+            "conflict": obstacle.id in conflict_ids,
+        },
+    )
+
+
+def _obstacle_geometry(obstacle: Obstacle) -> dict[str, JsonValue]:
+    geometry = obstacle.geometry
+    if geometry.type == ObstacleGeometryType.POINT:
+        point = geometry.points[0]
+        return {"type": "Point", "coordinates": [point.lon, point.lat]}
+    if geometry.type == ObstacleGeometryType.LINE:
+        return {
+            "type": "LineString",
+            "coordinates": [[point.lon, point.lat] for point in geometry.points],
+        }
+    if geometry.polygon is None:
+        return {"type": "Point", "coordinates": []}
+    return {
+        "type": "Polygon",
+        "coordinates": [
+            [[point.lon, point.lat] for point in geometry.polygon.exterior]
+        ],
+    }
+
+
+def _obstacle_conflict_ids(estimate: MissionEstimate) -> frozenset[str]:
+    if estimate.obstacle is None:
+        return frozenset()
+    return frozenset(
+        violation.obstacle_id
+        for violation in estimate.obstacle.violations
+        if violation.obstacle_id is not None
     )
 
 

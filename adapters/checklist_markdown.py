@@ -9,6 +9,7 @@ from estimator.core.results import (
     LandingZoneEstimate,
     LinkEstimate,
     MissionEstimate,
+    ObstacleEstimate,
     ResourceEstimate,
     WeatherEstimate,
 )
@@ -114,6 +115,28 @@ def _weather_row(weather: WeatherEstimate | None) -> str:
     return _row(_FAIL, "Weather limits", "FAIL", detail)
 
 
+def _obstacle_row(obstacle: ObstacleEstimate | None) -> str:
+    if obstacle is None:
+        return _row(_NA, "Obstacle clearance", "N/A", "not evaluated")
+    if obstacle.is_feasible:
+        detail = (
+            f"0 violations across {obstacle.checked_leg_count} leg(s) "
+            f"and {obstacle.checked_obstacle_count} obstacle(s)"
+        )
+        return _row(_PASS, "Obstacle clearance", "PASS", detail)
+    violation = obstacle.violations[0]
+    target = (
+        f"obstacle {violation.obstacle_id!r}"
+        if violation.obstacle_id is not None
+        else "terrain"
+    )
+    detail = (
+        f"{violation.code.value}: {target} at leg {violation.leg_index} "
+        f"(clearance {_fmt(violation.vertical_clearance_m)} m)"
+    )
+    return _row(_FAIL, "Obstacle clearance", "FAIL", detail)
+
+
 def _rth_reserve_row(result: MissionEstimate) -> str | None:
     if result.rth_is_feasible is None:
         return None
@@ -163,6 +186,7 @@ def _is_go(result: MissionEstimate) -> bool:
         result.landing_zone,
         result.resource,
         result.link,
+        result.obstacle,
         result.weather,
     ]
     return all(c is None or c.is_feasible for c in checks)
@@ -180,6 +204,7 @@ def _render_checklist(result: MissionEstimate | None, mission_id: str) -> str:
     lines.append(_landing_zone_row(result.landing_zone))
     lines.append(_resource_row(result.resource))
     lines.append(_link_row(result.link))
+    lines.append(_obstacle_row(result.obstacle))
     lines.append(_weather_row(result.weather))
     rth_row = _rth_reserve_row(result)
     if rth_row is not None:

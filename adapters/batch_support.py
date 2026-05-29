@@ -10,6 +10,7 @@ from rich.table import Table
 from adapters.cli_support import MissionAssetBundle, _populate_mission_assets
 from adapters.envelope import EstimatorResultEnvelope, build_estimator_envelope
 from adapters.assets.geofence_geojson import GeofenceLoadError
+from adapters.assets.obstacle_geojson import ObstacleLoadError
 from adapters.io import InputLoadError, load_mission, load_vehicle
 from adapters.assets.landing_zone_geojson import LandingZoneLoadError
 from adapters.assets.terrain_grid import TerrainGridLoadError
@@ -19,6 +20,7 @@ from estimator import (
     GeofenceZone,
     LandingZone,
     MissionEstimate,
+    Obstacle,
     try_estimate_mission_distance_time,
 )
 from schemas.batch import BatchManifest, BatchRun
@@ -27,6 +29,7 @@ _BATCH_RUN_INPUT_ERRORS = (
     InputLoadError,
     GeofenceLoadError,
     LandingZoneLoadError,
+    ObstacleLoadError,
     TerrainGridLoadError,
     WindGridLoadError,
 )
@@ -48,6 +51,7 @@ class BatchRunResult:
     envelope: EstimatorResultEnvelope | None
     geofences: list[GeofenceZone] | None = None
     landing_zones: list[LandingZone] | None = None
+    obstacles: tuple[Obstacle, ...] | None = None
     warning_count: int = 0
     error_message: str | None = None
 
@@ -86,6 +90,8 @@ def _run_estimate(run: BatchRun) -> BatchRunResult:
         vehicle_model,
         wind_provider=mission_assets.wind_provider,
         terrain_provider=mission_assets.terrain_provider,
+        population_provider=mission_assets.population_provider,
+        obstacle_provider=mission_assets.obstacle_provider,
         geofences=mission_assets.geofences,
         landing_zones=mission_assets.landing_zones,
     )
@@ -104,6 +110,9 @@ def _run_estimate(run: BatchRun) -> BatchRunResult:
         envelope=envelope,
         geofences=mission_assets.geofences,
         landing_zones=mission_assets.landing_zones,
+        obstacles=mission_assets.obstacle_provider.obstacles()
+        if mission_assets.obstacle_provider is not None
+        else None,
         warning_count=len(result.warnings),
     )
 

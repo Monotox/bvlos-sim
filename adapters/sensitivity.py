@@ -10,6 +10,7 @@ from estimator import (
     GridPopulationProvider,
     GridTerrainProvider,
     LandingZone,
+    ObstacleProvider,
     MissionEstimate,
     SpatiotemporalWindProvider,
     WindProvider,
@@ -130,6 +131,7 @@ def _estimate_level(
     wind_provider: WindProvider | None,
     terrain_provider: GridTerrainProvider | None,
     population_provider: GridPopulationProvider | None,
+    obstacle_provider: ObstacleProvider | None,
     geofences: Sequence[GeofenceZone] | None,
     landing_zones: Sequence[LandingZone] | None,
 ) -> SensitivityLevel:
@@ -140,6 +142,7 @@ def _estimate_level(
         wind_provider=wind_provider,
         terrain_provider=terrain_provider,
         population_provider=population_provider,
+        obstacle_provider=obstacle_provider,
         geofences=geofences,
         landing_zones=landing_zones,
     )
@@ -194,6 +197,7 @@ def run_sensitivity_sweep(
     wind_provider: SpatiotemporalWindProvider | WindProvider | None = None,
     terrain_provider: GridTerrainProvider | None = None,
     population_provider: GridPopulationProvider | None = None,
+    obstacle_provider: ObstacleProvider | None = None,
     geofences: list[GeofenceZone] | None = None,
     landing_zones: list[LandingZone] | None = None,
     options: EstimationOptions | None = None,
@@ -212,6 +216,7 @@ def run_sensitivity_sweep(
                 wind_provider=wind_provider,
                 terrain_provider=terrain_provider,
                 population_provider=population_provider,
+                obstacle_provider=obstacle_provider,
                 geofences=geofences,
                 landing_zones=landing_zones,
             )
@@ -229,6 +234,7 @@ def run_sensitivity_sweep(
                 wind_provider=_wind_provider_for_headwind(wind_provider, headwind_mps),
                 terrain_provider=terrain_provider,
                 population_provider=population_provider,
+                obstacle_provider=obstacle_provider,
                 geofences=geofences,
                 landing_zones=landing_zones,
             )
@@ -246,6 +252,7 @@ def run_sensitivity_sweep(
                 wind_provider=wind_provider,
                 terrain_provider=terrain_provider,
                 population_provider=population_provider,
+                obstacle_provider=obstacle_provider,
                 geofences=geofences,
                 landing_zones=landing_zones,
             )

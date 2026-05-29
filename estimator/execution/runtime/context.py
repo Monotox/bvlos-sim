@@ -17,6 +17,7 @@ from estimator.core.results import (
     WindVector,
 )
 from estimator.environment.population import GridPopulationProvider
+from estimator.environment.obstacle import ObstacleProvider
 from estimator.environment.terrain import TerrainProvider
 from estimator.environment.wind import WindProvider
 from estimator.execution.runtime.capabilities import Capabilities
@@ -34,6 +35,7 @@ class EstimationContext:
     wind_provider: WindProvider
     terrain_provider: TerrainProvider | None
     population_provider: GridPopulationProvider | None
+    obstacle_provider: ObstacleProvider | None
     geod: Geod
     capabilities: Capabilities
     geofences: tuple[GeofenceZone, ...] | None

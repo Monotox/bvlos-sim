@@ -7,6 +7,7 @@ import typer
 import adapters.cli as cli
 from adapters.assets.geofence_geojson import GeofenceLoadError
 from adapters.assets.landing_zone_geojson import LandingZoneLoadError
+from adapters.assets.obstacle_geojson import ObstacleLoadError
 from adapters.cli_support import (
     MissionAssetBundle,
     OutputWriteError,
@@ -61,6 +62,7 @@ def sora(
             wind_provider=mission_assets.wind_provider,
             terrain_provider=mission_assets.terrain_provider,
             population_provider=mission_assets.population_provider,
+            obstacle_provider=mission_assets.obstacle_provider,
             geofences=mission_assets.geofences,
             landing_zones=mission_assets.landing_zones,
         )
@@ -84,7 +86,7 @@ def sora(
             code=cli.CliExitCode.INVALID_INPUT,
             details={"input_name": exc.input_name, "stage": str(exc.stage)},
         )
-    except (GeofenceLoadError, LandingZoneLoadError) as exc:
+    except (GeofenceLoadError, LandingZoneLoadError, ObstacleLoadError) as exc:
         cli._exit_with_cli_error(
             str(exc),
             command="sora",

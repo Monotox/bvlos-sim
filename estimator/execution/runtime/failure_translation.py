@@ -16,6 +16,7 @@ from estimator.core.results import (
     LandingZoneEstimate,
     LegEstimate,
     LinkEstimate,
+    ObstacleEstimate,
     ResourceEstimate,
     WeatherEstimate,
 )
@@ -36,6 +37,7 @@ def error_from_failure(
     link: LinkEstimate | None = None,
     geofence: GeofenceEstimate | None = None,
     landing_zone: LandingZoneEstimate | None = None,
+    obstacle: ObstacleEstimate | None = None,
     weather: WeatherEstimate | None = None,
     totals_are_partial: bool | None = None,
     warnings: list[EstimatorWarning],
@@ -50,6 +52,7 @@ def error_from_failure(
         link=link,
         geofence=geofence,
         landing_zone=landing_zone,
+        obstacle=obstacle,
         weather=weather,
         totals_are_partial=totals_are_partial,
         warnings=warnings,

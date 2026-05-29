@@ -58,6 +58,9 @@ _FIELD_RESOLVERS: dict[str, FieldResolver] = {
     "estimate.landing_zone.is_feasible": lambda e: (
         e.landing_zone.is_feasible if e.landing_zone is not None else None
     ),
+    "estimate.obstacle.is_feasible": lambda e: (
+        e.obstacle.is_feasible if e.obstacle is not None else None
+    ),
     "estimate.weather.is_feasible": lambda e: (
         e.weather.is_feasible if e.weather is not None else None
     ),

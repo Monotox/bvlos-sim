@@ -21,6 +21,7 @@ from adapters.cli_support import (
 )
 from adapters.envelope import OutputFormat
 from adapters.assets.geofence_geojson import GeofenceLoadError
+from adapters.assets.obstacle_geojson import ObstacleLoadError
 from adapters.geojson_export import build_geojson_export
 from adapters.io import InputDocument, InputLoadError, load_mission, load_vehicle
 from adapters.kml_export import build_kml_export
@@ -81,8 +82,15 @@ def _render_scenario_geojson_output(
     result: ScenarioResult,
     mission_assets: MissionAssetBundle,
 ) -> str:
-    return _render_scenario_route_export(
-        envelope, result, mission_assets, build_geojson_export
+    if result.estimate is None:
+        return _render_scenario_output(OutputFormat.JSON, envelope)
+    return build_geojson_export(
+        result.estimate,
+        geofence_zones=mission_assets.geofences,
+        landing_zones=mission_assets.landing_zones,
+        obstacles=mission_assets.obstacle_provider.obstacles()
+        if mission_assets.obstacle_provider is not None
+        else None,
     )
 
 
@@ -243,7 +251,7 @@ def scenario(
             )
             raise typer.Exit(code=int(cli.ScenarioExitCode.INTERNAL_ERROR)) from write_exc
         raise typer.Exit(code=int(cli.ScenarioExitCode.INVALID_INPUT)) from exc
-    except (GeofenceLoadError, LandingZoneLoadError) as exc:
+    except (GeofenceLoadError, LandingZoneLoadError, ObstacleLoadError) as exc:
         envelope = build_scenario_invalid_input_envelope(
             scenario_id=scenario_id,
             error=_input_error_for_geojson_asset_error(exc),

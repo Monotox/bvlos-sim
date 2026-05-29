@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from estimator.core.geofence import GeofenceZone
 from estimator.core.landing_zone import LandingZone
 from estimator.core.results import MissionEstimate
+from estimator.environment.obstacle import ObstacleProvider
 from estimator.environment.population import GridPopulationProvider
 from estimator.environment.terrain import TerrainProvider
 from estimator.environment.wind import ConstantWindProvider, WindProvider
@@ -53,6 +54,7 @@ class EstimatorInputs:
     wind_provider: WindProvider | None
     terrain_provider: TerrainProvider | None
     population_provider: GridPopulationProvider | None
+    obstacle_provider: ObstacleProvider | None
     geofences: Sequence[GeofenceZone] | None
     landing_zones: Sequence[LandingZone] | None
 
@@ -63,6 +65,7 @@ class EstimatorInputs:
             wind_provider=self.wind_provider,
             terrain_provider=self.terrain_provider,
             population_provider=self.population_provider,
+            obstacle_provider=self.obstacle_provider,
             geofences=self.geofences,
             landing_zones=self.landing_zones,
         )
@@ -82,6 +85,7 @@ class EstimatorInputs:
             ),
             terrain_provider=self.terrain_provider,
             population_provider=self.population_provider,
+            obstacle_provider=self.obstacle_provider,
             geofences=self.geofences,
             landing_zones=self.landing_zones,
         )

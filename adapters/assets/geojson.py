@@ -25,6 +25,7 @@ class GeoJsonGeometryType(StrEnum):
     FEATURE_COLLECTION = "FeatureCollection"
     FEATURE = "Feature"
     POINT = "Point"
+    LINE_STRING = "LineString"
     POLYGON = "Polygon"
     MULTI_POLYGON = "MultiPolygon"
 

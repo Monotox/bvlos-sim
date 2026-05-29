@@ -288,6 +288,39 @@ class LandingZoneEstimate(BaseModel):
     states: list[LandingZoneStateReachability] = Field(default_factory=list)
 
 
+class ObstacleClearanceViolation(BaseModel):
+    """A route sample that violates obstacle or terrain clearance."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    code: FailureCode
+    message: str
+    leg_index: int
+    route_item_index: int
+    route_item_id: str | None = None
+    obstacle_id: str | None = None
+    sample_lat: float
+    sample_lon: float
+    sample_alt_amsl_m: float
+    horizontal_distance_m: float | None = None
+    vertical_clearance_m: float
+    required_clearance_m: float
+    terrain_elevation_m: float | None = None
+
+
+class ObstacleEstimate(BaseModel):
+    """Mission-level obstacle and terrain clearance result."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    is_feasible: bool
+    checked_obstacle_count: int
+    checked_leg_count: int
+    min_obstacle_clearance_m: float | None = None
+    min_terrain_clearance_m: float | None = None
+    violations: list[ObstacleClearanceViolation] = Field(default_factory=list)
+
+
 class GroundRiskLegEstimate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -354,6 +387,9 @@ class MissionEstimate(BaseModel):
     link: LinkEstimate | None = None
     geofence: GeofenceEstimate | None = None
     landing_zone: LandingZoneEstimate | None = None
+    obstacle: ObstacleEstimate | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     ground_risk: GroundRiskEstimate | None = Field(
         default=None, exclude_if=lambda value: value is None
     )

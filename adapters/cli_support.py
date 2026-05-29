@@ -16,6 +16,7 @@ from adapters.envelope import (
     render_envelope_json,
 )
 from adapters.assets.geofence_geojson import GeofenceLoadError, load_geofences
+from adapters.assets.obstacle_geojson import ObstacleLoadError, load_obstacles
 from adapters.io import (
     InputDocument,
     InputLoadError,
@@ -63,6 +64,7 @@ from estimator import (
     GridPopulationProvider,
     GridTerrainProvider,
     LandingZone,
+    ListObstacleProvider,
     MissionEstimate,
     ScenarioResult,
     SpatiotemporalWindProvider,
@@ -71,7 +73,7 @@ from estimator import (
 )
 from schemas import MissionPlan, ScenarioPlan, VehicleProfile
 
-GeoJsonAssetLoadError = GeofenceLoadError | LandingZoneLoadError
+GeoJsonAssetLoadError = GeofenceLoadError | LandingZoneLoadError | ObstacleLoadError
 LoadedAssetT = TypeVar("LoadedAssetT")
 _MAX_SEGMENT_FLAG = "--max-segment-length-m"
 _WIND_LAYER_FLAG = "--wind-layer"
@@ -88,6 +90,8 @@ class MissionAssetBundle:
     terrain_document: InputDocument | None = None
     population_provider: GridPopulationProvider | None = None
     population_document: InputDocument | None = None
+    obstacle_provider: ListObstacleProvider | None = None
+    obstacle_document: InputDocument | None = None
     wind_provider: SpatiotemporalWindProvider | None = None
     wind_grid_document: InputDocument | None = None
     geofences: list[GeofenceZone] | None = None
@@ -109,6 +113,7 @@ class MissionAssetBundle:
             landing_zones=self.landing_zone_document,
             terrain=self.terrain_document,
             population=self.population_document,
+            obstacles=self.obstacle_document,
             wind_grid=self.wind_grid_document,
         )
 
@@ -118,6 +123,7 @@ class MissionAssetBundle:
             "landing_zones": self.landing_zone_document,
             "terrain": self.terrain_document,
             "population": self.population_document,
+            "obstacles": self.obstacle_document,
             "wind_grid": self.wind_grid_document,
         }
 
@@ -349,6 +355,11 @@ def _populate_mission_assets(
         mission_path=mission_path,
         loader=load_population_grid,
     )
+    bundle.obstacle_provider, bundle.obstacle_document = _load_optional_asset(
+        mission_model.assets.obstacles_file,
+        mission_path=mission_path,
+        loader=load_obstacles,
+    )
     bundle.wind_provider, bundle.wind_grid_document = _load_optional_asset(
         mission_model.assets.wind_grid_file,
         mission_path=mission_path,
@@ -391,16 +402,19 @@ def _envelope_inputs_for_static_asset_error(
         ),
         terrain=mission_assets.terrain_document,
         population=mission_assets.population_document,
+        obstacles=(
+            error.document
+            if isinstance(error, ObstacleLoadError)
+            else mission_assets.obstacle_document
+        ),
         wind_grid=mission_assets.wind_grid_document,
     )
 
 
 def _input_error_for_geojson_asset_error(
-    error: GeofenceLoadError | LandingZoneLoadError,
+    error: GeoJsonAssetLoadError,
 ) -> InputLoadError:
-    input_name = (
-        "geofences" if isinstance(error, GeofenceLoadError) else "landing_zones"
-    )
+    input_name = _geojson_asset_input_name(error)
     return InputLoadError(
         str(error),
         input_name=input_name,
@@ -409,6 +423,14 @@ def _input_error_for_geojson_asset_error(
         details=error.failure.context,
         document=error.document,
     )
+
+
+def _geojson_asset_input_name(error: GeoJsonAssetLoadError) -> str:
+    if isinstance(error, GeofenceLoadError):
+        return "geofences"
+    if isinstance(error, LandingZoneLoadError):
+        return "landing_zones"
+    return "obstacles"
 
 
 def _resolve_scenario_input_paths(
@@ -442,6 +464,7 @@ def _run_scenario_with_assets(
         wind_provider=mission_assets.wind_provider,
         terrain_provider=mission_assets.terrain_provider,
         population_provider=mission_assets.population_provider,
+        obstacle_provider=mission_assets.obstacle_provider,
         geofences=mission_assets.geofences,
         landing_zones=mission_assets.landing_zones,
     )
@@ -464,6 +487,7 @@ def _build_scenario_result_envelope(
         landing_zone_document=mission_assets.landing_zone_document,
         terrain_document=mission_assets.terrain_document,
         population_document=mission_assets.population_document,
+        obstacle_document=mission_assets.obstacle_document,
         wind_grid_document=mission_assets.wind_grid_document,
     )
 

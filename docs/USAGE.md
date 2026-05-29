@@ -53,7 +53,8 @@ bvlos-sim exposes eleven commands:
 
 Mission-scoped functionality is exposed through `estimate` by mission and
 vehicle YAML: fidelity settings, terrain, wind grids, geofences, landing zones,
-resource systems, communication links, energy feasibility, and route geometry.
+obstacles, resource systems, communication links, energy feasibility, and route
+geometry.
 Scenario events, uncertainty sampling, and SITL evidence use `scenario`,
 `sample`, and `sitl` because they require separate versioned input contracts.
 SITL comparison reports are exposed through `compare` so evidence review has a
@@ -425,6 +426,61 @@ A wind above `constraints.max_wind_mps` makes the mission `INFEASIBLE` with
 `WIND_LIMIT_EXCEEDED`; the checklist then shows `✗ Weather limits FAIL` and
 `Status: NO-GO`.
 
+## Obstacle and Terrain Clearance
+
+Missions can reference an offline obstacle GeoJSON file and request deterministic
+vertical-clearance checks along sampled route legs. The core estimator performs
+no live lookups; obstacle quality, freshness, and height reference remain the
+operator's responsibility.
+
+```yaml
+constraints:
+  min_obstacle_clearance_m: 15.0
+  min_terrain_clearance_m: 30.0
+assets:
+  obstacles_file: assets/obstacles.geojson
+  terrain_file: terrain/pipeline_terrain.yaml
+```
+
+Obstacle GeoJSON (`obstacle-geojson.v1`) supports `Point`, `LineString`, and
+`Polygon` features. Each feature must define `properties.height_m`, interpreted
+as top-of-obstacle altitude in metres AMSL. Optional `radius_m` and
+`uncertainty_m` expand the horizontal and vertical separation check.
+
+```json
+{
+  "type": "Feature",
+  "id": "mast-midpoint",
+  "properties": {
+    "height_m": 105.0,
+    "radius_m": 20.0,
+    "uncertainty_m": 5.0
+  },
+  "geometry": {
+    "type": "Point",
+    "coordinates": [4.001, 52.0005]
+  }
+}
+```
+
+When a sampled route point is inside the configured horizontal buffer and its
+AMSL altitude is below `height_m + min_obstacle_clearance_m + uncertainty_m`,
+the estimate returns `INFEASIBLE` with `OBSTACLE_CLEARANCE_VIOLATED`. When
+`constraints.min_terrain_clearance_m` and a terrain provider are both present,
+the same leg sampling verifies terrain clearance between waypoints and can
+return `TERRAIN_CLEARANCE_VIOLATED`.
+
+The result appears as `result.obstacle` in JSON, an **Obstacle Clearance**
+Markdown section, an **Obstacle clearance** checklist row, `obstacle FAIL` in
+summary output, and an optional `obstacles` layer in GeoJSON exports. Use the
+opt-in fetch helper as a starting point only:
+
+```bash
+uv run python scripts/fetch_obstacles.py 51.99 52.01 3.99 4.01 \
+  --base-altitude-amsl-m 12 \
+  --output examples/missions/assets/obstacles.geojson
+```
+
 ## Ground Risk (SORA iGRC)
 
 Use `estimate --format ground-risk` to compute a SORA intrinsic Ground Risk
@@ -585,6 +641,7 @@ Example output:
 ◌ Landing-zone coverage    N/A    not evaluated
 ◌ Resource availability    N/A    not evaluated
 ◌ Link availability        N/A    not evaluated
+◌ Obstacle clearance       N/A    not evaluated
 ◌ Ground risk class        N/A    not evaluated
   Advisory warnings        4      LOITER_ASSUMED_ZERO_GROUND_DISTANCE, ...
 
@@ -991,15 +1048,16 @@ estimate.geofence.is_feasible
 estimate.landing_zone.is_feasible
 estimate.resource.is_feasible
 estimate.link.is_feasible
+estimate.obstacle.is_feasible
 estimate.weather.is_feasible
 estimate.weather.worst_wind_speed_mps
 estimate.ground_risk.mission_igrc
 ```
 
-Weather and ground-risk paths resolve to `None` (yielding a `skipped`
+Obstacle, weather, and ground-risk paths resolve to `None` (yielding a `skipped`
 assertion outcome) when the corresponding block was not evaluated — for
-example when the mission sets no weather minimums or no population grid is
-configured.
+example when the mission sets no obstacle file, no weather minimums, or no
+population grid is configured.
 
 An assertion with an unrecognised `field_path` yields `unsupported` outcome; the
 `unsupported_reason` field in the JSON result lists all valid paths.

@@ -1,0 +1,18 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "mast-midpoint",
+      "properties": {
+        "height_m": 105.0,
+        "radius_m": 20.0,
+        "uncertainty_m": 0.0
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [4.001, 52.0005]
+      }
+    }
+  ]
+}

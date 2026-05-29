@@ -60,6 +60,13 @@ def _batch_route_export(output_format: OutputFormat, result: BatchRunResult) -> 
     builder = _ROUTE_EXPORT_BUILDERS.get(output_format)
     if builder is None or result.envelope is None or result.envelope.result is None:
         return None
+    if output_format == OutputFormat.GEOJSON:
+        return build_geojson_export(
+            result.envelope.result,
+            geofence_zones=result.geofences,
+            landing_zones=result.landing_zones,
+            obstacles=result.obstacles,
+        )
     return builder(
         result.envelope.result,
         geofence_zones=result.geofences,

@@ -68,6 +68,10 @@ _LANDING_ZONE_FIELD_PATHS = [
     "result.landing_zone",
 ]
 
+_OBSTACLE_FIELD_PATHS = [
+    "result.obstacle",
+]
+
 _WEATHER_FIELD_PATHS = [
     "result.weather",
 ]
@@ -110,6 +114,13 @@ _LANDING_ZONE_FAILURE_CODES = frozenset(
     }
 )
 
+_OBSTACLE_FAILURE_CODES = frozenset(
+    {
+        FailureCode.OBSTACLE_CLEARANCE_VIOLATED,
+        FailureCode.TERRAIN_CLEARANCE_VIOLATED,
+    }
+)
+
 _WEATHER_FAILURE_CODES = frozenset(
     {
         FailureCode.WIND_LIMIT_EXCEEDED,
@@ -124,6 +135,7 @@ _STATIC_FEASIBILITY_FAILURE_CODES = (
     | _LINK_FAILURE_CODES
     | _GEOFENCE_FAILURE_CODES
     | _LANDING_ZONE_FAILURE_CODES
+    | _OBSTACLE_FAILURE_CODES
     | _WEATHER_FAILURE_CODES
 )
 
@@ -234,6 +246,7 @@ class EnvelopeInputs:
     landing_zones: InputDocument | None = None
     terrain: InputDocument | None = None
     population: InputDocument | None = None
+    obstacles: InputDocument | None = None
     wind_grid: InputDocument | None = None
 
 
@@ -267,6 +280,11 @@ def _build_provenance(inputs: EnvelopeInputs) -> Provenance:
         provenance_inputs["population"] = ProvenanceInput(
             format=inputs.population.format,
             sha256=inputs.population.sha256,
+        )
+    if inputs.obstacles is not None:
+        provenance_inputs["obstacles"] = ProvenanceInput(
+            format=inputs.obstacles.format,
+            sha256=inputs.obstacles.sha256,
         )
     if inputs.wind_grid is not None:
         provenance_inputs["wind_grid"] = ProvenanceInput(
@@ -323,6 +341,11 @@ def _static_feasibility_result_validity(result: MissionEstimate) -> ResultValidi
             result.failure.code in _LANDING_ZONE_FAILURE_CODES,
             result.landing_zone is not None,
             _LANDING_ZONE_FIELD_PATHS,
+        ),
+        (
+            result.failure.code in _OBSTACLE_FAILURE_CODES,
+            result.obstacle is not None,
+            _OBSTACLE_FIELD_PATHS,
         ),
         (
             result.failure.code in _WEATHER_FAILURE_CODES,
