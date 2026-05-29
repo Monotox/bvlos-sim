@@ -1,6 +1,6 @@
 # Ticket Backlog
 
-**48 implemented · 18 planned · 1069 tests passing**
+**48 implemented · 19 planned · 1069 tests passing**
 
 This directory tracks every capability from idea to implementation. Completed
 tickets are kept as historical records. Open tickets describe what to build
@@ -41,6 +41,7 @@ Items are ordered by impact. Pick one, read its ticket file, open a PR.
 | 088 | [Performance benchmarks](./088-performance-benchmarking-and-regression-gates.md) | `pytest-benchmark` suite + CI regression gates (no production code changes) |
 | 089 | [Preflight report command](./089-preflight-report-command.md) | Single `preflight` command combining estimate + scenario + Monte Carlo into one operator briefing |
 | 090 | [Schema migration tooling](./090-schema-version-migration-tooling.md) | `bvlos-sim migrate` command to auto-upgrade YAML files when schema versions bump |
+| 098 | [Version bump & release tooling](./098-version-bump-and-release-tooling.md) | One-command version bump that keeps `pyproject.toml`, `CHANGELOG.md`, and the version-pinned golden fixtures consistent (with a CI drift check) |
 
 ### Core simulation gaps
 
