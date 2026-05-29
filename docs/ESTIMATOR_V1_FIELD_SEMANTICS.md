@@ -19,10 +19,13 @@ Top-level mission fields:
 - `defaults.altitude_reference`: default altitude frame for route items
 - `constraints.min_landing_reserve_percent`: mission reserve override
 - `constraints.min_distance_to_landing_zone_m`: maximum landing-zone distance
+- `constraints.min_obstacle_clearance_m`: horizontal and vertical separation buffer around configured obstacles
+- `constraints.min_terrain_clearance_m`: minimum sampled terrain clearance when a terrain provider is configured
 - `assets.geofences_file`: static geofence file loaded by the CLI
 - `assets.landing_zones_file`: static landing-zone file loaded by the CLI
 - `assets.terrain_file`: offline elevation grid file loaded by the CLI for terrain-referenced altitude resolution
 - `assets.population_grid_file`: offline population-density grid loaded by the CLI for SORA ground-risk pre-assessment
+- `assets.obstacles_file`: static obstacle GeoJSON loaded by the CLI for vertical clearance checks
 - `assets.wind_grid_file`: offline spatiotemporal wind grid file loaded by the CLI as a 4D wind provider
 - `estimation`: persisted estimator settings
 - `link_systems`: deterministic communication-link systems
@@ -154,6 +157,7 @@ Supported resource/link assertion field paths:
 
 - `estimate.resource.is_feasible`
 - `estimate.link.is_feasible`
+- `estimate.obstacle.is_feasible`
 
 ## Accepted But Non-Operative Fields
 
@@ -355,6 +359,32 @@ Result metadata field `estimator_version` records the actual fidelity used:
 - Divert energy uses resolved cruise TAS and deterministic cruise power; distance uses Dubins path when entry heading and turn radius are available, otherwise straight-line geodesic.
 - Landing-zone v1 does not evaluate terrain, obstacles, dynamic availability, suitability scoring, weather scoring, comms dependency, or landing-zone altitude.
 
+## Obstacle Clearance Semantics
+
+- `assets.obstacles_file` is loaded by the CLI when present.
+- Relative obstacle paths resolve from the mission file directory.
+- GeoJSON coordinates are interpreted in `[lon, lat]` order.
+- Supported geometries are `Point`, `LineString`, and `Polygon`.
+- `properties.height_m` is required and is interpreted as the top of the
+  obstacle in metres AMSL.
+- `properties.radius_m` and `properties.uncertainty_m` are optional non-negative
+  metres. They expand the separation check and default to `0`.
+- When an obstacle provider is configured, route legs are sampled with the same
+  sub-segment midpoint machinery used for wind and population checks.
+- An obstacle violation is reported when a sampled route point lies within
+  `radius_m + constraints.min_obstacle_clearance_m + uncertainty_m`
+  horizontally and has less than
+  `constraints.min_obstacle_clearance_m + uncertainty_m` vertical clearance
+  above `height_m`. Missing `min_obstacle_clearance_m` defaults to `0` for
+  configured obstacle files.
+- When `constraints.min_terrain_clearance_m` and `assets.terrain_file` are both
+  configured, the sampled AMSL altitude must also clear terrain elevation by at
+  least that value.
+- Obstacle and terrain clearance failures do not make distance/time totals
+  partial.
+- Core execution performs no live obstacle lookups. Operator-provided obstacle
+  data quality, freshness, and height reference are outside the estimator.
+
 ## Divert Routing Semantics
 
 Divert route estimates are computed in scenario runs when a `lost_link` event
@@ -431,7 +461,7 @@ Supported distribution kinds: `normal` (requires `mean` and `std > 0`), `uniform
 - Cruise speed sampling overrides `mission.defaults.cruise_speed_mps` for each sample.
 - Cruise power sampling overrides `vehicle.energy.cruise_power_w` for each sample.
 - Battery capacity sampling overrides `vehicle.energy.battery_capacity_wh` for each sample.
-- Terrain, geofences, and landing zones are used unchanged across all samples.
+- Terrain, obstacles, geofences, and landing zones are used unchanged across all samples.
 - The baseline estimate is computed once before sampling with unmodified mission, vehicle, and wind provider.
 - Sampling is deterministic for a given `seed`, `samples`, and parameter configuration.
 - `feasibility_rate` is the fraction of completed samples where `energy.is_feasible` is `True`. It is `None` when no completed sample produced an energy estimate.
@@ -461,11 +491,12 @@ Scenario summary fields:
 
 Available on `estimate` and `scenario`. Emits a GeoJSON FeatureCollection to stdout.
 
-Three feature layers:
+Feature layers:
 
 - `route`: one LineString per leg. Coordinates in `[lon, lat, altitude_m]` order (RFC 7946). Properties include `leg_id`, `action`, `energy_margin_pct`, `rth_reserve_margin_wh`, `rth_reserve_margin_pct`, and `rth_reserve_color` (`green` / `yellow` / `red`) when RTH reserve data is available.
 - `landing_zones`: one Point per configured landing zone. Properties include `zone_id`, `reachable` (boolean), and `surface` (from GeoJSON source or `"unknown"`).
 - `geofences`: one Polygon per configured geofence zone. Properties include `zone_id`, `kind` (`forbidden` / `caution`), and `conflict` (boolean).
+- `obstacles`: one Point, LineString, or Polygon per configured obstacle. Properties include `height_m`, `radius_m`, `uncertainty_m`, and `conflict`.
 
 `energy_margin_pct` is computed per leg as:
 `(reserve_at_landing_wh − reserve_threshold_wh) / battery_capacity_wh × 100`.
@@ -479,7 +510,7 @@ Energy color thresholds:
 RTH reserve color thresholds use the same percentage bands, computed from
 `reserve_margin_wh / battery_capacity_wh Ã— 100`.
 
-Geofence and landing-zone layers are omitted when the corresponding asset is not configured in the mission.
+Geofence, landing-zone, and obstacle layers are omitted when the corresponding asset is not configured in the mission.
 
 ### `--format kml`
 

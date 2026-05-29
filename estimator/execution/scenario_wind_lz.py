@@ -8,6 +8,7 @@ from estimator.core.landing_zone import LandingZone
 from estimator.core.options import EstimationOptions
 from estimator.core.results import LegEstimate, MissionEstimate
 from estimator.core.scenario import TimelinePoint
+from estimator.environment.obstacle import ObstacleProvider
 from estimator.environment.population import GridPopulationProvider
 from estimator.environment.terrain import TerrainProvider
 from estimator.environment.wind import (
@@ -251,6 +252,7 @@ def _estimate_for_wind_provider(
     wind_provider: WindProvider | None,
     terrain_provider: TerrainProvider | None,
     population_provider: GridPopulationProvider | None,
+    obstacle_provider: ObstacleProvider | None,
     geofences: Sequence[GeofenceZone] | None,
     landing_zones: Sequence[LandingZone] | None,
 ) -> MissionEstimate:
@@ -261,6 +263,7 @@ def _estimate_for_wind_provider(
         wind_provider=wind_provider,
         terrain_provider=terrain_provider,
         population_provider=population_provider,
+        obstacle_provider=obstacle_provider,
         geofences=geofences,
         landing_zones=landing_zones,
     )
@@ -274,6 +277,7 @@ def estimate_with_wind_changes(
     base_wind_provider: WindProvider | None,
     terrain_provider: TerrainProvider | None,
     population_provider: GridPopulationProvider | None,
+    obstacle_provider: ObstacleProvider | None,
     geofences: Sequence[GeofenceZone] | None,
     landing_zones: Sequence[LandingZone] | None,
 ) -> tuple[MissionEstimate, WindProvider | None]:
@@ -288,6 +292,7 @@ def estimate_with_wind_changes(
                 wind_provider=base_wind_provider,
                 terrain_provider=terrain_provider,
                 population_provider=population_provider,
+                obstacle_provider=obstacle_provider,
                 geofences=geofences,
                 landing_zones=landing_zones,
             ),
@@ -304,6 +309,7 @@ def estimate_with_wind_changes(
         wind_provider=resolved_base_wind_provider,
         terrain_provider=terrain_provider,
         population_provider=population_provider,
+        obstacle_provider=obstacle_provider,
         geofences=geofences,
         landing_zones=landing_zones,
     )
@@ -335,6 +341,7 @@ def estimate_with_wind_changes(
             wind_provider=converged_provider,
             terrain_provider=terrain_provider,
             population_provider=population_provider,
+            obstacle_provider=obstacle_provider,
             geofences=geofences,
             landing_zones=landing_zones,
         )
@@ -403,6 +410,7 @@ def apply_lz_unavailability(
     wind_provider: WindProvider | None,
     terrain_provider: TerrainProvider | None,
     population_provider: GridPopulationProvider | None,
+    obstacle_provider: ObstacleProvider | None,
     geofences: Sequence[GeofenceZone] | None,
     landing_zones: Sequence[LandingZone] | None,
 ) -> MissionEstimate:
@@ -424,6 +432,7 @@ def apply_lz_unavailability(
         wind_provider=wind_provider,
         terrain_provider=terrain_provider,
         population_provider=population_provider,
+        obstacle_provider=obstacle_provider,
         geofences=geofences,
         landing_zones=landing_zones,
         lz_unavailability=schedule,

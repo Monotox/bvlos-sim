@@ -30,6 +30,13 @@ from estimator.core.landing_zone import (
     LandingZoneGeometry,
     LandingZonePolygon,
 )
+from estimator.core.obstacle import (
+    Obstacle,
+    ObstacleCoordinate,
+    ObstacleGeometry,
+    ObstacleGeometryType,
+    ObstaclePolygon,
+)
 from estimator.core.options import EstimationOptions
 from estimator.core.results import (
     EnergyEstimate,
@@ -46,6 +53,8 @@ from estimator.core.results import (
     LinkEstimate,
     LinkSystemEstimate,
     MissionEstimate,
+    ObstacleClearanceViolation,
+    ObstacleEstimate,
     ResourceEstimate,
     ResourceSystemEstimate,
     RthReserveTimelinePoint,
@@ -64,6 +73,7 @@ from estimator.core.scenario import (
     TimelinePoint,
 )
 from estimator.environment.population import GridPopulationProvider, PopulationProvider
+from estimator.environment.obstacle import ListObstacleProvider, ObstacleProvider
 from estimator.environment.terrain import (
     ConstantElevationProvider,
     GridTerrainProvider,
@@ -128,6 +138,15 @@ __all__ = [
     "LinkEstimate",
     "LinkSystemEstimate",
     "MissionEstimate",
+    "ListObstacleProvider",
+    "Obstacle",
+    "ObstacleClearanceViolation",
+    "ObstacleCoordinate",
+    "ObstacleEstimate",
+    "ObstacleGeometry",
+    "ObstacleGeometryType",
+    "ObstaclePolygon",
+    "ObstacleProvider",
     "PopulationProvider",
     "ResourceEstimate",
     "ResourceSystemEstimate",

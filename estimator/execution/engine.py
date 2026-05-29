@@ -19,9 +19,11 @@ from estimator.core.results import (
     LandingZoneEstimate,
     LinkEstimate,
     MissionEstimate,
+    ObstacleEstimate,
     ResourceEstimate,
     WeatherEstimate,
 )
+from estimator.environment.obstacle import ObstacleProvider
 from estimator.environment.population import GridPopulationProvider
 from estimator.environment.terrain import TerrainProvider
 from estimator.environment.wind import WindProvider
@@ -31,6 +33,7 @@ from estimator.execution.executors import execute_route_item
 from estimator.execution.geofence import evaluate_geofence_feasibility
 from estimator.execution.ground_risk import compute_ground_risk
 from estimator.execution.landing_zone import evaluate_landing_zone_reachability
+from estimator.execution.obstacle import evaluate_obstacle_clearance
 from estimator.execution.resource_link import (
     evaluate_link_feasibility,
     evaluate_resource_feasibility,
@@ -53,6 +56,7 @@ def _raise_feasibility_failure(
     link: LinkEstimate | None = None,
     geofence: GeofenceEstimate | None = None,
     landing_zone: LandingZoneEstimate | None = None,
+    obstacle: ObstacleEstimate | None = None,
     weather: WeatherEstimate | None = None,
 ) -> None:
     if failure is None:
@@ -65,6 +69,7 @@ def _raise_feasibility_failure(
         link=link,
         geofence=geofence,
         landing_zone=landing_zone,
+        obstacle=obstacle,
         weather=weather,
         totals_are_partial=False,
         warnings=context.warnings,
@@ -179,6 +184,18 @@ def run_estimation(
         landing_zone=landing_zone_evaluation.landing_zone,
     )
 
+    obstacle_evaluation = evaluate_obstacle_clearance(context)
+    _raise_feasibility_failure(
+        obstacle_evaluation.failure,
+        context,
+        energy=energy_evaluation.energy,
+        resource=resource_evaluation.resource,
+        link=link_evaluation.link,
+        geofence=geofence_evaluation.geofence,
+        landing_zone=landing_zone_evaluation.landing_zone,
+        obstacle=obstacle_evaluation.obstacle,
+    )
+
     weather_evaluation = evaluate_weather_feasibility(context)
     _raise_feasibility_failure(
         weather_evaluation.failure,
@@ -188,6 +205,7 @@ def run_estimation(
         link=link_evaluation.link,
         geofence=geofence_evaluation.geofence,
         landing_zone=landing_zone_evaluation.landing_zone,
+        obstacle=obstacle_evaluation.obstacle,
         weather=weather_evaluation.weather,
     )
     _check_failsafe_thresholds(context, energy_evaluation.energy)
@@ -206,6 +224,7 @@ def run_estimation(
         link=link_evaluation.link,
         geofence=geofence_evaluation.geofence,
         landing_zone=landing_zone_evaluation.landing_zone,
+        obstacle=obstacle_evaluation.obstacle,
         weather=weather_evaluation.weather,
         ground_risk=None,
         warnings=list(context.warnings),
@@ -328,6 +347,7 @@ def estimate_mission_distance_time(
     wind_provider: WindProvider | None = None,
     terrain_provider: TerrainProvider | None = None,
     population_provider: GridPopulationProvider | None = None,
+    obstacle_provider: ObstacleProvider | None = None,
     geofences: Sequence[GeofenceZone] | None = None,
     landing_zones: Sequence[LandingZone] | None = None,
     lz_unavailability: list[frozenset[str]] | None = None,
@@ -339,6 +359,7 @@ def estimate_mission_distance_time(
         wind_provider=wind_provider,
         terrain_provider=terrain_provider,
         population_provider=population_provider,
+        obstacle_provider=obstacle_provider,
         geofences=geofences,
         landing_zones=landing_zones,
     )
@@ -353,6 +374,7 @@ def try_estimate_mission_distance_time(
     wind_provider: WindProvider | None = None,
     terrain_provider: TerrainProvider | None = None,
     population_provider: GridPopulationProvider | None = None,
+    obstacle_provider: ObstacleProvider | None = None,
     geofences: Sequence[GeofenceZone] | None = None,
     landing_zones: Sequence[LandingZone] | None = None,
     lz_unavailability: list[frozenset[str]] | None = None,
@@ -373,6 +395,7 @@ def try_estimate_mission_distance_time(
             wind_provider=wind_provider,
             terrain_provider=terrain_provider,
             population_provider=population_provider,
+            obstacle_provider=obstacle_provider,
             geofences=geofences,
             landing_zones=landing_zones,
             lz_unavailability=lz_unavailability,
@@ -397,6 +420,7 @@ def try_estimate_mission_distance_time(
             link=exc.link,
             geofence=exc.geofence,
             landing_zone=exc.landing_zone,
+            obstacle=exc.obstacle,
             weather=exc.weather,
             ground_risk=None,
             warnings=exc.warnings,

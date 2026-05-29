@@ -387,6 +387,22 @@ class MissionConstraints(BaseModel):
             "source and is not performed by the estimator."
         ),
     )
+    min_obstacle_clearance_m: float | None = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Minimum horizontal and vertical safety buffer in metres around "
+            "configured static obstacles."
+        ),
+    )
+    min_terrain_clearance_m: float | None = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Minimum required clearance in metres above sampled terrain along "
+            "each route leg when a terrain grid is configured."
+        ),
+    )
     min_distance_to_landing_zone_m: float | None = Field(
         default=None,
         ge=0,
@@ -416,6 +432,10 @@ class MissionAssets(BaseModel):
     population_grid_file: Path | None = Field(
         default=None,
         description="Optional population-density grid file (YAML/JSON uniform grid) for SORA ground-risk classification.",
+    )
+    obstacles_file: Path | None = Field(
+        default=None,
+        description="Optional GeoJSON obstacle file used by vertical clearance checks.",
     )
     wind_grid_file: Path | None = Field(
         default=None,

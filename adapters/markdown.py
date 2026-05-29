@@ -8,6 +8,7 @@ from estimator.core.results import (
     LandingZoneEstimate,
     LinkEstimate,
     MissionEstimate,
+    ObstacleEstimate,
     ResourceEstimate,
     WeatherEstimate,
 )
@@ -308,6 +309,44 @@ def _render_weather_feasibility(weather: WeatherEstimate | None) -> Lines:
     return lines
 
 
+def _render_obstacle_clearance(obstacle: ObstacleEstimate | None) -> Lines:
+    if obstacle is None:
+        return []
+    lines = [
+        "",
+        "## Obstacle Clearance",
+        "",
+        f"- Feasible: `{_fmt_bool(obstacle.is_feasible)}`",
+        f"- Checked obstacles: `{obstacle.checked_obstacle_count}`",
+        f"- Checked legs: `{obstacle.checked_leg_count}`",
+        (
+            "- Minimum obstacle clearance m: "
+            f"`{_fmt_optional_float(obstacle.min_obstacle_clearance_m)}`"
+        ),
+        (
+            "- Minimum terrain clearance m: "
+            f"`{_fmt_optional_float(obstacle.min_terrain_clearance_m)}`"
+        ),
+        f"- Violations: `{len(obstacle.violations)}`",
+    ]
+    if obstacle.violations:
+        lines.append("")
+        lines.append(
+            "| Leg | ID | Code | Obstacle | Vertical clearance m | Required m |"
+        )
+        lines.append("|----:|----|------|----------|---------------------:|-----------:|")
+        for violation in obstacle.violations:
+            route_item_id = violation.route_item_id or _MISSING
+            obstacle_id = violation.obstacle_id or _MISSING
+            lines.append(
+                f"| {violation.leg_index} | {route_item_id} "
+                f"| {violation.code.value} | {obstacle_id} "
+                f"| {_fmt(violation.vertical_clearance_m)} "
+                f"| {_fmt(violation.required_clearance_m)} |"
+            )
+    return lines
+
+
 def _render_ground_risk(ground_risk: GroundRiskEstimate | None) -> Lines:
     if ground_risk is None:
         return []
@@ -354,6 +393,7 @@ def _render_result_sections(result: MissionEstimate | None) -> Lines:
     lines.extend(_render_link_feasibility(result.link))
     lines.extend(_render_geofence_feasibility(result.geofence))
     lines.extend(_render_landing_zone_reachability(result.landing_zone))
+    lines.extend(_render_obstacle_clearance(result.obstacle))
     lines.extend(_render_weather_feasibility(result.weather))
     lines.extend(_render_ground_risk(result.ground_risk))
     lines.extend(_render_warnings(result))

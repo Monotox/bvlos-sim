@@ -76,6 +76,7 @@ def propagate(
             wind_provider=mission_assets.wind_provider,
             terrain_provider=mission_assets.terrain_provider,
             population_provider=mission_assets.population_provider,
+            obstacle_provider=mission_assets.obstacle_provider,
             geofences=mission_assets.geofences,
             landing_zones=mission_assets.landing_zones,
         )

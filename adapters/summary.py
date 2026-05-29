@@ -90,6 +90,13 @@ def _weather_field(estimate: MissionEstimate) -> str | None:
     return "weather FAIL"
 
 
+def _obstacle_field(estimate: MissionEstimate) -> str | None:
+    obstacle = estimate.obstacle
+    if obstacle is None or obstacle.is_feasible:
+        return None
+    return "obstacle FAIL"
+
+
 def _rth_field(estimate: MissionEstimate) -> str | None:
     if estimate.rth_is_feasible is False:
         return "RTH infeasible"
@@ -104,6 +111,7 @@ def format_estimate_summary(estimate: MissionEstimate) -> str:
             _reserve_margin_field(estimate.energy),
             _flight_time_field(estimate.total_time_s),
             _weather_field(estimate),
+            _obstacle_field(estimate),
             _rth_field(estimate),
             _warnings_field(estimate.warnings),
             _failure_field(estimate),

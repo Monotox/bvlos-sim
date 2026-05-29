@@ -27,6 +27,7 @@ from adapters.envelope import (
     build_invalid_input_envelope,
 )
 from adapters.assets.geofence_geojson import GeofenceLoadError
+from adapters.assets.obstacle_geojson import ObstacleLoadError
 from adapters.geojson_export import build_geojson_export
 from adapters.io import InputDocument, InputLoadError, load_mission, load_vehicle
 from adapters.kml_export import build_kml_export
@@ -146,6 +147,7 @@ def _render_estimate_sensitivity_output(
         wind_provider=wind_provider,
         terrain_provider=mission_assets.terrain_provider,
         population_provider=mission_assets.population_provider,
+        obstacle_provider=mission_assets.obstacle_provider,
         geofences=mission_assets.geofences,
         landing_zones=mission_assets.landing_zones,
         options=options,
@@ -181,6 +183,9 @@ def _render_estimate_geojson_output(
         result,
         geofence_zones=mission_assets.geofences,
         landing_zones=mission_assets.landing_zones,
+        obstacles=mission_assets.obstacle_provider.obstacles()
+        if mission_assets.obstacle_provider is not None
+        else None,
     )
 
 
@@ -355,6 +360,7 @@ def estimate(
             wind_provider=wind_provider,
             terrain_provider=mission_assets.terrain_provider,
             population_provider=mission_assets.population_provider,
+            obstacle_provider=mission_assets.obstacle_provider,
             geofences=mission_assets.geofences,
             landing_zones=mission_assets.landing_zones,
         )
@@ -402,7 +408,7 @@ def estimate(
             )
             raise typer.Exit(code=int(cli.CliExitCode.INTERNAL_ERROR)) from write_exc
         raise typer.Exit(code=int(cli.CliExitCode.INVALID_INPUT)) from exc
-    except (GeofenceLoadError, LandingZoneLoadError) as exc:
+    except (GeofenceLoadError, LandingZoneLoadError, ObstacleLoadError) as exc:
         result = _empty_failed_result(exc.failure)
         asset_error_inputs = _envelope_inputs_for_static_asset_error(
             exc,
