@@ -12,6 +12,7 @@ from estimator.core.enums import WarningCode
 from estimator.core.landing_zone import LandingZone
 from estimator.core.results import EnergyEstimate
 from estimator.core.scenario import DivertRouteEstimate
+from estimator.execution.energy import adjusted_cruise_power_for_vehicle
 from estimator.execution.spatial import polygon_set_to_geometry_list
 from estimator.math.dubins import dubins_path_to_point_m
 from estimator.math.wind_triangle import solve_wind_triangle
@@ -39,6 +40,7 @@ def compute_divert_estimate(
     wind_east_mps: float = 0.0,
     wind_north_mps: float = 0.0,
     wind_corrected: bool = False,
+    action_altitude_amsl_m: float = 0.0,
 ) -> DivertRouteEstimate:
     """Compute a deterministic divert route estimate.
 
@@ -110,7 +112,11 @@ def compute_divert_estimate(
         )
 
     time_s = distance_m / gs_mps
-    divert_energy_wh = vehicle.energy.cruise_power_w * time_s / _SECONDS_PER_HOUR
+    divert_power_w = adjusted_cruise_power_for_vehicle(
+        vehicle,
+        altitude_amsl_m=action_altitude_amsl_m,
+    )
+    divert_energy_wh = divert_power_w * time_s / _SECONDS_PER_HOUR
     energy_remaining_wh = _energy_remaining_at_index(energy, action_at_timeline_index)
     reserve_after_wh = energy_remaining_wh - divert_energy_wh
     reserve_after_percent = reserve_after_wh / energy.battery_capacity_wh * 100.0

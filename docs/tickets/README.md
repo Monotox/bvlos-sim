@@ -1,6 +1,6 @@
 # Ticket Backlog
 
-**49 implemented · 21 planned · 1074 tests passing**
+**50 implemented · 20 planned · 1083 tests passing**
 
 This directory tracks every capability from idea to implementation. Completed
 tickets are kept as historical records. Open tickets describe what to build
@@ -13,7 +13,7 @@ next and why.
 | Area | Tickets | Ships as |
 |---|---|---|
 | Core schemas & CLI | 001–003 | `estimate`, JSON envelopes, golden fixtures, public API |
-| Energy & feasibility | 010–012, 063 | Energy budget, geofence (2D), landing-zone reachability, RTH reserve timeline |
+| Energy & feasibility | 010–012, 063, 099 | Energy budget, mass/density/SoC energy fidelity, geofence (2D), landing-zone reachability, RTH reserve timeline |
 | Scenario runner | 020–021, 069 | Lost-link policies, per-event contingency overrides, contingency events, assertions |
 | Route physics | 030–039, 100 | Fidelity v2, layered/spatiotemporal wind, terrain alt, Dubins divert, obstacle and terrain clearance |
 | SITL (ArduPilot) | 040–043 | `sitl` command, MAVLink upload, telemetry recording, `compare` |
@@ -47,7 +47,6 @@ Items are ordered by impact. Pick one, read its ticket file, open a PR.
 
 | # | Ticket | What it adds |
 |---|---|---|
-| 099 | [Energy-model fidelity](./099-energy-model-fidelity.md) | Make energy depend on mass, air density (altitude/temperature), and state of charge instead of constant power per phase |
 | 101 | [SORA mitigation depth (M1–M3)](./101-sora-mitigation-depth.md) | Apply declared ground-risk mitigations and tactical air-risk reduction so the SAIL reflects the operator's actual case |
 | 097 | [Opt-in RTH reserve feasibility gate](./097-rth-reserve-feasibility-gate.md) | Let a mission require RTH reserve at every leg so a breach gates status, exit code, and the checklist GO/NO-GO (today RTH is advisory only) |
 | 061 | [3D geofence altitude bounds](./061-3d-geofence-altitude-bounds.md) | Extend geofence checks to include min/max altitude constraints |
@@ -130,7 +129,7 @@ New capabilities should work *with* existing pieces, not alongside them in isola
 
 ## Implemented tickets
 
-### Full list (49 tickets)
+### Full list (50 tickets)
 
 1. [001](./001-estimator-cli-and-envelope.md) Estimator CLI and envelope
 2. [002](./002-versioning-and-golden-fixtures.md) Versioning and golden fixtures
@@ -180,4 +179,5 @@ New capabilities should work *with* existing pieces, not alongside them in isola
 46. [092](./092-weather-minimums-and-go-nogo.md) Weather minimums and automatic GO/NO-GO
 47. [093](./093-time-varying-geofence-activation.md) Time-varying geofence activation
 48. [096](./096-docs-github-pages.md) Documentation site on GitHub Pages
-49. [100](./100-obstacle-database-and-clearance.md) Obstacle database and vertical clearance checks
+49. [099](./099-energy-model-fidelity.md) Energy-model fidelity
+50. [100](./100-obstacle-database-and-clearance.md) Obstacle database and vertical clearance checks

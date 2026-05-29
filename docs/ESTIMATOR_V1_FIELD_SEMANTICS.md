@@ -87,6 +87,14 @@ Energy:
 - `energy.hover_power_w`
 - `energy.climb_power_w`
 - `energy.descent_power_w`
+- `energy.reference_mass_kg`
+- `energy.reference_density_kgm3`
+- `energy.induced_power_mass_exponent`
+- `energy.usable_capacity_curve`
+
+Mass:
+
+- `mass.operating_mass_kg`
 
 Resource systems:
 
@@ -180,7 +188,9 @@ Vehicle:
 - `display_name`
 - `mav_type`
 - `autopilot`
-- `mass.*`
+- `mass.empty_kg`
+- `mass.max_payload_kg`
+- `mass.max_takeoff_kg`
 - `performance.max_wind_mps`
 - `resource_systems[].delivery`
 - `resource_systems[].metadata`
@@ -276,9 +286,24 @@ Result metadata field `estimator_version` records the actual fidelity used:
 - `climb_power_w` and `descent_power_w` fall back to `cruise_power_w` when omitted.
 - `hover_power_w` is required for hover-capable loiter dwell.
 - Fixed-wing circular loiter in fidelity v2 uses `cruise_power_w`.
+- When `mass.operating_mass_kg` and `energy.reference_mass_kg` are both set,
+  hover and climb power scale by
+  `(operating_mass_kg / reference_mass_kg) ^ induced_power_mass_exponent`.
+  Cruise, turn-arc, fixed-wing loiter, RTL transit, and descent power use the
+  same mass ratio with a milder `0.5` exponent.
+- When `energy.reference_density_kgm3` is set, phase power is multiplied by
+  `reference_density_kgm3 / ISA_density(leg_midpoint_altitude_amsl_m)`, so
+  lower-density high-altitude air increases estimated power. The density model
+  is deterministic ISA troposphere logic and performs no live weather lookup.
+- `energy.usable_capacity_curve` maps state of charge to usable-capacity
+  fraction. Estimator v1 applies the full-charge usable fraction as a capacity
+  derating to `result.energy.usable_energy_wh`; the reserve threshold remains
+  based on nominal `battery_capacity_wh`.
+- These mass, density, and SoC scalings are physically motivated closed-form
+  adjustments. They are not a substitute for vehicle-specific log calibration.
 - Return-to-home reserve is evaluated at each route leg endpoint against
   `mission.planned_home`. Distance is straight-line geodesic; energy uses
-  cruise TAS and `vehicle.energy.cruise_power_w`.
+  cruise TAS and the same mass/density-adjusted cruise power as route legs.
 - `result.energy.rth_reserve_timeline[].reserve_margin_wh` is
   `energy_remaining_before_rth_wh - rth_energy_wh - reserve_threshold_wh`.
 - `result.rth_is_feasible` is `True` only when every RTH timeline point has a
@@ -356,7 +381,9 @@ Result metadata field `estimator_version` records the actual fidelity used:
 - GeoJSON coordinates are interpreted in `[lon, lat]` order.
 - Supported geometries are `Point`, `Polygon`, and `MultiPolygon`.
 - Reachability is evaluated at deterministic route leg end states.
-- Divert energy uses resolved cruise TAS and deterministic cruise power; distance uses Dubins path when entry heading and turn radius are available, otherwise straight-line geodesic.
+- Divert energy uses resolved cruise TAS and the same mass/density-adjusted
+  cruise power as route legs; distance uses Dubins path when entry heading and
+  turn radius are available, otherwise straight-line geodesic.
 - Landing-zone v1 does not evaluate terrain, obstacles, dynamic availability, suitability scoring, weather scoring, comms dependency, or landing-zone altitude.
 
 ## Obstacle Clearance Semantics
@@ -395,7 +422,9 @@ Fields computed in `CommsLinkPolicyOutcome.divert_estimate`:
 - `target_zone_id`: ID of the landing zone targeted by the divert policy.
 - `distance_m`: divert path distance to the nearest point of the target zone. Uses Dubins path distance (bank-angle-constrained arc + straight) when entry heading and `vehicle.performance.turn_radius_m` are both available; otherwise straight-line geodesic distance.
 - `time_s`: transit time at mission or vehicle cruise TAS (`distance_m / tas_mps`).
-- `energy_wh`: deterministic cruise-power energy for the divert leg (`cruise_power_w * time_s / 3600`).
+- `energy_wh`: deterministic cruise-power energy for the divert leg. When
+  mass/density fields are configured on the vehicle profile, the same adjusted
+  cruise power used by route, RTH, and landing-zone energy checks is applied.
 - `energy_remaining_at_action_wh`: battery energy available at the action execution point, computed as `battery_capacity_wh` minus the sum of all leg energies with `leg_index <= action_at_timeline_index - 1`.
 - `reserve_after_divert_wh`: `energy_remaining_at_action_wh - energy_wh`.
 - `reserve_after_divert_percent`: `reserve_after_divert_wh / battery_capacity_wh * 100`.

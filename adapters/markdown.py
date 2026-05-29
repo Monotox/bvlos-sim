@@ -180,7 +180,32 @@ def _render_energy_feasibility(energy: EnergyEstimate | None) -> Lines:
         f"- Reserve at landing percent: `{_fmt(energy.reserve_at_landing_percent)}`",
         f"- Energy legs: `{len(energy.legs)}`",
         *rth_line,
+        *_render_energy_power_factors(energy),
     ]
+
+
+def _render_energy_power_factors(energy: EnergyEstimate) -> Lines:
+    legs = [
+        leg
+        for leg in energy.legs
+        if leg.mass_multiplier is not None or leg.density_multiplier is not None
+    ]
+    if not legs:
+        return []
+
+    lines = [
+        "",
+        "| Leg | ID | Mass factor | Density factor |",
+        "|----:|----|------------:|---------------:|",
+    ]
+    for leg in legs:
+        route_item_id = leg.route_item_id or _MISSING
+        lines.append(
+            f"| {leg.leg_index} | {route_item_id} "
+            f"| {_fmt_optional_float(leg.mass_multiplier)} "
+            f"| {_fmt_optional_float(leg.density_multiplier)} |"
+        )
+    return lines
 
 
 def _rth_is_feasible(energy: EnergyEstimate) -> bool | None:

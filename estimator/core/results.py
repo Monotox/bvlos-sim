@@ -116,6 +116,12 @@ class EnergyLegEstimate(BaseModel):
     power_w: float
     power_source: EnergyPowerSource
     energy_wh: float
+    mass_multiplier: float | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    density_multiplier: float | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 class RthReserveTimelinePoint(BaseModel):

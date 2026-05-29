@@ -765,6 +765,44 @@ A `reserve 281.6 %` summary means landing energy was 281.6% above the threshold
 (i.e., 3.8× the required reserve remained). A `reserve −12.4 %` means landing
 energy was 12.4% below the threshold and the mission is `INFEASIBLE`.
 
+### Energy-Model Fidelity
+
+Vehicle profiles can opt into deterministic mass, air-density, and usable
+state-of-charge adjustments while keeping the existing phase-power fields as
+the calibration anchor:
+
+```yaml
+mass:
+  empty_kg: 8.0
+  max_payload_kg: 2.0
+  max_takeoff_kg: 12.0
+  operating_mass_kg: 11.0
+
+energy:
+  battery_capacity_wh: 900.0
+  reserve_percent_default: 25.0
+  cruise_power_w: 450.0
+  hover_power_w: 1200.0
+  climb_power_w: 1500.0
+  reference_mass_kg: 10.0
+  reference_density_kgm3: 1.225
+  induced_power_mass_exponent: 1.5
+  usable_capacity_curve:
+    - {soc: 0.0, usable_fraction: 0.0}
+    - {soc: 1.0, usable_fraction: 0.9}
+```
+
+When `operating_mass_kg` and `reference_mass_kg` are both present, hover and
+climb power scale with the configured induced-power exponent. Cruise-like legs
+use a milder mass exponent. When `reference_density_kgm3` is present, power is
+scaled by ISA density at the leg midpoint altitude, so high-altitude,
+lower-density missions consume more energy. The usable-capacity curve derates
+`result.energy.usable_energy_wh`; it does not lower the reserve threshold.
+
+Markdown reports include a per-leg mass/density factor table when any factor is
+active. Treat these closed-form scalings as a pre-calibration aid, not a
+substitute for aircraft-specific log calibration.
+
 ## Vehicle Profiles
 
 Reference and community vehicle profiles live under `examples/vehicles/`.

@@ -167,6 +167,7 @@ def _build_policy_outcome(
             wind_east_mps=wind_east,
             wind_north_mps=wind_north,
             wind_corrected=wind_corrected,
+            action_altitude_amsl_m=action_point.altitude_amsl_m,
         )
 
     return CommsLinkPolicyOutcome(
