@@ -236,10 +236,13 @@ def _process_event(
     if trigger_index is None:
         return _not_fired_event_outcome(event, timeline)
     if event.kind == ScenarioEventKind.LOST_LINK:
+        effective_policy = (
+            event.policy if event.policy is not None else lost_link_policy
+        )
         return _process_lost_link_event(
             event,
             timeline,
-            lost_link_policy,
+            effective_policy,
             trigger_index,
             energy=energy,
             mission=mission,

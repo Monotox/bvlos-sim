@@ -879,6 +879,39 @@ initial_conditions:
     divert_target_id: demo_landing_zone_wp1
 ```
 
+#### Per-Event Contingency Policies
+
+A `lost_link` event can define its own `policy` block. When present, that
+event-level policy takes precedence over `initial_conditions.lost_link_policy`
+for that event only. Events without a `policy` keep using the global policy.
+
+```yaml
+initial_conditions:
+  lost_link_policy:
+    action: rtl
+    loiter_s: 30.0
+events:
+  - event_id: link-loss-mid
+    kind: lost_link
+    trigger: at_route_item
+    trigger_route_item_id: wp1
+    policy:
+      action: divert
+      loiter_s: 0.0
+      divert_target_id: demo_landing_zone_wp1
+  - event_id: link-loss-late
+    kind: lost_link
+    trigger: at_route_item
+    trigger_route_item_id: loiter
+    policy:
+      action: land
+      loiter_s: 0.0
+```
+
+`policy` is valid only on `lost_link` events. Setting it on `observe`,
+`wind_change`, or `landing_zone_unavailable` is rejected during scenario schema
+validation.
+
 The divert estimate (Dubins path distance, transit time, reserve remaining) is included in the
 `scenario-report.v2` envelope under each `event_outcome.policy_outcome.divert_estimate`.
 

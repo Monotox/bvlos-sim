@@ -1,5 +1,9 @@
 # Ticket 069: Per-Event Lost-Link Policy Override
 
+## Status
+
+Implemented.
+
 ## Goal
 
 Allow each `lost_link` event in a scenario to carry its own `LostLinkPolicy`,

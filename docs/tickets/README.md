@@ -1,6 +1,6 @@
 # Ticket Backlog
 
-**45 implemented · 19 planned · 1041 tests passing**
+**46 implemented · 18 planned · 1048 tests passing**
 
 This directory tracks every capability from idea to implementation. Completed
 tickets are kept as historical records. Open tickets describe what to build
@@ -14,7 +14,7 @@ next and why.
 |---|---|---|
 | Core schemas & CLI | 001–003 | `estimate`, JSON envelopes, golden fixtures, public API |
 | Energy & feasibility | 010–012 | Energy budget, geofence (2D), landing-zone reachability |
-| Scenario runner | 020–021 | Lost-link policies, contingency events, assertions |
+| Scenario runner | 020–021, 069 | Lost-link policies, per-event contingency overrides, contingency events, assertions |
 | Route physics | 030–039 | Fidelity v2, layered/spatiotemporal wind, terrain alt, Dubins divert |
 | SITL (ArduPilot) | 040–043 | `sitl` command, MAVLink upload, telemetry recording, `compare` |
 | Stochastic propagation | 047–049, 086 | `propagate` command, twin-state EKF, closed-loop tracking controller; split into `propagation/` subpackage |
@@ -45,7 +45,6 @@ Items are ordered by impact. Pick one, read its ticket file, open a PR.
 
 | # | Ticket | What it adds |
 |---|---|---|
-| 069 | [Per-event lost-link policy](./069-per-event-lost-link-policy-override.md) | Override the global lost-link policy on individual scenario events |
 | 063 | [RTH reserve check](./063-rth-reserve-check.md) | Verify energy is sufficient to RTH from every route point, not just landing |
 | 061 | [3D geofence altitude bounds](./061-3d-geofence-altitude-bounds.md) | Extend geofence checks to include min/max altitude constraints |
 | 062 | [LZ reachability wind correction](./062-wind-corrected-divert-energy.md) | Apply wind-triangle correction to landing-zone reachability energy (divert already done) |
@@ -128,7 +127,7 @@ New capabilities should work *with* existing pieces, not alongside them in isola
 ## Implemented tickets
 
 <details>
-<summary>Full list (45 tickets)</summary>
+<summary>Full list (46 tickets)</summary>
 
 1. [001](./001-estimator-cli-and-envelope.md) Estimator CLI and envelope
 2. [002](./002-versioning-and-golden-fixtures.md) Versioning and golden fixtures
@@ -164,16 +163,17 @@ New capabilities should work *with* existing pieces, not alongside them in isola
 32. [060](./060-import-export-and-batch-workflows.md) Import, export, and batch workflows
 33. [062](./062-wind-corrected-divert-energy.md) Wind-corrected divert energy *(LZ reachability TAS-only remaining — Ticket 062)*
 34. [065](./065-geofence-and-lz-in-stochastic.md) Geofence and LZ in stochastic propagation
-35. [072](./072-route-altitude-profile-report.md) Route altitude profile report
-36. [073](./073-preflight-checklist-output.md) Pre-flight checklist output
-37. [074](./074-energy-reserve-sensitivity.md) Energy reserve sensitivity report
-38. [075](./075-minimum-battery-sizing.md) Minimum battery sizing command
-39. [085](./085-qgc-convert-vehicle-profile.md) QGC convert vehicle profile selection
-40. [086](./086-stochastic-propagator-module-split.md) Stochastic propagator module split
-41. [094](./094-sora-ground-risk-class.md) SORA Ground Risk Class (iGRC)
-42. [095](./095-sora-air-risk-and-sail.md) SORA Air Risk Class and SAIL determination
-43. [091](./091-qgc-mission-export.md) QGC mission export
-44. [092](./092-weather-minimums-and-go-nogo.md) Weather minimums and automatic GO/NO-GO
-45. [093](./093-time-varying-geofence-activation.md) Time-varying geofence activation
+35. [069](./069-per-event-lost-link-policy-override.md) Per-event lost-link policy override
+36. [072](./072-route-altitude-profile-report.md) Route altitude profile report
+37. [073](./073-preflight-checklist-output.md) Pre-flight checklist output
+38. [074](./074-energy-reserve-sensitivity.md) Energy reserve sensitivity report
+39. [075](./075-minimum-battery-sizing.md) Minimum battery sizing command
+40. [085](./085-qgc-convert-vehicle-profile.md) QGC convert vehicle profile selection
+41. [086](./086-stochastic-propagator-module-split.md) Stochastic propagator module split
+42. [094](./094-sora-ground-risk-class.md) SORA Ground Risk Class (iGRC)
+43. [095](./095-sora-air-risk-and-sail.md) SORA Air Risk Class and SAIL determination
+44. [091](./091-qgc-mission-export.md) QGC mission export
+45. [092](./092-weather-minimums-and-go-nogo.md) Weather minimums and automatic GO/NO-GO
+46. [093](./093-time-varying-geofence-activation.md) Time-varying geofence activation
 
 </details>

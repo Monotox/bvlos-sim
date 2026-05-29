@@ -182,6 +182,12 @@ def _validate_lz_unavailable_params(event: "ScenarioEvent") -> None:
             raise ValueError(message)
 
 
+def _validate_event_policy_params(event: "ScenarioEvent") -> None:
+    if event.policy is None or event.kind == ScenarioEventKind.LOST_LINK:
+        return
+    raise ValueError("policy is only valid on lost_link events")
+
+
 def _validate_wind_change_params(event: "ScenarioEvent") -> None:
     if event.kind != ScenarioEventKind.WIND_CHANGE:
         _validate_non_wind_event_has_no_wind_payload(event)
@@ -325,6 +331,14 @@ class ScenarioEvent(BaseModel):
             "Not valid on other event kinds."
         ),
     )
+    policy: LostLinkPolicy | None = Field(
+        default=None,
+        description=(
+            "Per-event lost-link policy override. When set on a lost_link event, "
+            "this policy takes precedence over initial_conditions.lost_link_policy. "
+            "Not valid on other event kinds."
+        ),
+    )
     description: str | None = None
 
     @model_validator(mode="after")
@@ -332,6 +346,7 @@ class ScenarioEvent(BaseModel):
         _validate_event_trigger_params(self)
         _validate_wind_change_params(self)
         _validate_lz_unavailable_params(self)
+        _validate_event_policy_params(self)
         return self
 
 

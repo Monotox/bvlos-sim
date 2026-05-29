@@ -1,0 +1,45 @@
+schema_version: scenario.v1
+scenario_id: waypoint-policy-demo
+description: >
+  Demonstrates per-event lost-link policy overrides at multiple route points.
+mission_file: ../missions/pipeline_demo_001.yaml
+vehicle_file: ../vehicles/quadplane_v1.yaml
+initial_conditions:
+  wind_east_mps: 3.0
+  wind_north_mps: 0.0
+events:
+  - event_id: link-loss-early
+    kind: lost_link
+    trigger: at_route_item
+    trigger_route_item_id: takeoff
+    policy:
+      action: rtl
+      loiter_s: 30.0
+  - event_id: link-loss-mid
+    kind: lost_link
+    trigger: at_route_item
+    trigger_route_item_id: wp1
+    policy:
+      action: divert
+      loiter_s: 30.0
+      divert_target_id: demo_landing_zone_wp1
+  - event_id: link-loss-late
+    kind: lost_link
+    trigger: at_route_item
+    trigger_route_item_id: loiter
+    policy:
+      action: land
+      loiter_s: 0.0
+assertions:
+  - assertion_id: early-rtl
+    kind: policy_action_eq
+    event_id: link-loss-early
+    expected: rtl
+  - assertion_id: mid-divert
+    kind: policy_action_eq
+    event_id: link-loss-mid
+    expected: divert
+  - assertion_id: late-land
+    kind: policy_action_eq
+    event_id: link-loss-late
+    expected: land
