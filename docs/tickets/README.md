@@ -1,6 +1,6 @@
 # Ticket Backlog
 
-**41 implemented · 23 planned · 943 tests passing**
+**42 implemented · 22 planned · 1011 tests passing**
 
 This directory tracks every capability from idea to implementation. Completed
 tickets are kept as historical records. Open tickets describe what to build
@@ -21,7 +21,7 @@ next and why.
 | Output formats | 055, 057, 072–075 | GeoJSON/KML exports, `summary`, `checklist`, `profile`, `sensitivity`, `size-battery` |
 | Batch & import | 060, 085 | `batch` command, `convert` QGC importer with `--vehicle-profile`, `--format csv` |
 | Real-world data | 052–053, 056, 059 | Fetch scripts, community vehicle profiles, infeasible Alpine demo |
-| Regulatory pre-assessment | 094 | SORA intrinsic Ground Risk Class (iGRC) from population grids |
+| Regulatory pre-assessment | 094–095 | SORA Ground Risk Class (iGRC), Air Risk Class, and GRC×ARC→SAIL with applicable OSOs via the `sora` command |
 | Correctness fixes | 062, 065 | Wind-triangle divert correction, stochastic spatial infeasibility tracking |
 
 Full feature list: [`docs/tickets/README.md` implemented section](#implemented-tickets) · Test coverage: `uv run pytest`
@@ -39,15 +39,6 @@ Items are ordered by impact. Pick one, read its ticket file, open a PR.
 | 088 | [Performance benchmarks](./088-performance-benchmarking-and-regression-gates.md) | `pytest-benchmark` suite + CI regression gates (no production code changes) |
 | 089 | [Preflight report command](./089-preflight-report-command.md) | Single `preflight` command combining estimate + scenario + Monte Carlo into one operator briefing |
 | 090 | [Schema migration tooling](./090-schema-version-migration-tooling.md) | `bvlos-sim migrate` command to auto-upgrade YAML files when schema versions bump |
-
-### Regulatory pre-assessment — SORA (highest strategic value)
-
-The features most likely to make a professional BVLOS operator adopt the tool:
-they produce the headline numbers of an EASA/UK-CAA SORA submission.
-
-| # | Ticket | What it adds |
-|---|---|---|
-| 095 | [SORA Air Risk & SAIL](./095-sora-air-risk-and-sail.md) | Air Risk Class from airspace context + GRC × ARC → SAIL determination with applicable OSOs; the `bvlos-sim sora` report (requires 094) |
 
 ### Operator workflow (highest real-world impact)
 
@@ -133,7 +124,7 @@ Every new ticket must compose through the existing surfaces:
 
 - YAML schemas: `mission.v6`, `vehicle.v4`, `scenario.v1`, `uncertainty.v1`, `stochastic.v1`, `batch.v1`
 - Examples: `examples/missions/`, `examples/vehicles/`, `examples/scenarios/`
-- CLI commands: `estimate`, `scenario`, `sample`, `propagate`, `batch`, `convert`, `sitl`, `compare`, `size-battery`
+- CLI commands: `estimate`, `scenario`, `sample`, `propagate`, `batch`, `convert`, `sitl`, `compare`, `size-battery`, `sora`
 - Output contracts: canonical JSON envelopes, Markdown reports, golden fixtures
 - Public Python API: `estimator.try_estimate_mission_distance_time`, `estimator.run_scenario`, `estimator.execution.monte_carlo.run_monte_carlo`
 
@@ -144,7 +135,7 @@ New capabilities should work *with* existing pieces, not alongside them in isola
 ## Implemented tickets
 
 <details>
-<summary>Full list (41 tickets)</summary>
+<summary>Full list (42 tickets)</summary>
 
 1. [001](./001-estimator-cli-and-envelope.md) Estimator CLI and envelope
 2. [002](./002-versioning-and-golden-fixtures.md) Versioning and golden fixtures
@@ -187,5 +178,6 @@ New capabilities should work *with* existing pieces, not alongside them in isola
 39. [085](./085-qgc-convert-vehicle-profile.md) QGC convert vehicle profile selection
 40. [086](./086-stochastic-propagator-module-split.md) Stochastic propagator module split
 41. [094](./094-sora-ground-risk-class.md) SORA Ground Risk Class (iGRC)
+42. [095](./095-sora-air-risk-and-sail.md) SORA Air Risk Class and SAIL determination
 
 </details>

@@ -23,7 +23,7 @@ uv run bvlos-sim --help
 
 ## CLI Commands
 
-bvlos-sim exposes nine commands:
+bvlos-sim exposes ten commands:
 
 - `estimate`: run deterministic mission estimation and static feasibility checks
 - `size-battery`: compute the minimum battery capacity needed for feasibility
@@ -34,6 +34,7 @@ bvlos-sim exposes nine commands:
 - `propagate`: run time-stepped stochastic particle propagation with EKF and tracking controller
 - `sitl`: build a contract-only or live SITL evidence bundle from an existing scenario
 - `compare`: compare a SITL evidence bundle against deterministic scenario expectations
+- `sora`: run the SORA pre-assessment (Ground Risk, Air Risk, and SAIL)
 
 | Command | Exit 0 | Exit 10 | Exit 11 | Exit 12 | Exit 13 |
 |---------|--------|---------|---------|---------|---------|
@@ -46,6 +47,7 @@ bvlos-sim exposes nine commands:
 | compare | passed | drifted/failed | invalid input | unsupported (contract-only) | internal/write error |
 | convert | success | - | invalid input | - | internal error |
 | batch | all feasible | any infeasible | invalid input/run | - | internal error |
+| sora | success | - | invalid input | - | internal error |
 
 Mission-scoped functionality is exposed through `estimate` by mission and
 vehicle YAML: fidelity settings, terrain, wind grids, geofences, landing zones,
@@ -317,6 +319,68 @@ Example output excerpt:
 |----:|---------------|------------------------:|------|
 | 1 | wp1 | 12.00 | 3 |
 ```
+
+## SORA Pre-Assessment
+
+The `sora` command completes the SORA pre-assessment: it reuses the estimator's
+Ground Risk Class, derives the Air Risk Class (ARC) from an airspace descriptor,
+and combines them into the **SAIL** (Specific Assurance and Integrity Level)
+with the list of applicable Operational Safety Objectives (OSOs).
+
+This output is a planning aid, not a certified SORA determination. The ARC, SAIL,
+and OSO list follow simplified table-driven rules and do not replace a competent
+authority review.
+
+Mission airspace descriptor:
+
+```yaml
+airspace:
+  class: "G"                  # ICAO airspace class at operational altitude
+  max_altitude_agl_m: 120.0   # operational ceiling above ground
+  near_aerodrome: false       # within an aerodrome traffic zone
+  atypical_or_segregated: false  # active danger area / segregated volume
+  strategic_mitigation: false    # apply a one-band strategic ARC reduction
+```
+
+The SAIL requires both a Ground Risk Class (a population grid plus
+`vehicle.characteristic_dimension_m`, see above) and an `airspace` descriptor.
+When the airspace descriptor is missing, the report shows the Ground Risk Class
+only and emits an `AIRSPACE_DESCRIPTOR_MISSING` advisory.
+
+| Flag | Description |
+|------|-------------|
+| `--format markdown` | SORA report with iGRC, GRC, ARC, SAIL, and the OSO table (default) |
+| `--format json` | `sora-envelope.v1` JSON with provenance and determinism metadata |
+
+```bash
+uv run bvlos-sim sora \
+  examples/missions/pipeline_demo_001_ground_risk.yaml \
+  examples/vehicles/quadplane_v1_ground_risk.yaml \
+  --format markdown
+```
+
+Example output excerpt:
+
+```text
+# SORA Pre-Assessment: pipeline_demo_001
+
+Intrinsic Ground Risk Class (iGRC): 3
+Final Ground Risk Class (GRC):      3   (no mitigations applied)
+Air Risk Class (ARC):               ARC-b
+SAIL:                               II
+
+## Applicable OSOs at SAIL II
+
+| OSO | Title | Robustness |
+|-----|-------|------------|
+| OSO#01 | Ensure the operator is competent and/or proven | L |
+| OSO#08 | Operational procedures are defined, validated and adhered to | M |
+```
+
+ARC is assigned from the airspace descriptor: atypical/segregated volumes are
+ARC-a, near-aerodrome operations are ARC-d, and otherwise the class and the
+500 ft AGL boundary select between ARC-b (low, uncontrolled), ARC-c, and ARC-d.
+`strategic_mitigation: true` lowers the ARC by one band (floored at ARC-a).
 
 Write a route altitude profile (terrain clearance table):
 

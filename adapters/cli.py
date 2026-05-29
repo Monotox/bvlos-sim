@@ -48,6 +48,11 @@ class BatterySizingOutputFormat(StrEnum):
     SUMMARY = "summary"
 
 
+class SoraOutputFormat(StrEnum):
+    JSON = "json"
+    MARKDOWN = "markdown"
+
+
 _DOCUMENT_OUTPUT_FORMATS: dict[DocumentOutputFormat, OutputFormat] = {
     DocumentOutputFormat.JSON: OutputFormat.JSON,
     DocumentOutputFormat.MARKDOWN: OutputFormat.MARKDOWN,
@@ -67,6 +72,7 @@ __all__ = [
     "CliExitCode",
     "DocumentOutputFormat",
     "ScenarioExitCode",
+    "SoraOutputFormat",
     "SummaryOutputFormat",
     "run_monte_carlo",
     "run_stochastic_propagation",
@@ -134,6 +140,7 @@ def _register_commands() -> None:
     from adapters.commands.scenario import scenario
     from adapters.commands.sitl import sitl
     from adapters.commands.size_battery import size_battery
+    from adapters.commands.sora import sora
 
     app.command()(convert)
     app.command()(estimate)
@@ -144,6 +151,7 @@ def _register_commands() -> None:
     app.command()(sample)
     app.command()(propagate)
     app.command()(sitl)
+    app.command()(sora)
 
 
 _register_commands()

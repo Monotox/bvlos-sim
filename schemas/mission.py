@@ -390,6 +390,51 @@ class MissionAssets(BaseModel):
     )
 
 
+class IcaoAirspaceClass(StrEnum):
+    """ICAO airspace class at the operational altitude."""
+
+    A = "A"
+    B = "B"
+    C = "C"
+    D = "D"
+    E = "E"
+    F = "F"
+    G = "G"
+
+
+class Airspace(BaseModel):
+    """Operational airspace descriptor used for SORA Air Risk classification."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    airspace_class: IcaoAirspaceClass = Field(
+        alias="class",
+        description="ICAO airspace class at the operational altitude.",
+    )
+    max_altitude_agl_m: float = Field(
+        gt=0,
+        description="Operational ceiling above ground level in metres.",
+    )
+    near_aerodrome: bool = Field(
+        default=False,
+        description="True when the operational volume lies within an aerodrome traffic zone.",
+    )
+    atypical_or_segregated: bool = Field(
+        default=False,
+        description=(
+            "True when the volume is atypical or segregated (e.g. an active "
+            "danger area) where manned traffic is not expected."
+        ),
+    )
+    strategic_mitigation: bool = Field(
+        default=False,
+        description=(
+            "When true, applies a one-band strategic Air Risk reduction where the "
+            "SORA methodology permits. Tactical mitigation is out of scope."
+        ),
+    )
+
+
 class MissionPolicyRef(BaseModel):
     """Policy references used by the scenario and policy engines."""
 
@@ -425,6 +470,13 @@ class MissionPlan(BaseModel):
     )
     constraints: MissionConstraints
     assets: MissionAssets = Field(default_factory=MissionAssets)
+    airspace: Airspace | None = Field(
+        default=None,
+        description=(
+            "Optional operational airspace descriptor used for SORA Air Risk "
+            "classification and SAIL determination."
+        ),
+    )
     policy: MissionPolicyRef = Field(default_factory=MissionPolicyRef)
     link_systems: list[LinkSystemConfig] = Field(
         default_factory=list,

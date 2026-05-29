@@ -9,7 +9,9 @@ from schemas.uncertainty import (
     UncertaintyPlan,
 )
 from schemas.mission import (
+    Airspace,
     AltitudeReference,
+    IcaoAirspaceClass,
     MissionAction,
     MissionAssets,
     MissionConstraints,
@@ -20,6 +22,16 @@ from schemas.mission import (
     PlannedHome,
     RouteItem,
     WindLayerConfig,
+)
+from schemas.sora import (
+    SORA_ASSESSMENT_SCHEMA_VERSION,
+    AirRiskClass,
+    OsoRequirement,
+    RobustnessLevel,
+    Sail,
+    SoraAdvisory,
+    SoraAdvisoryCode,
+    SoraAssessment,
 )
 from schemas.resource_link import (
     ExternalPowerDelivery,
@@ -78,8 +90,18 @@ from schemas.vehicle import (
 )
 
 __all__ = [
+    "Airspace",
+    "AirRiskClass",
     "AltitudeReference",
     "AirspeedModel",
+    "IcaoAirspaceClass",
+    "OsoRequirement",
+    "RobustnessLevel",
+    "Sail",
+    "SORA_ASSESSMENT_SCHEMA_VERSION",
+    "SoraAdvisory",
+    "SoraAdvisoryCode",
+    "SoraAssessment",
     "BatchManifest",
     "BatchRun",
     "BatteryMeterModel",

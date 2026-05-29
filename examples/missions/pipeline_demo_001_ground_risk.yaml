@@ -42,6 +42,13 @@ constraints:
 assets:
   population_grid_file: assets/pipeline_population_grid.yaml
 
+airspace:
+  class: "G"
+  max_altitude_agl_m: 120.0
+  near_aerodrome: false
+  atypical_or_segregated: false
+  strategic_mitigation: false
+
 policy:
   lost_link_policy: standard_lost_link_v1
 
