@@ -2,7 +2,7 @@
 
 - Status: `infeasible`
 - Envelope schema: `estimator-envelope.v7`
-- Tool version: `0.30.0`
+- Tool version: `0.32.0`
 
 ## Result Validity
 

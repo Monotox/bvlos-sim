@@ -376,5 +376,5 @@
   },
   "schema_version": "estimator-envelope.v7",
   "status": "success",
-  "tool_version": "0.30.0"
+  "tool_version": "0.32.0"
 }

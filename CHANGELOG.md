@@ -7,6 +7,8 @@ and this project adheres to semantic versioning once public releases begin.
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-05-29
+
 ### Changed
 
 - Moved SITL adapter modules into `adapters/sitl/` subpackage. Module paths

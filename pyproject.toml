@@ -1,6 +1,6 @@
 [project]
 name = "bvlos-sim"
-version = "0.30.0"
+version = "0.32.0"
 description = "Open-source BVLOS mission validation and simulation tooling."
 readme = "README.md"
 requires-python = ">=3.12"
