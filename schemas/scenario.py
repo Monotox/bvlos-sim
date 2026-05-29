@@ -87,6 +87,9 @@ SUPPORTED_ASSERTION_FIELD_PATHS: frozenset[str] = frozenset(
         "estimate.link.is_feasible",
         "estimate.geofence.is_feasible",
         "estimate.landing_zone.is_feasible",
+        "estimate.weather.is_feasible",
+        "estimate.weather.worst_wind_speed_mps",
+        "estimate.ground_risk.mission_igrc",
     }
 )
 

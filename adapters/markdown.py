@@ -4,10 +4,12 @@ from adapters.envelope import EstimatorResultEnvelope
 from estimator.core.results import (
     EnergyEstimate,
     GeofenceEstimate,
+    GroundRiskEstimate,
     LandingZoneEstimate,
     LinkEstimate,
     MissionEstimate,
     ResourceEstimate,
+    WeatherEstimate,
 )
 
 Lines = list[str]
@@ -275,6 +277,60 @@ def _render_landing_zone_reachability(
     ]
 
 
+def _render_weather_feasibility(weather: WeatherEstimate | None) -> Lines:
+    if weather is None:
+        return []
+    lines = [
+        "",
+        "## Weather Feasibility",
+        "",
+        f"- Feasible: `{_fmt_bool(weather.is_feasible)}`",
+        f"- Checked legs: `{weather.checked_leg_count}`",
+        f"- Max wind m/s: `{_fmt_optional_float(weather.max_wind_mps)}`",
+        f"- Max crosswind m/s: `{_fmt_optional_float(weather.max_crosswind_mps)}`",
+        f"- Max gust m/s: `{_fmt_optional_float(weather.max_gust_mps)}`",
+        f"- Worst wind m/s: `{_fmt_optional_float(weather.worst_wind_speed_mps)}`",
+        f"- Worst crosswind m/s: `{_fmt_optional_float(weather.worst_crosswind_mps)}`",
+        f"- Violations: `{len(weather.violations)}`",
+    ]
+    if weather.violations:
+        lines.append("")
+        lines.append("| Leg | ID | Limit | Observed m/s | Limit m/s |")
+        lines.append("|----:|----|-------|-------------:|----------:|")
+        for violation in weather.violations:
+            route_item_id = violation.route_item_id or _MISSING
+            lines.append(
+                f"| {violation.leg_index} | {route_item_id} "
+                f"| {violation.code.value} "
+                f"| {_fmt(violation.observed_mps)} "
+                f"| {_fmt(violation.limit_mps)} |"
+            )
+    return lines
+
+
+def _render_ground_risk(ground_risk: GroundRiskEstimate | None) -> Lines:
+    if ground_risk is None:
+        return []
+    lines = [
+        "",
+        "## Ground Risk",
+        "",
+        f"- Characteristic dimension m: `{_fmt(ground_risk.characteristic_dimension_m)}`",
+        f"- Mission iGRC: `{ground_risk.mission_igrc}`",
+    ]
+    if ground_risk.legs:
+        lines.append("")
+        lines.append("| Leg | ID | Max density ppl/km² | iGRC |")
+        lines.append("|----:|----|--------------------:|-----:|")
+        for leg in ground_risk.legs:
+            route_item_id = leg.route_item_id or _MISSING
+            lines.append(
+                f"| {leg.leg_index} | {route_item_id} "
+                f"| {_fmt(leg.max_density_ppl_km2)} | {leg.igrc} |"
+            )
+    return lines
+
+
 def _render_warnings(result: MissionEstimate) -> Lines:
     if not result.warnings:
         return []
@@ -298,6 +354,8 @@ def _render_result_sections(result: MissionEstimate | None) -> Lines:
     lines.extend(_render_link_feasibility(result.link))
     lines.extend(_render_geofence_feasibility(result.geofence))
     lines.extend(_render_landing_zone_reachability(result.landing_zone))
+    lines.extend(_render_weather_feasibility(result.weather))
+    lines.extend(_render_ground_risk(result.ground_risk))
     lines.extend(_render_warnings(result))
     return lines
 

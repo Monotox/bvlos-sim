@@ -87,6 +87,17 @@
 | 3 | loiter | 353.53 | 2.46 | 863.63 | 638.63 | true |
 | 4 | rtl | 0.00 | 0.00 | 858.59 | 633.59 | true |
 
+## Weather Feasibility
+
+- Feasible: `true`
+- Checked legs: `4`
+- Max wind m/s: `10.00`
+- Max crosswind m/s: `—`
+- Max gust m/s: `—`
+- Worst wind m/s: `2.00`
+- Worst crosswind m/s: `1.26`
+- Violations: `0`
+
 ## Warnings
 
 - `LOITER_ASSUMED_ZERO_GROUND_DISTANCE` (leg 3): Loiter dwell modeled as station-keep hold with zero ground-path distance in estimator v1.

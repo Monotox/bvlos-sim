@@ -1,0 +1,67 @@
+site_name: BVLOS Simulator
+site_description: >-
+  Preflight energy, geofence, weather, and contingency feasibility checker for
+  beyond-visual-line-of-sight (BVLOS) drone operations.
+site_url: https://monotox.github.io/bvlos-sim/
+repo_url: https://github.com/Monotox/bvlos-sim
+repo_name: Monotox/bvlos-sim
+edit_uri: edit/main/docs/
+
+docs_dir: docs
+
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.top
+    - navigation.sections
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+nav:
+  - Home: index.md
+  - Usage: USAGE.md
+  - Project Brief: BVLOS_MISSION_SIMULATOR_BRIEF.md
+  - Roadmap: ROADMAP.md
+  - Field Semantics: ESTIMATOR_V1_FIELD_SEMANTICS.md
+  - Versioning Policy: VERSIONING_POLICY.md
+  - SITL:
+      - Adapter Contract: SITL_ADAPTER_CONTRACT.md
+      - Local Setup: SITL_LOCAL_SETUP.md
+  - Contributing: CODE_STYLE.md
+  - Ticket Backlog: tickets/README.md
+
+# The numbered ticket files are reachable from the Ticket Backlog page but are
+# intentionally not individual nav entries; declare that so --strict does not
+# treat them as accidentally-omitted pages.
+not_in_nav: |
+  /tickets/[0-9]*.md
+
+strict: true
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences

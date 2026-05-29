@@ -19,7 +19,7 @@ Implementation note:
 Implemented in:
 - [docs/VERSIONING_POLICY.md](../VERSIONING_POLICY.md)
 - [docs/ESTIMATOR_V1_FIELD_SEMANTICS.md](../ESTIMATOR_V1_FIELD_SEMANTICS.md)
-- [tests/test_contract_golden.py](../../tests/test_contract_golden.py)
+- [tests/test_contract_golden.py](https://github.com/Monotox/bvlos-sim/blob/main/tests/test_contract_golden.py)
 
 Follow-up hardening completed after the initial package-boundary cleanup:
 - route-item target invariants are shared between schema validation and estimator runtime, so partial coordinate pairs and ignored altitude references fail consistently

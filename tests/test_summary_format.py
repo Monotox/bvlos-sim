@@ -110,6 +110,26 @@ def test_infeasible_estimate_summary_ends_with_failure_code() -> None:
     _assert_one_line(output)
 
 
+def test_feasible_estimate_summary_flags_infeasible_rth() -> None:
+    estimate = _estimate(energy=_energy())
+    estimate = estimate.model_copy(update={"rth_is_feasible": False})
+
+    output = format_estimate_summary(estimate)
+
+    assert "RTH infeasible" in output
+    _assert_one_line(output)
+
+
+def test_feasible_estimate_summary_omits_rth_when_feasible() -> None:
+    estimate = _estimate(energy=_energy())
+    estimate = estimate.model_copy(update={"rth_is_feasible": True})
+
+    output = format_estimate_summary(estimate)
+
+    assert "RTH" not in output
+    _assert_one_line(output)
+
+
 def test_error_estimate_summary_without_energy_starts_with_error() -> None:
     output = format_estimate_summary(
         _estimate(

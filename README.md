@@ -4,6 +4,9 @@
 
 [![CI](https://github.com/Monotox/bvlos-sim/actions/workflows/ci.yml/badge.svg)](https://github.com/Monotox/bvlos-sim/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![Docs](https://img.shields.io/badge/docs-github.io-blue.svg)](https://monotox.github.io/bvlos-sim/)
+
+📖 **Documentation site: [monotox.github.io/bvlos-sim](https://monotox.github.io/bvlos-sim/)**
 
 Two YAML files — a mission and a vehicle profile — answer the questions no spreadsheet handles: does this aircraft have enough reserve given tomorrow's wind over this terrain, does the route cross any restricted airspace, and what is the p5 reserve margin if wind is 2 m/s stronger than forecast?
 

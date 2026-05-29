@@ -114,6 +114,23 @@ def _weather_row(weather: WeatherEstimate | None) -> str:
     return _row(_FAIL, "Weather limits", "FAIL", detail)
 
 
+def _rth_reserve_row(result: MissionEstimate) -> str | None:
+    if result.rth_is_feasible is None:
+        return None
+    timeline = result.energy.rth_reserve_timeline if result.energy is not None else None
+    leg_count = len(timeline) if timeline is not None else 0
+    if result.rth_is_feasible:
+        detail = f"reserve intact for RTH from all {leg_count} leg(s)"
+        return _row(" ", "RTH reserve (advisory)", "INFO", detail)
+    infeasible = [point for point in timeline or [] if not point.is_feasible]
+    first = infeasible[0]
+    detail = (
+        f"RTH below reserve from {len(infeasible)}/{leg_count} leg(s); "
+        f"first at leg {first.leg_index} (margin {_fmt(first.reserve_margin_wh)} Wh)"
+    )
+    return _row(" ", "RTH reserve (advisory)", "INFO", detail)
+
+
 def _ground_risk_row(ground_risk: GroundRiskEstimate | None) -> str:
     if ground_risk is None:
         return _row(_NA, "Ground risk class", "N/A", "not evaluated")
@@ -164,6 +181,9 @@ def _render_checklist(result: MissionEstimate | None, mission_id: str) -> str:
     lines.append(_resource_row(result.resource))
     lines.append(_link_row(result.link))
     lines.append(_weather_row(result.weather))
+    rth_row = _rth_reserve_row(result)
+    if rth_row is not None:
+        lines.append(rth_row)
     lines.append(_ground_risk_row(result.ground_risk))
     departure_row = _departure_time_row(result)
     if departure_row is not None:

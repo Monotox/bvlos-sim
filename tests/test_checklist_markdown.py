@@ -28,6 +28,7 @@ from estimator.core.results import (
     LandingZoneEstimate,
     LandingZoneStateReachability,
     MissionEstimate,
+    RthReserveTimelinePoint,
 )
 from typer.testing import CliRunner
 
@@ -276,6 +277,62 @@ def test_checklist_energy_detail_shows_margin() -> None:
     output = render_checklist_markdown(_envelope(result), mission_id="demo")
     assert "100" in output  # margin = 300 - 200
     assert "300" in output  # reserve_at_landing_wh
+
+
+def _rth_point(leg_index: int, *, feasible: bool) -> RthReserveTimelinePoint:
+    margin = 50.0 if feasible else -25.0
+    return RthReserveTimelinePoint(
+        leg_index=leg_index,
+        route_item_index=leg_index,
+        route_item_id=f"wp-{leg_index}",
+        rth_distance_m=1000.0,
+        rth_energy_wh=100.0,
+        energy_remaining_before_rth_wh=400.0,
+        reserve_after_rth_wh=200.0 + margin,
+        reserve_margin_wh=margin,
+        is_feasible=feasible,
+    )
+
+
+def test_checklist_rth_feasible_shows_advisory_info() -> None:
+    energy = _energy().model_copy(
+        update={
+            "rth_reserve_timeline": [
+                _rth_point(0, feasible=True),
+                _rth_point(1, feasible=True),
+            ]
+        }
+    )
+    result = _estimate(energy=energy).model_copy(update={"rth_is_feasible": True})
+    output = render_checklist_markdown(_envelope(result))
+    assert "RTH reserve (advisory)" in output
+    assert "INFO" in output
+    assert "all 2 leg(s)" in output
+    # Advisory RTH must not flip an otherwise-feasible mission to NO-GO.
+    assert "Status: GO" in output
+
+
+def test_checklist_rth_infeasible_shows_first_failing_leg() -> None:
+    energy = _energy().model_copy(
+        update={
+            "rth_reserve_timeline": [
+                _rth_point(0, feasible=True),
+                _rth_point(1, feasible=False),
+            ]
+        }
+    )
+    result = _estimate(energy=energy).model_copy(update={"rth_is_feasible": False})
+    output = render_checklist_markdown(_envelope(result))
+    assert "RTH reserve (advisory)" in output
+    assert "first at leg 1" in output
+    # Still advisory: does not gate GO/NO-GO.
+    assert "Status: GO" in output
+
+
+def test_checklist_omits_rth_row_when_not_computed() -> None:
+    result = _estimate(energy=_energy())
+    output = render_checklist_markdown(_envelope(result))
+    assert "RTH reserve" not in output
 
 
 def test_checklist_ends_with_newline() -> None:

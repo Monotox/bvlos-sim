@@ -849,6 +849,75 @@ def test_field_resolvers_and_supported_paths_are_in_sync() -> None:
     assert set(_FIELD_RESOLVERS.keys()) == _SUPPORTED_FIELD_PATHS
 
 
+def test_weather_and_ground_risk_field_paths_accepted_at_schema_load() -> None:
+    # These feasibility/risk blocks exist in the estimate envelope and must be
+    # assertable from scenarios, not only present in the JSON output.
+    plan = _plan(
+        assertions=[
+            _assertion(
+                "w1", "field_eq", field_path="estimate.weather.is_feasible", expected=True
+            ),
+            _assertion(
+                "w2", "field_le", field_path="estimate.weather.worst_wind_speed_mps", expected=12.0
+            ),
+            _assertion(
+                "g1", "field_le", field_path="estimate.ground_risk.mission_igrc", expected=7
+            ),
+        ]
+    )
+    assert len(plan.assertions) == 3
+
+
+def test_weather_and_ground_risk_field_resolvers_read_estimate_blocks() -> None:
+    from estimator.core.enums import EstimateStatus
+    from estimator.core.results import (
+        GroundRiskEstimate,
+        MissionEstimate,
+        WeatherEstimate,
+    )
+    from estimator.execution.scenario_assertions import resolve_field_value
+
+    estimate = MissionEstimate(
+        status=EstimateStatus.SUCCESS,
+        total_horizontal_distance_m=0.0,
+        total_vertical_distance_m=0.0,
+        total_path_distance_m=0.0,
+        total_time_s=0.0,
+        totals_are_partial=False,
+        weather=WeatherEstimate(
+            is_feasible=False,
+            checked_leg_count=2,
+            max_wind_mps=10.0,
+            worst_wind_speed_mps=14.0,
+        ),
+        ground_risk=GroundRiskEstimate(
+            characteristic_dimension_m=1.0,
+            mission_igrc=6,
+            legs=[],
+        ),
+    )
+
+    assert resolve_field_value("estimate.weather.is_feasible", estimate) is False
+    assert resolve_field_value("estimate.weather.worst_wind_speed_mps", estimate) == 14.0
+    assert resolve_field_value("estimate.ground_risk.mission_igrc", estimate) == 6
+
+
+def test_weather_field_resolver_returns_none_without_weather_block() -> None:
+    from estimator.core.enums import EstimateStatus
+    from estimator.core.results import MissionEstimate
+    from estimator.execution.scenario_assertions import resolve_field_value
+
+    estimate = MissionEstimate(
+        status=EstimateStatus.SUCCESS,
+        total_horizontal_distance_m=0.0,
+        total_vertical_distance_m=0.0,
+        total_path_distance_m=0.0,
+        total_time_s=0.0,
+        totals_are_partial=False,
+    )
+    assert resolve_field_value("estimate.weather.is_feasible", estimate) is None
+
+
 def _make_turning_mission():
     """Mission with a ~90° heading change needed to produce v2 turn arcs."""
     from schemas.mission import MissionAction, RouteItem

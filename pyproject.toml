@@ -63,6 +63,9 @@ dev = [
 sitl = [
     "pymavlink==2.4.49",
 ]
+docs = [
+    "mkdocs-material>=9.5",
+]
 
 [tool.setuptools]
 py-modules = ["main"]

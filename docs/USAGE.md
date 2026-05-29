@@ -71,6 +71,10 @@ geojson|kml` when used with `--output-dir` to write one map file per run.
 pre-flight go/no-go checklist. Each feasibility check is rendered on one line
 with a `✓`/`✗`/`◌` icon, and the output ends with `Status: GO` or
 `Status: NO-GO`. Suitable for terminal review or embedding in a flight brief.
+When `mission.planned_home` is set, the checklist also includes an advisory
+`RTH reserve (advisory)` row summarising whether the vehicle can return to home
+with reserve intact from every leg; it is informational and does not change the
+`GO`/`NO-GO` status (see the RTH reserve advisory note below).
 
 `batch` also supports `--format csv` to emit a comma-separated table
 (id, status, reserve_margin_percent, flight_time_s, warning_count) for
@@ -398,7 +402,10 @@ The `--format checklist` output gains a **Weather limits** row showing the
 worst-case wind and the leg where it occurs, and `--format summary` adds a
 `weather FAIL` field when a limit is exceeded. The `--format json` result
 envelope includes a `weather` block with the worst observed values and any
-violations.
+violations, and `--format markdown` includes a **Weather Feasibility** section
+(with a violations table when limits are exceeded). Weather feasibility is also
+assertable from scenarios via `estimate.weather.is_feasible` and
+`estimate.weather.worst_wind_speed_mps`.
 
 ```bash
 uv run bvlos-sim estimate \
@@ -984,7 +991,15 @@ estimate.geofence.is_feasible
 estimate.landing_zone.is_feasible
 estimate.resource.is_feasible
 estimate.link.is_feasible
+estimate.weather.is_feasible
+estimate.weather.worst_wind_speed_mps
+estimate.ground_risk.mission_igrc
 ```
+
+Weather and ground-risk paths resolve to `None` (yielding a `skipped`
+assertion outcome) when the corresponding block was not evaluated — for
+example when the mission sets no weather minimums or no population grid is
+configured.
 
 An assertion with an unrecognised `field_path` yields `unsupported` outcome; the
 `unsupported_reason` field in the JSON result lists all valid paths.

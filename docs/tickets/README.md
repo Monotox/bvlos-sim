@@ -1,6 +1,6 @@
 # Ticket Backlog
 
-**47 implemented · 17 planned · 1056 tests passing**
+**48 implemented · 18 planned · 1069 tests passing**
 
 This directory tracks every capability from idea to implementation. Completed
 tickets are kept as historical records. Open tickets describe what to build
@@ -24,6 +24,7 @@ next and why.
 | Regulatory pre-assessment | 094–095 | SORA Ground Risk Class (iGRC), Air Risk Class, and GRC×ARC→SAIL with applicable OSOs via the `sora` command |
 | Weather & GO/NO-GO | 092–093 | Enforced `max_wind_mps`/`max_crosswind_mps` weather minimums with a checklist Weather-limits row; time-varying geofence activation windows |
 | Correctness fixes | 062, 065 | Wind-triangle divert correction, stochastic spatial infeasibility tracking |
+| Documentation | 096 | MkDocs Material site published to GitHub Pages, auto-built from `main` |
 
 Full feature list: [`docs/tickets/README.md` implemented section](#implemented-tickets) · Test coverage: `uv run pytest`
 
@@ -45,6 +46,7 @@ Items are ordered by impact. Pick one, read its ticket file, open a PR.
 
 | # | Ticket | What it adds |
 |---|---|---|
+| 097 | [Opt-in RTH reserve feasibility gate](./097-rth-reserve-feasibility-gate.md) | Let a mission require RTH reserve at every leg so a breach gates status, exit code, and the checklist GO/NO-GO (today RTH is advisory only) |
 | 061 | [3D geofence altitude bounds](./061-3d-geofence-altitude-bounds.md) | Extend geofence checks to include min/max altitude constraints |
 | 062 | [LZ reachability wind correction](./062-wind-corrected-divert-energy.md) | Apply wind-triangle correction to landing-zone reachability energy (divert already done) |
 | 064 | [Batch scenario & propagate](./064-batch-scenario-and-propagate.md) | Extend `batch` command to run scenario and propagate jobs, not only estimates |
@@ -126,7 +128,7 @@ New capabilities should work *with* existing pieces, not alongside them in isola
 ## Implemented tickets
 
 <details>
-<summary>Full list (47 tickets)</summary>
+<summary>Full list (48 tickets)</summary>
 
 1. [001](./001-estimator-cli-and-envelope.md) Estimator CLI and envelope
 2. [002](./002-versioning-and-golden-fixtures.md) Versioning and golden fixtures
@@ -175,5 +177,6 @@ New capabilities should work *with* existing pieces, not alongside them in isola
 45. [091](./091-qgc-mission-export.md) QGC mission export
 46. [092](./092-weather-minimums-and-go-nogo.md) Weather minimums and automatic GO/NO-GO
 47. [093](./093-time-varying-geofence-activation.md) Time-varying geofence activation
+48. [096](./096-docs-github-pages.md) Documentation site on GitHub Pages
 
 </details>

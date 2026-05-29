@@ -58,6 +58,15 @@ _FIELD_RESOLVERS: dict[str, FieldResolver] = {
     "estimate.landing_zone.is_feasible": lambda e: (
         e.landing_zone.is_feasible if e.landing_zone is not None else None
     ),
+    "estimate.weather.is_feasible": lambda e: (
+        e.weather.is_feasible if e.weather is not None else None
+    ),
+    "estimate.weather.worst_wind_speed_mps": lambda e: (
+        e.weather.worst_wind_speed_mps if e.weather is not None else None
+    ),
+    "estimate.ground_risk.mission_igrc": lambda e: (
+        e.ground_risk.mission_igrc if e.ground_risk is not None else None
+    ),
 }
 
 NumericComparator = Callable[[float, float], bool]

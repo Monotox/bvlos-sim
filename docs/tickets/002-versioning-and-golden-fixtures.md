@@ -18,8 +18,8 @@ Implementation note:
 
 Implemented in:
 - [docs/VERSIONING_POLICY.md](../VERSIONING_POLICY.md)
-- [tests/test_contract_golden.py](../../tests/test_contract_golden.py)
-- [tests/fixtures/golden/](../../tests/fixtures/golden/)
+- [tests/test_contract_golden.py](https://github.com/Monotox/bvlos-sim/blob/main/tests/test_contract_golden.py)
+- [tests/fixtures/golden/](https://github.com/Monotox/bvlos-sim/tree/main/tests/fixtures/golden)
 
 ## Scope
 
