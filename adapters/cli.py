@@ -135,6 +135,7 @@ def _register_commands() -> None:
     from adapters.commands.compare import compare
     from adapters.commands.convert import convert
     from adapters.commands.estimate import estimate
+    from adapters.commands.export import export
     from adapters.commands.propagate import propagate
     from adapters.commands.sample import sample
     from adapters.commands.scenario import scenario
@@ -144,6 +145,7 @@ def _register_commands() -> None:
 
     app.command()(convert)
     app.command()(estimate)
+    app.command()(export)
     app.command("size-battery")(size_battery)
     app.command()(batch)
     app.command()(compare)

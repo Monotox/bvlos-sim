@@ -23,12 +23,13 @@ uv run bvlos-sim --help
 
 ## CLI Commands
 
-bvlos-sim exposes ten commands:
+bvlos-sim exposes eleven commands:
 
 - `estimate`: run deterministic mission estimation and static feasibility checks
 - `size-battery`: compute the minimum battery capacity needed for feasibility
 - `scenario`: run deterministic scenario events and assertions
 - `convert`: convert a QGroundControl `.plan` file to a `mission.v6` YAML
+- `export`: convert a `mission.v6` YAML to a QGroundControl `.plan` file
 - `batch`: run batch mission estimates from a manifest file
 - `sample`: run seeded Monte Carlo uncertainty sampling
 - `propagate`: run time-stepped stochastic particle propagation with EKF and tracking controller
@@ -46,6 +47,7 @@ bvlos-sim exposes ten commands:
 | sitl | success | - | invalid input | - | internal/write error |
 | compare | passed | drifted/failed | invalid input | unsupported (contract-only) | internal/write error |
 | convert | success | - | invalid input | - | internal error |
+| export | success | - | invalid input | - | internal error |
 | batch | all feasible | any infeasible | invalid input/run | - | internal error |
 | sora | success | - | invalid input | - | internal error |
 
@@ -56,8 +58,9 @@ Scenario events, uncertainty sampling, and SITL evidence use `scenario`,
 `sample`, and `sitl` because they require separate versioned input contracts.
 SITL comparison reports are exposed through `compare` so evidence review has a
 dedicated command with JSON, Markdown, and `--output` support.
-Plan conversion and multi-run CI workflows are exposed through `convert` and
-`batch`.
+Plan conversion is bidirectional: `convert` imports a QGC `.plan` to YAML and
+`export` writes a YAML back to a QGC `.plan`. Multi-run CI workflows are exposed
+through `batch`.
 For terse terminal output, `estimate`, `scenario`, `sample`, and `propagate`
 support `--format summary`. `estimate` and `scenario` support `--format geojson`
 and `--format kml` for map-ready route exports. `batch` supports `--format
@@ -147,6 +150,45 @@ To validate the `.plan` file without writing output:
 
 ```bash
 uv run bvlos-sim convert plan.plan --vehicle-profile quadplane_v1 --validate-only
+```
+
+## QGC Mission Export
+
+`export` is the inverse of `convert`: it turns a `mission.v6` YAML into a
+QGroundControl `.plan` JSON file so a mission authored in bvlos-sim can be
+uploaded to an aircraft via QGC or MAVLink.
+
+```bash
+uv run bvlos-sim export examples/missions/pipeline_demo_001.yaml \
+  --output /tmp/pipeline_demo_001.plan
+uv run bvlos-sim export examples/missions/pipeline_demo_001.yaml   # JSON to stdout
+```
+
+Route items map to MAVLink mission commands:
+
+| bvlos-sim action | QGC command |
+|---|---|
+| `vtol_takeoff` | `MAV_CMD_NAV_VTOL_TAKEOFF` (84) |
+| `waypoint` | `MAV_CMD_NAV_WAYPOINT` (16), `acceptance_radius_m` → param 2 |
+| `loiter_time` | `MAV_CMD_NAV_LOITER_TIME` (19), time → param 1, radius → param 3 |
+| `land` | `MAV_CMD_NAV_LAND` (21) |
+| `rtl` | `MAV_CMD_NAV_RETURN_TO_LAUNCH` (20) |
+
+The altitude reference selects the MAVLink frame: `relative_home` → frame 3
+(`MAV_FRAME_GLOBAL_RELATIVE_ALT`), `amsl` → frame 0 (`MAV_FRAME_GLOBAL`). An
+`altitude_reference: terrain` item has no direct QGC frame, so it is exported as
+relative-altitude (frame 3) and a warning is written to stderr.
+
+bvlos-sim-specific fields (`constraints`, `assets`, `policy`) have no QGC
+equivalent and are omitted from the export — they remain in the source YAML.
+A note is written to stderr when any are present. The exported `.plan`
+round-trips back through `convert`, preserving route item count and waypoint
+coordinates.
+
+To validate exportability without writing output:
+
+```bash
+uv run bvlos-sim export examples/missions/pipeline_demo_001.yaml --validate-only
 ```
 
 ## Batch Estimates

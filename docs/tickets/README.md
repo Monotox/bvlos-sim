@@ -1,6 +1,6 @@
 # Ticket Backlog
 
-**42 implemented · 22 planned · 1011 tests passing**
+**43 implemented · 21 planned · 1024 tests passing**
 
 This directory tracks every capability from idea to implementation. Completed
 tickets are kept as historical records. Open tickets describe what to build
@@ -19,7 +19,7 @@ next and why.
 | SITL (ArduPilot) | 040–043 | `sitl` command, MAVLink upload, telemetry recording, `compare` |
 | Stochastic propagation | 047–049, 086 | `propagate` command, twin-state EKF, closed-loop tracking controller; split into `propagation/` subpackage |
 | Output formats | 055, 057, 072–075 | GeoJSON/KML exports, `summary`, `checklist`, `profile`, `sensitivity`, `size-battery` |
-| Batch & import | 060, 085 | `batch` command, `convert` QGC importer with `--vehicle-profile`, `--format csv` |
+| Batch, import & export | 060, 085, 091 | `batch` command, `convert` QGC importer with `--vehicle-profile`, `--format csv`, `export` mission→QGC `.plan` writer |
 | Real-world data | 052–053, 056, 059 | Fetch scripts, community vehicle profiles, infeasible Alpine demo |
 | Regulatory pre-assessment | 094–095 | SORA Ground Risk Class (iGRC), Air Risk Class, and GRC×ARC→SAIL with applicable OSOs via the `sora` command |
 | Correctness fixes | 062, 065 | Wind-triangle divert correction, stochastic spatial infeasibility tracking |
@@ -44,7 +44,6 @@ Items are ordered by impact. Pick one, read its ticket file, open a PR.
 
 | # | Ticket | What it adds |
 |---|---|---|
-| 091 | [QGC mission export](./091-qgc-mission-export.md) | `bvlos-sim export` converts a mission YAML back to QGC `.plan` — closes the round-trip, makes bvlos-sim an authoring tool not just an analyser |
 | 092 | [Weather minimums & GO/NO-GO](./092-weather-minimums-and-go-nogo.md) | Enforce `max_wind_mps`, `max_gust_mps`, and `max_crosswind_mps` from the forecast grid — the check every BVLOS approval document requires |
 | 093 | [Time-varying geofence activation](./093-time-varying-geofence-activation.md) | TFRs and curfew zones only active during the planned flight window; prerequisite for Ticket 058 NOTAM ingestion |
 
@@ -124,7 +123,7 @@ Every new ticket must compose through the existing surfaces:
 
 - YAML schemas: `mission.v6`, `vehicle.v4`, `scenario.v1`, `uncertainty.v1`, `stochastic.v1`, `batch.v1`
 - Examples: `examples/missions/`, `examples/vehicles/`, `examples/scenarios/`
-- CLI commands: `estimate`, `scenario`, `sample`, `propagate`, `batch`, `convert`, `sitl`, `compare`, `size-battery`, `sora`
+- CLI commands: `estimate`, `scenario`, `sample`, `propagate`, `batch`, `convert`, `export`, `sitl`, `compare`, `size-battery`, `sora`
 - Output contracts: canonical JSON envelopes, Markdown reports, golden fixtures
 - Public Python API: `estimator.try_estimate_mission_distance_time`, `estimator.run_scenario`, `estimator.execution.monte_carlo.run_monte_carlo`
 
@@ -135,7 +134,7 @@ New capabilities should work *with* existing pieces, not alongside them in isola
 ## Implemented tickets
 
 <details>
-<summary>Full list (42 tickets)</summary>
+<summary>Full list (43 tickets)</summary>
 
 1. [001](./001-estimator-cli-and-envelope.md) Estimator CLI and envelope
 2. [002](./002-versioning-and-golden-fixtures.md) Versioning and golden fixtures
@@ -179,5 +178,6 @@ New capabilities should work *with* existing pieces, not alongside them in isola
 40. [086](./086-stochastic-propagator-module-split.md) Stochastic propagator module split
 41. [094](./094-sora-ground-risk-class.md) SORA Ground Risk Class (iGRC)
 42. [095](./095-sora-air-risk-and-sail.md) SORA Air Risk Class and SAIL determination
+43. [091](./091-qgc-mission-export.md) QGC mission export
 
 </details>
