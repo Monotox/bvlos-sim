@@ -13,9 +13,11 @@ including terrain clearance along the leg, not just at waypoints.
 
 ## Why This Is High Impact
 
-This is the most dangerous current blind spot. Today a route is "clear" if it
-does not cross a 2D geofence polygon (and even that is altitude-blind — see
-Ticket 061). Nothing models physical obstacles: a 48 m antenna 200 m ahead of a
+This is the most dangerous current blind spot. Geofence checks can now honor
+declared airspace altitude bands, but they still model regulatory volumes
+rather than physical structures. Today a route is "clear" if it
+does not cross a regulatory geofence volume. Nothing models physical obstacles:
+a 48 m antenna 200 m ahead of a
 49 m AGL leg is invisible to the tool. For low-altitude BVLOS, obstacle and
 wire strike is a primary risk; a feasibility tool that ignores it cannot be
 trusted near infrastructure, and "feasible" is actively misleading.
@@ -29,7 +31,8 @@ clip a ridge between two waypoints and still pass.
 - No obstacle schema or provider anywhere in `estimator/environment/`.
 - `estimator/execution/altitude.py` resolves terrain-referenced altitude at
   waypoints but does not verify clearance along the sampled leg.
-- Geofence is 2D (`GEOFENCE_EVALUATED_2D_ONLY`); 3D bounds are Ticket 061.
+- Geofence altitude bands (`floor_m`/`ceiling_m`) model airspace volumes, not
+  physical obstacle height, radius, or uncertainty.
 
 ## Scope
 

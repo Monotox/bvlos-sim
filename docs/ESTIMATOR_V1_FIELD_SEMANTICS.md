@@ -22,6 +22,7 @@ Top-level mission fields:
 - `constraints.min_obstacle_clearance_m`: horizontal and vertical separation buffer around configured obstacles
 - `constraints.min_terrain_clearance_m`: minimum sampled terrain clearance when a terrain provider is configured
 - `assets.geofences_file`: static geofence file loaded by the CLI
+  (`floor_m`/`ceiling_m` feature properties are operative when present)
 - `assets.landing_zones_file`: static landing-zone file loaded by the CLI
 - `assets.terrain_file`: offline elevation grid file loaded by the CLI for terrain-referenced altitude resolution
 - `assets.population_grid_file`: offline population-density grid loaded by the CLI for SORA ground-risk pre-assessment
@@ -368,6 +369,14 @@ Result metadata field `estimator_version` records the actual fidelity used:
 - Supported geometries are `Polygon` and `MultiPolygon`.
 - Forbidden-zone boundary contact is a conflict.
 - Required zones are evaluated as a union; route segments must be covered by that union.
+- `floor_m` and `ceiling_m` are optional GeoJSON feature properties in metres
+  AMSL. Missing lower or upper bounds behave as unbounded in that direction.
+- A forbidden zone conflicts with a leg only when the horizontal geometry
+  intersects and the leg altitude band overlaps the zone altitude band.
+- A required zone must cover the leg horizontally and contain the full leg
+  altitude band. Boundary altitudes are included in the zone.
+- When both `floor_m` and `ceiling_m` are present, `ceiling_m` must be greater
+  than `floor_m`. Per-zone AGL altitude references are not modelled.
 - `active_from`, `active_until`, and `recurrence` are optional GeoJSON feature
   properties. When present and `mission.departure_time` is set, route legs are
   checked only when their absolute time interval overlaps the zone's active

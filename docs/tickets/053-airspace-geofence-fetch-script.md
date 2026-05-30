@@ -6,8 +6,9 @@ Status: implemented.
 
 Complete the real-world data set started in Ticket 052 by adding
 `scripts/fetch_geofences.py`. The script writes a standard GeoJSON
-FeatureCollection accepted by `adapters/geofence_geojson.py`, with `Polygon`
-or `MultiPolygon` features and `kind` / `name` properties for each zone.
+FeatureCollection accepted by `adapters/assets/geofence_geojson.py`, with
+`Polygon` or `MultiPolygon` features and `kind` / `name` properties for each
+zone.
 
 The Alpine demo now includes a committed `geofences.geojson` asset alongside
 real terrain, real wind, and real landing zones.

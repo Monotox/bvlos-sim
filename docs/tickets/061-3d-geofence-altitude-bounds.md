@@ -4,21 +4,20 @@
 
 ## Problem
 
-Geofence feasibility is currently 2D (lon/lat only). A forbidden zone
-at 100–400 m AGL will not block a route that flies through it at 50 m.
+Geofence feasibility was previously 2D (lon/lat only). A forbidden zone
+at 100–400 m AMSL would not block a route that flies through it at 150 m.
 UTM corridors, class-D airspace, and restricted areas all have vertical
-bounds. Operators cannot use this tool for any altitude-aware airspace
-compliance check until geofences are 3D.
+bounds. Operators need altitude-aware airspace checks for corridor-based BVLOS
+planning.
 
-This is emitted as an envelope assumption today
-("Static geofence feasibility uses 2D lon/lat route-segment geometry")
-but there is no user-visible warning when a route passes through an
-altitude-bounded forbidden zone.
+The envelope assumption now states that static geofence feasibility uses 2D
+lon/lat segments and additionally applies `floor_m`/`ceiling_m` altitude bands
+when zones declare them.
 
 ## Acceptance Criteria
 
 1. `GeofenceZone` schema accepts optional `floor_m` and `ceiling_m`
-   fields (altitude AMSL or AGL, referenced by `altitude_reference`).
+   fields (altitude in metres AMSL).
 2. When floor/ceiling are absent the zone behaves as today (full
    vertical extent; backwards compatible).
 3. The estimator checks each route leg's altitude range against the
@@ -40,7 +39,7 @@ altitude-bounded forbidden zone.
   `GeofenceZone`
 - `estimator/execution/geofence.py` — altitude overlap check before
   2D intersection
-- `adapters/geofence_geojson.py` — import floor_m/ceiling_m from
+- `adapters/assets/geofence_geojson.py` — import floor_m/ceiling_m from
   GeoJSON feature properties
 - `docs/USAGE.md` — document the new fields
 - `tests/test_geofence.py` — new altitude-bound tests

@@ -13,6 +13,8 @@ and this project adheres to semantic versioning once public releases begin.
 
 - Opt-in return-to-home reserve gate via `constraints.require_rth_reserve`, returning `RTH_RESERVE_BELOW_THRESHOLD` and a checklist `NO-GO` when a route leg cannot preserve reserve after RTH.
 
+- Altitude-aware geofence bounds via GeoJSON `floor_m` and `ceiling_m` properties. Forbidden zones now require both horizontal intersection and altitude-band overlap, while required zones must contain the full leg altitude band.
+
 ## [0.32.0] - 2026-05-29
 
 ### Changed
