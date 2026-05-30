@@ -1,6 +1,6 @@
 # Ticket 061 — 3D Geofence with Altitude Floor and Ceiling
 
-## Status: Planned
+## Status: Implemented
 
 ## Problem
 
