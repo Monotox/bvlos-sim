@@ -80,6 +80,7 @@ _ENERGY_FAILURE_CODES = frozenset(
     {
         FailureCode.INSUFFICIENT_ENERGY,
         FailureCode.RESERVE_BELOW_THRESHOLD,
+        FailureCode.RTH_RESERVE_BELOW_THRESHOLD,
         FailureCode.MISSING_ENERGY_MODEL,
         FailureCode.UNSUPPORTED_PHASE_ENERGY_MODEL,
         FailureCode.INVALID_ENERGY_MODEL,

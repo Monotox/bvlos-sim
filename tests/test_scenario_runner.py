@@ -863,9 +863,12 @@ def test_weather_and_ground_risk_field_paths_accepted_at_schema_load() -> None:
             _assertion(
                 "g1", "field_le", field_path="estimate.ground_risk.mission_igrc", expected=7
             ),
+            _assertion(
+                "r1", "field_eq", field_path="estimate.rth_is_feasible", expected=True
+            ),
         ]
     )
-    assert len(plan.assertions) == 3
+    assert len(plan.assertions) == 4
 
 
 def test_weather_and_ground_risk_field_resolvers_read_estimate_blocks() -> None:
@@ -900,6 +903,24 @@ def test_weather_and_ground_risk_field_resolvers_read_estimate_blocks() -> None:
     assert resolve_field_value("estimate.weather.is_feasible", estimate) is False
     assert resolve_field_value("estimate.weather.worst_wind_speed_mps", estimate) == 14.0
     assert resolve_field_value("estimate.ground_risk.mission_igrc", estimate) == 6
+    assert resolve_field_value("estimate.rth_is_feasible", estimate) is None
+
+
+def test_rth_feasibility_field_is_assertable_from_scenario() -> None:
+    plan = _plan(
+        assertions=[
+            _assertion(
+                "rth",
+                "field_eq",
+                field_path="estimate.rth_is_feasible",
+                expected=True,
+            )
+        ]
+    )
+
+    result = run_scenario(plan, make_mission(), make_vehicle())
+
+    assert result.assertion_results[0].outcome == AssertionOutcome.PASSED
 
 
 def test_weather_field_resolver_returns_none_without_weather_block() -> None:

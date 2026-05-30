@@ -204,6 +204,8 @@ def build_estimation_context(
     }
     if mission.departure_time is not None:
         metadata["departure_time"] = _utc_isoformat(mission.departure_time)
+    if mission.constraints.require_rth_reserve:
+        metadata["require_rth_reserve"] = True
     capabilities = derive_capabilities(vehicle)
     metadata["capabilities_source"] = capabilities.source
 

@@ -77,6 +77,7 @@ SUPPORTED_ASSERTION_FIELD_PATHS: frozenset[str] = frozenset(
         "estimate.total_vertical_distance_m",
         "estimate.total_path_distance_m",
         "estimate.totals_are_partial",
+        "estimate.rth_is_feasible",
         "estimate.energy.is_feasible",
         "estimate.energy.total_energy_wh",
         "estimate.energy.reserve_at_landing_percent",

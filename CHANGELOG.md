@@ -11,6 +11,8 @@ and this project adheres to semantic versioning once public releases begin.
 
 - SORA mitigation depth: the `sora` command now applies operator-declared ground-risk mitigations (M1 strategic, M2 impact reduction, M3 ERP) and a tactical air-risk mitigation, declared in an optional `sora` block on the mission. The assessment reports the full credit ladder (iGRC → credits → final GRC), the residual ARC, and both the intrinsic and mitigated SAIL. Mitigation/credit tables are versioned data keyed by SORA revision; an unrecognised version is reported with a `MITIGATION_VERSION_UNSUPPORTED` advisory and no credits are applied. With no `sora` block the result is unchanged. The output remains a pre-assessment aid, not a certified determination.
 
+- Opt-in return-to-home reserve gate via `constraints.require_rth_reserve`, returning `RTH_RESERVE_BELOW_THRESHOLD` and a checklist `NO-GO` when a route leg cannot preserve reserve after RTH.
+
 ## [0.32.0] - 2026-05-29
 
 ### Changed

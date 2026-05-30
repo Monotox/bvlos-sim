@@ -131,12 +131,12 @@ def evaluate_energy_feasibility(
         return EnergyEvaluation(energy=None, failure=energy_failure)
     if energy is None:
         raise ValueError("Energy estimate construction failed without a failure.")
-    return EnergyEvaluation(
-        energy=energy,
-        failure=_build_feasibility_failure(energy)
-        if enforce_battery_capacity
-        else None,
+    failure = (
+        _build_feasibility_failure(energy) if enforce_battery_capacity else None
     )
+    if failure is None:
+        failure = _build_rth_reserve_failure(context, energy)
+    return EnergyEvaluation(energy=energy, failure=failure)
 
 
 def _validate_energy_model(energy_model: EnergyModel) -> EstimatorFailure | None:
@@ -705,6 +705,40 @@ def _build_feasibility_failure(energy: EnergyEstimate) -> EstimatorFailure | Non
         )
 
     return None
+
+
+def _build_rth_reserve_failure(
+    context: EstimationContext,
+    energy: EnergyEstimate,
+) -> EstimatorFailure | None:
+    if not context.mission.constraints.require_rth_reserve:
+        return None
+    timeline = energy.rth_reserve_timeline
+    if timeline is None:
+        return None
+    failed_point = next((point for point in timeline if not point.is_feasible), None)
+    if failed_point is None:
+        return None
+    return EstimatorFailure(
+        kind=FailureKind.INFEASIBLE,
+        code=FailureCode.RTH_RESERVE_BELOW_THRESHOLD,
+        message=(
+            "Return-to-home reserve is below the required reserve threshold."
+        ),
+        leg_index=failed_point.leg_index,
+        route_item_index=failed_point.route_item_index,
+        route_item_id=failed_point.route_item_id,
+        context={
+            "rth_distance_m": failed_point.rth_distance_m,
+            "rth_energy_wh": failed_point.rth_energy_wh,
+            "energy_remaining_before_rth_wh": (
+                failed_point.energy_remaining_before_rth_wh
+            ),
+            "reserve_after_rth_wh": failed_point.reserve_after_rth_wh,
+            "reserve_margin_wh": failed_point.reserve_margin_wh,
+            "reserve_threshold_wh": energy.reserve_threshold_wh,
+        },
+    )
 
 
 def _mission_energy_failure(
