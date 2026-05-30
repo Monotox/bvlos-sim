@@ -1,0 +1,86 @@
+{
+  "mission_ref": {
+    "mission_file": "examples/missions/pipeline_demo_001.yaml",
+    "mission_sha256": null,
+    "vehicle_file": "examples/vehicles/quadplane_v1.yaml",
+    "vehicle_sha256": null
+  },
+  "provenance": {
+    "missing_fields": [],
+    "parsing_assumptions": [
+      "timestamps derived from GPS.TimeUS relative to first GPS record",
+      "altitude from GPS.Alt (AMSL when GPS Status >= 2)",
+      "groundspeed from GPS.Spd",
+      "heading from GPS.GCrs (ground course, not magnetic heading)",
+      "wind estimate from NKF6 or XKF6 first core (C == 0)"
+    ],
+    "raw_log_filename": "pipeline_demo_001.log",
+    "raw_log_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "source_format": "ardupilot_dataflash_text",
+    "tool_version": "0.2.0"
+  },
+  "records": [
+    {
+      "alt_amsl_m": 430.5,
+      "battery_current_a": 15.3,
+      "battery_remaining_pct": 92.0,
+      "battery_voltage_v": 22.1,
+      "flight_mode": "TAKEOFF",
+      "groundspeed_mps": 0.2,
+      "heading_deg": 270.0,
+      "lat_deg": 47.641468,
+      "lon_deg": 9.34123,
+      "mission_item_index": null,
+      "timestamp_s": 0.0,
+      "wind_east_mps": -1.2,
+      "wind_north_mps": 2.5
+    },
+    {
+      "alt_amsl_m": 450.0,
+      "battery_current_a": 18.1,
+      "battery_remaining_pct": 89.5,
+      "battery_voltage_v": 21.9,
+      "flight_mode": "AUTO",
+      "groundspeed_mps": 14.8,
+      "heading_deg": 271.3,
+      "lat_deg": 47.641600,
+      "lon_deg": 9.339800,
+      "mission_item_index": 1,
+      "timestamp_s": 10.0,
+      "wind_east_mps": -1.3,
+      "wind_north_mps": 2.6
+    },
+    {
+      "alt_amsl_m": 450.2,
+      "battery_current_a": 17.9,
+      "battery_remaining_pct": 85.2,
+      "battery_voltage_v": 21.8,
+      "flight_mode": "AUTO",
+      "groundspeed_mps": 15.1,
+      "heading_deg": 269.8,
+      "lat_deg": 47.641650,
+      "lon_deg": 9.328400,
+      "mission_item_index": 2,
+      "timestamp_s": 80.0,
+      "wind_east_mps": -1.1,
+      "wind_north_mps": 2.4
+    },
+    {
+      "alt_amsl_m": 432.0,
+      "battery_current_a": 8.2,
+      "battery_remaining_pct": 78.0,
+      "battery_voltage_v": 21.5,
+      "flight_mode": "LAND",
+      "groundspeed_mps": 1.1,
+      "heading_deg": 270.0,
+      "lat_deg": 47.641700,
+      "lon_deg": 9.318500,
+      "mission_item_index": 3,
+      "timestamp_s": 168.0,
+      "wind_east_mps": -1.0,
+      "wind_north_mps": 2.3
+    }
+  ],
+  "schema_version": "flight-trace.v1",
+  "trace_id": "pipeline-demo-001-trace"
+}

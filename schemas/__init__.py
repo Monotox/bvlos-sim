@@ -96,6 +96,13 @@ from schemas.vehicle import (
     VehicleClass,
     VehicleProfile,
 )
+from schemas.flight_log import (
+    FLIGHT_TRACE_SCHEMA_VERSION,
+    FlightTraceMissionRef,
+    FlightTraceProvenance,
+    FlightTraceRecord,
+    NormalizedFlightTrace,
+)
 from schemas.vehicle_energy import UsableCapacityPoint
 
 __all__ = [
@@ -177,6 +184,11 @@ __all__ = [
     "SitlSimulatorMetadata",
     "StochasticPropagationPlan",
     "StochasticPropagationResult",
+    "FLIGHT_TRACE_SCHEMA_VERSION",
+    "FlightTraceMissionRef",
+    "FlightTraceProvenance",
+    "FlightTraceRecord",
+    "NormalizedFlightTrace",
     "UsableCapacityPoint",
     "VehicleCapabilities",
     "VehicleClass",
