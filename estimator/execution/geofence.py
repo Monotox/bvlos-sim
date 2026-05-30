@@ -294,7 +294,9 @@ def _forbidden_conflicts(
 ) -> list[GeofenceConflict]:
     conflicts: list[GeofenceConflict] = []
     for zone in forbidden_zones:
-        if zone.geometry.intersects(leg_geometry):
+        if _zone_overlaps_leg_altitude(zone.zone, leg) and zone.geometry.intersects(
+            leg_geometry
+        ):
             conflicts.append(
                 _conflict(
                     code=FailureCode.ROUTE_ENTERS_FORBIDDEN_ZONE,
@@ -320,15 +322,53 @@ def _required_conflict(
     leg: LegEstimate,
     leg_geometry: BaseGeometry,
 ) -> GeofenceConflict | None:
-    if required_union is None or required_union.covers(leg_geometry):
+    if required_union is None:
         return None
 
-    return _conflict(
-        code=FailureCode.ROUTE_EXITS_REQUIRED_ZONE,
-        message="Route is not fully covered by the required geofence zone set.",
-        zone_id=required_zones[0].zone.id if len(required_zones) == 1 else None,
-        zone_kind=GeofenceKind.REQUIRED,
-        leg=leg,
+    if not required_union.covers(leg_geometry):
+        return _conflict(
+            code=FailureCode.ROUTE_EXITS_REQUIRED_ZONE,
+            message="Route is not fully covered by the required geofence zone set.",
+            zone_id=required_zones[0].zone.id if len(required_zones) == 1 else None,
+            zone_kind=GeofenceKind.REQUIRED,
+            leg=leg,
+        )
+
+    for zone in required_zones:
+        if zone.geometry.intersects(leg_geometry) and not _zone_contains_leg_altitude(
+            zone.zone,
+            leg,
+        ):
+            return _conflict(
+                code=FailureCode.ROUTE_EXITS_REQUIRED_ZONE,
+                message=(
+                    "Route altitude is not fully covered by the required "
+                    "geofence zone set."
+                ),
+                zone_id=zone.zone.id,
+                zone_kind=GeofenceKind.REQUIRED,
+                leg=leg,
+            )
+
+    return None
+
+
+def _leg_altitude_band(leg: LegEstimate) -> tuple[float, float]:
+    low, high = sorted((leg.start_alt_amsl_m, leg.end_alt_amsl_m))
+    return low, high
+
+
+def _zone_overlaps_leg_altitude(zone: GeofenceZone, leg: LegEstimate) -> bool:
+    leg_low, leg_high = _leg_altitude_band(leg)
+    return (zone.floor_m is None or leg_high >= zone.floor_m) and (
+        zone.ceiling_m is None or leg_low <= zone.ceiling_m
+    )
+
+
+def _zone_contains_leg_altitude(zone: GeofenceZone, leg: LegEstimate) -> bool:
+    leg_low, leg_high = _leg_altitude_band(leg)
+    return (zone.floor_m is None or leg_low >= zone.floor_m) and (
+        zone.ceiling_m is None or leg_high <= zone.ceiling_m
     )
 
 

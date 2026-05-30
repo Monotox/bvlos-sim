@@ -27,7 +27,7 @@
 - Energy feasibility uses deterministic phase power values from the vehicle profile.
 - Explicit resource systems are evaluated after route expansion; when configured, they determine resource feasibility while result.energy remains the legacy battery-only energy view.
 - Communication-link feasibility is deterministic and uses configured static availability and range constraints only; live network calls are not performed.
-- Static geofence feasibility uses 2D lon/lat route-segment geometry.
+- Static geofence feasibility uses 2D lon/lat segments; zones declaring floor_m/ceiling_m additionally constrain the leg's altitude band, treated as AMSL.
 - Static landing-zone reachability uses straight-line geodesic distance and deterministic cruise-power divert energy.
 - Landing-zone v1 excludes terrain, obstacles, dynamic availability, suitability scoring, and comms dependency.
 - Dynamic landing-zone availability is a scenario-only feature; availability changes are resolved deterministically against the scenario timeline and do not affect the estimate CLI.

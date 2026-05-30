@@ -67,10 +67,28 @@ class GeofenceZone(BaseModel):
     id: str = Field(min_length=1)
     kind: GeofenceKind
     geometry: GeofenceGeometry
+    floor_m: float | None = Field(
+        default=None,
+        description="AMSL lower bound; below this altitude the zone is inactive.",
+    )
+    ceiling_m: float | None = Field(
+        default=None,
+        description="AMSL upper bound; above this altitude the zone is inactive.",
+    )
     active_from: datetime | None = None
     active_until: datetime | None = None
     recurrence: GeofenceRecurrence | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def validate_altitude_bounds(self) -> "GeofenceZone":
+        if (
+            self.floor_m is not None
+            and self.ceiling_m is not None
+            and self.ceiling_m <= self.floor_m
+        ):
+            raise ValueError("ceiling_m must be greater than floor_m")
+        return self
 
 
 __all__ = [
