@@ -66,6 +66,12 @@ class PhaseSegment(BaseModel):
             raise ValueError(
                 f"end_time_s ({self.end_time_s}) must be >= start_time_s ({self.start_time_s})"
             )
+        expected_count = self.end_index - self.start_index + 1
+        if self.record_count != expected_count:
+            raise ValueError(
+                f"record_count ({self.record_count}) must equal "
+                f"end_index - start_index + 1 ({expected_count})"
+            )
         return self
 
 
