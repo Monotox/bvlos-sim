@@ -47,5 +47,5 @@ The project has no validation metrics layer for comparing estimator outputs to o
 
 Ticket 080 (flight log ingestion) is implemented: `NormalizedFlightTrace` from
 `adapters.flight_log`.
-Ticket 081 (phase segmentation) must be implemented before per-phase metrics are
-available.
+Ticket 081 (phase segmentation) is implemented: `PhaseSegmentResult` from
+`adapters.phase_segmentation`. Both are required for per-phase validation metrics.

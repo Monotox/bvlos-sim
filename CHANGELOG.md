@@ -9,6 +9,26 @@ and this project adheres to semantic versioning once public releases begin.
 
 ### Added
 
+- Flight phase segmentation (Ticket 081). A `NormalizedFlightTrace` can now be
+  deterministically segmented into contiguous `PhaseSegment` blocks using a
+  mode-first algorithm: ArduPilot flight mode strings (TAKEOFF, RTL, LAND, LOITER,
+  etc.) are mapped directly to `TracePhase` values; records in AUTO/GUIDED mode or
+  without mode data fall back to kinematic rules derived from vertical rate and
+  groundspeed. A single-record smoothing pass absorbs sensor-noise blips. Each segment
+  carries the nearest estimator `LegPhase` string where a mapping exists (takeoff →
+  `vertical_takeoff`, transit → `transit`, loiter → `loiter_dwell`, landing →
+  `landing_transit`, rtl → `rtl_transit`). Climb, descent, divert, and unknown have no
+  estimator counterpart and report `estimator_leg_phase: null`. Segmentation metadata
+  records the algorithm identifier, which trace fields were available, and how many
+  records could not be classified. Public API:
+  `adapters.phase_segmentation.segment_trace`, `write_phase_segments`,
+  `load_phase_segments`. Kinematic thresholds
+  (`CLIMB_VERT_RATE_MPS`, `LOITER_SPEED_MPS`, `TRANSIT_SPEED_MPS`) are exported for
+  downstream calibration use. New schemas exported from `schemas` package root:
+  `TracePhase`, `PhaseSegment`, `PhaseSegmentResult`, `SegmentationMetadata`,
+  `PHASE_SEGMENT_SCHEMA_VERSION`. No changes to existing estimate, scenario, or SITL
+  surfaces.
+
 - Flight log ingestion and trace normalization (Ticket 080). ArduPilot DataFlash text
   (`.log`) files can now be ingested into a versioned `NormalizedFlightTrace` artifact
   (`flight-trace.v1`). The adapter extracts GPS position, groundspeed, ground course,
