@@ -45,3 +45,8 @@ There is no segmentation layer to map raw/normalized flight traces into takeoff,
 
 - Parameter fitting.
 - Probabilistic segmentation.
+
+## Prerequisites
+
+Ticket 080 (flight log ingestion) is implemented. Input type: `NormalizedFlightTrace`
+from `adapters.flight_log.ingest_dataflash_log` or `adapters.flight_log.load_flight_trace`.

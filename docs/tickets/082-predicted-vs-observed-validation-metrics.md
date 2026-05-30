@@ -42,3 +42,10 @@ The project has no validation metrics layer for comparing estimator outputs to o
 
 - Parameter fitting itself.
 - Automatic optimization loops.
+
+## Prerequisites
+
+Ticket 080 (flight log ingestion) is implemented: `NormalizedFlightTrace` from
+`adapters.flight_log`.
+Ticket 081 (phase segmentation) must be implemented before per-phase metrics are
+available.
