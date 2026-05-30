@@ -9,6 +9,19 @@ and this project adheres to semantic versioning once public releases begin.
 
 ### Added
 
+- Flight log ingestion and trace normalization (Ticket 080). ArduPilot DataFlash text
+  (`.log`) files can now be ingested into a versioned `NormalizedFlightTrace` artifact
+  (`flight-trace.v1`). The adapter extracts GPS position, groundspeed, ground course,
+  battery voltage/current/remaining, flight mode, and EKF wind estimate (NKF6/XKF6),
+  merges auxiliary channels into GPS records by carry-forward timestamp, and records
+  parsing assumptions and missing fields in a `FlightTraceProvenance` block. Traces can
+  optionally reference a paired mission and vehicle YAML via `FlightTraceMissionRef`.
+  Public API: `adapters.flight_log.ingest_dataflash_log`, `write_flight_trace`,
+  `load_flight_trace`. New schemas exported from `schemas` package root:
+  `NormalizedFlightTrace`, `FlightTraceRecord`, `FlightTraceProvenance`,
+  `FlightTraceMissionRef`, `FLIGHT_TRACE_SCHEMA_VERSION`. No changes to existing
+  estimate, scenario, or SITL surfaces.
+
 - SORA mitigation depth: the `sora` command now applies operator-declared ground-risk mitigations (M1 strategic, M2 impact reduction, M3 ERP) and a tactical air-risk mitigation, declared in an optional `sora` block on the mission. The assessment reports the full credit ladder (iGRC → credits → final GRC), the residual ARC, and both the intrinsic and mitigated SAIL. Mitigation/credit tables are versioned data keyed by SORA revision; an unrecognised version is reported with a `MITIGATION_VERSION_UNSUPPORTED` advisory and no credits are applied. With no `sora` block the result is unchanged. The output remains a pre-assessment aid, not a certified determination.
 
 - Opt-in return-to-home reserve gate via `constraints.require_rth_reserve`, returning `RTH_RESERVE_BELOW_THRESHOLD` and a checklist `NO-GO` when a route leg cannot preserve reserve after RTH.
