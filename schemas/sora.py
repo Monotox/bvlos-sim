@@ -15,6 +15,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 SORA_ASSESSMENT_SCHEMA_VERSION = "sora-assessment.v1"
 
+# SORA methodology revision whose mitigation/credit tables are applied by
+# default. Selecting a revision is a table lookup, not a logic change.
+DEFAULT_SORA_VERSION = "2.0"
+
 SORA_NON_CERTIFICATION_DISCLAIMER = (
     "This SORA pre-assessment is an engineering planning aid, not a certified "
     "determination. The Ground Risk Class, Air Risk Class, SAIL, and OSO list "
@@ -58,12 +62,84 @@ class RobustnessLevel(StrEnum):
     HIGH = "H"
 
 
+class MitigationRobustness(StrEnum):
+    """Robustness rating declared for a SORA mitigation.
+
+    ``NONE`` is the absence of a credited mitigation; the remaining levels map
+    to the integrity/assurance robustness recognised by the SORA credit tables.
+    """
+
+    NONE = "none"
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
+class GroundRiskMitigation(BaseModel):
+    """A single declared ground-risk mitigation (M1, M2, or M3)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    applied: bool = False
+    robustness: MitigationRobustness = MitigationRobustness.NONE
+
+
+class GroundRiskMitigations(BaseModel):
+    """Operator-declared ground-risk mitigations applied to the final GRC."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    m1_strategic: GroundRiskMitigation = Field(
+        default_factory=GroundRiskMitigation,
+        description="M1 — strategic mitigations (e.g. controlled ground area, sheltering).",
+    )
+    m2_impact_reduction: GroundRiskMitigation = Field(
+        default_factory=GroundRiskMitigation,
+        description="M2 — reduction of the effects of ground impact.",
+    )
+    m3_erp: GroundRiskMitigation = Field(
+        default_factory=GroundRiskMitigation,
+        description="M3 — emergency response plan (ERP).",
+    )
+
+
+class AirRiskMitigations(BaseModel):
+    """Operator-declared tactical air-risk mitigation applied to the residual ARC."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    tactical_mitigation: GroundRiskMitigation = Field(
+        default_factory=GroundRiskMitigation,
+        description="Tactical air-risk reduction (e.g. DAA) rated by robustness.",
+    )
+
+
+class SoraMitigations(BaseModel):
+    """Declared SORA mitigation inputs that step the intrinsic risk down.
+
+    These are operator inputs to an explicit, auditable pre-assessment; they do
+    not constitute a certified determination of compliance.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    version: str = Field(
+        default=DEFAULT_SORA_VERSION,
+        description="SORA methodology revision selecting the mitigation credit tables.",
+    )
+    ground_risk_mitigations: GroundRiskMitigations = Field(
+        default_factory=GroundRiskMitigations
+    )
+    air_risk: AirRiskMitigations = Field(default_factory=AirRiskMitigations)
+
+
 class SoraAdvisoryCode(StrEnum):
     """Advisory codes explaining why part of the assessment was not computed."""
 
     AIRSPACE_DESCRIPTOR_MISSING = "AIRSPACE_DESCRIPTOR_MISSING"
     GROUND_RISK_NOT_COMPUTED = "GROUND_RISK_NOT_COMPUTED"
     OPERATION_OUTSIDE_SPECIFIC_CATEGORY = "OPERATION_OUTSIDE_SPECIFIC_CATEGORY"
+    MITIGATION_VERSION_UNSUPPORTED = "MITIGATION_VERSION_UNSUPPORTED"
 
 
 class SoraAdvisory(BaseModel):
@@ -83,18 +159,46 @@ class OsoRequirement(BaseModel):
     robustness: RobustnessLevel
 
 
+class GrcMitigationCredit(BaseModel):
+    """One applied ground-risk mitigation and the GRC credit it contributes.
+
+    ``grc_credit`` is signed: a negative value lowers the final GRC, a positive
+    value (e.g. an insufficient ERP) raises it, per the SORA credit table.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    mitigation_id: str
+    title: str
+    robustness: MitigationRobustness
+    grc_credit: int
+
+
+class TacticalAirRiskMitigation(BaseModel):
+    """The applied tactical air-risk mitigation and the ARC bands it reduced."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    robustness: MitigationRobustness
+    arc_bands_reduced: int
+
+
 class SoraAssessment(BaseModel):
     """Whole-mission SORA pre-assessment result."""
 
     model_config = ConfigDict(extra="forbid")
 
     mission_id: str
+    sora_version: str = DEFAULT_SORA_VERSION
     characteristic_dimension_m: float | None = None
     intrinsic_grc: int | None = None
     final_grc: int | None = None
+    ground_risk_mitigations: list[GrcMitigationCredit] = Field(default_factory=list)
     initial_air_risk_class: AirRiskClass | None = None
     air_risk_class: AirRiskClass | None = None
     strategic_mitigation_applied: bool = False
+    tactical_air_risk_mitigation: TacticalAirRiskMitigation | None = None
+    intrinsic_sail: Sail | None = None
     sail: Sail | None = None
     applicable_osos: list[OsoRequirement] = Field(default_factory=list)
     advisories: list[SoraAdvisory] = Field(default_factory=list)
@@ -102,13 +206,21 @@ class SoraAssessment(BaseModel):
 
 
 __all__ = [
+    "DEFAULT_SORA_VERSION",
     "SORA_ASSESSMENT_SCHEMA_VERSION",
     "SORA_NON_CERTIFICATION_DISCLAIMER",
     "AirRiskClass",
+    "AirRiskMitigations",
+    "GrcMitigationCredit",
+    "GroundRiskMitigation",
+    "GroundRiskMitigations",
+    "MitigationRobustness",
     "OsoRequirement",
     "RobustnessLevel",
     "Sail",
     "SoraAdvisory",
     "SoraAdvisoryCode",
     "SoraAssessment",
+    "SoraMitigations",
+    "TacticalAirRiskMitigation",
 ]

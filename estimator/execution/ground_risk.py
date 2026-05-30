@@ -1,4 +1,6 @@
-"""SORA intrinsic Ground Risk Class computation."""
+"""SORA intrinsic Ground Risk Class computation and mitigation credits."""
+
+from dataclasses import dataclass, field
 
 from pyproj import Geod
 
@@ -12,6 +14,104 @@ from estimator.core.results import (
 )
 from estimator.environment.population import GridPopulationProvider
 from estimator.execution.transit import sub_segment_midpoint_fractions
+from schemas.sora import (
+    GrcMitigationCredit,
+    GroundRiskMitigation,
+    GroundRiskMitigations,
+    MitigationRobustness,
+    SoraAdvisory,
+    SoraAdvisoryCode,
+)
+
+_R = MitigationRobustness
+
+# Minimum final GRC reachable after applying mitigation credits. SORA never
+# lowers the final GRC below 1.
+_FINAL_GRC_FLOOR = 1
+
+# (mitigation id, declaration attribute, human title) in the SORA ladder order.
+_GRC_MITIGATION_SPECS: tuple[tuple[str, str, str], ...] = (
+    ("M1", "m1_strategic", "Strategic mitigations for ground risk"),
+    ("M2", "m2_impact_reduction", "Effects of ground impact reduced"),
+    ("M3", "m3_erp", "Emergency Response Plan (ERP)"),
+)
+
+# Signed GRC credit per mitigation and robustness, keyed by SORA version.
+# Negative lowers the final GRC; positive (an insufficient ERP) raises it.
+# Source: JARUS SORA 2.0 main body, final-GRC mitigation table.
+_GRC_MITIGATION_CREDITS: dict[str, dict[str, dict[MitigationRobustness, int]]] = {
+    "2.0": {
+        "M1": {_R.NONE: 0, _R.LOW: 0, _R.MEDIUM: -1, _R.HIGH: -2},
+        "M2": {_R.NONE: 0, _R.LOW: 0, _R.MEDIUM: -1, _R.HIGH: -2},
+        "M3": {_R.NONE: 0, _R.LOW: 1, _R.MEDIUM: 0, _R.HIGH: -1},
+    },
+}
+
+
+@dataclass(frozen=True, slots=True)
+class GrcMitigationResult:
+    """Outcome of applying the GRC mitigation ladder to the intrinsic GRC."""
+
+    final_grc: int
+    credits: list[GrcMitigationCredit] = field(default_factory=list)
+    advisories: list[SoraAdvisory] = field(default_factory=list)
+
+
+def supported_sora_versions() -> tuple[str, ...]:
+    """Return the SORA revisions whose mitigation tables are encoded."""
+    return tuple(_GRC_MITIGATION_CREDITS)
+
+
+def apply_grc_mitigations(
+    intrinsic_grc: int,
+    mitigations: GroundRiskMitigations | None,
+    *,
+    sora_version: str,
+) -> GrcMitigationResult:
+    """Step the intrinsic GRC down by the declared M1/M2/M3 credits.
+
+    With no declared mitigations (or an unsupported SORA version) the final GRC
+    equals the intrinsic GRC, so the assessment is unchanged.
+    """
+    table = _GRC_MITIGATION_CREDITS.get(sora_version)
+    if mitigations is None:
+        return GrcMitigationResult(final_grc=intrinsic_grc)
+    if table is None:
+        return GrcMitigationResult(
+            final_grc=intrinsic_grc,
+            advisories=[_unsupported_version_advisory(sora_version)],
+        )
+
+    credits: list[GrcMitigationCredit] = []
+    running_grc = intrinsic_grc
+    for mitigation_id, attr, title in _GRC_MITIGATION_SPECS:
+        declaration: GroundRiskMitigation = getattr(mitigations, attr)
+        if not declaration.applied:
+            continue
+        credit = table[mitigation_id][declaration.robustness]
+        credits.append(
+            GrcMitigationCredit(
+                mitigation_id=mitigation_id,
+                title=title,
+                robustness=declaration.robustness,
+                grc_credit=credit,
+            )
+        )
+        running_grc += credit
+
+    final_grc = max(running_grc, _FINAL_GRC_FLOOR)
+    return GrcMitigationResult(final_grc=final_grc, credits=credits)
+
+
+def _unsupported_version_advisory(sora_version: str) -> SoraAdvisory:
+    supported = ", ".join(supported_sora_versions())
+    return SoraAdvisory(
+        code=SoraAdvisoryCode.MITIGATION_VERSION_UNSUPPORTED,
+        message=(
+            f"SORA version {sora_version!r} has no encoded mitigation table; "
+            f"declared mitigations were not applied. Supported versions: {supported}."
+        ),
+    )
 
 _CONTROLLED_GROUND_AREA_ROW = 0
 _IGRC_TABLE: tuple[tuple[int, int, int, int], ...] = (
@@ -178,7 +278,10 @@ def _point_at_fraction(
 
 
 __all__ = [
+    "GrcMitigationResult",
+    "apply_grc_mitigations",
     "compute_ground_risk",
     "controlled_ground_area_igrc",
     "intrinsic_ground_risk_class",
+    "supported_sora_versions",
 ]

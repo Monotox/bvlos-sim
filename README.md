@@ -154,6 +154,7 @@ unsupported comparison summaries.
 - **Landing zones** — confirms at least one suitable landing point is within transit range.
 - **Resource and link** — models battery, tethered, and hybrid power; direct, cellular, satellite, and hybrid failover link architectures.
 - **Ground risk** — computes SORA-style iGRC pre-assessment from an offline population-density grid and vehicle characteristic dimension.
+- **SORA pre-assessment** — derives Air Risk Class and SAIL, then applies declared mitigations (M1/M2/M3 ground-risk credits and tactical air-risk reduction) to report the final GRC, residual ARC, and mitigated SAIL with the applicable OSOs.
 
 ### Environmental data
 
