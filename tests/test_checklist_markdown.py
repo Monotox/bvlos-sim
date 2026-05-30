@@ -62,6 +62,7 @@ def _estimate(
     geofence: GeofenceEstimate | None = None,
     landing_zone: LandingZoneEstimate | None = None,
     warnings: list[EstimatorWarning] | None = None,
+    metadata: dict | None = None,
 ) -> MissionEstimate:
     return MissionEstimate(
         status=status,
@@ -74,6 +75,7 @@ def _estimate(
         geofence=geofence,
         landing_zone=landing_zone,
         warnings=warnings or [],
+        metadata=metadata or {},
     )
 
 
@@ -326,6 +328,50 @@ def test_checklist_rth_infeasible_shows_first_failing_leg() -> None:
     assert "RTH reserve (advisory)" in output
     assert "first at leg 1" in output
     # Still advisory: does not gate GO/NO-GO.
+    assert "Status: GO" in output
+
+
+def test_checklist_rth_gate_failure_blocks_go() -> None:
+    energy = _energy().model_copy(
+        update={
+            "rth_reserve_timeline": [
+                _rth_point(0, feasible=True),
+                _rth_point(1, feasible=False),
+            ]
+        }
+    )
+    result = _estimate(
+        energy=energy,
+        metadata={"require_rth_reserve": True},
+    ).model_copy(update={"rth_is_feasible": False})
+
+    output = render_checklist_markdown(_envelope(result))
+
+    assert "RTH reserve (advisory)" not in output
+    assert "RTH reserve" in output
+    assert "FAIL" in output
+    assert "Status: NO-GO" in output
+
+
+def test_checklist_rth_gate_feasible_passes_without_blocking_go() -> None:
+    energy = _energy().model_copy(
+        update={
+            "rth_reserve_timeline": [
+                _rth_point(0, feasible=True),
+                _rth_point(1, feasible=True),
+            ]
+        }
+    )
+    result = _estimate(
+        energy=energy,
+        metadata={"require_rth_reserve": True},
+    ).model_copy(update={"rth_is_feasible": True})
+
+    output = render_checklist_markdown(_envelope(result))
+
+    assert "RTH reserve (advisory)" not in output
+    assert "RTH reserve" in output
+    assert "PASS" in output
     assert "Status: GO" in output
 
 

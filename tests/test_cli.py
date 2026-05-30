@@ -178,6 +178,49 @@ def test_cli_energy_infeasible_result_has_complete_result_validity(
     assert envelope["result"]["energy"]["is_feasible"] is False
 
 
+def test_cli_rth_reserve_gate_failure_maps_to_infeasible_exit_code(
+    tmp_path: Path,
+) -> None:
+    mission_payload = make_mission_payload()
+    home = mission_payload["planned_home"]
+    mission_payload["constraints"]["require_rth_reserve"] = True
+    mission_payload["route"] = [
+        {
+            "id": "far",
+            "action": "waypoint",
+            "lat": home["lat"],
+            "lon": home["lon"] + 0.05,
+            "altitude_m": 120.0,
+        },
+        {
+            "id": "near_far",
+            "action": "waypoint",
+            "lat": home["lat"] + 0.001,
+            "lon": home["lon"] + 0.05,
+            "altitude_m": 120.0,
+        },
+    ]
+    vehicle_payload = make_vehicle_payload()
+    vehicle_payload["energy"]["battery_capacity_wh"] = 60.0
+    mission_path = tmp_path / "mission.yaml"
+    vehicle_path = tmp_path / "vehicle.yaml"
+    _write_yaml(mission_path, mission_payload)
+    _write_yaml(vehicle_path, vehicle_payload)
+
+    result = runner.invoke(app, ["estimate", str(mission_path), str(vehicle_path)])
+
+    assert result.exit_code == int(CliExitCode.INFEASIBLE)
+    envelope = json.loads(result.stdout)
+    assert envelope["status"] == "infeasible"
+    assert envelope["diagnostics"][-1]["code"] == "RTH_RESERVE_BELOW_THRESHOLD"
+    assert envelope["diagnostics"][-1]["leg_index"] == 0
+    assert envelope["diagnostics"][-1]["route_item_id"] == "far"
+    assert envelope["result_validity"]["is_complete"] is True
+    assert envelope["result_validity"]["is_valid_for_full_mission"] is True
+    assert envelope["result"]["rth_is_feasible"] is False
+    assert envelope["result"]["metadata"]["require_rth_reserve"] is True
+
+
 def test_cli_loads_relative_geofence_asset_and_reports_conflict(
     tmp_path: Path,
 ) -> None:

@@ -75,7 +75,7 @@ with a `✓`/`✗`/`◌` icon, and the output ends with `Status: GO` or
 When `mission.planned_home` is set, the checklist also includes an advisory
 `RTH reserve (advisory)` row summarising whether the vehicle can return to home
 with reserve intact from every leg; it is informational and does not change the
-`GO`/`NO-GO` status (see the RTH reserve advisory note below).
+`GO`/`NO-GO` status unless `constraints.require_rth_reserve: true` is set.
 
 `batch` also supports `--format csv` to emit a comma-separated table
 (id, status, reserve_margin_percent, flight_time_s, warning_count) for
@@ -333,6 +333,26 @@ when the timeline is available.
 
 The RTH check is an advisory reserve view. It does not replace the landing
 reserve feasibility check or change the estimate status by itself.
+
+To make RTH reserve a hard feasibility gate, opt in at mission level:
+
+```yaml
+constraints:
+  min_landing_reserve_percent: 25.0
+  require_rth_reserve: true
+```
+
+With the gate enabled, the first RTH timeline point whose
+`reserve_margin_wh` is negative makes the estimate `INFEASIBLE` with
+`RTH_RESERVE_BELOW_THRESHOLD` in diagnostics. The failure is attributed to the
+first failing leg and includes the RTH distance, RTH energy, reserve after RTH,
+reserve margin, and reserve threshold in its context. The CLI returns the
+standard infeasible exit code.
+
+Checklist behavior follows the same opt-in rule: without the flag the row stays
+`RTH reserve (advisory)` with `INFO`; with the flag it becomes a gating
+`RTH reserve` row with `PASS` or `FAIL`, and a failed RTH reserve check changes
+the checklist status to `NO-GO`.
 
 ## Time-Varying Geofences
 

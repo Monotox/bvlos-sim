@@ -2,6 +2,7 @@
 
 from adapters.envelope import EstimatorResultEnvelope
 from adapters.scenario_envelope import ScenarioResultEnvelope
+from estimator.core.enums import FailureCode
 from estimator.core.results import (
     EnergyEstimate,
     GeofenceEstimate,
@@ -137,13 +138,25 @@ def _obstacle_row(obstacle: ObstacleEstimate | None) -> str:
     return _row(_FAIL, "Obstacle clearance", "FAIL", detail)
 
 
+def _requires_rth_reserve(result: MissionEstimate) -> bool:
+    if result.metadata.get("require_rth_reserve") is True:
+        return True
+    return (
+        result.failure is not None
+        and result.failure.code == FailureCode.RTH_RESERVE_BELOW_THRESHOLD
+    )
+
+
 def _rth_reserve_row(result: MissionEstimate) -> str | None:
     if result.rth_is_feasible is None:
         return None
     timeline = result.energy.rth_reserve_timeline if result.energy is not None else None
     leg_count = len(timeline) if timeline is not None else 0
+    required = _requires_rth_reserve(result)
     if result.rth_is_feasible:
         detail = f"reserve intact for RTH from all {leg_count} leg(s)"
+        if required:
+            return _row(_PASS, "RTH reserve", "PASS", detail)
         return _row(" ", "RTH reserve (advisory)", "INFO", detail)
     infeasible = [point for point in timeline or [] if not point.is_feasible]
     first = infeasible[0]
@@ -151,6 +164,8 @@ def _rth_reserve_row(result: MissionEstimate) -> str | None:
         f"RTH below reserve from {len(infeasible)}/{leg_count} leg(s); "
         f"first at leg {first.leg_index} (margin {_fmt(first.reserve_margin_wh)} Wh)"
     )
+    if required:
+        return _row(_FAIL, "RTH reserve", "FAIL", detail)
     return _row(" ", "RTH reserve (advisory)", "INFO", detail)
 
 
@@ -189,7 +204,9 @@ def _is_go(result: MissionEstimate) -> bool:
         result.obstacle,
         result.weather,
     ]
-    return all(c is None or c.is_feasible for c in checks)
+    return all(c is None or c.is_feasible for c in checks) and (
+        not _requires_rth_reserve(result) or result.rth_is_feasible is not False
+    )
 
 
 def _render_checklist(result: MissionEstimate | None, mission_id: str) -> str:

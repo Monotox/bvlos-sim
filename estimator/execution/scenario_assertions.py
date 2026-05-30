@@ -28,6 +28,7 @@ _FIELD_RESOLVERS: dict[str, FieldResolver] = {
     "estimate.total_vertical_distance_m": lambda e: e.total_vertical_distance_m,
     "estimate.total_path_distance_m": lambda e: e.total_path_distance_m,
     "estimate.totals_are_partial": lambda e: e.totals_are_partial,
+    "estimate.rth_is_feasible": lambda e: e.rth_is_feasible,
     "estimate.energy.is_feasible": lambda e: (
         e.energy.is_feasible if e.energy is not None else None
     ),

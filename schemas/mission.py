@@ -343,6 +343,13 @@ class MissionConstraints(BaseModel):
             "energy feasibility uses vehicle.energy.reserve_percent_default."
         ),
     )
+    require_rth_reserve: bool = Field(
+        default=False,
+        description=(
+            "When true, return-to-home reserve must remain above the landing "
+            "reserve threshold at every evaluated route leg."
+        ),
+    )
     max_wind_mps: float | None = Field(
         default=None,
         ge=0,

@@ -40,6 +40,35 @@ def _scaled_energy_vehicle(*, operating_mass_kg: float = 12.0) -> VehicleProfile
     return vehicle
 
 
+def _mission_with_intermediate_rth_breach(*, require_gate: bool = False):
+    mission = make_mission()
+    mission.constraints.min_landing_reserve_percent = 25.0
+    mission.constraints.require_rth_reserve = require_gate
+    mission.route = [
+        RouteItem(
+            id="far",
+            action=MissionAction.WAYPOINT,
+            lat=mission.planned_home.lat,
+            lon=mission.planned_home.lon + 0.05,
+            altitude_m=120.0,
+        ),
+        RouteItem(
+            id="near_far",
+            action=MissionAction.WAYPOINT,
+            lat=mission.planned_home.lat + 0.001,
+            lon=mission.planned_home.lon + 0.05,
+            altitude_m=120.0,
+        ),
+    ]
+    return mission
+
+
+def _rth_gate_low_capacity_vehicle() -> VehicleProfile:
+    vehicle = make_vehicle()
+    vehicle.energy.battery_capacity_wh = 60.0
+    return vehicle
+
+
 def test_successful_estimate_includes_energy_breakdown_and_reserve() -> None:
     mission = make_mission()
     vehicle = make_vehicle()
@@ -231,26 +260,8 @@ def test_rth_energy_uses_cruise_power_and_tas() -> None:
 
 
 def test_rth_reserve_can_fail_at_intermediate_leg_without_landing_failure() -> None:
-    mission = make_mission()
-    mission.constraints.min_landing_reserve_percent = 25.0
-    mission.route = [
-        RouteItem(
-            id="far",
-            action=MissionAction.WAYPOINT,
-            lat=mission.planned_home.lat,
-            lon=mission.planned_home.lon + 0.05,
-            altitude_m=120.0,
-        ),
-        RouteItem(
-            id="near_far",
-            action=MissionAction.WAYPOINT,
-            lat=mission.planned_home.lat + 0.001,
-            lon=mission.planned_home.lon + 0.05,
-            altitude_m=120.0,
-        ),
-    ]
-    vehicle = make_vehicle()
-    vehicle.energy.battery_capacity_wh = 60.0
+    mission = _mission_with_intermediate_rth_breach()
+    vehicle = _rth_gate_low_capacity_vehicle()
 
     result = estimate_mission_distance_time(mission, vehicle)
 
@@ -263,6 +274,68 @@ def test_rth_reserve_can_fail_at_intermediate_leg_without_landing_failure() -> N
     ]
     assert failed_points
     assert failed_points[0].route_item_id == "far"
+
+
+def test_rth_reserve_gate_opt_out_keeps_advisory_success() -> None:
+    mission = _mission_with_intermediate_rth_breach(require_gate=False)
+    vehicle = _rth_gate_low_capacity_vehicle()
+
+    result = try_estimate_mission_distance_time(mission, vehicle)
+
+    assert result.status == EstimateStatus.SUCCESS
+    assert result.failure is None
+    assert result.energy is not None
+    assert result.energy.is_feasible is True
+    assert result.rth_is_feasible is False
+
+
+def test_rth_reserve_gate_infeasible_uses_first_failing_leg() -> None:
+    mission = _mission_with_intermediate_rth_breach(require_gate=True)
+    vehicle = _rth_gate_low_capacity_vehicle()
+
+    result = try_estimate_mission_distance_time(mission, vehicle)
+
+    assert result.status == EstimateStatus.INFEASIBLE
+    assert result.failure is not None
+    assert result.failure.code == FailureCode.RTH_RESERVE_BELOW_THRESHOLD
+    assert result.failure.leg_index == 0
+    assert result.failure.route_item_index == 0
+    assert result.failure.route_item_id == "far"
+    assert result.failure.context["reserve_margin_wh"] < 0.0
+    assert result.failure.context["reserve_threshold_wh"] == pytest.approx(15.0)
+    assert result.totals_are_partial is False
+    assert result.energy is not None
+    assert result.energy.is_feasible is True
+    assert result.rth_is_feasible is False
+    assert result.metadata["require_rth_reserve"] is True
+
+
+def test_rth_reserve_gate_feasible_allows_success() -> None:
+    mission = make_mission()
+    mission.constraints.require_rth_reserve = True
+    mission.route = [
+        RouteItem(
+            id="home_hold",
+            action=MissionAction.WAYPOINT,
+            lat=mission.planned_home.lat,
+            lon=mission.planned_home.lon,
+            altitude_m=80.0,
+        )
+    ]
+
+    result = try_estimate_mission_distance_time(mission, make_vehicle())
+
+    assert result.status == EstimateStatus.SUCCESS
+    assert result.failure is None
+    assert result.rth_is_feasible is True
+    assert result.metadata["require_rth_reserve"] is True
+
+
+def test_rth_reserve_failure_code_is_public_export() -> None:
+    assert (
+        FailureCode.RTH_RESERVE_BELOW_THRESHOLD.value
+        == "RTH_RESERVE_BELOW_THRESHOLD"
+    )
 
 
 def test_rth_reserve_short_mission_is_feasible() -> None:
