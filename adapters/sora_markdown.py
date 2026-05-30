@@ -1,7 +1,7 @@
 """Markdown renderer for the SORA pre-assessment report."""
 
 from adapters.sora_envelope import SoraResultEnvelope
-from schemas.sora import Sail, SoraAssessment
+from schemas.sora import GrcMitigationCredit, Sail, SoraAssessment
 
 _NOT_COMPUTED = "not computed"
 
@@ -15,10 +15,17 @@ def _arc_label(assessment: SoraAssessment) -> str:
     if assessment.air_risk_class is None:
         return _NOT_COMPUTED
     label = f"ARC-{assessment.air_risk_class.value}"
-    if assessment.strategic_mitigation_applied and assessment.initial_air_risk_class:
+    reductions = []
+    if assessment.strategic_mitigation_applied:
+        reductions.append("strategic")
+    if assessment.tactical_air_risk_mitigation is not None:
+        reductions.append(
+            f"tactical ({assessment.tactical_air_risk_mitigation.robustness.value})"
+        )
+    if reductions and assessment.initial_air_risk_class:
         label += (
             f" (reduced from ARC-{assessment.initial_air_risk_class.value} "
-            "by strategic mitigation)"
+            f"by {' + '.join(reductions)} mitigation)"
         )
     return label
 
@@ -29,6 +36,38 @@ def _sail_label(sail: Sail | None) -> str:
     if sail == Sail.CERTIFIED:
         return "outside specific category (certified category required)"
     return sail.value
+
+
+def _signed_credit(credit: int) -> str:
+    return f"+{credit}" if credit >= 0 else str(credit)
+
+
+def _mitigation_lines(assessment: SoraAssessment) -> list[str]:
+    credits: list[GrcMitigationCredit] = assessment.ground_risk_mitigations
+    if not credits:
+        return []
+    lines = [
+        "",
+        f"## Ground Risk Mitigation Ladder (SORA {assessment.sora_version})",
+        "",
+        f"Intrinsic GRC: {assessment.intrinsic_grc}",
+    ]
+    for credit in credits:
+        lines.append(
+            f"- {credit.mitigation_id} {credit.title} "
+            f"({credit.robustness.value}): {_signed_credit(credit.grc_credit)}"
+        )
+    lines.append(f"Final GRC: {assessment.final_grc}")
+    return lines
+
+
+def _sail_lines(assessment: SoraAssessment) -> list[str]:
+    if assessment.intrinsic_sail is None or assessment.intrinsic_sail == assessment.sail:
+        return [f"SAIL:                               {_sail_label(assessment.sail)}"]
+    return [
+        f"Intrinsic SAIL:                     {_sail_label(assessment.intrinsic_sail)}",
+        f"Mitigated SAIL:                     {_sail_label(assessment.sail)}",
+    ]
 
 
 def _oso_lines(assessment: SoraAssessment) -> list[str]:
@@ -47,15 +86,19 @@ def _oso_lines(assessment: SoraAssessment) -> list[str]:
 
 
 def render_sora_markdown_for_assessment(assessment: SoraAssessment) -> str:
-    final_suffix = "   (no mitigations applied)" if assessment.final_grc is not None else ""
+    has_mitigations = bool(assessment.ground_risk_mitigations)
+    final_suffix = (
+        "" if assessment.final_grc is None or has_mitigations else "   (no mitigations applied)"
+    )
     lines = [
         f"# SORA Pre-Assessment: {assessment.mission_id}",
         "",
         _grc_line("Intrinsic Ground Risk Class (iGRC):", assessment.intrinsic_grc),
         _grc_line("Final Ground Risk Class (GRC):     ", assessment.final_grc, final_suffix),
         f"Air Risk Class (ARC):               {_arc_label(assessment)}",
-        f"SAIL:                               {_sail_label(assessment.sail)}",
     ]
+    lines.extend(_sail_lines(assessment))
+    lines.extend(_mitigation_lines(assessment))
     lines.extend(_oso_lines(assessment))
     if assessment.advisories:
         lines.extend(["", "## Advisories", ""])

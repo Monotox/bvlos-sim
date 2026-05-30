@@ -14,6 +14,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from schemas.resource_link import LinkSystemConfig
+from schemas.sora import SoraMitigations
 
 
 class AltitudeReference(StrEnum):
@@ -538,6 +539,14 @@ class MissionPlan(BaseModel):
         description=(
             "Optional operational airspace descriptor used for SORA Air Risk "
             "classification and SAIL determination."
+        ),
+    )
+    sora: SoraMitigations | None = Field(
+        default=None,
+        description=(
+            "Optional operator-declared SORA mitigations (M1/M2/M3 and tactical "
+            "air-risk reduction) applied to derive the final GRC, residual ARC, "
+            "and mitigated SAIL in the pre-assessment."
         ),
     )
     policy: MissionPolicyRef = Field(default_factory=MissionPolicyRef)

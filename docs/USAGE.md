@@ -487,9 +487,10 @@ Use `estimate --format ground-risk` to compute a SORA intrinsic Ground Risk
 Class pre-assessment from an offline population-density grid and the vehicle
 characteristic dimension.
 
-This output is a pre-assessment aid, not a certified SORA determination. It
-does not apply M1/M2/M3 mitigations, Air Risk Class, SAIL, or operator-declared
-controlled-ground-area overrides.
+This output is the *intrinsic* Ground Risk Class only: it does not apply M1/M2/M3
+mitigations, Air Risk Class, or SAIL. Use the `sora` command for the full
+pre-assessment, including mitigation credits and the mitigated SAIL. Both remain
+pre-assessment aids, not certified SORA determinations.
 
 Mission asset:
 
@@ -549,12 +550,13 @@ Example output excerpt:
 
 The `sora` command completes the SORA pre-assessment: it reuses the estimator's
 Ground Risk Class, derives the Air Risk Class (ARC) from an airspace descriptor,
-and combines them into the **SAIL** (Specific Assurance and Integrity Level)
-with the list of applicable Operational Safety Objectives (OSOs).
+applies operator-declared mitigations, and combines them into the **SAIL**
+(Specific Assurance and Integrity Level) with the list of applicable Operational
+Safety Objectives (OSOs).
 
 This output is a planning aid, not a certified SORA determination. The ARC, SAIL,
-and OSO list follow simplified table-driven rules and do not replace a competent
-authority review.
+mitigation credits, and OSO list follow simplified, table-driven rules and do not
+replace a competent authority review.
 
 Mission airspace descriptor:
 
@@ -572,9 +574,40 @@ The SAIL requires both a Ground Risk Class (a population grid plus
 When the airspace descriptor is missing, the report shows the Ground Risk Class
 only and emits an `AIRSPACE_DESCRIPTOR_MISSING` advisory.
 
+### Mitigations (final GRC, residual ARC, and mitigated SAIL)
+
+Real SORA outcomes hinge on mitigations, so the intrinsic figures alone are more
+conservative than the case an operator would actually argue. Declare the applied
+mitigations in an optional `sora` block on the mission; each is rated by
+robustness (`none`, `low`, `medium`, `high`):
+
+```yaml
+sora:
+  version: "2.0"                 # SORA revision selecting the credit tables
+  ground_risk_mitigations:
+    m1_strategic:        { applied: true,  robustness: high }   # controlled area / sheltering
+    m2_impact_reduction: { applied: false, robustness: none }   # reduce effects of impact
+    m3_erp:              { applied: true,  robustness: low }    # emergency response plan
+  air_risk:
+    tactical_mitigation: { applied: true,  robustness: medium } # e.g. detect-and-avoid (TMPR)
+```
+
+- The M1/M2/M3 credits step the **final GRC** down from the intrinsic GRC,
+  clamped at GRC 1. An ERP (M3) at low robustness adds risk (`+1`), matching the
+  SORA table. The tactical air-risk mitigation lowers the **residual ARC** (one
+  band at medium robustness, two at high), floored at ARC-a.
+- The report shows the full ladder (iGRC → credits → final GRC) and both the
+  **intrinsic** SAIL and the **mitigated** SAIL, so the assessment is auditable.
+- With no `sora` block the final GRC equals the intrinsic GRC and the SAIL is
+  unchanged. Only SORA `2.0` mitigation tables are encoded; an unrecognised
+  `version` is reported with a `MITIGATION_VERSION_UNSUPPORTED` advisory and no
+  credits are applied.
+- These remain operator-input-driven figures for a pre-assessment, never an
+  authority determination of compliance.
+
 | Flag | Description |
 |------|-------------|
-| `--format markdown` | SORA report with iGRC, GRC, ARC, SAIL, and the OSO table (default) |
+| `--format markdown` | SORA report with the GRC mitigation ladder, ARC, intrinsic/mitigated SAIL, and the OSO table (default) |
 | `--format json` | `sora-envelope.v1` JSON with provenance and determinism metadata |
 
 ```bash
@@ -584,10 +617,10 @@ uv run bvlos-sim sora \
   --format markdown
 ```
 
-Example output excerpt:
+Example output excerpt (no mitigations declared):
 
 ```text
-# SORA Pre-Assessment: pipeline_demo_001
+# SORA Pre-Assessment: pipeline_demo_001_ground_risk
 
 Intrinsic Ground Risk Class (iGRC): 3
 Final Ground Risk Class (GRC):      3   (no mitigations applied)
@@ -602,10 +635,28 @@ SAIL:                               II
 | OSO#08 | Operational procedures are defined, validated and adhered to | M |
 ```
 
+With mitigations declared, the report shows the credit ladder and both SAILs:
+
+```text
+Intrinsic Ground Risk Class (iGRC): 5
+Final Ground Risk Class (GRC):      3
+Air Risk Class (ARC):               ARC-b
+Intrinsic SAIL:                     IV
+Mitigated SAIL:                     II
+
+## Ground Risk Mitigation Ladder (SORA 2.0)
+
+Intrinsic GRC: 5
+- M1 Strategic mitigations for ground risk (high): -2
+Final GRC: 3
+```
+
 ARC is assigned from the airspace descriptor: atypical/segregated volumes are
 ARC-a, near-aerodrome operations are ARC-d, and otherwise the class and the
 500 ft AGL boundary select between ARC-b (low, uncontrolled), ARC-c, and ARC-d.
-`strategic_mitigation: true` lowers the ARC by one band (floored at ARC-a).
+`strategic_mitigation: true` lowers the ARC by one band, and a declared tactical
+air-risk mitigation lowers it by one (medium) or two (high) further bands, all
+floored at ARC-a.
 
 Write a route altitude profile (terrain clearance table):
 

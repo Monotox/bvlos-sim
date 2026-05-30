@@ -1,6 +1,6 @@
 # Ticket Backlog
 
-**50 implemented · 20 planned · 1083 tests passing**
+**51 implemented · 19 planned · 1102 tests passing**
 
 This directory tracks every capability from idea to implementation. Completed
 tickets are kept as historical records. Open tickets describe what to build
@@ -47,7 +47,6 @@ Items are ordered by impact. Pick one, read its ticket file, open a PR.
 
 | # | Ticket | What it adds |
 |---|---|---|
-| 101 | [SORA mitigation depth (M1–M3)](./101-sora-mitigation-depth.md) | Apply declared ground-risk mitigations and tactical air-risk reduction so the SAIL reflects the operator's actual case |
 | 097 | [Opt-in RTH reserve feasibility gate](./097-rth-reserve-feasibility-gate.md) | Let a mission require RTH reserve at every leg so a breach gates status, exit code, and the checklist GO/NO-GO (today RTH is advisory only) |
 | 061 | [3D geofence altitude bounds](./061-3d-geofence-altitude-bounds.md) | Extend geofence checks to include min/max altitude constraints |
 | 062 | [LZ reachability wind correction](./062-wind-corrected-divert-energy.md) | Apply wind-triangle correction to landing-zone reachability energy (divert already done) |
@@ -129,7 +128,7 @@ New capabilities should work *with* existing pieces, not alongside them in isola
 
 ## Implemented tickets
 
-### Full list (50 tickets)
+### Full list (51 tickets)
 
 1. [001](./001-estimator-cli-and-envelope.md) Estimator CLI and envelope
 2. [002](./002-versioning-and-golden-fixtures.md) Versioning and golden fixtures
@@ -181,3 +180,4 @@ New capabilities should work *with* existing pieces, not alongside them in isola
 48. [096](./096-docs-github-pages.md) Documentation site on GitHub Pages
 49. [099](./099-energy-model-fidelity.md) Energy-model fidelity
 50. [100](./100-obstacle-database-and-clearance.md) Obstacle database and vertical clearance checks
+51. [101](./101-sora-mitigation-depth.md) SORA mitigation depth — M1–M3 and tactical air-risk reduction
