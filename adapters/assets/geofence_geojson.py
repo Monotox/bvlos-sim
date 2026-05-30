@@ -25,6 +25,7 @@ _SUPPORTED_ROOT_GEOMETRIES = {
     GeoJsonGeometryType.MULTI_POLYGON,
 }
 _TIME_WINDOW_PROPERTY_NAMES = ("active_from", "active_until", "recurrence")
+_ALTITUDE_PROPERTY_NAMES = ("floor_m", "ceiling_m")
 
 
 @dataclass(frozen=True)
@@ -93,7 +94,7 @@ def _zone_from_entry(
             "id": entry.id,
             "kind": kind,
             "geometry": {"polygons": polygons},
-            **_time_window_properties(entry),
+            **_zone_properties(entry, path=path, document=document),
         }
         return GeofenceZone.model_validate(payload)
     except ValidationError as exc:
@@ -105,12 +106,54 @@ def _zone_from_entry(
         ) from exc
 
 
-def _time_window_properties(entry: GeoJsonEntry) -> dict[str, object]:
-    return {
+def _zone_properties(
+    entry: GeoJsonEntry,
+    *,
+    path: Path,
+    document: InputDocument,
+) -> dict[str, object]:
+    properties: dict[str, object] = {
         name: entry.properties[name]
         for name in _TIME_WINDOW_PROPERTY_NAMES
         if name in entry.properties
     }
+    properties.update(
+        {
+            name: _parse_altitude_property(
+                entry.properties[name],
+                property_name=name,
+                entry=entry,
+                path=path,
+                document=document,
+            )
+            for name in _ALTITUDE_PROPERTY_NAMES
+            if name in entry.properties
+        }
+    )
+    return properties
+
+
+def _parse_altitude_property(
+    value: object,
+    *,
+    property_name: str,
+    entry: GeoJsonEntry,
+    path: Path,
+    document: InputDocument,
+) -> float:
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        raise _invalid_geometry_error(
+            "GeoJSON geofence altitude properties must be numbers.",
+            path,
+            GeofenceLoadStage.SCHEMA_VALIDATION,
+            {
+                "feature_index": entry.index,
+                "property": property_name,
+                "value_type": type(value).__name__,
+            },
+            document,
+        )
+    return float(value)
 
 
 def _parse_kind(

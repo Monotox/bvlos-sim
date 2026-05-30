@@ -17,6 +17,7 @@ class GeoJsonLoadStage(StrEnum):
     READ = "read"
     PARSE = "parse"
     ROOT_TYPE = "root_type"
+    SCHEMA_VALIDATION = "schema_validation"
     FEATURE = "feature"
     GEOMETRY = "geometry"
 

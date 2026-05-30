@@ -371,6 +371,8 @@ Geofence feature properties:
 ```json
 {
   "kind": "forbidden",
+  "floor_m": 120.0,
+  "ceiling_m": 400.0,
   "active_from": "2026-06-01T20:00:00Z",
   "active_until": "2026-06-01T22:00:00Z",
   "recurrence": "daily"
@@ -379,9 +381,18 @@ Geofence feature properties:
 
 | Property | Description |
 |----------|-------------|
+| `floor_m` | Optional AMSL lower bound in metres. Omitted means active down to negative infinity. |
+| `ceiling_m` | Optional AMSL upper bound in metres. Omitted means active upward to infinity. |
 | `active_from` | Optional ISO-8601 UTC start time. Omitted means active from the beginning of the mission window. |
 | `active_until` | Optional ISO-8601 UTC end time. Omitted means active after `active_from`. |
 | `recurrence` | Optional `daily` or `weekdays`; when set, the times of day recur on matching dates. |
+
+Altitude bounds are inclusive and evaluated against each leg's AMSL altitude
+band from `start_alt_amsl_m` to `end_alt_amsl_m`. A forbidden zone only blocks a
+leg when the horizontal geometry intersects and the altitude bands overlap. A
+required zone must cover both the horizontal segment and the full leg altitude
+band. `floor_m` and `ceiling_m` can be omitted independently; when both are
+present, `ceiling_m` must be greater than `floor_m`.
 
 If a zone has any time-window property but the mission omits `departure_time`,
 the estimator emits `DEPARTURE_TIME_MISSING` and treats the zone as always
@@ -1706,7 +1717,7 @@ where it was raised.
 | `MAX_WIND_EXCEEDED` | transit legs | Measured wind speed on a leg exceeds `vehicle.performance.max_wind_mps`. The estimator does not enforce this limit; the energy model still completes. | Review each flagged leg. If the vehicle cannot fly safely at that wind, revise the route or reschedule. |
 | `RESERVE_BELOW_FAILSAFE_ABORT_THRESHOLD` | post-estimation | Predicted reserve at landing is below the vehicle's `failsafe.low_battery_abort_percent`. The autopilot may trigger an emergency landing before route completion. | Increase battery capacity, reduce distance, or add an intermediate landing. |
 | `RESERVE_BELOW_FAILSAFE_WARN_THRESHOLD` | post-estimation | Predicted reserve at landing is below `failsafe.low_battery_warn_percent`. The vehicle will likely trigger a low-battery alert mid-flight. | Add reserve margin or reduce energy consumption. |
-| `GEOFENCE_EVALUATED_2D_ONLY` | geofence check | Geofence intersection uses 2D lon/lat geometry. Altitude bounds in the GeoJSON are not checked. | If the geofence has altitude-dependent zones, verify altitude clearance manually. 3D altitude-bound checking is planned. |
+| `GEOFENCE_EVALUATED_2D_ONLY` | geofence check | Geofence intersection uses 2D lon/lat horizontal geometry. `floor_m`/`ceiling_m` altitude bounds are checked when declared. | Verify that any altitude-dependent zone uses AMSL metres; AGL-relative per-zone bounds are not modelled. |
 | `DEPARTURE_TIME_MISSING` | geofence check | At least one geofence has an activation window, but the mission omits `departure_time`, so the estimator treats time-windowed zones as always active. | Add a UTC mission `departure_time` to evaluate temporary restrictions against the planned flight window. |
 | `DIVERT_ENERGY_TAS_ONLY` | landing-zone reachability | Landing-zone divert energy is computed from true airspeed (TAS) without wind correction. In a headwind, a zone declared reachable may not be in practice. | Add headwind margin to landing-zone distances or use a closer alternate. |
 | `POPULATION_DENSITY_DIMENSION_MISSING` | ground-risk pre-assessment | A mission references `assets.population_grid_file`, but the vehicle profile omits `characteristic_dimension_m`, so iGRC cannot be computed. | Add the vehicle's maximum span or rotor-tip diameter before using `--format ground-risk`. |

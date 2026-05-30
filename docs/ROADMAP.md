@@ -5,9 +5,9 @@ toward a broader BVLOS simulation platform.
 
 ## Current Status
 
-The current codebase implements 38 tickets across Phases 1–4, including all
-core estimator, feasibility, scenario, SITL, stochastic, output-format, and
-batch capabilities:
+The current codebase implements 53 tickets across the deterministic,
+stochastic, regulatory, and documentation tracks, including all core estimator,
+feasibility, scenario, SITL, stochastic, output-format, and batch capabilities:
 
 - estimator hardening, static feasibility checks, and scenario runner (Tickets 001–021)
 - fidelity v2 trajectory, wind, terrain, resource, link, and Dubins divert (Tickets 030–039)
@@ -16,10 +16,10 @@ batch capabilities:
 - real-world data fetch scripts and pre-fetched Alpine demo (Tickets 052–053)
 - GeoJSON/KML route exports, community vehicle profiles, and `--format summary` (Tickets 055–057)
 - deliberately infeasible demo, QGC import, batch estimates, and `--format csv` (Tickets 059–060)
-- wind-corrected divert energy and stochastic spatial infeasibility tracking (Tickets 062, 065)
+- 3D geofence altitude bounds, wind-corrected divert energy, and stochastic spatial infeasibility tracking (Tickets 061, 062, 065)
 - `--format checklist`, `--format profile`, energy reserve sensitivity, and `size-battery` command (Tickets 072–075)
 
-The test suite currently passes with 867 tests and 9 skipped live or
+The test suite currently passes with 1116 tests and 9 skipped live or
 environment-dependent tests.
 
 bvlos-sim remains an engineering validation tool. It is not a flight-safety
@@ -43,7 +43,7 @@ Static feasibility:
 - deterministic communication-link feasibility for mission and scenario link systems
 - reserve-at-landing output
 - reserve threshold failures
-- static GeoJSON geofence checks
+- static GeoJSON geofence checks with optional AMSL altitude bounds
 - static GeoJSON landing-zone reachability checks
 
 Wind and trajectory fidelity:
@@ -165,7 +165,7 @@ Delivered:
 
 - deterministic energy feasibility
 - reserve-at-landing checks
-- geofence loading and route conflict checks
+- geofence loading and route conflict checks with optional altitude bounds
 - landing-zone loading and reachability checks
 - structured diagnostics for feasibility failures
 

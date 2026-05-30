@@ -150,7 +150,7 @@ unsupported comparison summaries.
 
 - **Energy model** — separate power figures for hover, climb, cruise, and loiter; wind-triangle correction per leg so headwind on the outbound leg and tailwind on return are not averaged away.
 - **Terrain** — per-leg elevation from an offline SRTM grid; a route over rising ground is estimated correctly, not assumed flat.
-- **Geofence** — spatial intersection against real GeoJSON polygons (forbidden and caution zones) for every route leg.
+- **Geofence** — spatial intersection against real GeoJSON polygons for every route leg, with optional AMSL `floor_m`/`ceiling_m` altitude bounds for forbidden and required zones.
 - **Landing zones** — confirms at least one suitable landing point is within transit range.
 - **Resource and link** — models battery, tethered, and hybrid power; direct, cellular, satellite, and hybrid failover link architectures.
 - **Ground risk** — computes SORA-style iGRC pre-assessment from an offline population-density grid and vehicle characteristic dimension.

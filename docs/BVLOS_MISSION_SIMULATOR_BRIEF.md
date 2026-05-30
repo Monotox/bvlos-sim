@@ -31,7 +31,7 @@ The current codebase includes:
 - deterministic energy feasibility with reserve-at-landing outputs
 - resource-system feasibility for battery, external power, and hybrid power
 - communication-link feasibility for mission and scenario link systems
-- static GeoJSON geofence checks
+- static GeoJSON geofence checks with optional AMSL altitude bounds
 - static GeoJSON landing-zone reachability checks
 - dynamic landing-zone availability in scenario runs
 - deterministic scenario execution with timeline events and assertions
@@ -104,7 +104,8 @@ Current input contracts:
   free-form notes
 - `scenario.v1`: referenced mission and vehicle files, initial conditions,
   events, assertions, and metadata
-- `geofence-geojson.v1`: static GeoJSON geofences
+- `geofence-geojson.v1`: static GeoJSON geofences with optional
+  `floor_m`/`ceiling_m` altitude bounds
 - `landing-zone-geojson.v1`: static GeoJSON landing zones
 - `population-grid.v1`: offline population-density grids for SORA iGRC pre-assessment
 
@@ -175,7 +176,8 @@ Fidelity v1 provides the stable baseline:
 - constant or layered wind sampling
 - station-keep loiter for hover-capable vehicles
 - deterministic energy by phase
-- static geofence and landing-zone checks
+- static geofence checks, including optional AMSL altitude bounds, and
+  landing-zone checks
 
 Fidelity v2 adds:
 
@@ -243,10 +245,11 @@ and `cross_track_timeline` outputs are populated when the vehicle profile
 includes `sensors` and `controller` blocks; see
 `examples/vehicles/quadplane_v1_ekf.yaml` for a working example.
 
-Ticket 094 is implemented: `estimate --format ground-risk` computes a SORA
-iGRC pre-assessment from an offline population-density grid and the vehicle
-characteristic dimension. Ticket 095 is the next regulatory pre-assessment step,
-adding air risk and SAIL.
+Ticket 061 is implemented: static geofence checks now honor optional GeoJSON
+`floor_m` and `ceiling_m` altitude bounds in metres AMSL. Ticket 094 is
+implemented: `estimate --format ground-risk` computes a SORA iGRC
+pre-assessment from an offline population-density grid and the vehicle
+characteristic dimension. Ticket 095 adds air risk and SAIL.
 
 Longer-term priorities are NOTAM/live airspace integration (Ticket 058), PX4 SITL adapter
 (Tickets 045–046), API/UI surfaces (Ticket 050), operational integration

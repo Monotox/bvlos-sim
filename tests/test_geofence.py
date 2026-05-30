@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from adapters.geofence_geojson import GeofenceLoadError, load_geofences
 from estimator import (
@@ -21,24 +22,45 @@ def _zone(
     kind: GeofenceKind,
     exterior: list[tuple[float, float]],
     holes: list[list[tuple[float, float]]] | None = None,
+    floor_m: float | None = None,
+    ceiling_m: float | None = None,
 ) -> GeofenceZone:
-    return GeofenceZone.model_validate(
-        {
-            "id": zone_id,
-            "kind": kind,
-            "geometry": {
-                "polygons": [
-                    {
-                        "exterior": [{"lat": lat, "lon": lon} for lat, lon in exterior],
-                        "holes": [
-                            [{"lat": lat, "lon": lon} for lat, lon in hole]
-                            for hole in holes or []
-                        ],
-                    }
-                ]
-            },
-        }
-    )
+    payload = {
+        "id": zone_id,
+        "kind": kind,
+        "geometry": {
+            "polygons": [
+                {
+                    "exterior": [{"lat": lat, "lon": lon} for lat, lon in exterior],
+                    "holes": [
+                        [{"lat": lat, "lon": lon} for lat, lon in hole]
+                        for hole in holes or []
+                    ],
+                }
+            ]
+        },
+    }
+    if floor_m is not None:
+        payload["floor_m"] = floor_m
+    if ceiling_m is not None:
+        payload["ceiling_m"] = ceiling_m
+    return GeofenceZone.model_validate(payload)
+
+
+def _route_crossing_zone() -> list[tuple[float, float]]:
+    return [
+        (51.999, 4.001),
+        (52.003, 4.001),
+        (52.003, 4.003),
+        (51.999, 4.003),
+        (51.999, 4.001),
+    ]
+
+
+def _mission_single_waypoint():
+    mission = make_mission()
+    mission.route = [mission.route[1]]
+    return mission
 
 
 def test_route_entering_forbidden_zone_returns_complete_infeasible_result() -> None:
@@ -94,6 +116,107 @@ def test_forbidden_zone_boundary_touch_counts_as_conflict() -> None:
     assert result.status == EstimateStatus.INFEASIBLE
     assert result.failure is not None
     assert result.failure.code == FailureCode.ROUTE_ENTERS_FORBIDDEN_ZONE
+
+
+def test_forbidden_zone_below_leg_altitude_is_not_conflict() -> None:
+    zone = _zone(
+        zone_id="low_no_fly",
+        kind=GeofenceKind.FORBIDDEN,
+        exterior=_route_crossing_zone(),
+        floor_m=0.0,
+        ceiling_m=10.0,
+    )
+
+    result = try_estimate_mission_distance_time(
+        _mission_single_waypoint(),
+        make_vehicle(),
+        geofences=[zone],
+    )
+
+    assert result.status == EstimateStatus.SUCCESS
+    assert result.geofence is not None
+    assert result.geofence.conflicts == []
+
+
+def test_forbidden_zone_above_leg_altitude_is_not_conflict() -> None:
+    zone = _zone(
+        zone_id="high_no_fly",
+        kind=GeofenceKind.FORBIDDEN,
+        exterior=_route_crossing_zone(),
+        floor_m=200.0,
+        ceiling_m=300.0,
+    )
+
+    result = try_estimate_mission_distance_time(
+        _mission_single_waypoint(),
+        make_vehicle(),
+        geofences=[zone],
+    )
+
+    assert result.status == EstimateStatus.SUCCESS
+    assert result.geofence is not None
+    assert result.geofence.conflicts == []
+
+
+def test_forbidden_zone_overlapping_leg_altitude_is_conflict() -> None:
+    zone = _zone(
+        zone_id="mid_no_fly",
+        kind=GeofenceKind.FORBIDDEN,
+        exterior=_route_crossing_zone(),
+        floor_m=100.0,
+        ceiling_m=150.0,
+    )
+
+    result = try_estimate_mission_distance_time(
+        _mission_single_waypoint(),
+        make_vehicle(),
+        geofences=[zone],
+    )
+
+    assert result.status == EstimateStatus.INFEASIBLE
+    assert result.failure is not None
+    assert result.failure.code == FailureCode.ROUTE_ENTERS_FORBIDDEN_ZONE
+    assert result.geofence is not None
+    assert result.geofence.conflicts[0].zone_id == "mid_no_fly"
+
+
+def test_required_zone_without_altitude_containment_is_violation() -> None:
+    zone = _zone(
+        zone_id="operations_corridor",
+        kind=GeofenceKind.REQUIRED,
+        exterior=[
+            (51.999, 3.999),
+            (52.002, 3.999),
+            (52.002, 4.003),
+            (51.999, 4.003),
+            (51.999, 3.999),
+        ],
+        floor_m=100.0,
+        ceiling_m=150.0,
+    )
+
+    result = try_estimate_mission_distance_time(
+        _mission_single_waypoint(),
+        make_vehicle(),
+        geofences=[zone],
+    )
+
+    assert result.status == EstimateStatus.INFEASIBLE
+    assert result.failure is not None
+    assert result.failure.code == FailureCode.ROUTE_EXITS_REQUIRED_ZONE
+    assert result.geofence is not None
+    assert result.geofence.conflicts[0].zone_id == "operations_corridor"
+
+
+def test_geofence_zone_rejects_ceiling_not_above_floor() -> None:
+    with pytest.raises(ValidationError):
+        _zone(
+            zone_id="invalid_altitude_band",
+            kind=GeofenceKind.FORBIDDEN,
+            exterior=_route_crossing_zone(),
+            floor_m=100.0,
+            ceiling_m=100.0,
+        )
 
 
 def test_route_exiting_required_zone_returns_complete_infeasible_result() -> None:
@@ -262,6 +385,41 @@ def test_geojson_importer_uses_lon_lat_order_and_supports_multipolygons(
     assert len(zones[0].geometry.polygons) == 2
     assert zones[0].geometry.polygons[0].exterior[0].lon == 4.0
     assert zones[0].geometry.polygons[0].exterior[0].lat == 52.0
+
+
+def test_geojson_importer_preserves_altitude_bounds(tmp_path: Path) -> None:
+    path = tmp_path / "geofences.geojson"
+    path.write_text(
+        json.dumps(
+            {
+                "type": "Feature",
+                "id": "altitude_bound_zone",
+                "properties": {
+                    "kind": "forbidden",
+                    "floor_m": 120.0,
+                    "ceiling_m": 180.0,
+                },
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [
+                        [
+                            [4.0, 52.0],
+                            [4.01, 52.0],
+                            [4.01, 52.01],
+                            [4.0, 52.01],
+                            [4.0, 52.0],
+                        ]
+                    ],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    zones, _document = load_geofences(path)
+
+    assert zones[0].floor_m == 120.0
+    assert zones[0].ceiling_m == 180.0
 
 
 def test_geojson_importer_rejects_unsupported_geometry_type(tmp_path: Path) -> None:

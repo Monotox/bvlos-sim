@@ -1,6 +1,6 @@
 # Ticket Backlog
 
-**52 implemented · 18 planned · 1110 tests passing**
+**53 implemented · 17 planned · 1116 tests passing**
 
 This directory tracks every capability from idea to implementation. Completed
 tickets are kept as historical records. Open tickets describe what to build
@@ -13,7 +13,7 @@ next and why.
 | Area | Tickets | Ships as |
 |---|---|---|
 | Core schemas & CLI | 001–003 | `estimate`, JSON envelopes, golden fixtures, public API |
-| Energy & feasibility | 010–012, 063, 097, 099 | Energy budget, mass/density/SoC energy fidelity, geofence (2D), landing-zone reachability, RTH reserve timeline with opt-in feasibility gate |
+| Energy & feasibility | 010–012, 061, 063, 097, 099 | Energy budget, mass/density/SoC energy fidelity, geofence (2D + altitude bounds), landing-zone reachability, RTH reserve timeline with opt-in feasibility gate |
 | Scenario runner | 020–021, 069 | Lost-link policies, per-event contingency overrides, contingency events, assertions |
 | Route physics | 030–039, 100 | Fidelity v2, layered/spatiotemporal wind, terrain alt, Dubins divert, obstacle and terrain clearance |
 | SITL (ArduPilot) | 040–043 | `sitl` command, MAVLink upload, telemetry recording, `compare` |
@@ -47,7 +47,6 @@ Items are ordered by impact. Pick one, read its ticket file, open a PR.
 
 | # | Ticket | What it adds |
 |---|---|---|
-| 061 | [3D geofence altitude bounds](./061-3d-geofence-altitude-bounds.md) | Extend geofence checks to include min/max altitude constraints |
 | 062 | [LZ reachability wind correction](./062-wind-corrected-divert-energy.md) | Apply wind-triangle correction to landing-zone reachability energy (divert already done) |
 | 064 | [Batch scenario & propagate](./064-batch-scenario-and-propagate.md) | Extend `batch` command to run scenario and propagate jobs, not only estimates |
 
@@ -127,7 +126,7 @@ New capabilities should work *with* existing pieces, not alongside them in isola
 
 ## Implemented tickets
 
-### Full list (52 tickets)
+### Full list (53 tickets)
 
 1. [001](./001-estimator-cli-and-envelope.md) Estimator CLI and envelope
 2. [002](./002-versioning-and-golden-fixtures.md) Versioning and golden fixtures
@@ -181,3 +180,4 @@ New capabilities should work *with* existing pieces, not alongside them in isola
 50. [100](./100-obstacle-database-and-clearance.md) Obstacle database and vertical clearance checks
 51. [101](./101-sora-mitigation-depth.md) SORA mitigation depth — M1–M3 and tactical air-risk reduction
 52. [097](./097-rth-reserve-feasibility-gate.md) Opt-in RTH reserve feasibility gate
+53. [061](./061-3d-geofence-altitude-bounds.md) 3D geofence altitude bounds
