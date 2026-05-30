@@ -103,6 +103,13 @@ from schemas.flight_log import (
     FlightTraceRecord,
     NormalizedFlightTrace,
 )
+from schemas.phase_segment import (
+    PHASE_SEGMENT_SCHEMA_VERSION,
+    PhaseSegment,
+    PhaseSegmentResult,
+    SegmentationMetadata,
+    TracePhase,
+)
 from schemas.vehicle_energy import UsableCapacityPoint
 
 __all__ = [
@@ -189,6 +196,11 @@ __all__ = [
     "FlightTraceProvenance",
     "FlightTraceRecord",
     "NormalizedFlightTrace",
+    "PHASE_SEGMENT_SCHEMA_VERSION",
+    "PhaseSegment",
+    "PhaseSegmentResult",
+    "SegmentationMetadata",
+    "TracePhase",
     "UsableCapacityPoint",
     "VehicleCapabilities",
     "VehicleClass",

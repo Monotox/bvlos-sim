@@ -1,6 +1,6 @@
 # Ticket Backlog
 
-**54 implemented · 17 planned · 1132 tests passing**
+**55 implemented · 17 planned · 1159 tests passing**
 
 This directory tracks every capability from idea to implementation. Completed
 tickets are kept as historical records. Open tickets describe what to build
@@ -25,7 +25,7 @@ next and why.
 | Weather & GO/NO-GO | 092–093 | Enforced `max_wind_mps`/`max_crosswind_mps` weather minimums with a checklist Weather-limits row; time-varying geofence activation windows |
 | Correctness fixes | 062, 065 | Wind-triangle divert correction, stochastic spatial infeasibility tracking |
 | Documentation | 096 | MkDocs Material site published to GitHub Pages, auto-built from `main` |
-| Calibration & validation | 080 | `flight-trace.v1` schema, ArduPilot DataFlash text ingestion, `adapters.flight_log.ingest_dataflash_log` |
+| Calibration & validation | 080, 081 | `flight-trace.v1` ingestion, `phase-segments.v1` segmentation; mode-first + kinematic rules; estimator phase mapping |
 
 Full feature list: [`docs/tickets/README.md` implemented section](#implemented-tickets) · Test coverage: `uv run pytest`
 
@@ -84,12 +84,12 @@ Items are ordered by impact. Pick one, read its ticket file, open a PR.
 ## Calibration & validation track
 
 A separate track for post-flight model calibration from real flight logs.
-Prerequisite for 081–084: ticket 080 ingestion layer is now complete.
+Prerequisite for 082–084: tickets 080 and 081 are now complete.
 
 | # | Ticket | Status |
 |---|---|---|
 | 080 | [Flight log ingestion & trace normalisation](./080-flight-log-ingestion-and-trace-normalization.md) | implemented |
-| 081 | [Flight phase segmentation](./081-flight-phase-segmentation.md) | planned |
+| 081 | [Flight phase segmentation](./081-flight-phase-segmentation.md) | implemented |
 | 082 | [Predicted vs. observed validation metrics](./082-predicted-vs-observed-validation-metrics.md) | planned |
 | 083 | [Calibration profile data & fitting](./083-calibration-profile-data-and-fitting.md) | planned |
 | 084 | [Holdout validation reports](./084-holdout-validation-reports.md) | planned |
@@ -127,7 +127,7 @@ New capabilities should work *with* existing pieces, not alongside them in isola
 
 ## Implemented tickets
 
-### Full list (54 tickets)
+### Full list (55 tickets)
 
 1. [001](./001-estimator-cli-and-envelope.md) Estimator CLI and envelope
 2. [002](./002-versioning-and-golden-fixtures.md) Versioning and golden fixtures
@@ -183,3 +183,4 @@ New capabilities should work *with* existing pieces, not alongside them in isola
 52. [097](./097-rth-reserve-feasibility-gate.md) Opt-in RTH reserve feasibility gate
 53. [061](./061-3d-geofence-altitude-bounds.md) 3D geofence altitude bounds
 54. [080](./080-flight-log-ingestion-and-trace-normalization.md) Flight log ingestion and trace normalization
+55. [081](./081-flight-phase-segmentation.md) Flight phase segmentation
