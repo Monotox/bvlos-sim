@@ -193,6 +193,17 @@ def test_no_mode_low_speed_flat_produces_loiter() -> None:
     assert all(p == TracePhase.LOITER for p in _phases(result))
 
 
+def test_kinematic_mid_band_speed_is_classified_not_unknown() -> None:
+    # Speeds in the former dead zone (LOITER_SPEED..TRANSIT_SPEED) must resolve to a
+    # real phase, split at the midpoint, rather than falling through to UNKNOWN.
+    midpoint = (LOITER_SPEED_MPS + TRANSIT_SPEED_MPS) / 2.0
+    below = [_rec(i, speed=midpoint - 0.1, alt=100.0) for i in range(3)]
+    above = [_rec(i, speed=midpoint + 0.1, alt=100.0) for i in range(3)]
+
+    assert all(p == TracePhase.LOITER for p in _phases(segment_trace(_trace(*below))))
+    assert all(p == TracePhase.TRANSIT for p in _phases(segment_trace(_trace(*above))))
+
+
 def test_no_mode_no_speed_no_alt_produces_unknown() -> None:
     result = segment_trace(_trace(_rec(0)))
 
@@ -402,3 +413,20 @@ def test_segment_ingested_dataflash_trace_produces_transit() -> None:
     assert len(result.segments) == 1
     assert result.segments[0].phase == TracePhase.TRANSIT
     assert result.segments[0].estimator_leg_phase == "transit"
+
+
+# ---------------------------------------------------------------------------
+# Estimator-mapping drift guard
+# ---------------------------------------------------------------------------
+
+
+def test_estimator_mapping_values_are_valid_legphases() -> None:
+    # The segmenter hard-codes LegPhase string values to avoid coupling adapters to
+    # the estimator. Guard against drift: every mapped value must be a real LegPhase
+    # member (there is, deliberately, no estimator leg for climb/descent).
+    from estimator.core.enums import LegPhase
+
+    from adapters.phase_segmentation.segmenter import _ESTIMATOR_PHASE_MAP
+
+    valid_values = {phase.value for phase in LegPhase}
+    assert set(_ESTIMATOR_PHASE_MAP.values()) <= valid_values
