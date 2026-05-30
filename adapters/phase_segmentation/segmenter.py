@@ -86,7 +86,10 @@ def segment_trace(trace: NormalizedFlightTrace) -> PhaseSegmentResult:
         )
 
     vert_rates = _compute_vert_rates(records)
-    phases = [_assign_phase(records[i], vert_rates[i]) for i in range(len(records))]
+    phases = [
+        _assign_phase(record, vert_rate)
+        for record, vert_rate in zip(records, vert_rates, strict=True)
+    ]
     phases = _smooth(phases)
 
     segments = _encode_segments(records, phases)
@@ -129,10 +132,13 @@ def _kinematic_phase(record: FlightTraceRecord, vert_rate: float | None) -> Trac
         return TracePhase.LANDING if slow else TracePhase.DESCENT
 
     if speed is not None:
-        if speed >= TRANSIT_SPEED_MPS:
-            return TracePhase.TRANSIT
-        if speed < LOITER_SPEED_MPS:
+        # Below the loiter ceiling → loiter; at or above it → transit. The
+        # ambiguous band between LOITER_SPEED_MPS and TRANSIT_SPEED_MPS is split at
+        # its midpoint so steady slow movement is never left unclassified.
+        loiter_transit_boundary = (LOITER_SPEED_MPS + TRANSIT_SPEED_MPS) / 2.0
+        if speed < loiter_transit_boundary:
             return TracePhase.LOITER
+        return TracePhase.TRANSIT
 
     return TracePhase.UNKNOWN
 

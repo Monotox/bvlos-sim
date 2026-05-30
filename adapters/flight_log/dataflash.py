@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import hashlib
+from bisect import bisect_right
+from dataclasses import dataclass
 from pathlib import Path
 
 from adapters.version import tool_version
@@ -19,7 +21,7 @@ ARDUPILOT_DATAFLASH_TEXT_FORMAT = "ardupilot_dataflash_text"
 # Fallback column indices used when no FMT line declares the message type.
 # Index 0 on data lines is the message type name; FMT-named columns start at 1.
 _GPS_FALLBACK_COLS: dict[str, int] = {
-    "TimeUS": 1, "Lat": 7, "Lng": 8, "Alt": 9, "Spd": 10, "GCrs": 11,
+    "TimeUS": 1, "Status": 2, "Lat": 7, "Lng": 8, "Alt": 9, "Spd": 10, "GCrs": 11,
 }
 _BAT_FALLBACK_COLS: dict[str, int] = {
     "TimeUS": 1, "Volt": 2, "Curr": 4, "RemPct": 6,
@@ -30,6 +32,29 @@ _MODE_FALLBACK_COLS: dict[str, int] = {
 _NKF6_FALLBACK_COLS: dict[str, int] = {
     "TimeUS": 1, "C": 2, "VWN": 3, "VWE": 4,
 }
+
+# Minimum ArduPilot GPS fix status (2 == 2D fix) for a record to carry a usable
+# position; rows below this — or at the null island (0, 0) — are excluded.
+_MIN_GPS_FIX_STATUS = 2
+
+# GPS-derived fields populated directly from each GPS data line.
+_GPS_FIELD_COLS: dict[str, str] = {
+    "alt_amsl_m": "Alt",
+    "groundspeed_mps": "Spd",
+    "heading_deg": "GCrs",
+}
+# Record fields whose absence across every record is reported in provenance.
+_OPTIONAL_RECORD_FIELDS: tuple[str, ...] = (
+    "alt_amsl_m",
+    "groundspeed_mps",
+    "heading_deg",
+    "battery_voltage_v",
+    "battery_current_a",
+    "battery_remaining_pct",
+    "flight_mode",
+    "wind_east_mps",
+    "wind_north_mps",
+)
 
 type _RawRow = dict[str, str]
 
@@ -43,6 +68,27 @@ class FlightLogIngestionError(ValueError):
         self.reason = reason
 
 
+@dataclass(frozen=True)
+class _Series:
+    """Time-ordered rows of one message type, queryable by carry-forward.
+
+    ``rows`` must be sorted ascending by TimeUS; ``times`` mirrors their
+    timestamps so lookups are O(log n) via binary search.
+    """
+
+    rows: list[_RawRow]
+    times: list[int]
+
+    @classmethod
+    def from_rows(cls, rows: list[_RawRow]) -> _Series:
+        return cls(rows=rows, times=[_row_timeus(row) for row in rows])
+
+    def at(self, timeus: int) -> _RawRow | None:
+        """Most recent row at or before ``timeus`` (carry-forward), or None."""
+        pos = bisect_right(self.times, timeus) - 1
+        return self.rows[pos] if pos >= 0 else None
+
+
 def ingest_dataflash_log(
     path: Path,
     *,
@@ -53,71 +99,47 @@ def ingest_dataflash_log(
 
     Raises FlightLogIngestionError if the file cannot be read or contains no GPS records.
     """
-    try:
-        raw_bytes = path.read_bytes()
-    except OSError as exc:
-        raise FlightLogIngestionError(
-            f"Cannot read log file: {exc}",
-            path=path,
-            reason="read_error",
-        ) from exc
-
-    try:
-        lines = raw_bytes.decode("utf-8").splitlines()
-    except UnicodeDecodeError as exc:
-        raise FlightLogIngestionError(
-            "Log file is not valid UTF-8.",
-            path=path,
-            reason="encoding_error",
-        ) from exc
-
-    sha256 = hashlib.sha256(raw_bytes).hexdigest()
+    raw_bytes = _read_bytes(path)
+    lines = _decode_lines(raw_bytes, path)
     col_maps = _parse_fmt_lines(lines)
 
-    gps_rows = _by_timeus(_collect_rows(lines, "GPS", col_maps, _GPS_FALLBACK_COLS))
-    bat_rows = _by_timeus(_collect_rows(lines, "BAT", col_maps, _BAT_FALLBACK_COLS))
-    mode_rows = _by_timeus(_collect_rows(lines, "MODE", col_maps, _MODE_FALLBACK_COLS))
-    nkf6_rows = _by_timeus(
-        _collect_rows(lines, "NKF6", col_maps, _NKF6_FALLBACK_COLS)
-        or _collect_rows(lines, "XKF6", col_maps, _NKF6_FALLBACK_COLS)
-    )
-
+    all_gps_rows = _by_timeus(_collect_rows(lines, "GPS", col_maps, _GPS_FALLBACK_COLS))
+    gps_rows = [row for row in all_gps_rows if _has_valid_fix(row)]
+    dropped_gps = len(all_gps_rows) - len(gps_rows)
     if not gps_rows:
         raise FlightLogIngestionError(
-            "Log file contains no GPS records.",
+            "Log file contains no GPS records with a position fix.",
             path=path,
             reason="no_gps_records",
         )
 
-    # Use the FMT-declared columns when available, falling back to hardcoded positions.
-    effective_gps_cols = col_maps.get("GPS") or _GPS_FALLBACK_COLS
-
-    provenance = FlightTraceProvenance(
-        source_format=ARDUPILOT_DATAFLASH_TEXT_FORMAT,
-        raw_log_sha256=sha256,
-        raw_log_filename=path.name,
-        tool_version=tool_version(),
-        parsing_assumptions=_build_assumptions(nkf6_present=bool(nkf6_rows)),
-        missing_fields=_detect_missing_fields(
-            bat_rows=bat_rows,
-            nkf6_rows=nkf6_rows,
-            mode_rows=mode_rows,
-            gps_cols=effective_gps_cols,
-        ),
+    bat = _Series.from_rows(_by_timeus(_collect_rows(lines, "BAT", col_maps, _BAT_FALLBACK_COLS)))
+    mode = _Series.from_rows(_by_timeus(_collect_rows(lines, "MODE", col_maps, _MODE_FALLBACK_COLS)))
+    # Wind comes from the first EKF core only (C == 0); filter before carry-forward
+    # so interleaved multi-core rows never mask the core-0 estimate.
+    nkf6 = _Series.from_rows(
+        _core0_only(
+            _by_timeus(
+                _collect_rows(lines, "NKF6", col_maps, _NKF6_FALLBACK_COLS)
+                or _collect_rows(lines, "XKF6", col_maps, _NKF6_FALLBACK_COLS)
+            )
+        )
     )
 
     t0_us = _row_timeus(gps_rows[0])
     records = [
-        _build_record(
-            gps_row,
-            t0_us,
-            path=path,
-            bat_rows=bat_rows,
-            mode_rows=mode_rows,
-            nkf6_rows=nkf6_rows,
-        )
+        _build_record(gps_row, t0_us, path=path, bat=bat, mode=mode, nkf6=nkf6)
         for gps_row in gps_rows
     ]
+
+    provenance = FlightTraceProvenance(
+        source_format=ARDUPILOT_DATAFLASH_TEXT_FORMAT,
+        raw_log_sha256=hashlib.sha256(raw_bytes).hexdigest(),
+        raw_log_filename=path.name,
+        tool_version=tool_version(),
+        parsing_assumptions=_build_assumptions(records, dropped_gps),
+        missing_fields=_detect_missing_fields(records),
+    )
 
     return NormalizedFlightTrace(
         schema_version=FLIGHT_TRACE_SCHEMA_VERSION,
@@ -126,6 +148,33 @@ def ingest_dataflash_log(
         mission_ref=mission_ref,
         records=records,
     )
+
+
+# ---------------------------------------------------------------------------
+# File access
+# ---------------------------------------------------------------------------
+
+
+def _read_bytes(path: Path) -> bytes:
+    try:
+        return path.read_bytes()
+    except OSError as exc:
+        raise FlightLogIngestionError(
+            f"Cannot read log file: {exc}",
+            path=path,
+            reason="read_error",
+        ) from exc
+
+
+def _decode_lines(raw_bytes: bytes, path: Path) -> list[str]:
+    try:
+        return raw_bytes.decode("utf-8").splitlines()
+    except UnicodeDecodeError as exc:
+        raise FlightLogIngestionError(
+            "Log file is not valid UTF-8.",
+            path=path,
+            reason="encoding_error",
+        ) from exc
 
 
 # ---------------------------------------------------------------------------
@@ -184,19 +233,29 @@ def _by_timeus(rows: list[_RawRow]) -> list[_RawRow]:
     return [row for _, row in timed]
 
 
+def _core0_only(rows: list[_RawRow]) -> list[_RawRow]:
+    """Keep only first-core EKF rows (C == 0); rows missing C are discarded."""
+    return [row for row in rows if _int(row, "C") == 0]
+
+
+def _has_valid_fix(row: _RawRow) -> bool:
+    """True when a GPS row carries a usable position (>= 2D fix, not null island).
+
+    Status is honoured only when present; logs without a Status column fall back
+    to the null-island and parseability checks alone.
+    """
+    status = _int(row, "Status")
+    if status is not None and status < _MIN_GPS_FIX_STATUS:
+        return False
+    lat = _float(row, "Lat")
+    lon = _float(row, "Lng")
+    if lat is None or lon is None:
+        return False
+    return not (lat == 0.0 and lon == 0.0)
+
+
 def _row_timeus(row: _RawRow) -> int:
     return int(row["TimeUS"])
-
-
-def _carry_forward(rows: list[_RawRow], timeus: int) -> _RawRow | None:
-    # rows must be pre-sorted by TimeUS (guaranteed by _by_timeus at collection time).
-    result: _RawRow | None = None
-    for row in rows:
-        if _row_timeus(row) <= timeus:
-            result = row
-        else:
-            break
-    return result
 
 
 def _build_record(
@@ -204,9 +263,9 @@ def _build_record(
     t0_us: int,
     *,
     path: Path,
-    bat_rows: list[_RawRow],
-    mode_rows: list[_RawRow],
-    nkf6_rows: list[_RawRow],
+    bat: _Series,
+    mode: _Series,
+    nkf6: _Series,
 ) -> FlightTraceRecord:
     timeus = _row_timeus(gps_row)
 
@@ -219,11 +278,9 @@ def _build_record(
             reason="missing_gps_position",
         )
 
-    bat = _carry_forward(bat_rows, timeus)
-    mode = _carry_forward(mode_rows, timeus)
-    nkf6 = _carry_forward(nkf6_rows, timeus)
-    # Only trust the first EKF core (C == 0); discard multi-core wind estimates.
-    nkf6_core0 = nkf6 if _int(nkf6, "C") == 0 else None
+    bat_row = bat.at(timeus)
+    mode_row = mode.at(timeus)
+    nkf6_row = nkf6.at(timeus)
 
     return FlightTraceRecord(
         timestamp_s=(timeus - t0_us) / 1_000_000.0,
@@ -232,45 +289,50 @@ def _build_record(
         alt_amsl_m=_float(gps_row, "Alt"),
         groundspeed_mps=_float(gps_row, "Spd"),
         heading_deg=_float(gps_row, "GCrs"),
-        battery_voltage_v=_float(bat, "Volt"),
-        battery_current_a=_float(bat, "Curr"),
-        battery_remaining_pct=_float(bat, "RemPct"),
-        flight_mode=_str(mode, "Mode"),
-        wind_east_mps=_float(nkf6_core0, "VWE"),
-        wind_north_mps=_float(nkf6_core0, "VWN"),
+        battery_voltage_v=_float(bat_row, "Volt"),
+        battery_current_a=_float(bat_row, "Curr"),
+        battery_remaining_pct=_float(bat_row, "RemPct"),
+        flight_mode=_str(mode_row, "Mode"),
+        wind_east_mps=_float(nkf6_row, "VWE"),
+        wind_north_mps=_float(nkf6_row, "VWN"),
     )
 
 
-def _detect_missing_fields(
-    *,
-    bat_rows: list[_RawRow],
-    nkf6_rows: list[_RawRow],
-    mode_rows: list[_RawRow],
-    gps_cols: dict[str, int],
-) -> list[str]:
-    missing: list[str] = []
-    if not bat_rows:
-        missing.extend(["battery_voltage_v", "battery_current_a", "battery_remaining_pct"])
-    if not nkf6_rows:
-        missing.extend(["wind_east_mps", "wind_north_mps"])
-    if not mode_rows:
-        missing.append("flight_mode")
-    if "GCrs" not in gps_cols:
-        missing.append("heading_deg")
-    if "Alt" not in gps_cols:
-        missing.append("alt_amsl_m")
-    return missing
+# ---------------------------------------------------------------------------
+# Provenance
+# ---------------------------------------------------------------------------
 
 
-def _build_assumptions(*, nkf6_present: bool) -> list[str]:
+def _detect_missing_fields(records: list[FlightTraceRecord]) -> list[str]:
+    """Report optional record fields that are absent from every record.
+
+    Driven by the materialized records rather than source columns, so carry-forward
+    gaps and missing FMT declarations are reflected accurately.
+    """
+    return [
+        field
+        for field in _OPTIONAL_RECORD_FIELDS
+        if all(getattr(record, field) is None for record in records)
+    ]
+
+
+def _build_assumptions(records: list[FlightTraceRecord], dropped_gps: int) -> list[str]:
     assumptions = [
         "timestamps derived from GPS.TimeUS relative to first GPS record",
         "altitude from GPS.Alt (AMSL when GPS Status >= 2)",
         "groundspeed from GPS.Spd",
         "heading from GPS.GCrs (ground course, not magnetic heading)",
     ]
-    if nkf6_present:
+    if any(
+        record.wind_east_mps is not None or record.wind_north_mps is not None
+        for record in records
+    ):
         assumptions.append("wind estimate from NKF6 or XKF6 first core (C == 0)")
+    if dropped_gps > 0:
+        assumptions.append(
+            f"excluded {dropped_gps} GPS record(s) without a 2D fix "
+            f"(Status >= {_MIN_GPS_FIX_STATUS}) or at the null island (0, 0)"
+        )
     return assumptions
 
 

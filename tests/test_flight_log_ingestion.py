@@ -102,7 +102,7 @@ def test_dataflash_ingest_missing_fields_when_bat_absent(tmp_path: Path) -> None
     log = tmp_path / "no_bat.log"
     log.write_text(
         "FMT, 15, 45, GPS, QBILLeeEefBBH, TimeUS,Status,GMS,GWk,NSats,HDop,Lat,Lng,Alt,Spd,GCrs,VZ,Yaw,U\n"
-        "GPS, 100000000, 1, 0, 0, 14, 0.90, 47.641468, 9.341230, 430.5, 8.3, 270.1, 0.1, 0.0, 1\n",
+        "GPS, 100000000, 3, 0, 0, 14, 0.90, 47.641468, 9.341230, 430.5, 8.3, 270.1, 0.1, 0.0, 1\n",
         encoding="utf-8",
     )
     trace = ingest_dataflash_log(log, trace_id="no-bat")
@@ -116,7 +116,7 @@ def test_dataflash_ingest_missing_fields_when_nkf6_absent(tmp_path: Path) -> Non
     log = tmp_path / "no_wind.log"
     log.write_text(
         "FMT, 15, 45, GPS, QBILLeeEefBBH, TimeUS,Status,GMS,GWk,NSats,HDop,Lat,Lng,Alt,Spd,GCrs,VZ,Yaw,U\n"
-        "GPS, 100000000, 1, 0, 0, 14, 0.90, 47.641468, 9.341230, 430.5, 8.3, 270.1, 0.1, 0.0, 1\n",
+        "GPS, 100000000, 3, 0, 0, 14, 0.90, 47.641468, 9.341230, 430.5, 8.3, 270.1, 0.1, 0.0, 1\n",
         encoding="utf-8",
     )
     trace = ingest_dataflash_log(log, trace_id="no-wind")
@@ -253,3 +253,87 @@ def test_write_flight_trace_produces_valid_json(tmp_path: Path) -> None:
     assert "records" in parsed
     assert "provenance" in parsed
     assert parsed["provenance"]["source_format"] == ARDUPILOT_DATAFLASH_TEXT_FORMAT
+
+
+# ---------------------------------------------------------------------------
+# Multi-core EKF and column-availability edge cases
+# ---------------------------------------------------------------------------
+
+
+def test_dataflash_ingest_multicore_ekf_uses_core_zero(tmp_path: Path) -> None:
+    # Cores 0/1/2 share a timestamp; only core 0's wind must survive carry-forward.
+    log = tmp_path / "multicore.log"
+    log.write_text(
+        "FMT, 15, 45, GPS, QBILLeeEefBBH, TimeUS,Status,GMS,GWk,NSats,HDop,Lat,Lng,Alt,Spd,GCrs,VZ,Yaw,U\n"
+        "FMT, 20, 30, NKF6, QBffff, TimeUS,C,VWN,VWE,X,Y\n"
+        "NKF6, 99000000, 0, 1.5, 2.5, 0, 0\n"
+        "NKF6, 99000000, 1, 9.9, 9.9, 0, 0\n"
+        "NKF6, 99000000, 2, 8.8, 8.8, 0, 0\n"
+        "GPS, 100000000, 3, 0, 0, 14, 0.90, 47.6, 9.3, 430.5, 8.3, 270.1, 0.1, 0.0, 1\n",
+        encoding="utf-8",
+    )
+    trace = ingest_dataflash_log(log, trace_id="multicore")
+
+    assert trace.records[0].wind_north_mps == pytest.approx(1.5)
+    assert trace.records[0].wind_east_mps == pytest.approx(2.5)
+    assert "wind_east_mps" not in trace.provenance.missing_fields
+
+
+def test_dataflash_ingest_drops_records_without_fix(tmp_path: Path) -> None:
+    # Two pre-fix rows (Status 0/1) bracket one 3D-fix row; only the fix survives.
+    log = tmp_path / "prefix.log"
+    log.write_text(
+        "FMT, 15, 45, GPS, QBILLeeEefBBH, TimeUS,Status,GMS,GWk,NSats,HDop,Lat,Lng,Alt,Spd,GCrs,VZ,Yaw,U\n"
+        "GPS, 100000000, 0, 0, 0, 0, 99.0, 47.6, 9.3, 0.0, 0.0, 0.0, 0.0, 0.0, 1\n"
+        "GPS, 200000000, 3, 0, 0, 14, 0.90, 47.6, 9.3, 430.5, 8.3, 270.1, 0.1, 0.0, 1\n"
+        "GPS, 300000000, 1, 0, 0, 3, 5.00, 47.6, 9.3, 0.0, 0.0, 0.0, 0.0, 0.0, 1\n",
+        encoding="utf-8",
+    )
+    trace = ingest_dataflash_log(log, trace_id="prefix")
+
+    assert len(trace.records) == 1
+    assert trace.records[0].timestamp_s == pytest.approx(0.0)
+    assert any("excluded 2 GPS" in a for a in trace.provenance.parsing_assumptions)
+
+
+def test_dataflash_ingest_drops_null_island(tmp_path: Path) -> None:
+    # A row that claims a 3D fix but reports (0, 0) is still discarded.
+    log = tmp_path / "null_island.log"
+    log.write_text(
+        "FMT, 15, 45, GPS, QBILLeeEefBBH, TimeUS,Status,GMS,GWk,NSats,HDop,Lat,Lng,Alt,Spd,GCrs,VZ,Yaw,U\n"
+        "GPS, 100000000, 3, 0, 0, 14, 0.90, 0.0, 0.0, 430.5, 8.3, 270.1, 0.1, 0.0, 1\n"
+        "GPS, 200000000, 3, 0, 0, 14, 0.90, 47.6, 9.3, 430.5, 8.3, 270.1, 0.1, 0.0, 1\n",
+        encoding="utf-8",
+    )
+    trace = ingest_dataflash_log(log, trace_id="null-island")
+
+    assert len(trace.records) == 1
+    assert trace.records[0].lat_deg == pytest.approx(47.6)
+
+
+def test_dataflash_ingest_all_records_without_fix_raises(tmp_path: Path) -> None:
+    log = tmp_path / "no_fix.log"
+    log.write_text(
+        "FMT, 15, 45, GPS, QBILLeeEefBBH, TimeUS,Status,GMS,GWk,NSats,HDop,Lat,Lng,Alt,Spd,GCrs,VZ,Yaw,U\n"
+        "GPS, 100000000, 1, 0, 0, 3, 5.00, 47.6, 9.3, 0.0, 0.0, 0.0, 0.0, 0.0, 1\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(FlightLogIngestionError) as exc_info:
+        ingest_dataflash_log(log, trace_id="no-fix")
+
+    assert exc_info.value.reason == "no_gps_records"
+
+
+def test_dataflash_ingest_reports_absent_gps_columns_without_fmt(tmp_path: Path) -> None:
+    # No FMT lines and a GPS line truncated before Alt/Spd/GCrs: those fields are
+    # genuinely absent and must be reported despite the fallback column map naming them.
+    log = tmp_path / "short_gps.log"
+    log.write_text("GPS, 100000000, 3, 0, 0, 14, 0.90, 47.6, 9.3\n", encoding="utf-8")
+    trace = ingest_dataflash_log(log, trace_id="short")
+
+    assert trace.records[0].lat_deg == pytest.approx(47.6)
+    assert trace.records[0].alt_amsl_m is None
+    missing = trace.provenance.missing_fields
+    assert "alt_amsl_m" in missing
+    assert "groundspeed_mps" in missing
+    assert "heading_deg" in missing

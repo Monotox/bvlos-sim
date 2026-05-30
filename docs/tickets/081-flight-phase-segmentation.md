@@ -82,9 +82,9 @@ from `adapters.flight_log.ingest_dataflash_log` or `adapters.flight_log.load_fli
 3. Kinematic rules (in order):
    - `|vert_rate| ≥ 0.5 m/s AND speed < 1.5 m/s` → TAKEOFF (ascending) or LANDING (descending)
    - `|vert_rate| ≥ 0.5 m/s AND speed ≥ 1.5 m/s` → CLIMB (ascending) or DESCENT (descending)
-   - `speed ≥ 3.0 m/s` → TRANSIT
-   - `speed < 1.5 m/s` → LOITER
-   - otherwise → UNKNOWN
+   - level flight with `speed < 2.25 m/s` (midpoint of LOITER/TRANSIT) → LOITER
+   - level flight with `speed ≥ 2.25 m/s` → TRANSIT
+   - no usable speed or vertical rate → UNKNOWN
 4. Smooth: a single-record phase that differs from both its neighbours is replaced by
    the neighbour phase.
 5. Run-length encode into `PhaseSegment` list.
