@@ -1,6 +1,6 @@
 # Ticket Backlog
 
-**55 implemented · 17 planned · 1159 tests passing**
+**55 implemented · 18 planned · 1166 tests passing**
 
 This directory tracks every capability from idea to implementation. Completed
 tickets are kept as historical records. Open tickets describe what to build
@@ -93,6 +93,7 @@ Prerequisite for 082–084: tickets 080 and 081 are now complete.
 | 082 | [Predicted vs. observed validation metrics](./082-predicted-vs-observed-validation-metrics.md) | planned |
 | 083 | [Calibration profile data & fitting](./083-calibration-profile-data-and-fitting.md) | planned |
 | 084 | [Holdout validation reports](./084-holdout-validation-reports.md) | planned |
+| 102 | [Binary flight-log ingestion (.bin, ULog)](./102-binary-flight-log-ingestion.md) | planned |
 
 ---
 
