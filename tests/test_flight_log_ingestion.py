@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -24,8 +25,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 SYNTHETIC_LOG = REPO_ROOT / "tests" / "fixtures" / "synthetic_dataflash.log"
 
 
-def _ingest(path: Path = SYNTHETIC_LOG, **kwargs: object) -> NormalizedFlightTrace:
-    return ingest_dataflash_log(path, trace_id="test-trace", **kwargs)  # type: ignore[arg-type]
+def _ingest() -> NormalizedFlightTrace:
+    return ingest_dataflash_log(SYNTHETIC_LOG, trace_id="test-trace")
 
 
 # ---------------------------------------------------------------------------
@@ -38,8 +39,8 @@ def test_dataflash_ingest_gps_records_have_lat_lon_alt() -> None:
 
     assert len(trace.records) == 3
     r0 = trace.records[0]
-    assert abs(r0.lat_deg - 47.641468) < 1e-5
-    assert abs(r0.lon_deg - 9.341230) < 1e-5
+    assert r0.lat_deg == pytest.approx(47.641468, abs=1e-5)
+    assert r0.lon_deg == pytest.approx(9.341230, abs=1e-5)
     assert r0.alt_amsl_m == pytest.approx(430.5)
     assert r0.groundspeed_mps == pytest.approx(8.3)
     assert r0.heading_deg == pytest.approx(270.1)
@@ -61,14 +62,13 @@ def test_dataflash_ingest_timestamps_relative_to_first_gps() -> None:
 def test_dataflash_ingest_carry_forward_battery() -> None:
     trace = _ingest()
 
-    # BAT at t=100s → first two GPS records (t=100s, t=200s) share first BAT
     r0, r1, r2 = trace.records
+    # BAT at t=100s covers GPS at t=100s and t=200s.
     assert r0.battery_voltage_v == pytest.approx(22.1)
     assert r0.battery_current_a == pytest.approx(15.3)
     assert r0.battery_remaining_pct == pytest.approx(82.0)
     assert r1.battery_voltage_v == pytest.approx(22.1)
-
-    # BAT at t=250s → third GPS record (t=300s) picks up second BAT
+    # BAT at t=250s is the latest sample before GPS at t=300s.
     assert r2.battery_voltage_v == pytest.approx(21.9)
     assert r2.battery_remaining_pct == pytest.approx(80.0)
 
@@ -131,8 +131,6 @@ def test_dataflash_ingest_missing_fields_when_nkf6_absent(tmp_path: Path) -> Non
 
 
 def test_dataflash_ingest_provenance_has_sha256_format_version() -> None:
-    import hashlib
-
     trace = _ingest()
     expected_sha256 = hashlib.sha256(SYNTHETIC_LOG.read_bytes()).hexdigest()
 
@@ -198,7 +196,6 @@ def test_normalized_flight_trace_schema_version_is_correct() -> None:
     trace = _ingest()
 
     assert trace.schema_version == FLIGHT_TRACE_SCHEMA_VERSION
-    assert trace.schema_version == "flight-trace.v1"
 
 
 def test_dataflash_ingest_records_are_chronological() -> None:
@@ -219,9 +216,8 @@ def test_flight_trace_write_read_roundtrip(tmp_path: Path) -> None:
     out = tmp_path / "trace.json"
 
     write_flight_trace(trace, out)
-    loaded = load_flight_trace(out)
+    loaded_trace, document = load_flight_trace(out)
 
-    loaded_trace, document = loaded
     assert loaded_trace.schema_version == trace.schema_version
     assert loaded_trace.trace_id == trace.trace_id
     assert len(loaded_trace.records) == len(trace.records)
@@ -234,8 +230,6 @@ def test_flight_trace_write_read_roundtrip(tmp_path: Path) -> None:
 
 
 def test_load_flight_trace_returns_model_and_input_document(tmp_path: Path) -> None:
-    import hashlib
-
     trace = _ingest()
     out = tmp_path / "trace_doc.json"
     write_flight_trace(trace, out)

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
-from typing import TypeAlias
 
 from adapters.version import tool_version
 from schemas.flight_log import (
@@ -17,36 +16,22 @@ from schemas.flight_log import (
 
 ARDUPILOT_DATAFLASH_TEXT_FORMAT = "ardupilot_dataflash_text"
 
-_SUPPORTED_EXTENSION = ".log"
-
-# Fallback column positions used when no FMT line is present for that message type.
-# Values are column indices in the data line (index 0 = message type name).
+# Fallback column indices used when no FMT line declares the message type.
+# Index 0 on data lines is the message type name; FMT-named columns start at 1.
 _GPS_FALLBACK_COLS: dict[str, int] = {
-    "TimeUS": 1,
-    "Lat": 7,
-    "Lng": 8,
-    "Alt": 9,
-    "Spd": 10,
-    "GCrs": 11,
+    "TimeUS": 1, "Lat": 7, "Lng": 8, "Alt": 9, "Spd": 10, "GCrs": 11,
 }
 _BAT_FALLBACK_COLS: dict[str, int] = {
-    "TimeUS": 1,
-    "Volt": 2,
-    "Curr": 4,
-    "RemPct": 6,
+    "TimeUS": 1, "Volt": 2, "Curr": 4, "RemPct": 6,
 }
 _MODE_FALLBACK_COLS: dict[str, int] = {
-    "TimeUS": 1,
-    "Mode": 2,
+    "TimeUS": 1, "Mode": 2,
 }
 _NKF6_FALLBACK_COLS: dict[str, int] = {
-    "TimeUS": 1,
-    "C": 2,
-    "VWN": 3,
-    "VWE": 4,
+    "TimeUS": 1, "C": 2, "VWN": 3, "VWE": 4,
 }
 
-_RawRow: TypeAlias = dict[str, str]
+type _RawRow = dict[str, str]
 
 
 class FlightLogIngestionError(ValueError):
@@ -77,8 +62,6 @@ def ingest_dataflash_log(
             reason="read_error",
         ) from exc
 
-    sha256 = hashlib.sha256(raw_bytes).hexdigest()
-
     try:
         lines = raw_bytes.decode("utf-8").splitlines()
     except UnicodeDecodeError as exc:
@@ -88,13 +71,16 @@ def ingest_dataflash_log(
             reason="encoding_error",
         ) from exc
 
+    sha256 = hashlib.sha256(raw_bytes).hexdigest()
     col_maps = _parse_fmt_lines(lines)
-    gps_rows = _collect_rows(lines, "GPS", col_maps, _GPS_FALLBACK_COLS)
-    bat_rows = _collect_rows(lines, "BAT", col_maps, _BAT_FALLBACK_COLS)
-    mode_rows = _collect_rows(lines, "MODE", col_maps, _MODE_FALLBACK_COLS)
-    nkf6_rows = _collect_rows(lines, "NKF6", col_maps, _NKF6_FALLBACK_COLS)
-    if not nkf6_rows:
-        nkf6_rows = _collect_rows(lines, "XKF6", col_maps, _NKF6_FALLBACK_COLS)
+
+    gps_rows = _by_timeus(_collect_rows(lines, "GPS", col_maps, _GPS_FALLBACK_COLS))
+    bat_rows = _by_timeus(_collect_rows(lines, "BAT", col_maps, _BAT_FALLBACK_COLS))
+    mode_rows = _by_timeus(_collect_rows(lines, "MODE", col_maps, _MODE_FALLBACK_COLS))
+    nkf6_rows = _by_timeus(
+        _collect_rows(lines, "NKF6", col_maps, _NKF6_FALLBACK_COLS)
+        or _collect_rows(lines, "XKF6", col_maps, _NKF6_FALLBACK_COLS)
+    )
 
     if not gps_rows:
         raise FlightLogIngestionError(
@@ -103,27 +89,33 @@ def ingest_dataflash_log(
             reason="no_gps_records",
         )
 
-    gps_cols = col_maps.get("GPS", {})
-    missing_fields = _detect_missing_fields(
-        bat_rows=bat_rows,
-        nkf6_rows=nkf6_rows,
-        mode_rows=mode_rows,
-        gps_cols=gps_cols,
-    )
+    # Use the FMT-declared columns when available, falling back to hardcoded positions.
+    effective_gps_cols = col_maps.get("GPS") or _GPS_FALLBACK_COLS
 
-    assumptions = _build_assumptions(nkf6_present=bool(nkf6_rows))
     provenance = FlightTraceProvenance(
         source_format=ARDUPILOT_DATAFLASH_TEXT_FORMAT,
         raw_log_sha256=sha256,
         raw_log_filename=path.name,
         tool_version=tool_version(),
-        parsing_assumptions=assumptions,
-        missing_fields=missing_fields,
+        parsing_assumptions=_build_assumptions(nkf6_present=bool(nkf6_rows)),
+        missing_fields=_detect_missing_fields(
+            bat_rows=bat_rows,
+            nkf6_rows=nkf6_rows,
+            mode_rows=mode_rows,
+            gps_cols=effective_gps_cols,
+        ),
     )
 
-    t0_us = _parse_timeus(gps_rows[0])
+    t0_us = _row_timeus(gps_rows[0])
     records = [
-        _build_record(gps_row, t0_us, bat_rows=bat_rows, mode_rows=mode_rows, nkf6_rows=nkf6_rows)
+        _build_record(
+            gps_row,
+            t0_us,
+            path=path,
+            bat_rows=bat_rows,
+            mode_rows=mode_rows,
+            nkf6_rows=nkf6_rows,
+        )
         for gps_row in gps_rows
     ]
 
@@ -142,22 +134,18 @@ def ingest_dataflash_log(
 
 
 def _parse_fmt_lines(lines: list[str]) -> dict[str, dict[str, int]]:
-    """Return a mapping of message_type → {column_name: column_index} from FMT lines.
-
-    Column index 0 is the message type name on data lines, so FMT columns start at 1.
-    """
+    # FMT line: FMT, type_id, size, name, format, col1, col2, ...
+    # Columns on data lines start at index 1 (index 0 is the message type name).
     col_maps: dict[str, dict[str, int]] = {}
     for line in lines:
         stripped = line.strip()
         if not stripped.startswith("FMT,"):
             continue
         parts = [p.strip() for p in stripped.split(",")]
-        # FMT, type_id, size, name, format, col1, col2, ...
         if len(parts) < 6:
             continue
         msg_name = parts[3]
-        col_names = parts[5:]
-        col_maps[msg_name] = {name: idx + 1 for idx, name in enumerate(col_names)}
+        col_maps[msg_name] = {name: i + 1 for i, name in enumerate(parts[5:])}
     return col_maps
 
 
@@ -167,38 +155,44 @@ def _collect_rows(
     col_maps: dict[str, dict[str, int]],
     fallback: dict[str, int],
 ) -> list[_RawRow]:
-    """Collect all data lines for msg_type as dicts keyed by column name."""
     col_map = col_maps.get(msg_type, fallback)
-    rows: list[_RawRow] = []
     prefix = msg_type + ","
+    rows: list[_RawRow] = []
     for line in lines:
         stripped = line.strip()
         if not stripped.startswith(prefix):
             continue
         parts = [p.strip() for p in stripped.split(",")]
-        row: _RawRow = {}
-        for col_name, col_idx in col_map.items():
-            if col_idx < len(parts):
-                row[col_name] = parts[col_idx]
-        rows.append(row)
+        rows.append(
+            {name: parts[idx] for name, idx in col_map.items() if idx < len(parts)}
+        )
     return rows
 
 
-def _parse_timeus(row: _RawRow) -> int:
-    raw = row.get("TimeUS", "0")
-    try:
-        return int(raw)
-    except ValueError:
-        return 0
+def _by_timeus(rows: list[_RawRow]) -> list[_RawRow]:
+    """Return rows sorted by TimeUS, dropping rows with absent or unparseable timestamps."""
+    timed: list[tuple[int, _RawRow]] = []
+    for row in rows:
+        raw = row.get("TimeUS")
+        if raw is None:
+            continue
+        try:
+            timed.append((int(raw), row))
+        except ValueError:
+            continue
+    timed.sort(key=lambda item: item[0])
+    return [row for _, row in timed]
 
 
-def _carry_forward(
-    rows: list[_RawRow], timeus: int
-) -> _RawRow | None:
-    """Return the latest row with TimeUS <= timeus, or None."""
+def _row_timeus(row: _RawRow) -> int:
+    return int(row["TimeUS"])
+
+
+def _carry_forward(rows: list[_RawRow], timeus: int) -> _RawRow | None:
+    # rows must be pre-sorted by TimeUS (guaranteed by _by_timeus at collection time).
     result: _RawRow | None = None
     for row in rows:
-        if _parse_timeus(row) <= timeus:
+        if _row_timeus(row) <= timeus:
             result = row
         else:
             break
@@ -209,45 +203,41 @@ def _build_record(
     gps_row: _RawRow,
     t0_us: int,
     *,
+    path: Path,
     bat_rows: list[_RawRow],
     mode_rows: list[_RawRow],
     nkf6_rows: list[_RawRow],
 ) -> FlightTraceRecord:
-    timeus = _parse_timeus(gps_row)
-    timestamp_s = (timeus - t0_us) / 1_000_000.0
+    timeus = _row_timeus(gps_row)
 
     lat_deg = _float(gps_row, "Lat")
     lon_deg = _float(gps_row, "Lng")
     if lat_deg is None or lon_deg is None:
         raise FlightLogIngestionError(
             "GPS record missing Lat or Lng.",
-            path=Path("<unknown>"),
+            path=path,
             reason="missing_gps_position",
         )
 
     bat = _carry_forward(bat_rows, timeus)
     mode = _carry_forward(mode_rows, timeus)
     nkf6 = _carry_forward(nkf6_rows, timeus)
-
-    wind_east: float | None = None
-    wind_north: float | None = None
-    if nkf6 is not None and _int(nkf6, "C") == 0:
-        wind_north = _float(nkf6, "VWN")
-        wind_east = _float(nkf6, "VWE")
+    # Only trust the first EKF core (C == 0); discard multi-core wind estimates.
+    nkf6_core0 = nkf6 if _int(nkf6, "C") == 0 else None
 
     return FlightTraceRecord(
-        timestamp_s=timestamp_s,
+        timestamp_s=(timeus - t0_us) / 1_000_000.0,
         lat_deg=lat_deg,
         lon_deg=lon_deg,
         alt_amsl_m=_float(gps_row, "Alt"),
         groundspeed_mps=_float(gps_row, "Spd"),
         heading_deg=_float(gps_row, "GCrs"),
-        battery_voltage_v=_float(bat, "Volt") if bat else None,
-        battery_current_a=_float(bat, "Curr") if bat else None,
-        battery_remaining_pct=_float(bat, "RemPct") if bat else None,
-        flight_mode=_str(mode, "Mode") if mode else None,
-        wind_east_mps=wind_east,
-        wind_north_mps=wind_north,
+        battery_voltage_v=_float(bat, "Volt"),
+        battery_current_a=_float(bat, "Curr"),
+        battery_remaining_pct=_float(bat, "RemPct"),
+        flight_mode=_str(mode, "Mode"),
+        wind_east_mps=_float(nkf6_core0, "VWE"),
+        wind_north_mps=_float(nkf6_core0, "VWN"),
     )
 
 
@@ -265,9 +255,9 @@ def _detect_missing_fields(
         missing.extend(["wind_east_mps", "wind_north_mps"])
     if not mode_rows:
         missing.append("flight_mode")
-    if gps_cols and "GCrs" not in gps_cols:
+    if "GCrs" not in gps_cols:
         missing.append("heading_deg")
-    if gps_cols and "Alt" not in gps_cols:
+    if "Alt" not in gps_cols:
         missing.append("alt_amsl_m")
     return missing
 
@@ -316,6 +306,7 @@ def _int(row: _RawRow | None, key: str) -> int | None:
 def _str(row: _RawRow | None, key: str) -> str | None:
     if row is None:
         return None
+    # Empty string from the log is treated as absent — mode name must be non-empty.
     return row.get(key) or None
 
 

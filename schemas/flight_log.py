@@ -15,7 +15,8 @@ class FlightTraceRecord(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     timestamp_s: float = Field(
-        description="Elapsed flight time in seconds from trace start."
+        ge=0.0,
+        description="Elapsed flight time in seconds from trace start.",
     )
     lat_deg: float = Field(description="WGS-84 latitude in decimal degrees.")
     lon_deg: float = Field(description="WGS-84 longitude in decimal degrees.")
@@ -26,7 +27,7 @@ class FlightTraceRecord(BaseModel):
         default=None, description="Groundspeed in m/s, if available."
     )
     heading_deg: float | None = Field(
-        default=None, description="True ground course in degrees (0–360), if available."
+        default=None, description="Ground course in degrees, if available."
     )
     battery_voltage_v: float | None = Field(
         default=None, description="Battery voltage in volts, if available."
