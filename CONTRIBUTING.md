@@ -51,6 +51,21 @@ asset-loading, and scenario cases.
 Before opening a pull request, run these checks and include the result in the
 PR test plan.
 
+## Releasing
+
+Cutting a release is one reviewed command — no manual multi-file edits:
+
+```bash
+uv run bvlos-sim bump <major|minor|patch>   # updates pyproject.toml + rolls CHANGELOG.md
+```
+
+`bump` prints the follow-up `git commit` / `git tag vX.Y.Z` / `git push` commands;
+it never tags, pushes, or publishes on its own. Use `--dry-run` to preview the
+edits and `--check` in CI to fail when `pyproject.toml` is behind the latest git
+tag. Golden fixtures are version-agnostic (tests pin `tool_version` to
+`0.0.0-test`), so a bump never rewrites fixtures and a release cannot break the
+golden suite. See [docs/USAGE.md](./docs/USAGE.md#releasing-bump) for details.
+
 ## Branch and Pull Request Workflow
 
 1. Create a focused branch from `main`.

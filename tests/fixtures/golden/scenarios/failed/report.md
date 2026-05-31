@@ -4,7 +4,7 @@
 - Status: `failed`
 - Assertions: 2 passed, 1 failed, 0 skipped, 1 unsupported
 - Envelope schema: `scenario-report.v2`
-- Tool version: `0.32.0`
+- Tool version: `0.0.0-test`
 
 ## Assertion Results
 
