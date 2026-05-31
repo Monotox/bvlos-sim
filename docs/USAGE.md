@@ -23,7 +23,7 @@ uv run bvlos-sim --help
 
 ## CLI Commands
 
-bvlos-sim exposes twelve commands:
+bvlos-sim exposes thirteen commands:
 
 - `estimate`: run deterministic mission estimation and static feasibility checks
 - `size-battery`: compute the minimum battery capacity needed for feasibility
@@ -37,6 +37,7 @@ bvlos-sim exposes twelve commands:
 - `compare`: compare a SITL evidence bundle against deterministic scenario expectations
 - `sora`: run the SORA pre-assessment (Ground Risk, Air Risk, and SAIL)
 - `validate`: compare a predicted mission estimate against an observed flight trace
+- `bump`: bump the project version and roll the changelog (release tooling)
 
 | Command | Exit 0 | Exit 10 | Exit 11 | Exit 12 | Exit 13 |
 |---------|--------|---------|---------|---------|---------|
@@ -52,6 +53,7 @@ bvlos-sim exposes twelve commands:
 | batch | all feasible | any infeasible | invalid input/run | - | internal error |
 | sora | success | - | invalid input | - | internal error |
 | validate | success | - | invalid input | - | internal error |
+| bump | success / consistent | - | invalid input / drift | - | internal error |
 
 Mission-scoped functionality is exposed through `estimate` by mission and
 vehicle YAML: fidelity settings, terrain, wind grids, geofences, landing zones,
@@ -886,6 +888,81 @@ lower-density missions consume more energy. The usable-capacity curve derates
 Markdown reports include a per-leg mass/density factor table when any factor is
 active. Treat these closed-form scalings as a pre-calibration aid, not a
 substitute for aircraft-specific log calibration.
+
+## Validation Against Real Flights
+
+Use `validate` to compare a predicted mission estimate against an observed flight
+trace:
+
+```bash
+uv run bvlos-sim validate \
+  examples/missions/pipeline_demo_001.yaml \
+  examples/vehicles/quadplane_v1.yaml \
+  examples/flight_logs/pipeline_demo_001_trace.json
+```
+
+The command loads the mission and vehicle (resolving the same terrain, wind,
+geofence, landing-zone, obstacle, and population assets as `estimate`), runs the
+estimator, loads a `flight-trace.v1` JSON file (produced by flight-log
+ingestion), segments it into flight phases, and reports predicted-vs-observed
+metrics at mission and per-phase level. Per-phase comparison lines predicted legs
+up with observed trace segments on their shared estimator leg-phase.
+
+Mission metrics: total flight time, total horizontal distance (WGS-84 geodesic
+over trace records), mean groundspeed, and reserve at landing (estimator reserve
+% vs the trace's final battery-remaining %). Each metric carries `predicted`,
+`observed`, `abs_error`, and `pct_error`. Observed phases with no estimator
+counterpart (climb, descent, divert, unknown) and missing observed fields are
+reported in `notes`.
+
+To produce the trace JSON from an ArduPilot DataFlash text log:
+
+```python
+from pathlib import Path
+from adapters.flight_log import ingest_dataflash_log, write_flight_trace
+
+trace = ingest_dataflash_log(Path("flight.log"), trace_id="my-flight-001")
+write_flight_trace(trace, Path("my-flight-001_trace.json"))
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--validation-id` | `<trace_id>-validation` | Stable report identifier |
+| `--format` | `markdown` | `markdown` report or `json` (`validation-report.v1` envelope) |
+| `--output`, `-o` | stdout | Write the report to a file |
+
+## Releasing (`bump`)
+
+Cut a release in one reviewed step. `bump` bumps the version and rolls the
+changelog; it never tags, pushes, or publishes.
+
+```bash
+# preview the next version and the exact edits, writing nothing
+uv run bvlos-sim bump patch --dry-run
+
+# apply: update pyproject.toml and roll CHANGELOG.md ([Unreleased] -> dated section)
+uv run bvlos-sim bump minor
+```
+
+After `bump` applies the edits it prints the suggested follow-up commands:
+
+```bash
+git commit -am 'chore: release vX.Y.Z'
+git tag vX.Y.Z
+git push && git push origin vX.Y.Z
+```
+
+`--check` verifies the version sources agree and is meant for CI — it exits
+non-zero when `pyproject.toml` is behind the latest `v*` git tag (the drift that
+shipped a mismatched `v0.32.0`):
+
+```bash
+uv run bvlos-sim bump --check
+```
+
+Golden fixtures are version-agnostic: tests pin the embedded `tool_version` to
+`0.0.0-test` (via the `BVLOS_SIM_TOOL_VERSION` override set in `conftest.py`), so
+a bump never rewrites fixtures and a release cannot break the golden suite.
 
 ## Vehicle Profiles
 

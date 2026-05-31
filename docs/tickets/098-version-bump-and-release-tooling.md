@@ -2,7 +2,7 @@
 
 ## Status
 
-Planned.
+Implemented.
 
 ## Goal
 
@@ -93,3 +93,42 @@ before `v0.32.0`.
    its own; it only prints the suggested commands.
 5. New unit tests cover semver arithmetic for major/minor/patch and the
    changelog roll.
+
+---
+
+## Implementation
+
+**Status:** implemented (strategy B — version-agnostic fixtures).
+
+### New / changed files
+
+| File | Change |
+|---|---|
+| `adapters/release.py` | New — pure semver/changelog/consistency helpers (`bump_version`, `read_pyproject_version`, `set_pyproject_version`, `roll_changelog`, `latest_git_tag`, `check_consistency`, `plan_bump`, `apply_bump`) |
+| `adapters/commands/bump.py` | New — `bump` CLI command (`<part>`, `--dry-run`, `--check`) |
+| `adapters/cli.py` | Register `bump` |
+| `adapters/version.py` | `tool_version()` honours a `BVLOS_SIM_TOOL_VERSION` override; `resolved_package_version()` exposes the real version |
+| `conftest.py` | New — pins `BVLOS_SIM_TOOL_VERSION=0.0.0-test` for the whole suite |
+| `tests/fixtures/golden/**` | 16 fixtures rewritten from the embedded release version to `0.0.0-test` |
+| `tests/test_bump_version.py` | New — 24 tests (semver, pyproject edit, changelog roll, consistency, dry-run/apply, CLI, pinned-version) |
+
+### Fixture strategy (B)
+
+`tool_version()` now reads the `BVLOS_SIM_TOOL_VERSION` env var first. `conftest.py`
+sets it to `0.0.0-test` before any adapter imports, so every generated envelope and
+Markdown report embeds a fixed placeholder during tests. The 16 golden fixtures were
+rewritten once to that placeholder. A version bump therefore no longer touches any
+fixture, and releasing can never break the golden suite. The live version is asserted
+separately in `test_bump_version.py` via `resolved_package_version()`.
+
+### Command
+
+```bash
+bvlos-sim bump patch --dry-run   # show next version + edits, write nothing
+bvlos-sim bump minor             # edit pyproject.toml + roll CHANGELOG.md, print next steps
+bvlos-sim bump --check           # CI: fail if pyproject.toml is behind the latest git tag
+```
+
+`bump` edits only `pyproject.toml` and `CHANGELOG.md` and prints the suggested
+`git commit`/`git tag`/`git push` follow-ups; it never tags, pushes, or publishes.
+Exit codes: `0` success/consistent, `11` invalid input or detected drift.

@@ -1,6 +1,6 @@
 # Ticket Backlog
 
-**56 implemented · 17 planned · 1179 tests passing**
+**57 implemented · 16 planned · 1202 tests passing**
 
 This directory tracks every capability from idea to implementation. Completed
 tickets are kept as historical records. Open tickets describe what to build
@@ -25,6 +25,7 @@ next and why.
 | Weather & GO/NO-GO | 092–093 | Enforced `max_wind_mps`/`max_crosswind_mps` weather minimums with a checklist Weather-limits row; time-varying geofence activation windows |
 | Correctness fixes | 062, 065 | Wind-triangle divert correction, stochastic spatial infeasibility tracking |
 | Documentation | 096 | MkDocs Material site published to GitHub Pages, auto-built from `main` |
+| Release tooling | 098 | `bump` command (semver bump + changelog roll + `--check` drift guard); version-agnostic golden fixtures |
 | Calibration & validation | 080, 081, 082 | `flight-trace.v1` ingestion, `phase-segments.v1` segmentation, `validation-report.v1` predicted-vs-observed metrics via the `validate` command |
 
 Full feature list: [`docs/tickets/README.md` implemented section](#implemented-tickets) · Test coverage: `uv run pytest`
@@ -42,7 +43,6 @@ Items are ordered by impact. Pick one, read its ticket file, open a PR.
 | 088 | [Performance benchmarks](./088-performance-benchmarking-and-regression-gates.md) | `pytest-benchmark` suite + CI regression gates (no production code changes) |
 | 089 | [Preflight report command](./089-preflight-report-command.md) | Single `preflight` command combining estimate + scenario + Monte Carlo into one operator briefing |
 | 090 | [Schema migration tooling](./090-schema-version-migration-tooling.md) | `bvlos-sim migrate` command to auto-upgrade YAML files when schema versions bump |
-| 098 | [Version bump & release tooling](./098-version-bump-and-release-tooling.md) | One-command version bump that keeps `pyproject.toml`, `CHANGELOG.md`, and the version-pinned golden fixtures consistent (with a CI drift check) |
 
 ### Core simulation gaps
 
@@ -128,7 +128,7 @@ New capabilities should work *with* existing pieces, not alongside them in isola
 
 ## Implemented tickets
 
-### Full list (56 tickets)
+### Full list (57 tickets)
 
 1. [001](./001-estimator-cli-and-envelope.md) Estimator CLI and envelope
 2. [002](./002-versioning-and-golden-fixtures.md) Versioning and golden fixtures
@@ -186,3 +186,4 @@ New capabilities should work *with* existing pieces, not alongside them in isola
 54. [080](./080-flight-log-ingestion-and-trace-normalization.md) Flight log ingestion and trace normalization
 55. [081](./081-flight-phase-segmentation.md) Flight phase segmentation
 56. [082](./082-predicted-vs-observed-validation-metrics.md) Predicted vs. observed validation metrics
+57. [098](./098-version-bump-and-release-tooling.md) Version bump and release tooling

@@ -9,6 +9,19 @@ and this project adheres to semantic versioning once public releases begin.
 
 ### Added
 
+- Version bump and release tooling (Ticket 098). A new `bvlos-sim bump
+  <major|minor|patch>` command performs a release-ready version bump atomically:
+  it updates `pyproject.toml` and rolls `CHANGELOG.md` (renaming `[Unreleased]`
+  to the dated release section and opening a fresh `[Unreleased]`), then prints
+  the suggested `git tag`/`push` follow-ups without ever tagging, pushing, or
+  publishing. `--dry-run` previews the edits without writing; `--check` (for CI)
+  fails when `pyproject.toml` is behind the latest git tag, preventing the
+  version drift seen before v0.32.0. Golden fixtures are now version-agnostic:
+  `tool_version()` honours a `BVLOS_SIM_TOOL_VERSION` override that `conftest.py`
+  pins to `0.0.0-test`, so a version bump no longer churns the 16 golden fixtures
+  and a release can no longer break the golden suite. New module
+  `adapters.release` exposes the reusable semver/changelog/consistency helpers.
+
 - Predicted-vs-observed validation metrics (Ticket 082). The new `bvlos-sim
   validate MISSION VEHICLE TRACE` command compares a deterministic mission
   estimate against an observed flight trace (`flight-trace.v1` from flight-log
