@@ -142,6 +142,7 @@ def _register_commands() -> None:
     from adapters.commands.sitl import sitl
     from adapters.commands.size_battery import size_battery
     from adapters.commands.sora import sora
+    from adapters.commands.validate import validate
 
     app.command()(convert)
     app.command()(estimate)
@@ -154,6 +155,7 @@ def _register_commands() -> None:
     app.command()(propagate)
     app.command()(sitl)
     app.command()(sora)
+    app.command()(validate)
 
 
 _register_commands()

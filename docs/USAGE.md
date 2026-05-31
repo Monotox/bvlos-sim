@@ -23,7 +23,7 @@ uv run bvlos-sim --help
 
 ## CLI Commands
 
-bvlos-sim exposes eleven commands:
+bvlos-sim exposes twelve commands:
 
 - `estimate`: run deterministic mission estimation and static feasibility checks
 - `size-battery`: compute the minimum battery capacity needed for feasibility
@@ -36,6 +36,7 @@ bvlos-sim exposes eleven commands:
 - `sitl`: build a contract-only or live SITL evidence bundle from an existing scenario
 - `compare`: compare a SITL evidence bundle against deterministic scenario expectations
 - `sora`: run the SORA pre-assessment (Ground Risk, Air Risk, and SAIL)
+- `validate`: compare a predicted mission estimate against an observed flight trace
 
 | Command | Exit 0 | Exit 10 | Exit 11 | Exit 12 | Exit 13 |
 |---------|--------|---------|---------|---------|---------|
@@ -50,6 +51,7 @@ bvlos-sim exposes eleven commands:
 | export | success | - | invalid input | - | internal error |
 | batch | all feasible | any infeasible | invalid input/run | - | internal error |
 | sora | success | - | invalid input | - | internal error |
+| validate | success | - | invalid input | - | internal error |
 
 Mission-scoped functionality is exposed through `estimate` by mission and
 vehicle YAML: fidelity settings, terrain, wind grids, geofences, landing zones,

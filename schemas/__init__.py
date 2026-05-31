@@ -111,6 +111,13 @@ from schemas.phase_segment import (
     TracePhase,
 )
 from schemas.vehicle_energy import UsableCapacityPoint
+from schemas.validation import (
+    VALIDATION_REPORT_SCHEMA_VERSION,
+    MetricComparison,
+    MissionValidationMetrics,
+    PhaseValidation,
+    ValidationReport,
+)
 
 __all__ = [
     "Airspace",
@@ -202,6 +209,11 @@ __all__ = [
     "SegmentationMetadata",
     "TracePhase",
     "UsableCapacityPoint",
+    "VALIDATION_REPORT_SCHEMA_VERSION",
+    "MetricComparison",
+    "MissionValidationMetrics",
+    "PhaseValidation",
+    "ValidationReport",
     "VehicleCapabilities",
     "VehicleClass",
     "VehicleProfile",

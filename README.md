@@ -140,6 +140,8 @@ Full usage details are in [docs/USAGE.md](./docs/USAGE.md).
 - `propagate`: time-stepped stochastic state propagation with EKF and tracking controller
 - `sitl`: build a contract-only or live SITL evidence bundle
 - `compare`: compare a SITL evidence bundle against deterministic scenario expectations
+- `sora`: SORA Ground Risk, Air Risk, and SAIL pre-assessment
+- `validate`: compare a predicted mission estimate against an observed flight trace
 
 `compare` exits `0` for a passing comparison and `10` for drifted, failed, or
 unsupported comparison summaries.
@@ -178,11 +180,23 @@ A pre-fetched Alpine example (Lucerne/Zug area) runs offline with no network cal
 
 `bvlos-sim scenario` injects a lost-link event at a named waypoint, a wind-change at elapsed time, or a landing zone becoming unavailable. The lost-link policy model evaluates RTL, land, loiter, and divert, and emits a Dubins-path divert estimate (bank-angle-constrained arc + straight segment, transit time, reserve remaining). Assertions are machine-readable and suitable for CI gates.
 
+### Validation against real flights
+
+`bvlos-sim validate MISSION.yaml VEHICLE.yaml TRACE.json` compares a predicted
+mission estimate against an observed flight. A real ArduPilot DataFlash log is
+ingested into a normalized trace, segmented into flight phases, and lined up
+against the estimator's legs on shared phase keys. The report gives
+predicted-vs-observed time, horizontal distance, mean groundspeed, and reserve
+at landing — at both mission and per-phase level, each with absolute and percent
+error. This is how you measure where the model is accurate and where it drifts on
+your own aircraft. Calibrating the model from those residuals is the next step on
+the [calibration & validation track](./docs/tickets/README.md#calibration--validation-track).
+
 ### Output formats
 
 All commands emit versioned JSON envelopes (`estimator-envelope.v7`,
-`scenario-report.v2`, `uncertainty-report.v1`, `stochastic-envelope.v1`) and
-optional Markdown reports.
+`scenario-report.v2`, `uncertainty-report.v1`, `stochastic-envelope.v1`,
+`validation-report.v1`) and optional Markdown reports.
 
 `estimate`, `scenario`, `sample`, and `propagate` support `--format summary` for a
 single-line terminal check:
@@ -235,9 +249,12 @@ provide:
   population come from static files you fetch and commit yourself; there is no
   real-time feed and no currency guarantee. A "GO" is only as current as your
   inputs.
-- **An unvalidated model with sample data.** The shipped vehicle profiles are
-  placeholders, and the physics is not yet calibrated against real flight logs.
-  Replace profiles with measured data and treat results as indicative.
+- **A model with sample data, calibrated by you.** The shipped vehicle profiles
+  are placeholders. The estimator can now be checked against real flights —
+  `bvlos-sim validate` reports predicted-vs-observed error per mission and per
+  phase from an ingested flight log — but the shipped profiles have not themselves
+  been fitted to measured data. Replace profiles with your own, validate against
+  your logs, and treat results as indicative until you have done so.
 - **No warranty, support, or liability transfer.** MIT-licensed and provided
   "as is" (see [LICENSE](./LICENSE)).
 
