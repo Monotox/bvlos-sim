@@ -1,6 +1,6 @@
 # Ticket Backlog
 
-**58 implemented · 15 planned · 1224 tests passing**
+**58 implemented · 20 planned · 1224 tests passing**
 
 This directory tracks every capability from idea to implementation. Completed
 tickets are kept as historical records. Open tickets describe what to build
@@ -43,6 +43,21 @@ Items are ordered by impact. Pick one, read its ticket file, open a PR.
 | 088 | [Performance benchmarks](./088-performance-benchmarking-and-regression-gates.md) | `pytest-benchmark` suite + CI regression gates (no production code changes) |
 | 089 | [Preflight report command](./089-preflight-report-command.md) | Single `preflight` command combining estimate + scenario + Monte Carlo into one operator briefing |
 | 090 | [Schema migration tooling](./090-schema-version-migration-tooling.md) | `bvlos-sim migrate` command to auto-upgrade YAML files when schema versions bump |
+
+### Backend integration readiness
+
+Gaps surfaced while reviewing whether the engine can be driven cleanly from a
+long-running service (the Mission Control web backend) as a one-process-per-job
+subprocess. None blocks single-shot CLI use; each sharpens the contract a queue
+worker depends on.
+
+| # | Ticket | What it adds |
+|---|---|---|
+| 103 | [Backend-facing CLI exit-code contract](./103-backend-cli-exit-code-contract.md) | One authoritative per-command exit-code table; catch-all `-> 13` on `validate`/`sora`/`calibrate` |
+| 104 | [Atomic output writes and clean cancellation](./104-atomic-output-writes-and-cancellation.md) | Temp-then-`os.replace` output so a killed run never leaves a partial file; `SIGTERM` exit code |
+| 105 | [Contract-version discovery command](./105-contract-version-discovery-command.md) | `schema-versions` command printing supported input/output contract versions without running a job |
+| 106 | [Machine-readable run progress](./106-machine-readable-run-progress.md) | JSONL progress for `propagate`/`sample`/`batch` so a non-TTY worker can show live progress (extends 067) |
+| 107 | [Machine-readable preflight report](./107-machine-readable-preflight-report.md) | JSON `--validate-only` envelope plus GeoJSON asset preflight across run types (composes with 089) |
 
 ### Core simulation gaps
 
