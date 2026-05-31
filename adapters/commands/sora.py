@@ -21,14 +21,28 @@ from estimator.execution.sora import build_sora_assessment
 
 
 def sora(
-    mission: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True, help="Path to mission.v6 YAML file."),
-    vehicle: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True, help="Path to vehicle profile YAML file."),
+    mission: Path = typer.Argument(
+        ...,
+        exists=True,
+        readable=True,
+        resolve_path=True,
+        help="Path to mission.v6 YAML file.",
+    ),
+    vehicle: Path = typer.Argument(
+        ...,
+        exists=True,
+        readable=True,
+        resolve_path=True,
+        help="Path to vehicle profile YAML file.",
+    ),
     format: cli.SoraOutputFormat = typer.Option(
         cli.SoraOutputFormat.MARKDOWN,
         "--format",
         help="Output format: markdown for the SORA report, json for the envelope.",
     ),
-    output: Path | None = typer.Option(None, "--output", "-o", help="Write output to file instead of stdout."),
+    output: Path | None = typer.Option(
+        None, "--output", "-o", help="Write output to file instead of stdout."
+    ),
     validate_only: bool = typer.Option(
         False,
         "--validate-only",
@@ -95,6 +109,14 @@ def sora(
     except OutputWriteError:
         cli._exit_with_cli_error(
             "Failed to write SORA output.",
+            command="sora",
+            code=cli.CliExitCode.INTERNAL_ERROR,
+        )
+    except typer.Exit:
+        raise
+    except Exception as exc:
+        cli._exit_with_cli_error(
+            str(exc),
             command="sora",
             code=cli.CliExitCode.INTERNAL_ERROR,
         )

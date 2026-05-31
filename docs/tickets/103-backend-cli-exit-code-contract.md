@@ -2,7 +2,7 @@
 
 ## Status
 
-Planned.
+Implemented.
 
 ## Goal
 
@@ -75,3 +75,24 @@ it).
   ticket documents and hardens the current contract; it does not alter it.
 - Giving `scenario` a `12`; that is a contract change and needs its own version
   decision.
+
+## Implementation
+
+| File | Change |
+| --- | --- |
+| `docs/CLI_EXIT_CODES.md` | New authoritative per-command exit-code table, with the three divergences and a "notes for programmatic callers" section. |
+| `docs/VERSIONING_POLICY.md` | The "CLI exit-code semantics" contract entry now links to the table. |
+| `docs/USAGE.md` | The existing exit-code table now points to `CLI_EXIT_CODES.md` and calls out the `scenario` (no `12`) and `bump` (`0`/`11` only) divergences. |
+| `adapters/commands/validate.py`, `sora.py`, `calibrate.py` | Added the `except typer.Exit: raise` / `except Exception -> INTERNAL_ERROR` tail so an unexpected error is a documented `13` instead of a bare traceback. |
+| `tests/test_exit_codes_contract.py` | New tests asserting the `13` path (forced internal error) and unchanged success exit for the three hardened commands. |
+
+The catch-all mirrors the pattern already in `sample`/`propagate`: the leading
+`except typer.Exit: raise` is required so the success `typer.Exit(SUCCESS)` is not
+swallowed and re-reported as an error.
+
+The optional consolidation of the four exit-code definitions (`CliExitCode`,
+`ScenarioExitCode`, `cli_sitl_support._EXIT_*`, and the hardcoded ints in
+`cli_batch_support._batch_exit_code`) onto one shared enum is deferred: it is a
+pure refactor of an internal layout that is not a public contract, and folding it
+into this change would risk churning the exit-code call sites this ticket is
+meant to pin. The documented values are unchanged.
