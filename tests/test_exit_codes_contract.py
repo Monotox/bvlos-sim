@@ -1,0 +1,79 @@
+"""Backend-facing CLI exit-code contract (Ticket 103).
+
+These tests pin the part of the contract that is easy to regress: an unexpected
+exception inside ``validate``, ``sora``, or ``calibrate`` must surface as the
+documented ``INTERNAL_ERROR`` (exit ``13``) rather than escaping as a bare
+traceback (shell status ``1``). They also assert the success exit is unchanged
+by the catch-all. See ``docs/CLI_EXIT_CODES.md`` for the full per-command table.
+"""
+
+from pathlib import Path
+
+import pytest
+from typer.testing import CliRunner
+
+# Import the CLI app first so adapters.cli finishes registering every command
+# before we grab the individual command modules (avoids a circular import).
+from adapters.cli import CliExitCode, app
+import adapters.commands.calibrate as calibrate_cmd
+import adapters.commands.sora as sora_cmd
+import adapters.commands.validate as validate_cmd
+
+runner = CliRunner()
+
+EXAMPLES = Path(__file__).resolve().parents[1] / "examples"
+
+_MISSION = EXAMPLES / "missions" / "pipeline_demo_001.yaml"
+_VEHICLE = EXAMPLES / "vehicles" / "quadplane_v1.yaml"
+_SORA_MISSION = EXAMPLES / "missions" / "pipeline_demo_001_ground_risk.yaml"
+_SORA_VEHICLE = EXAMPLES / "vehicles" / "quadplane_v1_ground_risk.yaml"
+_TRACE = EXAMPLES / "flight_logs" / "pipeline_demo_001_trace.json"
+
+INTERNAL_ERROR = int(CliExitCode.INTERNAL_ERROR)
+SUCCESS = int(CliExitCode.SUCCESS)
+
+
+def _boom(*_args: object, **_kwargs: object) -> None:
+    raise RuntimeError("unexpected failure")
+
+
+# --- validate -------------------------------------------------------------
+
+
+def test_validate_success_exit_code() -> None:
+    result = runner.invoke(app, ["validate", str(_MISSION), str(_VEHICLE), str(_TRACE)])
+    assert result.exit_code == SUCCESS
+
+
+def test_validate_internal_error_exit_code(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(validate_cmd, "build_validation_report", _boom)
+    result = runner.invoke(app, ["validate", str(_MISSION), str(_VEHICLE), str(_TRACE)])
+    assert result.exit_code == INTERNAL_ERROR
+
+
+# --- sora -----------------------------------------------------------------
+
+
+def test_sora_success_exit_code() -> None:
+    result = runner.invoke(app, ["sora", str(_SORA_MISSION), str(_SORA_VEHICLE)])
+    assert result.exit_code == SUCCESS
+
+
+def test_sora_internal_error_exit_code(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(sora_cmd, "build_sora_assessment", _boom)
+    result = runner.invoke(app, ["sora", str(_SORA_MISSION), str(_SORA_VEHICLE)])
+    assert result.exit_code == INTERNAL_ERROR
+
+
+# --- calibrate ------------------------------------------------------------
+
+
+def test_calibrate_success_exit_code() -> None:
+    result = runner.invoke(app, ["calibrate", str(_VEHICLE), str(_TRACE)])
+    assert result.exit_code == SUCCESS
+
+
+def test_calibrate_internal_error_exit_code(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(calibrate_cmd, "fit_calibration_profile", _boom)
+    result = runner.invoke(app, ["calibrate", str(_VEHICLE), str(_TRACE)])
+    assert result.exit_code == INTERNAL_ERROR

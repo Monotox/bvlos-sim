@@ -57,6 +57,13 @@ bvlos-sim exposes fourteen commands:
 | calibrate | success | - | invalid input | - | internal error |
 | bump | success / consistent | - | invalid input / drift | - | internal error |
 
+[`CLI_EXIT_CODES.md`](CLI_EXIT_CODES.md) is the authoritative per-command
+reference. Note the divergences a programmatic caller must branch on carefully:
+`sample` and `propagate` always exit `0` once a run completes (feasibility is in
+the body, never `10`), `scenario` has no `12` (every non-passed outcome collapses
+to `10`), and `estimate` returns `11` for a computed invalid-input failure even
+when the input files are valid.
+
 Mission-scoped functionality is exposed through `estimate` by mission and
 vehicle YAML: fidelity settings, terrain, wind grids, geofences, landing zones,
 obstacles, resource systems, communication links, energy feasibility, and route

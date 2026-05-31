@@ -23,7 +23,8 @@ Current public contracts:
 - stochastic propagation envelope: `stochastic-envelope.v1`
 - SITL evidence bundle: `sitl-evidence.v1`
 - SITL comparison report: `sitl-comparison.v1`
-- CLI exit-code semantics
+- CLI exit-code semantics (enumerated per command in
+  [`CLI_EXIT_CODES.md`](CLI_EXIT_CODES.md))
 - supported Markdown report shape covered by golden fixtures
 
 Internal module layout is not a public contract. Refactors are allowed when the

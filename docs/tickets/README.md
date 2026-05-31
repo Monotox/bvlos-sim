@@ -1,6 +1,6 @@
 # Ticket Backlog
 
-**58 implemented · 20 planned · 1224 tests passing**
+**59 implemented · 19 planned · 1230 tests passing**
 
 This directory tracks every capability from idea to implementation. Completed
 tickets are kept as historical records. Open tickets describe what to build
@@ -53,7 +53,6 @@ worker depends on.
 
 | # | Ticket | What it adds |
 |---|---|---|
-| 103 | [Backend-facing CLI exit-code contract](./103-backend-cli-exit-code-contract.md) | One authoritative per-command exit-code table; catch-all `-> 13` on `validate`/`sora`/`calibrate` |
 | 104 | [Atomic output writes and clean cancellation](./104-atomic-output-writes-and-cancellation.md) | Temp-then-`os.replace` output so a killed run never leaves a partial file; `SIGTERM` exit code |
 | 105 | [Contract-version discovery command](./105-contract-version-discovery-command.md) | `schema-versions` command printing supported input/output contract versions without running a job |
 | 106 | [Machine-readable run progress](./106-machine-readable-run-progress.md) | JSONL progress for `propagate`/`sample`/`batch` so a non-TTY worker can show live progress (extends 067) |
@@ -144,7 +143,7 @@ New capabilities should work *with* existing pieces, not alongside them in isola
 
 ## Implemented tickets
 
-### Full list (58 tickets)
+### Full list (78 tickets)
 
 1. [001](./001-estimator-cli-and-envelope.md) Estimator CLI and envelope
 2. [002](./002-versioning-and-golden-fixtures.md) Versioning and golden fixtures

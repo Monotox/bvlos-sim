@@ -140,3 +140,11 @@ def validate(
             command="validate",
             code=cli.CliExitCode.INTERNAL_ERROR,
         )
+    except typer.Exit:
+        raise
+    except Exception as exc:
+        cli._exit_with_cli_error(
+            str(exc),
+            command="validate",
+            code=cli.CliExitCode.INTERNAL_ERROR,
+        )
