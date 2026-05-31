@@ -133,6 +133,7 @@ def _summary_output_format(output_format: SummaryOutputFormat) -> OutputFormat:
 def _register_commands() -> None:
     from adapters.commands.batch import batch
     from adapters.commands.bump import bump
+    from adapters.commands.calibrate import calibrate
     from adapters.commands.compare import compare
     from adapters.commands.convert import convert
     from adapters.commands.estimate import estimate
@@ -157,6 +158,7 @@ def _register_commands() -> None:
     app.command()(sitl)
     app.command()(sora)
     app.command()(validate)
+    app.command()(calibrate)
     app.command()(bump)
 
 

@@ -1,6 +1,6 @@
 # Ticket Backlog
 
-**57 implemented · 16 planned · 1202 tests passing**
+**58 implemented · 15 planned · 1224 tests passing**
 
 This directory tracks every capability from idea to implementation. Completed
 tickets are kept as historical records. Open tickets describe what to build
@@ -26,7 +26,7 @@ next and why.
 | Correctness fixes | 062, 065 | Wind-triangle divert correction, stochastic spatial infeasibility tracking |
 | Documentation | 096 | MkDocs Material site published to GitHub Pages, auto-built from `main` |
 | Release tooling | 098 | `bump` command (semver bump + changelog roll + `--check` drift guard); version-agnostic golden fixtures |
-| Calibration & validation | 080, 081, 082 | `flight-trace.v1` ingestion, `phase-segments.v1` segmentation, `validation-report.v1` predicted-vs-observed metrics via the `validate` command |
+| Calibration & validation | 080, 081, 082, 083 | `flight-trace.v1` ingestion, `phase-segments.v1` segmentation, `validation-report.v1` predicted-vs-observed metrics via the `validate` command, `calibration-profile.v1` parameter fitting via the `calibrate` command |
 
 Full feature list: [`docs/tickets/README.md` implemented section](#implemented-tickets) · Test coverage: `uv run pytest`
 
@@ -84,14 +84,15 @@ Items are ordered by impact. Pick one, read its ticket file, open a PR.
 ## Calibration & validation track
 
 A separate track for post-flight model calibration from real flight logs.
-Prerequisite for 083–084: tickets 080, 081, and 082 are now complete.
+Tickets 080, 081, 082, and 083 are complete; only 084 (holdout validation
+reports) remains.
 
 | # | Ticket | Status |
 |---|---|---|
 | 080 | [Flight log ingestion & trace normalisation](./080-flight-log-ingestion-and-trace-normalization.md) | implemented |
 | 081 | [Flight phase segmentation](./081-flight-phase-segmentation.md) | implemented |
 | 082 | [Predicted vs. observed validation metrics](./082-predicted-vs-observed-validation-metrics.md) | implemented |
-| 083 | [Calibration profile data & fitting](./083-calibration-profile-data-and-fitting.md) | planned |
+| 083 | [Calibration profile data & fitting](./083-calibration-profile-data-and-fitting.md) | implemented |
 | 084 | [Holdout validation reports](./084-holdout-validation-reports.md) | planned |
 | 102 | [Binary flight-log ingestion (.bin, ULog)](./102-binary-flight-log-ingestion.md) | planned |
 
@@ -128,7 +129,7 @@ New capabilities should work *with* existing pieces, not alongside them in isola
 
 ## Implemented tickets
 
-### Full list (57 tickets)
+### Full list (58 tickets)
 
 1. [001](./001-estimator-cli-and-envelope.md) Estimator CLI and envelope
 2. [002](./002-versioning-and-golden-fixtures.md) Versioning and golden fixtures
@@ -187,3 +188,4 @@ New capabilities should work *with* existing pieces, not alongside them in isola
 55. [081](./081-flight-phase-segmentation.md) Flight phase segmentation
 56. [082](./082-predicted-vs-observed-validation-metrics.md) Predicted vs. observed validation metrics
 57. [098](./098-version-bump-and-release-tooling.md) Version bump and release tooling
+58. [083](./083-calibration-profile-data-and-fitting.md) Calibration profile data and fitting

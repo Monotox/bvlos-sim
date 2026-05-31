@@ -9,6 +9,33 @@ and this project adheres to semantic versioning once public releases begin.
 
 ### Added
 
+- Calibration profiles and parameter fitting (Ticket 083). A new `bvlos-sim
+  calibrate VEHICLE TRACE [TRACE ...]` command fits a narrow set of vehicle
+  performance parameters from observed flights and emits a versioned,
+  deterministic `calibration-profile.v1` artifact that *layers on* a base vehicle
+  (it references `base_vehicle_id`, never replacing the profile). It fits
+  `cruise_speed_mps` (mean transit-phase groundspeed), `climb_rate_mps` /
+  `descent_rate_mps` (mean vertical rate over climbing/descending records), and
+  `max_station_keep_wind_mps` (strongest wind held against in loiter dwell),
+  reusing Ticket 081 segmentation as the phase bridge and touching no core
+  estimator formula. Each fitted record carries the value, observed range, sample
+  spread, sample count, applicable conditions, and provenance (source trace IDs,
+  validation-report links, tool version); parameters with no samples are reported
+  in `notes`, never fabricated. Calibrations are opt-in everywhere via
+  `--calibration PATH` on `estimate`, `scenario`, and `validate`: the apply seam
+  overrides only the fitted fields on a re-validated vehicle copy, leaves behaviour
+  unchanged when absent, and rejects a `base_vehicle_id` mismatch as invalid input.
+  Output is a Markdown report or the `calibration-profile.v1` envelope
+  (`--format json`); the fit is deterministic. New public API:
+  `adapters.calibration.fit_calibration_profile`, `apply_calibration`,
+  `load_and_apply_calibration`, `write_calibration_profile`,
+  `load_calibration_profile`, `CalibrationInput`, `CalibrationMismatchError`. New
+  schemas exported from `schemas`: `CalibrationProfile`, `CalibratedParameter`,
+  `CalibratedParameterName`, `CalibrationProvenance`,
+  `CALIBRATION_PROFILE_SCHEMA_VERSION`. Adds a worked example under
+  `examples/calibration/`. Energy-coefficient fitting and online auto-tuning remain
+  out of scope.
+
 - Version bump and release tooling (Ticket 098). A new `bvlos-sim bump
   <major|minor|patch>` command performs a release-ready version bump atomically:
   it updates `pyproject.toml` and rolls `CHANGELOG.md` (renaming `[Unreleased]`

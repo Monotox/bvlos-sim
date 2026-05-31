@@ -116,6 +116,20 @@ uv run bvlos-sim propagate \
   --format summary
 ```
 
+Fit a calibration profile from an observed flight and run calibrated:
+
+```bash
+uv run bvlos-sim calibrate \
+  examples/vehicles/quadplane_v1.yaml \
+  examples/flight_logs/pipeline_demo_001_trace.json \
+  --format json -o /tmp/quadplane_v1_calibration.json
+
+uv run bvlos-sim estimate \
+  examples/missions/pipeline_demo_001.yaml \
+  examples/vehicles/quadplane_v1.yaml \
+  --calibration /tmp/quadplane_v1_calibration.json
+```
+
 For SITL evidence recording and comparison against ArduPilot, see
 [SITL adapter contract](./docs/SITL_ADAPTER_CONTRACT.md).
 
@@ -142,6 +156,7 @@ Full usage details are in [docs/USAGE.md](./docs/USAGE.md).
 - `compare`: compare a SITL evidence bundle against deterministic scenario expectations
 - `sora`: SORA Ground Risk, Air Risk, and SAIL pre-assessment
 - `validate`: compare a predicted mission estimate against an observed flight trace
+- `calibrate`: fit a calibration profile from a base vehicle and observed flight traces
 
 `compare` exits `0` for a passing comparison and `10` for drifted, failed, or
 unsupported comparison summaries.
@@ -189,8 +204,15 @@ against the estimator's legs on shared phase keys. The report gives
 predicted-vs-observed time, horizontal distance, mean groundspeed, and reserve
 at landing — at both mission and per-phase level, each with absolute and percent
 error. This is how you measure where the model is accurate and where it drifts on
-your own aircraft. Calibrating the model from those residuals is the next step on
-the [calibration & validation track](./docs/tickets/README.md#calibration--validation-track).
+your own aircraft.
+
+`bvlos-sim calibrate VEHICLE.yaml TRACE.json` closes that gap: it fits cruise
+speed, climb and descent rate, and station-keep wind authority from the same
+observed flights and emits a versioned, deterministic `calibration-profile.v1`
+artifact that layers on the base vehicle. Pass it back with `--calibration` to
+run `estimate`, `scenario`, or `validate` against calibrated performance — opt-in,
+and a no-op when omitted. Held-out validation is the remaining step on the
+[calibration & validation track](./docs/tickets/README.md#calibration--validation-track).
 
 ### Output formats
 

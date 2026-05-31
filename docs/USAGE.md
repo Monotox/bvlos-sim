@@ -23,7 +23,7 @@ uv run bvlos-sim --help
 
 ## CLI Commands
 
-bvlos-sim exposes thirteen commands:
+bvlos-sim exposes fourteen commands:
 
 - `estimate`: run deterministic mission estimation and static feasibility checks
 - `size-battery`: compute the minimum battery capacity needed for feasibility
@@ -37,6 +37,7 @@ bvlos-sim exposes thirteen commands:
 - `compare`: compare a SITL evidence bundle against deterministic scenario expectations
 - `sora`: run the SORA pre-assessment (Ground Risk, Air Risk, and SAIL)
 - `validate`: compare a predicted mission estimate against an observed flight trace
+- `calibrate`: fit a calibration profile from a base vehicle and observed flight traces
 - `bump`: bump the project version and roll the changelog (release tooling)
 
 | Command | Exit 0 | Exit 10 | Exit 11 | Exit 12 | Exit 13 |
@@ -53,6 +54,7 @@ bvlos-sim exposes thirteen commands:
 | batch | all feasible | any infeasible | invalid input/run | - | internal error |
 | sora | success | - | invalid input | - | internal error |
 | validate | success | - | invalid input | - | internal error |
+| calibrate | success | - | invalid input | - | internal error |
 | bump | success / consistent | - | invalid input / drift | - | internal error |
 
 Mission-scoped functionality is exposed through `estimate` by mission and
@@ -930,6 +932,57 @@ write_flight_trace(trace, Path("my-flight-001_trace.json"))
 | `--validation-id` | `<trace_id>-validation` | Stable report identifier |
 | `--format` | `markdown` | `markdown` report or `json` (`validation-report.v1` envelope) |
 | `--output`, `-o` | stdout | Write the report to a file |
+
+## Calibration
+
+Where `validate` *measures* where the model drifts on your aircraft, `calibrate`
+*closes the gap*: it fits a narrow set of vehicle performance parameters from one
+or more observed flights and emits a versioned, deterministic
+`calibration-profile.v1` artifact that layers on the base vehicle.
+
+```bash
+uv run bvlos-sim calibrate \
+  examples/vehicles/quadplane_v1.yaml \
+  examples/flight_logs/pipeline_demo_001_trace.json
+```
+
+The command loads the base vehicle and one or more `flight-trace.v1` JSON files
+(from flight-log ingestion), segments each trace into flight phases, and fits:
+
+- `cruise_speed_mps` — mean groundspeed over transit-phase records,
+- `climb_rate_mps` / `descent_rate_mps` — mean vertical rate over climbing /
+  descending records,
+- `max_station_keep_wind_mps` — the strongest wind held against during loiter
+  dwell.
+
+Each fitted record carries the value, the observed range, the sample spread,
+the sample count, the applicable conditions, and provenance (source trace IDs,
+tool version, dataset version). Parameters with no supporting samples are listed
+in `notes`, never fabricated. Energy coefficients are not yet fit. The fit is
+deterministic: identical inputs produce byte-identical canonical JSON.
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--calibration-id` | `<vehicle_id>-calibration` | Stable artifact identifier |
+| `--format` | `markdown` | `markdown` report or `json` (`calibration-profile.v1` envelope) |
+| `--output`, `-o` | stdout | Write the artifact to a file |
+
+### Running calibrated
+
+A calibration artifact is opt-in everywhere via `--calibration PATH`: it overrides
+only the fitted vehicle fields and never changes behaviour when absent. The
+artifact's `base_vehicle_id` must match the vehicle's `vehicle_id` (a mismatch is
+rejected as invalid input).
+
+```bash
+# Estimate, scenario, and validate all accept --calibration
+uv run bvlos-sim estimate mission.yaml vehicle.yaml --calibration cal.json
+uv run bvlos-sim scenario scenario.yaml --calibration cal.json
+uv run bvlos-sim validate mission.yaml vehicle.yaml trace.json --calibration cal.json
+```
+
+See `examples/calibration/` for a full ingestion → segmentation → fitting →
+apply walkthrough.
 
 ## Releasing (`bump`)
 

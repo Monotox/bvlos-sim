@@ -6,6 +6,7 @@ import typer
 from pydantic import ValidationError
 
 import adapters.cli as cli
+from adapters.calibration import load_and_apply_calibration
 from adapters.assets.geofence_geojson import GeofenceLoadError
 from adapters.assets.landing_zone_geojson import LandingZoneLoadError
 from adapters.assets.obstacle_geojson import ObstacleLoadError
@@ -51,6 +52,18 @@ def validate(
         "--validation-id",
         help="Stable validation report identifier. Defaults to <trace_id>-validation.",
     ),
+    calibration: Path | None = typer.Option(
+        None,
+        "--calibration",
+        exists=True,
+        readable=True,
+        resolve_path=True,
+        help=(
+            "Optional calibration-profile.v1 JSON to layer on the vehicle before "
+            "estimating. Overrides matching performance fields; must reference this "
+            "vehicle_id."
+        ),
+    ),
     format: cli.DocumentOutputFormat = typer.Option(
         cli.DocumentOutputFormat.MARKDOWN,
         "--format",
@@ -67,6 +80,8 @@ def validate(
     try:
         mission_model, mission_document = load_mission(mission)
         vehicle_model, _vehicle_document = load_vehicle(vehicle)
+        if calibration is not None:
+            vehicle_model = load_and_apply_calibration(vehicle_model, calibration)
         normalized_trace, _trace_document = load_flight_trace(trace)
 
         _populate_mission_assets(

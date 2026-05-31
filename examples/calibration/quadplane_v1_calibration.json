@@ -1,0 +1,47 @@
+{
+  "base_vehicle_id": "quadplane_v1",
+  "calibration_id": "quadplane_v1-calibration",
+  "notes": [
+    "descent_rate_mps not fit: no descending records (vertical rate <= -0.5 m/s) with altitude.",
+    "max_station_keep_wind_mps not fit: no loiter-dwell records holding position with a wind estimate."
+  ],
+  "parameters": [
+    {
+      "applicable_conditions": [
+        "AMSL band 410.0 to 430.0 m"
+      ],
+      "calibration_dataset_version": "ds-1-13fb7d6f41e6",
+      "confidence_high": 2.5,
+      "confidence_low": 2.5,
+      "derivation": "mean positive vertical rate over climbing trace records",
+      "fitted_value": 2.5,
+      "parameter": "climb_rate_mps",
+      "sample_count": 2,
+      "spread": 0.0,
+      "unit": "m/s"
+    },
+    {
+      "applicable_conditions": [
+        "observed wind speed up to 1.70 m/s"
+      ],
+      "calibration_dataset_version": "ds-1-13fb7d6f41e6",
+      "confidence_high": 18.0,
+      "confidence_low": 18.0,
+      "derivation": "mean groundspeed over transit-phase trace records",
+      "fitted_value": 18.0,
+      "parameter": "cruise_speed_mps",
+      "sample_count": 24,
+      "spread": 0.0,
+      "unit": "m/s"
+    }
+  ],
+  "provenance": {
+    "calibration_dataset_version": "ds-1-13fb7d6f41e6",
+    "source_trace_ids": [
+      "pipeline-demo-001-obs"
+    ],
+    "tool_version": "0.32.0",
+    "validation_report_ids": []
+  },
+  "schema_version": "calibration-profile.v1"
+}
