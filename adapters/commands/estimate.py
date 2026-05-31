@@ -6,6 +6,7 @@ from pathlib import Path
 import typer
 
 import adapters.cli as cli
+from adapters.calibration import load_and_apply_calibration
 from adapters.cli_support import (
     MissionAssetBundle,
     OutputWriteError,
@@ -277,6 +278,17 @@ def estimate(
         help="Output format. Use summary for a one-line result, checklist for pre-flight go/no-go, sensitivity for a reserve sweep, or ground-risk for SORA iGRC.",
     ),
     output: Path | None = typer.Option(None, "--output", "-o", help="Write output to file instead of stdout."),
+    calibration: Path | None = typer.Option(
+        None,
+        "--calibration",
+        exists=True,
+        readable=True,
+        resolve_path=True,
+        help=(
+            "Optional calibration-profile.v1 JSON to layer on the vehicle. "
+            "Overrides matching performance fields; must reference this vehicle_id."
+        ),
+    ),
     wind_layer: list[str] | None = typer.Option(
         None,
         "--wind-layer",
@@ -337,6 +349,8 @@ def estimate(
         )
         mission_model, mission_document = load_mission(mission)
         vehicle_model, vehicle_document = load_vehicle(vehicle)
+        if calibration is not None:
+            vehicle_model = load_and_apply_calibration(vehicle_model, calibration)
         if validate_only:
             typer.echo(f"mission: {mission.name}: OK")
             typer.echo(f"vehicle: {vehicle.name}: OK")

@@ -7,6 +7,7 @@ from typing import Protocol
 import typer
 
 import adapters.cli as cli
+from adapters.calibration import load_and_apply_calibration
 from adapters.cli_support import (
     MissionAssetBundle,
     OutputWriteError,
@@ -165,6 +166,17 @@ def scenario(
         help="Output format. Use summary for a one-line result, checklist for pre-flight go/no-go.",
     ),
     output: Path | None = typer.Option(None, "--output", "-o", help="Write output to file instead of stdout."),
+    calibration: Path | None = typer.Option(
+        None,
+        "--calibration",
+        exists=True,
+        readable=True,
+        resolve_path=True,
+        help=(
+            "Optional calibration-profile.v1 JSON to layer on the vehicle. "
+            "Overrides matching performance fields; must reference this vehicle_id."
+        ),
+    ),
     validate_only: bool = typer.Option(
         False,
         "--validate-only",
@@ -200,6 +212,8 @@ def scenario(
         )
         mission_model, mission_document = load_mission(mission_path)
         vehicle_model, vehicle_document = load_vehicle(vehicle_path)
+        if calibration is not None:
+            vehicle_model = load_and_apply_calibration(vehicle_model, calibration)
         if validate_only:
             typer.echo(f"scenario: {scenario_file.name}: OK")
             typer.echo(f"mission: {mission_path.name}: OK")

@@ -111,6 +111,13 @@ from schemas.phase_segment import (
     TracePhase,
 )
 from schemas.vehicle_energy import UsableCapacityPoint
+from schemas.calibration import (
+    CALIBRATION_PROFILE_SCHEMA_VERSION,
+    CalibratedParameter,
+    CalibratedParameterName,
+    CalibrationProfile,
+    CalibrationProvenance,
+)
 from schemas.validation import (
     VALIDATION_REPORT_SCHEMA_VERSION,
     MetricComparison,
@@ -209,6 +216,11 @@ __all__ = [
     "SegmentationMetadata",
     "TracePhase",
     "UsableCapacityPoint",
+    "CALIBRATION_PROFILE_SCHEMA_VERSION",
+    "CalibratedParameter",
+    "CalibratedParameterName",
+    "CalibrationProfile",
+    "CalibrationProvenance",
     "VALIDATION_REPORT_SCHEMA_VERSION",
     "MetricComparison",
     "MissionValidationMetrics",

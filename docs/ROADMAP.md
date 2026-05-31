@@ -489,11 +489,11 @@ through observed flight data.
 
 Planned work:
 
-- flight log ingestion
-- trace normalization
-- flight phase segmentation
-- predicted-vs-observed metrics
-- calibration profile fitting
+- flight log ingestion (done, Ticket 080)
+- trace normalization (done, Ticket 080)
+- flight phase segmentation (done, Ticket 081)
+- predicted-vs-observed metrics (done, Ticket 082)
+- calibration profile fitting (done, Ticket 083)
 - holdout validation reports
 
 SITL is not a substitute for real-world validation. SITL checks behavioral
