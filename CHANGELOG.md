@@ -9,6 +9,24 @@ and this project adheres to semantic versioning once public releases begin.
 
 ### Added
 
+- Predicted-vs-observed validation metrics (Ticket 082). The new `bvlos-sim
+  validate MISSION VEHICLE TRACE` command compares a deterministic mission
+  estimate against an observed flight trace (`flight-trace.v1` from flight-log
+  ingestion). It segments the trace into flight phases and lines predicted legs
+  up with observed segments on their shared estimator leg-phase, then reports
+  predicted-vs-observed time, horizontal distance (WGS-84 geodesic), mean
+  groundspeed, and reserve at landing — at mission and per-phase level, each with
+  absolute and percent error. Observed phases with no estimator counterpart and
+  missing observed fields are reported in `notes`, never silently dropped. Output
+  is a Markdown report or the versioned `validation-report.v1` envelope
+  (`--format json`); the comparison is deterministic. New public API:
+  `adapters.validation.build_validation_report`, `write_validation_report`,
+  `load_validation_report`. New schemas exported from `schemas`: `ValidationReport`,
+  `MissionValidationMetrics`, `PhaseValidation`, `MetricComparison`,
+  `VALIDATION_REPORT_SCHEMA_VERSION`. Adds an example flight log and ingested trace
+  under `examples/flight_logs/`. No changes to existing estimate, scenario, SITL,
+  or SORA surfaces.
+
 - Flight phase segmentation (Ticket 081). A `NormalizedFlightTrace` can now be
   deterministically segmented into contiguous `PhaseSegment` blocks using a
   mode-first algorithm: ArduPilot flight mode strings (TAKEOFF, RTL, LAND, LOITER,
