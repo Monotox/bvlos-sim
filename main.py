@@ -1,7 +1,10 @@
-from adapters.cli import app
+"""Entry point for the bvlos-sim CLI."""
+
+from adapters.cli import app, install_cancellation_handlers
 
 
 def main() -> None:
+    install_cancellation_handlers()
     app()
 
 

@@ -1,7 +1,9 @@
 """Typer CLI adapter for estimator execution."""
 
 import json
+import signal
 from enum import IntEnum, StrEnum
+from types import FrameType
 from typing import NoReturn
 
 import typer
@@ -22,6 +24,7 @@ class CliExitCode(IntEnum):
     INVALID_INPUT = 11
     UNSUPPORTED = 12
     INTERNAL_ERROR = 13
+    CANCELLED = 14
 
 
 class ScenarioExitCode(IntEnum):
@@ -74,10 +77,33 @@ __all__ = [
     "ScenarioExitCode",
     "SoraOutputFormat",
     "SummaryOutputFormat",
+    "install_cancellation_handlers",
     "run_monte_carlo",
     "run_stochastic_propagation",
     "try_estimate_mission_distance_time",
 ]
+
+
+def _handle_cancellation_signal(signum: int, _frame: FrameType | None) -> NoReturn:
+    """Exit with the documented CANCELLED code on SIGTERM/SIGINT.
+
+    Atomic output writes (Ticket 104) guarantee no partial ``--output`` file is
+    left behind; this just turns an interrupt into a defined exit code instead of
+    the shell's default (``143`` for SIGTERM, ``130`` for SIGINT) so a backend
+    worker can branch on it. ``raise SystemExit`` unwinds the stack, running
+    ``finally`` blocks and context managers.
+    """
+    raise SystemExit(int(CliExitCode.CANCELLED))
+
+
+def install_cancellation_handlers() -> None:
+    """Route SIGTERM and SIGINT to the CANCELLED exit code.
+
+    Called from the console-script entrypoint, not at import, so the in-process
+    Typer test runner keeps Python's default ``KeyboardInterrupt`` behaviour.
+    """
+    signal.signal(signal.SIGTERM, _handle_cancellation_signal)
+    signal.signal(signal.SIGINT, _handle_cancellation_signal)
 
 
 def _version_callback(value: bool) -> None:

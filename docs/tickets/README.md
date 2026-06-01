@@ -1,6 +1,6 @@
 # Ticket Backlog
 
-**59 implemented · 19 planned · 1230 tests passing**
+**60 implemented · 18 planned · 1237 tests passing**
 
 This directory tracks every capability from idea to implementation. Completed
 tickets are kept as historical records. Open tickets describe what to build
@@ -53,7 +53,6 @@ worker depends on.
 
 | # | Ticket | What it adds |
 |---|---|---|
-| 104 | [Atomic output writes and clean cancellation](./104-atomic-output-writes-and-cancellation.md) | Temp-then-`os.replace` output so a killed run never leaves a partial file; `SIGTERM` exit code |
 | 105 | [Contract-version discovery command](./105-contract-version-discovery-command.md) | `schema-versions` command printing supported input/output contract versions without running a job |
 | 106 | [Machine-readable run progress](./106-machine-readable-run-progress.md) | JSONL progress for `propagate`/`sample`/`batch` so a non-TTY worker can show live progress (extends 067) |
 | 107 | [Machine-readable preflight report](./107-machine-readable-preflight-report.md) | JSON `--validate-only` envelope plus GeoJSON asset preflight across run types (composes with 089) |
@@ -203,3 +202,4 @@ New capabilities should work *with* existing pieces, not alongside them in isola
 56. [082](./082-predicted-vs-observed-validation-metrics.md) Predicted vs. observed validation metrics
 57. [098](./098-version-bump-and-release-tooling.md) Version bump and release tooling
 58. [083](./083-calibration-profile-data-and-fitting.md) Calibration profile data and fitting
+59. [104](./104-atomic-output-writes-and-cancellation.md) Atomic output writes and clean cancellation

@@ -6,6 +6,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
+from adapters.atomic_write import atomic_write_text
 from adapters.canonical_json import render_canonical_json
 from adapters.io import (
     InputDocument,
@@ -21,7 +22,7 @@ from schemas.validation import ValidationReport
 def write_validation_report(report: ValidationReport, path: Path) -> None:
     """Write a validation report to a JSON file with canonical formatting."""
     payload = report.model_dump(mode="json")
-    path.write_text(render_canonical_json(payload), encoding="utf-8")
+    atomic_write_text(path, render_canonical_json(payload))
 
 
 def load_validation_report(path: Path) -> tuple[ValidationReport, InputDocument]:

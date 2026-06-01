@@ -6,6 +6,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
+from adapters.atomic_write import atomic_write_text
 from adapters.calibration.apply import CalibrationMismatchError, apply_calibration
 from adapters.canonical_json import render_canonical_json
 from adapters.io import (
@@ -23,7 +24,7 @@ from schemas.vehicle import VehicleProfile
 def write_calibration_profile(profile: CalibrationProfile, path: Path) -> None:
     """Write a calibration profile to a JSON file with canonical formatting."""
     payload = profile.model_dump(mode="json")
-    path.write_text(render_canonical_json(payload), encoding="utf-8")
+    atomic_write_text(path, render_canonical_json(payload))
 
 
 def load_calibration_profile(

@@ -9,6 +9,15 @@ and this project adheres to semantic versioning once public releases begin.
 
 ### Added
 
+- Atomic output writes and clean cancellation (Ticket 104). Every `--output`
+  write and every on-disk artifact writer (flight trace, phase segments,
+  validation report, calibration profile, SITL artifacts) now writes to a sibling
+  temp file, `fsync`s, and `os.replace`s it onto the target, so a killed or
+  interrupted run never leaves a truncated file — the destination is either the
+  prior content or absent. A new `CliExitCode.CANCELLED` (`14`) is returned when a
+  run receives `SIGTERM`/`SIGINT`, installed by the console-script entrypoint, in
+  place of the shell defaults (`143`/`130`). The cancellation contract is
+  documented in `docs/CLI_EXIT_CODES.md` and `docs/VERSIONING_POLICY.md`.
 - Calibration profiles and parameter fitting (Ticket 083). A new `bvlos-sim
   calibrate VEHICLE TRACE [TRACE ...]` command fits a narrow set of vehicle
   performance parameters from observed flights and emits a versioned,

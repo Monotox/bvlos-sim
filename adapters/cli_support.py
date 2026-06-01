@@ -15,6 +15,7 @@ from adapters.envelope import (
     OutputFormat,
     render_envelope_json,
 )
+from adapters.atomic_write import atomic_write_text
 from adapters.assets.geofence_geojson import GeofenceLoadError, load_geofences
 from adapters.assets.obstacle_geojson import ObstacleLoadError, load_obstacles
 from adapters.io import (
@@ -23,7 +24,10 @@ from adapters.io import (
     InputLoadStage,
     validation_error_summary,
 )
-from adapters.assets.landing_zone_geojson import LandingZoneLoadError, load_landing_zones
+from adapters.assets.landing_zone_geojson import (
+    LandingZoneLoadError,
+    load_landing_zones,
+)
 from adapters.assets.population_grid import load_population_grid
 from adapters.checklist_markdown import (
     render_checklist_markdown,
@@ -46,7 +50,12 @@ from adapters.stochastic_envelope import (
     render_stochastic_envelope_json,
 )
 from adapters.stochastic_markdown import render_stochastic_markdown
-from adapters.summary import format_estimate_summary, format_scenario_summary, format_stochastic_summary, format_uncertainty_summary
+from adapters.summary import (
+    format_estimate_summary,
+    format_scenario_summary,
+    format_stochastic_summary,
+    format_uncertainty_summary,
+)
 from adapters.assets.terrain_grid import load_terrain_grid
 from adapters.uncertainty_envelope import (
     UncertaintyResultEnvelope,
@@ -204,6 +213,7 @@ _SCENARIO_RENDERERS: dict[OutputFormat, ScenarioEnvelopeRenderer] = {
     OutputFormat.GROUND_RISK: render_ground_risk_markdown_from_scenario,
 }
 
+
 def _render_uncertainty_summary(envelope: UncertaintyResultEnvelope) -> str:
     return format_uncertainty_summary(envelope.result)
 
@@ -213,6 +223,7 @@ _UNCERTAINTY_RENDERERS: dict[OutputFormat, UncertaintyEnvelopeRenderer] = {
     OutputFormat.MARKDOWN: render_uncertainty_markdown,
     OutputFormat.SUMMARY: _render_uncertainty_summary,
 }
+
 
 def _render_stochastic_summary(envelope: StochasticResultEnvelope) -> str:
     return format_stochastic_summary(envelope.result)
@@ -506,7 +517,7 @@ def _write_output(rendered: str, output: Path | None) -> None:
         if output is None:
             typer.echo(rendered, nl=False)
             return
-        output.write_text(rendered, encoding="utf-8")
+        atomic_write_text(output, rendered)
     except OSError as exc:
         raise OutputWriteError("Failed to write output.") from exc
 

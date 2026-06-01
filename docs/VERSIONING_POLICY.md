@@ -24,7 +24,8 @@ Current public contracts:
 - SITL evidence bundle: `sitl-evidence.v1`
 - SITL comparison report: `sitl-comparison.v1`
 - CLI exit-code semantics (enumerated per command in
-  [`CLI_EXIT_CODES.md`](CLI_EXIT_CODES.md))
+  [`CLI_EXIT_CODES.md`](CLI_EXIT_CODES.md)), including the `14` (`CANCELLED`)
+  signal-abort code and the atomic-output-write guarantee
 - supported Markdown report shape covered by golden fixtures
 
 Internal module layout is not a public contract. Refactors are allowed when the

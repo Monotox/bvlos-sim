@@ -18,11 +18,28 @@ divergences below are intentional and are called out explicitly.
 | `11` | `INVALID_INPUT`  | Input files, arguments, or referenced assets failed to load or validate. |
 | `12` | `UNSUPPORTED`    | The requested computation is not supported for these inputs.        |
 | `13` | `INTERNAL_ERROR` | An output could not be written, or an unexpected error occurred.    |
+| `14` | `CANCELLED`      | The run received `SIGTERM`/`SIGINT` and aborted; no output was written. |
 
 Every command returns `13` rather than a bare traceback (shell status `1`) when
 an unexpected exception escapes. A shell status `2` comes from the argument
 parser (Typer/Click) for malformed invocations (unknown option, missing
 argument); it is not one of the codes above.
+
+## Cancellation contract
+
+Any command may receive `SIGTERM` or `SIGINT` (e.g. a worker cancelling a job or
+enforcing a timeout). When it does:
+
+- The process exits `14` (`CANCELLED`) instead of the shell defaults (`143` for
+  `SIGTERM`, `130` for `SIGINT`), so a caller can branch on a defined code.
+- No `--output` file is left in a partial state. All on-disk writes go through an
+  atomic temp-file-then-`os.replace`, so an interrupted run leaves the
+  destination either at its prior content or absent — never truncated. A consumer
+  can therefore trust that any file that exists is complete.
+
+The `CANCELLED` code is only installed by the console-script entrypoint
+(`main:main`); importing the Typer app in-process (as the test runner does) keeps
+Python's default `KeyboardInterrupt` behaviour.
 
 ## Per-command exit codes
 

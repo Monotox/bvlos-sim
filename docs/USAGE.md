@@ -64,6 +64,11 @@ the body, never `10`), `scenario` has no `12` (every non-passed outcome collapse
 to `10`), and `estimate` returns `11` for a computed invalid-input failure even
 when the input files are valid.
 
+A run interrupted by `SIGTERM`/`SIGINT` exits `14` (`CANCELLED`) and writes no
+output file. All `--output` writes are atomic (temp file then `os.replace`), so
+an interrupted run never leaves a truncated file — the destination is either the
+prior content or absent.
+
 Mission-scoped functionality is exposed through `estimate` by mission and
 vehicle YAML: fidelity settings, terrain, wind grids, geofences, landing zones,
 obstacles, resource systems, communication links, energy feasibility, and route
