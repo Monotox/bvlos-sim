@@ -125,6 +125,12 @@ from schemas.validation import (
     PhaseValidation,
     ValidationReport,
 )
+from schemas.preflight_validation import (
+    PREFLIGHT_VALIDATION_SCHEMA_VERSION,
+    FileCheck,
+    PreflightError,
+    PreflightValidationReport,
+)
 
 __all__ = [
     "Airspace",
@@ -226,6 +232,10 @@ __all__ = [
     "MissionValidationMetrics",
     "PhaseValidation",
     "ValidationReport",
+    "PREFLIGHT_VALIDATION_SCHEMA_VERSION",
+    "FileCheck",
+    "PreflightError",
+    "PreflightValidationReport",
     "VehicleCapabilities",
     "VehicleClass",
     "VehicleProfile",
