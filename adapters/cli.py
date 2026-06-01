@@ -56,6 +56,11 @@ class SoraOutputFormat(StrEnum):
     MARKDOWN = "markdown"
 
 
+class ProgressFormat(StrEnum):
+    NONE = "none"
+    JSONL = "jsonl"
+
+
 _DOCUMENT_OUTPUT_FORMATS: dict[DocumentOutputFormat, OutputFormat] = {
     DocumentOutputFormat.JSON: OutputFormat.JSON,
     DocumentOutputFormat.MARKDOWN: OutputFormat.MARKDOWN,
@@ -74,6 +79,7 @@ __all__ = [
     "BatchOutputFormat",
     "CliExitCode",
     "DocumentOutputFormat",
+    "ProgressFormat",
     "ScenarioExitCode",
     "SoraOutputFormat",
     "SummaryOutputFormat",

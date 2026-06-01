@@ -13,10 +13,15 @@ from adapters.batch_support import (
     render_batch_table,
     run_batch_manifest,
 )
-from adapters.cli_batch_support import BatchOutputFormat, _batch_exit_code, write_batch_outputs
+from adapters.cli_batch_support import (
+    BatchOutputFormat,
+    _batch_exit_code,
+    write_batch_outputs,
+)
 from adapters.cli_support import OutputWriteError, _write_output
 from adapters.envelope import OutputFormat
 from adapters.io import InputLoadError, load_mission, load_vehicle
+from adapters.progress import progress_reporter
 
 
 BatchStdoutRenderer = Callable[[list[BatchRunResult]], str]
@@ -25,7 +30,9 @@ _BATCH_STDOUT_RENDERERS: dict[BatchOutputFormat, BatchStdoutRenderer] = {
     BatchOutputFormat.CSV: render_batch_csv,
 }
 _BATCH_FILE_OUTPUT_FORMATS = frozenset(
-    output_format for output_format in BatchOutputFormat if output_format != BatchOutputFormat.CSV
+    output_format
+    for output_format in BatchOutputFormat
+    if output_format != BatchOutputFormat.CSV
 )
 
 
@@ -71,11 +78,25 @@ def _validate_batch_manifest(manifest: Path) -> None:
 
 def batch(
     manifest: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True),
-    output_dir: Path | None = typer.Option(None, "--output-dir", help="Directory for per-run output files. Required when --format is not csv or summary."),
+    output_dir: Path | None = typer.Option(
+        None,
+        "--output-dir",
+        help="Directory for per-run output files. Required when --format is not csv or summary.",
+    ),
     format: BatchOutputFormat = typer.Option(
         BatchOutputFormat.SUMMARY,
         "--format",
         help="Stdout format. Use csv for spreadsheet import. Use --output-dir with json/markdown/geojson/kml/checklist/profile to write per-run files.",
+    ),
+    progress_format: cli.ProgressFormat = typer.Option(
+        cli.ProgressFormat.NONE,
+        "--progress-format",
+        help="Emit machine-readable progress. Use jsonl for one JSON record per run on stderr.",
+    ),
+    progress_file: Path | None = typer.Option(
+        None,
+        "--progress-file",
+        help="Write JSONL progress to this file instead of stderr (implies --progress-format jsonl).",
     ),
     validate_only: bool = typer.Option(
         False,
@@ -100,7 +121,12 @@ def batch(
                 err=True,
             )
         batch_manifest = load_batch_manifest(manifest)
-        results = run_batch_manifest(batch_manifest)
+        with progress_reporter(
+            "batch",
+            enabled=progress_format is cli.ProgressFormat.JSONL,
+            progress_file=progress_file,
+        ) as reporter:
+            results = run_batch_manifest(batch_manifest, progress=reporter)
         _emit_batch_warnings(results)
         _write_batch_file_outputs(
             output_dir=output_dir,

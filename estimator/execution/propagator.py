@@ -5,7 +5,7 @@ Implementation is split across estimator/execution/propagation/.
 """
 
 import random
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 from estimator.core.enums import EstimateStatus
 from estimator.core.geofence import GeofenceZone
@@ -17,7 +17,10 @@ from estimator.environment.wind import WindProvider
 from estimator.execution.propagation.curves import PositionInterpolator
 from estimator.execution.propagation.sampling import EstimatorInputs, ParticleSampler
 from estimator.execution.propagation.stats import compute_stats, feasibility_rate
-from estimator.execution.propagation.timeline import TimelineBuilder, reserve_threshold_wh
+from estimator.execution.propagation.timeline import (
+    TimelineBuilder,
+    reserve_threshold_wh,
+)
 from schemas.mission import MissionPlan
 from schemas.stochastic import StochasticPropagationPlan, StochasticPropagationResult
 from schemas.vehicle import VehicleProfile
@@ -34,6 +37,7 @@ def run_stochastic_propagation(
     obstacle_provider: ObstacleProvider | None = None,
     geofences: Sequence[GeofenceZone] | None = None,
     landing_zones: Sequence[LandingZone] | None = None,
+    progress: Callable[[int, int], None] | None = None,
 ) -> StochasticPropagationResult:
     """Run seeded stochastic state propagation and return a timeline report."""
     estimator_inputs = EstimatorInputs(
@@ -54,7 +58,9 @@ def run_stochastic_propagation(
             if failure is not None
             else "Baseline mission estimate failed before propagation could start."
         )
-        raise ValueError(f"Stochastic propagation requires a feasible baseline: {message}")
+        raise ValueError(
+            f"Stochastic propagation requires a feasible baseline: {message}"
+        )
 
     rng = random.Random(plan.seed)
     population = ParticleSampler(
@@ -64,6 +70,7 @@ def run_stochastic_propagation(
         rng=rng,
         sensors=vehicle.sensors,
         controller=vehicle.controller,
+        progress=progress,
     ).run()
 
     threshold_wh = reserve_threshold_wh(baseline)

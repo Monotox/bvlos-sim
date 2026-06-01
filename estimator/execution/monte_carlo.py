@@ -2,7 +2,7 @@
 
 import random
 import statistics as stats_module
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 from estimator.core.enums import EstimateStatus
 from estimator.core.geofence import GeofenceZone
@@ -61,6 +61,7 @@ def run_monte_carlo(
     obstacle_provider: ObstacleProvider | None = None,
     geofences: Sequence[GeofenceZone] | None = None,
     landing_zones: Sequence[LandingZone] | None = None,
+    progress: Callable[[int, int], None] | None = None,
 ) -> MonteCarloResult:
     """Run a seeded Monte Carlo uncertainty analysis and return aggregated results.
 
@@ -91,7 +92,9 @@ def run_monte_carlo(
             if failure is not None
             else "Baseline mission estimate failed before sampling could start."
         )
-        raise ValueError(f"Monte Carlo sampling requires a feasible baseline: {message}")
+        raise ValueError(
+            f"Monte Carlo sampling requires a feasible baseline: {message}"
+        )
 
     rng = random.Random(plan.seed)
 
@@ -102,7 +105,7 @@ def run_monte_carlo(
     energy_sample_count = 0
     failed = 0
 
-    for _ in range(plan.samples):
+    for sample_index in range(plan.samples):
         sampled_wind_east = (
             _sample(rng, params.wind_east_mps) if params.wind_east_mps else None
         )
@@ -145,15 +148,17 @@ def run_monte_carlo(
         )
         if result.status == EstimateStatus.ERROR:
             failed += 1
-            continue
+        else:
+            times.append(result.total_time_s)
+            if result.energy is not None:
+                energy_sample_count += 1
+                reserves_wh.append(result.energy.reserve_at_landing_wh)
+                reserves_pct.append(result.energy.reserve_at_landing_percent)
+                if result.energy.is_feasible:
+                    feasible_count += 1
 
-        times.append(result.total_time_s)
-        if result.energy is not None:
-            energy_sample_count += 1
-            reserves_wh.append(result.energy.reserve_at_landing_wh)
-            reserves_pct.append(result.energy.reserve_at_landing_percent)
-            if result.energy.is_feasible:
-                feasible_count += 1
+        if progress is not None:
+            progress(sample_index + 1, plan.samples)
 
     completed = plan.samples - failed
     feasibility_rate = (

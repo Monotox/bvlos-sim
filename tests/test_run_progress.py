@@ -1,0 +1,194 @@
+"""Tests for machine-readable run progress (Ticket 106).
+
+Covers the JSONL progress side-channel on ``sample``, ``propagate``, and
+``batch``: record shape, monotonic ``completed`` with a final ``completed ==
+total`` record, that progress never leaks into the ``--output`` stream, that the
+feature is off by default, and a direct callback contract on ``run_monte_carlo``.
+"""
+
+import json
+from pathlib import Path
+
+from typer.testing import CliRunner
+
+from adapters.cli import CliExitCode, app
+from adapters.io import load_mission, load_vehicle
+from adapters.uncertainty_io import (
+    load_uncertainty_plan,
+    resolve_uncertainty_asset_path,
+)
+from estimator.execution.monte_carlo import run_monte_carlo
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+EXAMPLE_UNCERTAINTY = (
+    REPO_ROOT / "examples/uncertainty/pipeline_demo_001_wind_uncertainty.yaml"
+)
+EXAMPLE_STOCHASTIC = REPO_ROOT / "examples/stochastic/pipeline_demo_001_stochastic.yaml"
+EXAMPLE_BATCH = REPO_ROOT / "examples/batch/demo_batch.yaml"
+
+runner = CliRunner()
+
+
+def _read_progress_records(path: Path) -> list[dict]:
+    lines = [line for line in path.read_text(encoding="utf-8").splitlines() if line]
+    return [json.loads(line) for line in lines]
+
+
+def _assert_valid_progress(records: list[dict], *, command: str, total: int) -> None:
+    assert records, "expected at least one progress record"
+    completions = []
+    for record in records:
+        assert record["event"] == "progress"
+        assert record["command"] == command
+        assert record["total"] == total
+        assert isinstance(record["elapsed_s"], (int, float))
+        assert record["elapsed_s"] >= 0
+        completions.append(record["completed"])
+    # completed is strictly increasing and the final record reaches total.
+    assert all(b > a for a, b in zip(completions, completions[1:], strict=False))
+    assert completions[-1] == total
+
+
+# ---------------------------------------------------------------------------
+# CLI progress-file tests
+# ---------------------------------------------------------------------------
+
+
+def test_sample_progress_file_records(tmp_path: Path) -> None:
+    progress_path = tmp_path / "progress.jsonl"
+    output_path = tmp_path / "out.json"
+    result = runner.invoke(
+        app,
+        [
+            "sample",
+            str(EXAMPLE_UNCERTAINTY),
+            "--progress-file",
+            str(progress_path),
+            "--output",
+            str(output_path),
+        ],
+    )
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    records = _read_progress_records(progress_path)
+    _assert_valid_progress(records, command="sample", total=200)
+    # The output envelope must not contain progress framing.
+    assert '"event":"progress"' not in output_path.read_text(encoding="utf-8")
+    assert '"event": "progress"' not in output_path.read_text(encoding="utf-8")
+
+
+def test_propagate_progress_file_records(tmp_path: Path) -> None:
+    progress_path = tmp_path / "progress.jsonl"
+    output_path = tmp_path / "out.json"
+    result = runner.invoke(
+        app,
+        [
+            "propagate",
+            str(EXAMPLE_STOCHASTIC),
+            "--progress-file",
+            str(progress_path),
+            "--output",
+            str(output_path),
+        ],
+    )
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    records = _read_progress_records(progress_path)
+    _assert_valid_progress(records, command="propagate", total=100)
+    assert "progress" not in output_path.read_text(encoding="utf-8")
+
+
+def test_batch_progress_file_records(tmp_path: Path) -> None:
+    progress_path = tmp_path / "progress.jsonl"
+    result = runner.invoke(
+        app,
+        [
+            "batch",
+            str(EXAMPLE_BATCH),
+            "--progress-file",
+            str(progress_path),
+        ],
+    )
+    # The demo manifest includes an infeasible run, so the exit code is 10; the
+    # progress side-channel is independent of the feasibility verdict.
+    assert result.exit_code in {
+        int(CliExitCode.SUCCESS),
+        int(CliExitCode.INFEASIBLE),
+    }
+    records = _read_progress_records(progress_path)
+    _assert_valid_progress(records, command="batch", total=3)
+    # stdout carries the table, never progress framing.
+    assert '"event":"progress"' not in result.stdout
+
+
+# ---------------------------------------------------------------------------
+# stderr sink and off-by-default
+# ---------------------------------------------------------------------------
+
+
+def test_progress_to_stderr_not_stdout() -> None:
+    result = runner.invoke(
+        app,
+        ["sample", str(EXAMPLE_UNCERTAINTY), "--progress-format", "jsonl"],
+    )
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    assert '"event":"progress"' in result.stderr
+    # The result envelope on stdout stays clean JSON with no progress records.
+    payload = json.loads(result.stdout)
+    assert payload["schema_version"]
+    assert '"event":"progress"' not in result.stdout
+
+
+def test_progress_off_by_default_is_unchanged(tmp_path: Path) -> None:
+    baseline_out = tmp_path / "baseline.json"
+    progress_out = tmp_path / "with_progress.json"
+    progress_file = tmp_path / "progress.jsonl"
+
+    baseline = runner.invoke(
+        app, ["sample", str(EXAMPLE_UNCERTAINTY), "--output", str(baseline_out)]
+    )
+    with_progress = runner.invoke(
+        app,
+        [
+            "sample",
+            str(EXAMPLE_UNCERTAINTY),
+            "--output",
+            str(progress_out),
+            "--progress-file",
+            str(progress_file),
+        ],
+    )
+
+    assert baseline.exit_code == int(CliExitCode.SUCCESS)
+    assert with_progress.exit_code == int(CliExitCode.SUCCESS)
+    # Enabling progress does not change the result envelope at all.
+    assert baseline_out.read_bytes() == progress_out.read_bytes()
+    # A run with no progress flag emits no progress framing on stderr.
+    assert "progress" not in baseline.stderr
+
+
+# ---------------------------------------------------------------------------
+# Direct callback contract
+# ---------------------------------------------------------------------------
+
+
+def test_run_monte_carlo_invokes_callback_to_completion() -> None:
+    plan, _ = load_uncertainty_plan(EXAMPLE_UNCERTAINTY)
+    mission_path = resolve_uncertainty_asset_path(
+        plan.mission_file, uncertainty_path=EXAMPLE_UNCERTAINTY
+    )
+    vehicle_path = resolve_uncertainty_asset_path(
+        plan.vehicle_file, uncertainty_path=EXAMPLE_UNCERTAINTY
+    )
+    mission, _ = load_mission(mission_path)
+    vehicle, _ = load_vehicle(vehicle_path)
+
+    calls: list[tuple[int, int]] = []
+
+    def record(completed: int, total: int) -> None:
+        calls.append((completed, total))
+
+    run_monte_carlo(plan, mission, vehicle, progress=record)
+
+    assert calls, "callback should be invoked at least once"
+    completions = [completed for completed, _ in calls]
+    assert all(b >= a for a, b in zip(completions, completions[1:], strict=False))
+    assert calls[-1] == (plan.samples, plan.samples)
