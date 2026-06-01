@@ -9,6 +9,14 @@ and this project adheres to semantic versioning once public releases begin.
 
 ### Added
 
+- Contract-version discovery command (Ticket 105). A new read-only `bvlos-sim
+  schema-versions` command (alias `contracts`) prints the resolved `tool_version`
+  plus every supported output-envelope and input-schema version as canonical JSON
+  and exits `0` without loading any mission, vehicle, or asset file. A backend can
+  call it at startup to pin and check contract compatibility instead of running a
+  full job to read versions off an envelope. Every printed version is sourced from
+  the same module constant the envelopes emit (a drift test asserts this), so the
+  map cannot silently diverge from a real run. `--version` is unchanged.
 - Atomic output writes and clean cancellation (Ticket 104). Every `--output`
   write and every on-disk artifact writer (flight trace, phase segments,
   validation report, calibration profile, SITL artifacts) now writes to a sibling

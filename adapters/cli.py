@@ -167,6 +167,7 @@ def _register_commands() -> None:
     from adapters.commands.propagate import propagate
     from adapters.commands.sample import sample
     from adapters.commands.scenario import scenario
+    from adapters.commands.schema_versions import schema_versions
     from adapters.commands.sitl import sitl
     from adapters.commands.size_battery import size_battery
     from adapters.commands.sora import sora
@@ -186,6 +187,8 @@ def _register_commands() -> None:
     app.command()(validate)
     app.command()(calibrate)
     app.command()(bump)
+    app.command("schema-versions")(schema_versions)
+    app.command("contracts")(schema_versions)
 
 
 _register_commands()

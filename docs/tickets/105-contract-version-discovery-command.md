@@ -2,7 +2,7 @@
 
 ## Status
 
-Planned.
+Implemented.
 
 ## Goal
 
@@ -59,3 +59,71 @@ version discovery to a successful run.
   needs its own golden-fixture and version review: `_input_schema_versions()`
   omits `obstacles` (`adapters/envelope.py:504`), and the battery-sizing envelope
   carries no input schema-version field. Track them separately if pursued.
+
+## Implementation
+
+### New files
+
+| File | Purpose |
+|------|---------|
+| `adapters/commands/schema_versions.py` | The `schema_versions` command: builds the `tool_version` / `output_envelopes` / `input_schemas` map from imported constants and prints it as canonical JSON. |
+| `tests/test_schema_versions.py` | Exit-code, JSON-shape, drift-guard, alias-equivalence, no-file-argument, determinism, and `--version`-unchanged tests. |
+
+### Command and alias
+
+`schema-versions` is registered in `adapters/cli.py:_register_commands()` with
+both its canonical name and the `contracts` alias, mirroring how `size-battery`
+is registered with an explicit name:
+
+```python
+app.command("schema-versions")(schema_versions)
+app.command("contracts")(schema_versions)
+```
+
+The command takes no arguments or options. It loads nothing, calls
+`tool_version()`, renders the version map with `render_canonical_json` (sorted
+keys, stable float precision, trailing newline), and exits `0`. `--version` is
+untouched and still prints the plain `bvlos-sim <version>` line.
+
+### Constants sourced (no string is restated)
+
+Every printed version is imported from the module that owns it, so the map cannot
+drift from what a real run emits; `tests/test_schema_versions.py` asserts the
+printed value equals each imported constant.
+
+- Output envelopes: `RESULT_ENVELOPE_SCHEMA_VERSION`,
+  `SCENARIO_REPORT_SCHEMA_VERSION`, `UNCERTAINTY_REPORT_SCHEMA_VERSION`,
+  `STOCHASTIC_ENVELOPE_SCHEMA_VERSION`, `SORA_ENVELOPE_SCHEMA_VERSION`,
+  `BATTERY_SIZING_REPORT_SCHEMA_VERSION`, `SITL_EVIDENCE_SCHEMA_VERSION`,
+  `SITL_COMPARISON_SCHEMA_VERSION`.
+- Input schemas: `MISSION_SCHEMA_VERSION`, `VEHICLE_SCHEMA_VERSION`,
+  `GEOFENCE_SCHEMA_VERSION`, `LANDING_ZONE_SCHEMA_VERSION`,
+  `TERRAIN_SCHEMA_VERSION`, `POPULATION_SCHEMA_VERSION`, `WIND_GRID_SCHEMA_VERSION`,
+  `SCENARIO_INPUT_SCHEMA_VERSION`, `UNCERTAINTY_INPUT_SCHEMA_VERSION`,
+  `STOCHASTIC_INPUT_SCHEMA_VERSION`, and `batch.v1`.
+- `batch.v1` has no named module constant — it is a `Literal` field on
+  `schemas.batch.BatchManifest`. Rather than restate the string, the command (and
+  the test) extract it from the field annotation with
+  `typing.get_args(BatchManifest.model_fields["format_version"].annotation)[0]`,
+  so the discovery map stays bound to what the loader actually accepts.
+
+### Beyond the spec's eight output contracts
+
+The spec listed eight core output/envelope contracts. Five more report/artifact
+contracts have been added to the repo since this ticket was written; they are
+included for completeness, each sourced from its own constant:
+`VALIDATION_REPORT_SCHEMA_VERSION` (`validation-report.v1`),
+`CALIBRATION_PROFILE_SCHEMA_VERSION` (`calibration-profile.v1`),
+`FLIGHT_TRACE_SCHEMA_VERSION` (`flight-trace.v1`),
+`PHASE_SEGMENT_SCHEMA_VERSION` (`phase-segments.v1`), and
+`SORA_ASSESSMENT_SCHEMA_VERSION` (`sora-assessment.v1`). Including them does not
+complicate the drift test (each is just another `imported == printed` assertion),
+and it makes the discovery output a complete picture of the published contracts.
+
+### Deliberately left out
+
+The two data-completeness nits in the Notes above — the `obstacles` input-schema
+version omitted from the live envelope's `_input_schema_versions()`, and the
+missing battery-sizing input schema-version field — are out of scope here. Each
+would change a published envelope and needs its own golden-fixture and version
+review; the discovery command reports only what the envelopes emit today.

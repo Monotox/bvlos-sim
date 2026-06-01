@@ -23,7 +23,7 @@ uv run bvlos-sim --help
 
 ## CLI Commands
 
-bvlos-sim exposes fourteen commands:
+bvlos-sim exposes fifteen commands:
 
 - `estimate`: run deterministic mission estimation and static feasibility checks
 - `size-battery`: compute the minimum battery capacity needed for feasibility
@@ -38,6 +38,7 @@ bvlos-sim exposes fourteen commands:
 - `sora`: run the SORA pre-assessment (Ground Risk, Air Risk, and SAIL)
 - `validate`: compare a predicted mission estimate against an observed flight trace
 - `calibrate`: fit a calibration profile from a base vehicle and observed flight traces
+- `schema-versions` (alias `contracts`): print supported input/output contract versions as JSON
 - `bump`: bump the project version and roll the changelog (release tooling)
 
 | Command | Exit 0 | Exit 10 | Exit 11 | Exit 12 | Exit 13 |
@@ -55,6 +56,7 @@ bvlos-sim exposes fourteen commands:
 | sora | success | - | invalid input | - | internal error |
 | validate | success | - | invalid input | - | internal error |
 | calibrate | success | - | invalid input | - | internal error |
+| schema-versions | success | - | - | - | - |
 | bump | success / consistent | - | invalid input / drift | - | internal error |
 
 [`CLI_EXIT_CODES.md`](CLI_EXIT_CODES.md) is the authoritative per-command
@@ -995,6 +997,60 @@ uv run bvlos-sim validate mission.yaml vehicle.yaml trace.json --calibration cal
 
 See `examples/calibration/` for a full ingestion → segmentation → fitting →
 apply walkthrough.
+
+## Contract Discovery (`schema-versions`)
+
+`schema-versions` (alias `contracts`) prints the supported input and output
+contract versions plus the resolved `tool_version` as canonical JSON, then exits
+`0` without loading any mission, vehicle, or asset file. A backend can call it at
+startup to pin and check contract compatibility instead of running a full job to
+read the versions off an envelope.
+
+```bash
+uv run bvlos-sim schema-versions
+# alias:
+uv run bvlos-sim contracts
+```
+
+Sample output (versions sourced from the same constants the envelopes emit, so
+they cannot drift from a real run):
+
+```json
+{
+  "input_schemas": {
+    "batch": "batch.v1",
+    "geofences": "geofence-geojson.v1",
+    "landing_zones": "landing-zone-geojson.v1",
+    "mission": "mission.v6",
+    "population": "population-grid.v1",
+    "scenario": "scenario.v1",
+    "stochastic": "stochastic.v1",
+    "terrain": "terrain-grid.v1",
+    "uncertainty": "uncertainty.v1",
+    "vehicle": "vehicle.v4",
+    "wind_grid": "wind-grid.v1"
+  },
+  "output_envelopes": {
+    "battery_sizing_report": "battery-sizing-report.v1",
+    "calibration_profile": "calibration-profile.v1",
+    "estimator": "estimator-envelope.v7",
+    "flight_trace": "flight-trace.v1",
+    "phase_segments": "phase-segments.v1",
+    "scenario_report": "scenario-report.v2",
+    "sitl_comparison": "sitl-comparison.v1",
+    "sitl_evidence": "sitl-evidence.v1",
+    "sora_assessment": "sora-assessment.v1",
+    "sora_envelope": "sora-envelope.v1",
+    "stochastic_envelope": "stochastic-envelope.v1",
+    "uncertainty_report": "uncertainty-report.v1",
+    "validation_report": "validation-report.v1"
+  },
+  "tool_version": "0.32.0"
+}
+```
+
+The command is read-only and always exits `0`; `--version` is unchanged and
+still prints the plain `bvlos-sim <version>` line.
 
 ## Releasing (`bump`)
 
