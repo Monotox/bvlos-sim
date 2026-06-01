@@ -105,7 +105,12 @@ to a file.
 All commands that load input files support `--validate-only`: load
 and validate all input files against their schemas and exit without running the
 estimator. Exits 0 on success, 11 (invalid input) otherwise. Useful in CI to
-catch schema errors before long runs.
+catch schema errors before long runs. `estimate`, `scenario`, `sample`,
+`propagate`, `sora`, `size-battery`, and `batch` also validate referenced
+mission assets (geofence, landing-zone, terrain, population, obstacle,
+wind-grid) in this mode, so a broken asset path fails preflight instead of at
+run time. `calibrate`, `compare`, and `size-battery` accept `--validate-only`
+too.
 
 ```bash
 uv run bvlos-sim estimate mission.yaml vehicle.yaml --validate-only
@@ -121,6 +126,65 @@ uv run bvlos-sim batch manifest.yaml --validate-only
 uv run bvlos-sim convert plan.plan --vehicle-profile quadplane_v1 --validate-only
 # plan: plan.plan: OK (4 route items)
 ```
+
+### Preflight Validation (JSON)
+
+For a machine-readable preflight, add `--validate-format json` to any
+`--validate-only` run. Instead of plain-text "OK" lines it emits a
+`preflight-validation.v1` envelope with one entry per file (including referenced
+assets), so a backend can validate inputs before queuing a job and parse the
+result instead of scraping stdout. Plain text stays the default; the envelope is
+opt-in. Exit codes are unchanged: `0` when every file validates, `11` when any
+file fails.
+
+```bash
+uv run bvlos-sim estimate mission.yaml vehicle.yaml --validate-only --validate-format json
+```
+
+A passing run (`ok` is the AND over every file check; `generated_at` is always
+null so the output is deterministic):
+
+```json
+{
+  "command": "estimate",
+  "files": [
+    {"error": null, "ok": true, "path": "mission.yaml", "role": "mission", "stage": null},
+    {"error": null, "ok": true, "path": "vehicle.yaml", "role": "vehicle", "stage": null},
+    {"error": null, "ok": true, "path": "geofences/demo.geojson", "role": "geofence", "stage": null}
+  ],
+  "generated_at": null,
+  "ok": true,
+  "schema_version": "preflight-validation.v1"
+}
+```
+
+A failure pins the offending file with a stable `stage` (`schema`, `asset-load`,
+or `reference`) and `code`; a missing asset and a malformed one carry distinct
+codes:
+
+```json
+{
+  "command": "estimate",
+  "files": [
+    {"error": null, "ok": true, "path": "mission.yaml", "role": "mission", "stage": null},
+    {"error": null, "ok": true, "path": "vehicle.yaml", "role": "vehicle", "stage": null},
+    {
+      "error": {"code": "ASSET_FILE_MISSING", "detail": null, "message": "Unable to read geofence file."},
+      "ok": false,
+      "path": "missing.geojson",
+      "role": "geofence",
+      "stage": "asset-load"
+    }
+  ],
+  "generated_at": null,
+  "ok": false,
+  "schema_version": "preflight-validation.v1"
+}
+```
+
+This is preflight only — it loads and schema-checks inputs and never runs the
+estimator, scenario, or sampler. It is distinct from the standalone `validate`
+command, which is a predicted-vs-observed accuracy report.
 
 Command help:
 
