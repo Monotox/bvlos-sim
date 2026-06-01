@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 
 import yaml
@@ -568,7 +569,13 @@ def test_cli_max_segment_length_without_fidelity_respects_mission_fidelity(
 
     result = runner.invoke(
         app,
-        ["estimate", str(mission_path), str(vehicle_path), "--max-segment-length-m", "5000"],
+        [
+            "estimate",
+            str(mission_path),
+            str(vehicle_path),
+            "--max-segment-length-m",
+            "5000",
+        ],
     )
 
     assert result.exit_code == int(CliExitCode.SUCCESS)
@@ -619,7 +626,9 @@ def test_cli_validate_only_does_not_run_estimator(tmp_path: Path, monkeypatch) -
         called.append(True)
         raise AssertionError("estimator must not be called with --validate-only")
 
-    monkeypatch.setattr(cli_module, "try_estimate_mission_distance_time", mock_estimator)
+    monkeypatch.setattr(
+        cli_module, "try_estimate_mission_distance_time", mock_estimator
+    )
 
     result = runner.invoke(
         app,
@@ -657,10 +666,12 @@ def test_cli_output_write_failure_falls_back_to_stdout_internal_error(
     _write_yaml(mission_path, make_mission_payload())
     _write_yaml(vehicle_path, make_vehicle_payload())
 
-    def fail_write_text(self, data: str, encoding: str = "utf-8") -> int:
+    def fail_replace(src: object, dst: object) -> None:
         raise OSError("disk full")
 
-    monkeypatch.setattr(Path, "write_text", fail_write_text)
+    # Output writes are atomic (Ticket 104): inject the failure at the final
+    # os.replace, which is where _write_output's write path can now raise.
+    monkeypatch.setattr(os, "replace", fail_replace)
 
     result = runner.invoke(
         app,
@@ -684,11 +695,18 @@ def test_cli_output_write_failure_falls_back_to_stdout_internal_error(
 # convert command
 # ---------------------------------------------------------------------------
 
-PLAN_FILE = Path(__file__).resolve().parents[1] / "examples" / "missions" / "pipeline_demo_001.plan"
+PLAN_FILE = (
+    Path(__file__).resolve().parents[1]
+    / "examples"
+    / "missions"
+    / "pipeline_demo_001.plan"
+)
 
 
 def test_convert_command_outputs_valid_yaml() -> None:
-    result = runner.invoke(app, ["convert", str(PLAN_FILE), "--vehicle-profile", "quadplane_v1"])
+    result = runner.invoke(
+        app, ["convert", str(PLAN_FILE), "--vehicle-profile", "quadplane_v1"]
+    )
     assert result.exit_code == int(CliExitCode.SUCCESS)
     yaml_text = "\n".join(
         line for line in result.output.splitlines() if not line.startswith("Warning:")
@@ -700,7 +718,9 @@ def test_convert_command_outputs_valid_yaml() -> None:
 
 
 def test_convert_command_route_items_are_block_style() -> None:
-    result = runner.invoke(app, ["convert", str(PLAN_FILE), "--vehicle-profile", "quadplane_v1"])
+    result = runner.invoke(
+        app, ["convert", str(PLAN_FILE), "--vehicle-profile", "quadplane_v1"]
+    )
     assert result.exit_code == int(CliExitCode.SUCCESS)
     assert "- id:" in result.output
     assert "  action:" in result.output
@@ -708,7 +728,17 @@ def test_convert_command_route_items_are_block_style() -> None:
 
 def test_convert_command_writes_to_output_file(tmp_path: Path) -> None:
     out_file = tmp_path / "mission.yaml"
-    result = runner.invoke(app, ["convert", str(PLAN_FILE), "--vehicle-profile", "quadplane_v1", "--output", str(out_file)])
+    result = runner.invoke(
+        app,
+        [
+            "convert",
+            str(PLAN_FILE),
+            "--vehicle-profile",
+            "quadplane_v1",
+            "--output",
+            str(out_file),
+        ],
+    )
     assert result.exit_code == int(CliExitCode.SUCCESS)
     assert out_file.exists()
     payload = yaml.safe_load(out_file.read_text(encoding="utf-8"))
@@ -723,7 +753,16 @@ def test_convert_command_invalid_json_exits_invalid_input(tmp_path: Path) -> Non
 
 
 def test_convert_validate_only_exits_success() -> None:
-    result = runner.invoke(app, ["convert", str(PLAN_FILE), "--vehicle-profile", "quadplane_v1", "--validate-only"])
+    result = runner.invoke(
+        app,
+        [
+            "convert",
+            str(PLAN_FILE),
+            "--vehicle-profile",
+            "quadplane_v1",
+            "--validate-only",
+        ],
+    )
     assert result.exit_code == int(CliExitCode.SUCCESS)
     assert "OK" in result.output
     assert "route:" not in result.output  # YAML must not be written

@@ -9,6 +9,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from adapters.atomic_write import atomic_write_text
 from schemas.sitl import (
     SitlArtifactReference,
     SitlArtifactRole,
@@ -268,10 +269,7 @@ def _write_artifact(
         "schema_version": schema_version,
         payload_key: payload,
     }
-    path.write_text(
-        json.dumps(content, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    atomic_write_text(path, json.dumps(content, indent=2, sort_keys=True) + "\n")
 
 
 def _write_artifact_reference(
