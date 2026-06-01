@@ -7,7 +7,7 @@ from typing import Protocol
 import typer
 
 import adapters.cli as cli
-from adapters.calibration import load_and_apply_calibration
+from adapters.calibration import load_and_apply_calibration, load_calibration_profile
 from adapters.cli_support import (
     MissionAssetBundle,
     OutputWriteError,
@@ -27,6 +27,12 @@ from adapters.geojson_export import build_geojson_export
 from adapters.io import InputDocument, InputLoadError, load_mission, load_vehicle
 from adapters.kml_export import build_kml_export
 from adapters.assets.landing_zone_geojson import LandingZoneLoadError
+from adapters.preflight import (
+    check_file,
+    emit_preflight,
+    is_json_format,
+    mission_asset_checks,
+)
 from adapters.profile_markdown import render_profile_markdown_from_scenario
 from adapters.scenario_envelope import (
     ScenarioResultEnvelope,
@@ -155,6 +161,63 @@ def _scenario_exit_code_for_result(result: ScenarioResult) -> cli.ScenarioExitCo
     return cli.ScenarioExitCode.FAILED
 
 
+def _run_scenario_preflight(
+    *,
+    scenario_file: Path,
+    calibration: Path | None,
+    as_json: bool,
+) -> None:
+    """Validate scenario, mission, vehicle, calibration, and assets, no run."""
+    files = []
+    text_lines = []
+
+    scenario_check, scenario_loaded = check_file(
+        role="scenario",
+        path_str=scenario_file.name,
+        loader=lambda: load_scenario(scenario_file),
+    )
+    files.append(scenario_check)
+    if scenario_check.ok and scenario_loaded is not None:
+        text_lines.append(f"scenario: {scenario_file.name}: OK")
+        scenario_plan = scenario_loaded[0]
+        mission_path, vehicle_path = _resolve_scenario_input_paths(
+            scenario_plan, scenario_file=scenario_file
+        )
+        mission_check, mission_result = check_file(
+            role="mission",
+            path_str=mission_path.name,
+            loader=lambda: load_mission(mission_path),
+        )
+        files.append(mission_check)
+        if mission_check.ok:
+            text_lines.append(f"mission: {mission_path.name}: OK")
+        vehicle_check, _ = check_file(
+            role="vehicle",
+            path_str=vehicle_path.name,
+            loader=lambda: load_vehicle(vehicle_path),
+        )
+        files.append(vehicle_check)
+        if vehicle_check.ok:
+            text_lines.append(f"vehicle: {vehicle_path.name}: OK")
+        if calibration is not None:
+            calibration_check, _ = check_file(
+                role="calibration",
+                path_str=calibration.name,
+                loader=lambda: load_calibration_profile(calibration),
+            )
+            files.append(calibration_check)
+            if calibration_check.ok:
+                text_lines.append(f"calibration: {calibration.name}: OK")
+        if mission_result is not None:
+            files.extend(
+                mission_asset_checks(mission_result[0], mission_path=mission_path)
+            )
+
+    emit_preflight(
+        command="scenario", files=files, as_json=as_json, text_ok_lines=text_lines
+    )
+
+
 def scenario(
     scenario_file: Path = typer.Argument(
         ..., exists=True, readable=True, resolve_path=True,
@@ -181,13 +244,25 @@ def scenario(
         False,
         "--validate-only",
         help=(
-            "Validate scenario, mission, and vehicle files against their schemas "
-            "and exit without running the scenario. "
+            "Validate scenario, mission, and vehicle files (and referenced assets) "
+            "against their schemas and exit without running the scenario. "
             "Exits 0 when all files are valid, INVALID_INPUT otherwise."
         ),
     ),
+    validate_format: cli.PreflightFormat = typer.Option(
+        cli.PreflightFormat.TEXT,
+        "--validate-format",
+        help="Validate-only output: text (default) or json for a preflight-validation.v1 envelope.",
+    ),
 ) -> None:
     """Run the deterministic scenario runner and emit a scenario result envelope."""
+
+    if validate_only:
+        _run_scenario_preflight(
+            scenario_file=scenario_file,
+            calibration=calibration,
+            as_json=is_json_format(validate_format),
+        )
 
     if format == OutputFormat.SENSITIVITY:
         cli._exit_with_cli_error(
@@ -214,11 +289,6 @@ def scenario(
         vehicle_model, vehicle_document = load_vehicle(vehicle_path)
         if calibration is not None:
             vehicle_model = load_and_apply_calibration(vehicle_model, calibration)
-        if validate_only:
-            typer.echo(f"scenario: {scenario_file.name}: OK")
-            typer.echo(f"mission: {mission_path.name}: OK")
-            typer.echo(f"vehicle: {vehicle_path.name}: OK")
-            raise typer.Exit(code=int(cli.CliExitCode.SUCCESS))
 
         _populate_mission_assets(
             mission_assets,

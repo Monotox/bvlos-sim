@@ -13,12 +13,64 @@ from adapters.cli_support import (
     _write_output,
 )
 from adapters.io import InputLoadError, load_mission, load_vehicle
+from adapters.preflight import (
+    check_file,
+    emit_preflight,
+    is_json_format,
+    mission_asset_checks,
+)
 from adapters.progress import progress_reporter
 from adapters.uncertainty_envelope import build_uncertainty_envelope
 from adapters.uncertainty_io import (
     load_uncertainty_plan,
     resolve_uncertainty_asset_path,
 )
+
+
+def _run_sample_preflight(*, uncertainty_file: Path, as_json: bool) -> None:
+    """Validate uncertainty, mission, vehicle, and assets without sampling."""
+    files = []
+    text_lines = []
+
+    plan_check, plan_loaded = check_file(
+        role="uncertainty",
+        path_str=uncertainty_file.name,
+        loader=lambda: load_uncertainty_plan(uncertainty_file),
+    )
+    files.append(plan_check)
+    if plan_check.ok and plan_loaded is not None:
+        text_lines.append(f"uncertainty: {uncertainty_file.name}: OK")
+        plan = plan_loaded[0]
+        mission_path = resolve_uncertainty_asset_path(
+            plan.mission_file, uncertainty_path=uncertainty_file
+        )
+        vehicle_path = resolve_uncertainty_asset_path(
+            plan.vehicle_file, uncertainty_path=uncertainty_file
+        )
+        mission_check, mission_result = check_file(
+            role="mission",
+            path_str=mission_path.name,
+            loader=lambda: load_mission(mission_path),
+        )
+        files.append(mission_check)
+        if mission_check.ok:
+            text_lines.append(f"mission: {mission_path.name}: OK")
+        vehicle_check, _ = check_file(
+            role="vehicle",
+            path_str=vehicle_path.name,
+            loader=lambda: load_vehicle(vehicle_path),
+        )
+        files.append(vehicle_check)
+        if vehicle_check.ok:
+            text_lines.append(f"vehicle: {vehicle_path.name}: OK")
+        if mission_result is not None:
+            files.extend(
+                mission_asset_checks(mission_result[0], mission_path=mission_path)
+            )
+
+    emit_preflight(
+        command="sample", files=files, as_json=as_json, text_ok_lines=text_lines
+    )
 
 
 def sample(
@@ -51,13 +103,24 @@ def sample(
         False,
         "--validate-only",
         help=(
-            "Validate uncertainty, mission, and vehicle files against their schemas "
-            "and exit without running the sampler. "
+            "Validate uncertainty, mission, and vehicle files (and referenced "
+            "assets) against their schemas and exit without running the sampler. "
             "Exits 0 when all files are valid, INVALID_INPUT otherwise."
         ),
     ),
+    validate_format: cli.PreflightFormat = typer.Option(
+        cli.PreflightFormat.TEXT,
+        "--validate-format",
+        help="Validate-only output: text (default) or json for a preflight-validation.v1 envelope.",
+    ),
 ) -> None:
     """Run a seeded Monte Carlo uncertainty analysis and emit an uncertainty report."""
+
+    if validate_only:
+        _run_sample_preflight(
+            uncertainty_file=uncertainty_file,
+            as_json=is_json_format(validate_format),
+        )
 
     uncertainty_document = None
     mission_document = None
@@ -76,11 +139,6 @@ def sample(
 
         mission_model, mission_document = load_mission(mission_path)
         vehicle_model, vehicle_document = load_vehicle(vehicle_path)
-        if validate_only:
-            typer.echo(f"uncertainty: {uncertainty_file.name}: OK")
-            typer.echo(f"mission: {mission_path.name}: OK")
-            typer.echo(f"vehicle: {vehicle_path.name}: OK")
-            raise typer.Exit(code=int(cli.CliExitCode.SUCCESS))
 
         _populate_mission_assets(
             mission_assets,
