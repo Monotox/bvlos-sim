@@ -21,6 +21,12 @@ from adapters.cli_support import MissionAssetBundle, OutputWriteError, _populate
 from adapters.assets.geofence_geojson import GeofenceLoadError
 from adapters.io import InputDocument, InputLoadError, load_mission, load_vehicle
 from adapters.assets.landing_zone_geojson import LandingZoneLoadError
+from adapters.preflight import (
+    check_file,
+    emit_preflight,
+    is_json_format,
+    mission_asset_checks,
+)
 from adapters.assets.terrain_grid import TerrainGridLoadError
 from adapters.assets.wind_grid import WindGridLoadError
 
@@ -95,6 +101,35 @@ def _render_battery_sizing_command_output(
     return renderer(envelope, result, mission_id, safety_margins)
 
 
+def _run_size_battery_preflight(
+    *, mission: Path, vehicle: Path, as_json: bool
+) -> None:
+    """Validate mission, vehicle, and referenced assets without sizing."""
+    files = []
+    text_lines = []
+
+    mission_check, mission_result = check_file(
+        role="mission", path_str=mission.name, loader=lambda: load_mission(mission)
+    )
+    files.append(mission_check)
+    if mission_check.ok:
+        text_lines.append(f"mission: {mission.name}: OK")
+
+    vehicle_check, _ = check_file(
+        role="vehicle", path_str=vehicle.name, loader=lambda: load_vehicle(vehicle)
+    )
+    files.append(vehicle_check)
+    if vehicle_check.ok:
+        text_lines.append(f"vehicle: {vehicle.name}: OK")
+
+    if mission_result is not None:
+        files.extend(mission_asset_checks(mission_result[0], mission_path=mission))
+
+    emit_preflight(
+        command="size-battery", files=files, as_json=as_json, text_ok_lines=text_lines
+    )
+
+
 def size_battery(
     mission: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True, help="Path to mission.v6 YAML file."),
     vehicle: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True, help="Path to vehicle profile YAML file."),
@@ -109,8 +144,27 @@ def size_battery(
         "--margin",
         help="Safety margin percent. Repeat to show multiple recommendations.",
     ),
+    validate_only: bool = typer.Option(
+        False,
+        "--validate-only",
+        help=(
+            "Validate mission and vehicle files (and referenced assets) against "
+            "their schemas and exit without computing battery sizing. "
+            "Exits 0 when all files are valid, INVALID_INPUT otherwise."
+        ),
+    ),
+    validate_format: cli.PreflightFormat = typer.Option(
+        cli.PreflightFormat.TEXT,
+        "--validate-format",
+        help="Validate-only output: text (default) or json for a preflight-validation.v1 envelope.",
+    ),
 ) -> None:
     """Compute minimum battery capacity needed for mission feasibility."""
+
+    if validate_only:
+        _run_size_battery_preflight(
+            mission=mission, vehicle=vehicle, as_json=is_json_format(validate_format)
+        )
 
     mission_document: InputDocument | None = None
     vehicle_document: InputDocument | None = None

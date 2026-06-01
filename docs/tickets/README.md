@@ -1,6 +1,6 @@
 # Ticket Backlog
 
-**62 implemented · 16 planned · 1251 tests passing**
+**63 implemented · 15 planned · 1272 tests passing**
 
 This directory tracks every capability from idea to implementation. Completed
 tickets are kept as historical records. Open tickets describe what to build
@@ -51,9 +51,9 @@ long-running service (the Mission Control web backend) as a one-process-per-job
 subprocess. None blocks single-shot CLI use; each sharpens the contract a queue
 worker depends on.
 
-| # | Ticket | What it adds |
-|---|---|---|
-| 107 | [Machine-readable preflight report](./107-machine-readable-preflight-report.md) | JSON `--validate-only` envelope plus GeoJSON asset preflight across run types (composes with 089) |
+This track is complete: contract-version discovery (105), machine-readable run
+progress (106), and the machine-readable preflight validation envelope (107) are
+all implemented — see the full list below.
 
 ### Core simulation gaps
 
@@ -203,3 +203,4 @@ New capabilities should work *with* existing pieces, not alongside them in isola
 59. [104](./104-atomic-output-writes-and-cancellation.md) Atomic output writes and clean cancellation
 60. [105](./105-contract-version-discovery-command.md) Contract-version discovery command
 61. [106](./106-machine-readable-run-progress.md) Machine-readable run progress
+62. [107](./107-machine-readable-preflight-report.md) Machine-readable preflight validation report

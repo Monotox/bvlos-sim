@@ -9,6 +9,17 @@ and this project adheres to semantic versioning once public releases begin.
 
 ### Added
 
+- Machine-readable preflight validation report (Ticket 107). Every command with
+  `--validate-only` (`estimate`, `scenario`, `sample`, `propagate`, `batch`,
+  `sora`, `convert`, `export`) gains a `--validate-format json` opt-in that emits
+  a `preflight-validation.v1` envelope: per-file ok/error with a stable failure
+  `stage` (`schema`/`asset-load`/`reference`) and `code`, plus an overall `ok`
+  flag, exiting `0` (all valid) or `11` (any failure). Validate-only now also
+  loads referenced mission assets (geofence, landing-zone, terrain, population,
+  obstacle, wind-grid), so a broken asset path fails preflight instead of at run
+  time, and all asset failures are collected in one pass. `calibrate`, `compare`,
+  and `size-battery` gain `--validate-only` for parity. Plain-text output stays
+  the default; the envelope carries no wall clock and is deterministic.
 - Machine-readable run progress for long commands (Ticket 106). `sample`,
   `propagate`, and `batch` can now stream structured JSONL progress so a
   non-interactive worker can show live progress instead of a flat "running"

@@ -21,6 +21,12 @@ from adapters.cli_batch_support import (
 from adapters.cli_support import OutputWriteError, _write_output
 from adapters.envelope import OutputFormat
 from adapters.io import InputLoadError, load_mission, load_vehicle
+from adapters.preflight import (
+    check_file,
+    emit_preflight,
+    is_json_format,
+    mission_asset_checks,
+)
 from adapters.progress import progress_reporter
 
 
@@ -66,14 +72,46 @@ def _write_batch_file_outputs(
     )
 
 
-def _validate_batch_manifest(manifest: Path) -> None:
-    batch_manifest = load_batch_manifest(manifest)
-    typer.echo(f"batch: {manifest.name}: OK ({len(batch_manifest.runs)} runs)")
-    for run in batch_manifest.runs:
-        load_mission(run.mission)
-        typer.echo(f"  mission: {run.mission.name}: OK")
-        load_vehicle(run.vehicle)
-        typer.echo(f"  vehicle: {run.vehicle.name}: OK")
+def _run_batch_preflight(*, manifest: Path, as_json: bool) -> None:
+    """Validate the manifest and every run's mission, vehicle, and assets."""
+    files = []
+    text_lines = []
+
+    manifest_check, manifest_loaded = check_file(
+        role="batch",
+        path_str=manifest.name,
+        loader=lambda: load_batch_manifest(manifest),
+    )
+    files.append(manifest_check)
+    if manifest_check.ok and manifest_loaded is not None:
+        text_lines.append(
+            f"batch: {manifest.name}: OK ({len(manifest_loaded.runs)} runs)"
+        )
+        for run in manifest_loaded.runs:
+            mission_check, mission_result = check_file(
+                role="mission",
+                path_str=run.mission.name,
+                loader=lambda r=run: load_mission(r.mission),
+            )
+            files.append(mission_check)
+            if mission_check.ok:
+                text_lines.append(f"  mission: {run.mission.name}: OK")
+            vehicle_check, _ = check_file(
+                role="vehicle",
+                path_str=run.vehicle.name,
+                loader=lambda r=run: load_vehicle(r.vehicle),
+            )
+            files.append(vehicle_check)
+            if vehicle_check.ok:
+                text_lines.append(f"  vehicle: {run.vehicle.name}: OK")
+            if mission_result is not None:
+                files.extend(
+                    mission_asset_checks(mission_result[0], mission_path=run.mission)
+                )
+
+    emit_preflight(
+        command="batch", files=files, as_json=as_json, text_ok_lines=text_lines
+    )
 
 
 def batch(
@@ -103,17 +141,22 @@ def batch(
         "--validate-only",
         help=(
             "Validate the manifest and all referenced mission and vehicle files "
-            "against their schemas and exit without running estimates. "
-            "Exits 0 when all files are valid, INVALID_INPUT otherwise."
+            "(and referenced assets) against their schemas and exit without "
+            "running estimates. Exits 0 when all files are valid, INVALID_INPUT otherwise."
         ),
+    ),
+    validate_format: cli.PreflightFormat = typer.Option(
+        cli.PreflightFormat.TEXT,
+        "--validate-format",
+        help="Validate-only output: text (default) or json for a preflight-validation.v1 envelope.",
     ),
 ) -> None:
     """Run batch mission estimates from a batch.v1 manifest file."""
 
+    if validate_only:
+        _run_batch_preflight(manifest=manifest, as_json=is_json_format(validate_format))
+
     try:
-        if validate_only:
-            _validate_batch_manifest(manifest)
-            raise typer.Exit(code=int(cli.CliExitCode.SUCCESS))
         if output_dir is not None and format not in _BATCH_FILE_OUTPUT_FORMATS:
             typer.echo(
                 f"Warning: --output-dir is ignored when --format {format} is used "

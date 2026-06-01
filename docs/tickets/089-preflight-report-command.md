@@ -70,6 +70,9 @@ envelopes plus the overall go/no-go decision and merged warnings.
 ### `--validate-only`
 
 Validates all four input files against their schemas without running the estimator.
+When implemented, `--validate-only --validate-format json` should emit the
+`preflight-validation.v1` envelope from Ticket 107 (`schemas/preflight_validation.py`)
+rather than a bespoke format, so there is exactly one machine-readable preflight path.
 
 ## Composition
 

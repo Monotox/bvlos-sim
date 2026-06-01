@@ -15,9 +15,42 @@ from adapters.cli_support import (
     _write_output,
 )
 from adapters.io import InputDocument, InputLoadError, load_mission, load_vehicle
+from adapters.preflight import (
+    check_file,
+    emit_preflight,
+    is_json_format,
+    mission_asset_checks,
+)
 from adapters.sora_envelope import build_sora_envelope, render_sora_envelope_json
 from adapters.sora_markdown import render_sora_markdown
 from estimator.execution.sora import build_sora_assessment
+
+
+def _run_sora_preflight(*, mission: Path, vehicle: Path, as_json: bool) -> None:
+    """Validate mission, vehicle, and referenced assets without assessing."""
+    files = []
+    text_lines = []
+
+    mission_check, mission_result = check_file(
+        role="mission", path_str=mission.name, loader=lambda: load_mission(mission)
+    )
+    files.append(mission_check)
+    if mission_check.ok:
+        text_lines.append(f"mission: {mission.name}: OK")
+
+    vehicle_check, _ = check_file(
+        role="vehicle", path_str=vehicle.name, loader=lambda: load_vehicle(vehicle)
+    )
+    files.append(vehicle_check)
+    if vehicle_check.ok:
+        text_lines.append(f"vehicle: {vehicle.name}: OK")
+
+    if mission_result is not None:
+        files.extend(mission_asset_checks(mission_result[0], mission_path=mission))
+
+    emit_preflight(
+        command="sora", files=files, as_json=as_json, text_ok_lines=text_lines
+    )
 
 
 def sora(
@@ -47,12 +80,22 @@ def sora(
         False,
         "--validate-only",
         help=(
-            "Validate mission and vehicle files against their schemas and exit "
-            "without running the pre-assessment."
+            "Validate mission and vehicle files (and referenced assets) against "
+            "their schemas and exit without running the pre-assessment."
         ),
+    ),
+    validate_format: cli.PreflightFormat = typer.Option(
+        cli.PreflightFormat.TEXT,
+        "--validate-format",
+        help="Validate-only output: text (default) or json for a preflight-validation.v1 envelope.",
     ),
 ) -> None:
     """Run the SORA pre-assessment (Ground Risk, Air Risk, and SAIL)."""
+
+    if validate_only:
+        _run_sora_preflight(
+            mission=mission, vehicle=vehicle, as_json=is_json_format(validate_format)
+        )
 
     mission_document: InputDocument | None = None
     vehicle_document: InputDocument | None = None
@@ -60,10 +103,6 @@ def sora(
     try:
         mission_model, mission_document = load_mission(mission)
         vehicle_model, vehicle_document = load_vehicle(vehicle)
-        if validate_only:
-            typer.echo(f"mission: {mission.name}: OK")
-            typer.echo(f"vehicle: {vehicle.name}: OK")
-            raise typer.Exit(code=int(cli.CliExitCode.SUCCESS))
 
         _populate_mission_assets(
             mission_assets,

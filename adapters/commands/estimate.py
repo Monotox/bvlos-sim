@@ -6,7 +6,7 @@ from pathlib import Path
 import typer
 
 import adapters.cli as cli
-from adapters.calibration import load_and_apply_calibration
+from adapters.calibration import load_and_apply_calibration, load_calibration_profile
 from adapters.cli_support import (
     MissionAssetBundle,
     OutputWriteError,
@@ -33,6 +33,12 @@ from adapters.geojson_export import build_geojson_export
 from adapters.io import InputDocument, InputLoadError, load_mission, load_vehicle
 from adapters.kml_export import build_kml_export
 from adapters.assets.landing_zone_geojson import LandingZoneLoadError
+from adapters.preflight import (
+    check_file,
+    emit_preflight,
+    is_json_format,
+    mission_asset_checks,
+)
 from adapters.profile_markdown import render_profile_markdown
 from adapters.sensitivity import render_sensitivity_markdown, run_sensitivity_sweep
 from estimator import (
@@ -269,6 +275,49 @@ def _write_internal_error_envelope(
     typer.echo("Failed to write estimator output.", err=True)
 
 
+def _run_estimate_preflight(
+    *,
+    mission: Path,
+    vehicle: Path,
+    calibration: Path | None,
+    as_json: bool,
+) -> None:
+    """Validate inputs and referenced assets without running the estimator."""
+    files = []
+    text_lines = []
+
+    mission_check, mission_result = check_file(
+        role="mission", path_str=mission.name, loader=lambda: load_mission(mission)
+    )
+    files.append(mission_check)
+    if mission_check.ok:
+        text_lines.append(f"mission: {mission.name}: OK")
+
+    vehicle_check, _ = check_file(
+        role="vehicle", path_str=vehicle.name, loader=lambda: load_vehicle(vehicle)
+    )
+    files.append(vehicle_check)
+    if vehicle_check.ok:
+        text_lines.append(f"vehicle: {vehicle.name}: OK")
+
+    if calibration is not None:
+        calibration_check, _ = check_file(
+            role="calibration",
+            path_str=calibration.name,
+            loader=lambda: load_calibration_profile(calibration),
+        )
+        files.append(calibration_check)
+        if calibration_check.ok:
+            text_lines.append(f"calibration: {calibration.name}: OK")
+
+    if mission_result is not None:
+        files.extend(mission_asset_checks(mission_result[0], mission_path=mission))
+
+    emit_preflight(
+        command="estimate", files=files, as_json=as_json, text_ok_lines=text_lines
+    )
+
+
 def estimate(
     mission: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True, help="Path to mission.v6 YAML file."),
     vehicle: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True, help="Path to vehicle profile YAML file."),
@@ -330,13 +379,26 @@ def estimate(
         False,
         "--validate-only",
         help=(
-            "Validate mission and vehicle files against their schemas and exit "
-            "without running the estimator. "
-            "Exits 0 when both files are valid, INVALID_INPUT otherwise."
+            "Validate mission and vehicle files (and referenced assets) against "
+            "their schemas and exit without running the estimator. "
+            "Exits 0 when all files are valid, INVALID_INPUT otherwise."
         ),
+    ),
+    validate_format: cli.PreflightFormat = typer.Option(
+        cli.PreflightFormat.TEXT,
+        "--validate-format",
+        help="Validate-only output: text (default) or json for a preflight-validation.v1 envelope.",
     ),
 ) -> None:
     """Run deterministic mission estimation and static feasibility checks."""
+
+    if validate_only:
+        _run_estimate_preflight(
+            mission=mission,
+            vehicle=vehicle,
+            calibration=calibration,
+            as_json=is_json_format(validate_format),
+        )
 
     mission_document: InputDocument | None = None
     vehicle_document: InputDocument | None = None
@@ -351,10 +413,6 @@ def estimate(
         vehicle_model, vehicle_document = load_vehicle(vehicle)
         if calibration is not None:
             vehicle_model = load_and_apply_calibration(vehicle_model, calibration)
-        if validate_only:
-            typer.echo(f"mission: {mission.name}: OK")
-            typer.echo(f"vehicle: {vehicle.name}: OK")
-            raise typer.Exit(code=int(cli.CliExitCode.SUCCESS))
         mission_assets.mission_id = mission_model.mission_id
         _populate_mission_assets(
             mission_assets,

@@ -61,6 +61,11 @@ class ProgressFormat(StrEnum):
     JSONL = "jsonl"
 
 
+class PreflightFormat(StrEnum):
+    TEXT = "text"
+    JSON = "json"
+
+
 _DOCUMENT_OUTPUT_FORMATS: dict[DocumentOutputFormat, OutputFormat] = {
     DocumentOutputFormat.JSON: OutputFormat.JSON,
     DocumentOutputFormat.MARKDOWN: OutputFormat.MARKDOWN,
@@ -79,6 +84,7 @@ __all__ = [
     "BatchOutputFormat",
     "CliExitCode",
     "DocumentOutputFormat",
+    "PreflightFormat",
     "ProgressFormat",
     "ScenarioExitCode",
     "SoraOutputFormat",
