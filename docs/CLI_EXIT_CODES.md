@@ -59,6 +59,7 @@ Python's default `KeyboardInterrupt` behaviour.
 | `convert`      |  ✓  |      |  ✓   |      |  ✓   | A missing/blank `--vehicle-profile` and parse errors are `11`. |
 | `sitl`         |  ✓  |      |  ✓   |      |  ✓   | Adapter and asset-load errors are `11`.                     |
 | `bump`         |  ✓  |      |  ✓   |      |      | Developer-only release tool. `11` on drift or a missing version part. |
+| `schema-versions` |  ✓  |      |      |      |      | Read-only contract discovery (alias `contracts`). Loads no input; always `0`. |
 
 ## Divergences to branch on carefully
 
