@@ -254,6 +254,10 @@ Batch exits `0` only when all runs are feasible, `10` when any run is
 infeasible and no run had an input error, `11` when any run cannot load its
 inputs, and `13` for unexpected internal failures.
 
+`batch` supports machine-readable progress for non-interactive workers — see
+[Run Progress (JSONL)](#run-progress-jsonl) below. One record is emitted per
+completed run, with `total` equal to the number of runs in the manifest.
+
 ## Mission Estimation
 
 Run the example mission:
@@ -1405,6 +1409,8 @@ assertions:
 The `sample` command runs a seeded uncertainty plan and emits
 `uncertainty-report.v1`. Use it when wind, speed, power, or other configured
 inputs need distribution bounds rather than a single deterministic estimate.
+For long runs it can stream machine-readable progress — see
+[Run Progress (JSONL)](#run-progress-jsonl).
 
 ```bash
 uv run bvlos-sim sample \
@@ -1474,7 +1480,9 @@ cruise_speed_mps:
 The `propagate` command runs a time-stepped particle propagator over the full
 mission timeline. Each particle carries independently sampled wind, cruise
 speed, cruise power, and battery capacity. Per-step `p_reserve_violation`
-tracks energy risk accumulation. Emits `stochastic-envelope.v1`.
+tracks energy risk accumulation. Emits `stochastic-envelope.v1`. For long runs
+it can stream machine-readable progress — see
+[Run Progress (JSONL)](#run-progress-jsonl).
 
 ```bash
 uv run bvlos-sim propagate \
@@ -1574,6 +1582,52 @@ parameters:
     mean: 900.0
     std: 25.0
 ```
+
+## Run Progress (JSONL)
+
+The long-running commands `sample`, `propagate`, and `batch` can emit
+structured, line-oriented progress so a non-interactive caller (a queue worker)
+can show live progress instead of a flat "running" until the process exits. The
+feature is **opt-in and off by default**; a run with no progress flag behaves
+byte-for-byte as before.
+
+Two flags control it, consistent across all three commands:
+
+- `--progress-format jsonl` — emit JSONL progress to **stderr** (default is
+  `none`, which emits nothing).
+- `--progress-file PATH` — write the JSONL stream to a file instead of stderr
+  (implies `jsonl`). The file is opened for live tailing, not an atomic replace,
+  so a worker can follow it as it grows.
+
+```bash
+# progress on stderr, result envelope on stdout
+uv run bvlos-sim sample \
+  examples/uncertainty/pipeline_demo_001_wind_uncertainty.yaml \
+  --progress-format jsonl
+
+# progress to a sidecar file, result to --output
+uv run bvlos-sim propagate \
+  examples/stochastic/pipeline_demo_001_stochastic.yaml \
+  --progress-file /tmp/propagate.progress.jsonl \
+  --output /tmp/stochastic.json
+```
+
+Each line is one compact JSON object with stable keys:
+
+```json
+{"event":"progress","command":"propagate","completed":250,"total":1000,"elapsed_s":75.3}
+```
+
+- `completed` increases monotonically and the final record always has
+  `completed == total`. For `sample`/`propagate`, `total` is the plan's sample
+  count; for `batch`, it is the number of runs in the manifest.
+- `elapsed_s` is wall-clock seconds from the start of the run (monotonic clock).
+- Records are emitted at an interval (about one record per 5% of the run) plus a
+  guaranteed final record.
+
+Progress is a **stderr/sidecar side-channel only**: it never appears in the
+`--output` JSON stream, introduces no new schema or envelope version, and does
+not change the result envelope, the deterministic results, or the exit code.
 
 ## SITL Evidence Contract
 

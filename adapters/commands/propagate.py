@@ -13,13 +13,17 @@ from adapters.cli_support import (
     _write_output,
 )
 from adapters.io import InputLoadError, load_mission, load_vehicle
+from adapters.progress import progress_reporter
 from adapters.stochastic_envelope import build_stochastic_envelope
 from adapters.stochastic_io import load_stochastic_plan, resolve_stochastic_asset_path
 
 
 def propagate(
     stochastic_file: Path = typer.Argument(
-        ..., exists=True, readable=True, resolve_path=True,
+        ...,
+        exists=True,
+        readable=True,
+        resolve_path=True,
         help="Path to stochastic.v1 YAML file.",
     ),
     format: cli.SummaryOutputFormat = typer.Option(
@@ -27,7 +31,19 @@ def propagate(
         "--format",
         help="Output format. Use summary for a one-line feasibility and reserve result.",
     ),
-    output: Path | None = typer.Option(None, "--output", "-o", help="Write output to file instead of stdout."),
+    output: Path | None = typer.Option(
+        None, "--output", "-o", help="Write output to file instead of stdout."
+    ),
+    progress_format: cli.ProgressFormat = typer.Option(
+        cli.ProgressFormat.NONE,
+        "--progress-format",
+        help="Emit machine-readable progress. Use jsonl for one JSON record per interval on stderr.",
+    ),
+    progress_file: Path | None = typer.Option(
+        None,
+        "--progress-file",
+        help="Write JSONL progress to this file instead of stderr (implies --progress-format jsonl).",
+    ),
     validate_only: bool = typer.Option(
         False,
         "--validate-only",
@@ -69,17 +85,23 @@ def propagate(
             mission_document=mission_document,
         )
 
-        result = cli.run_stochastic_propagation(
-            plan,
-            mission_model,
-            vehicle_model,
-            wind_provider=mission_assets.wind_provider,
-            terrain_provider=mission_assets.terrain_provider,
-            population_provider=mission_assets.population_provider,
-            obstacle_provider=mission_assets.obstacle_provider,
-            geofences=mission_assets.geofences,
-            landing_zones=mission_assets.landing_zones,
-        )
+        with progress_reporter(
+            "propagate",
+            enabled=progress_format is cli.ProgressFormat.JSONL,
+            progress_file=progress_file,
+        ) as reporter:
+            result = cli.run_stochastic_propagation(
+                plan,
+                mission_model,
+                vehicle_model,
+                wind_provider=mission_assets.wind_provider,
+                terrain_provider=mission_assets.terrain_provider,
+                population_provider=mission_assets.population_provider,
+                obstacle_provider=mission_assets.obstacle_provider,
+                geofences=mission_assets.geofences,
+                landing_zones=mission_assets.landing_zones,
+                progress=reporter,
+            )
         envelope = build_stochastic_envelope(
             result=result,
             stochastic_document=stochastic_document,

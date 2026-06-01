@@ -9,6 +9,21 @@ and this project adheres to semantic versioning once public releases begin.
 
 ### Added
 
+- Machine-readable run progress for long commands (Ticket 106). `sample`,
+  `propagate`, and `batch` can now stream structured JSONL progress so a
+  non-interactive worker can show live progress instead of a flat "running"
+  until exit. Two opt-in flags select it: `--progress-format jsonl` writes one
+  compact JSON record per interval to stderr, and `--progress-file PATH` writes
+  the same stream to a sidecar file. Each record is
+  `{"event":"progress","command":...,"completed":...,"total":...,"elapsed_s":...}`
+  with monotonically increasing `completed` and a guaranteed final record where
+  `completed == total` (sample count for `sample`/`propagate`, run count for
+  `batch`); `elapsed_s` is monotonic wall-clock. Progress is a stderr/sidecar
+  side-channel only — it never appears in the `--output` stream, adds no schema
+  or envelope version, and leaves the result envelope, deterministic results,
+  and exit codes unchanged. Off by default: a run with no progress flag behaves
+  byte-for-byte as before. A progress callback is threaded through
+  `run_monte_carlo`, `run_stochastic_propagation`, and `run_batch_manifest`.
 - Contract-version discovery command (Ticket 105). A new read-only `bvlos-sim
   schema-versions` command (alias `contracts`) prints the resolved `tool_version`
   plus every supported output-envelope and input-schema version as canonical JSON

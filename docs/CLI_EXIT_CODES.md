@@ -92,3 +92,8 @@ misread a result:
 - **Treat any code outside `{0, 10, 11, 12, 13}` as a harness fault.** Shell
   status `1` (an uncaught traceback) and `2` (argument-parser error) are not
   part of this contract; if you see `1`, file it as a bug.
+- **`--progress-format jsonl` / `--progress-file` add no exit codes.** On
+  `sample`, `propagate`, and `batch`, machine-readable progress is a
+  stderr/sidecar side-channel only (one JSON record per interval); it never
+  touches the `--output` stream and does not change the exit-code semantics
+  above.

@@ -1,5 +1,6 @@
 """Batch estimate execution support for CLI and tests."""
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from io import StringIO
 
@@ -117,10 +118,15 @@ def _run_estimate(run: BatchRun) -> BatchRunResult:
     )
 
 
-def run_batch_manifest(manifest: BatchManifest) -> list[BatchRunResult]:
+def run_batch_manifest(
+    manifest: BatchManifest,
+    *,
+    progress: Callable[[int, int], None] | None = None,
+) -> list[BatchRunResult]:
     """Run all estimates in a validated batch manifest."""
     results: list[BatchRunResult] = []
-    for run in manifest.runs:
+    total = len(manifest.runs)
+    for index, run in enumerate(manifest.runs):
         try:
             results.append(_run_estimate(run))
         except _BATCH_RUN_INPUT_ERRORS as exc:
@@ -134,6 +140,8 @@ def run_batch_manifest(manifest: BatchManifest) -> list[BatchRunResult]:
                     error_message=str(exc),
                 )
             )
+        if progress is not None:
+            progress(index + 1, total)
     return results
 
 
@@ -170,7 +178,11 @@ def render_batch_csv(results: list[BatchRunResult]) -> str:
     """Render the batch result table as CSV (suitable for import into spreadsheets)."""
     rows = ["id,status,reserve_margin_percent,flight_time_s,warning_count"]
     for r in results:
-        reserve = "" if r.reserve_margin_percent is None else f"{r.reserve_margin_percent:.2f}"
+        reserve = (
+            ""
+            if r.reserve_margin_percent is None
+            else f"{r.reserve_margin_percent:.2f}"
+        )
         flight_time = "" if r.flight_time_s is None else f"{r.flight_time_s:.1f}"
         rows.append(f"{r.id},{r.status},{reserve},{flight_time},{r.warning_count}")
     return "\n".join(rows) + "\n"

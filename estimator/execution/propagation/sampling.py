@@ -1,7 +1,7 @@
 """Sampled-parameter draws, estimator input wiring, and particle creation."""
 
 import random
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 from estimator.core.geofence import GeofenceZone
@@ -14,7 +14,10 @@ from estimator.environment.wind import ConstantWindProvider, WindProvider
 from estimator.execution.engine import try_estimate_mission_distance_time
 from estimator.execution.propagation.curves import best_position_legs
 from estimator.execution.propagation.particles import ParticlePopulation, ParticleTrack
-from estimator.execution.propagation.stats import sample_optional, sample_positive_optional
+from estimator.execution.propagation.stats import (
+    sample_optional,
+    sample_positive_optional,
+)
 from schemas.mission import MissionPlan
 from schemas.stochastic import StochasticPropagationPlan
 from schemas.vehicle import VehicleProfile
@@ -43,7 +46,9 @@ class SampledParameters:
             wind_north_mps=sample_optional(rng, params.wind_north_mps),
             cruise_speed_mps=sample_positive_optional(rng, params.cruise_speed_mps),
             cruise_power_w=sample_positive_optional(rng, params.cruise_power_w),
-            battery_capacity_wh=sample_positive_optional(rng, params.battery_capacity_wh),
+            battery_capacity_wh=sample_positive_optional(
+                rng, params.battery_capacity_wh
+            ),
         )
 
 
@@ -99,32 +104,37 @@ class ParticleSampler:
     rng: random.Random
     sensors: SensorProfile | None
     controller: ControllerProfile | None
+    progress: Callable[[int, int], None] | None = None
 
     def run(self) -> ParticlePopulation:
         particles: list[ParticleTrack] = []
         position_legs = self.baseline_legs
         spatial_infeasible_count = 0
 
-        for _ in range(self.plan.samples):
+        for sample_index in range(self.plan.samples):
             sample = SampledParameters.from_plan(plan=self.plan, rng=self.rng)
             result = self.estimator_inputs.with_sample(sample).estimate()
 
             if is_spatial_infeasible(result):
                 spatial_infeasible_count += 1
-                continue
+            else:
+                particle = ParticleTrack.from_estimate(
+                    estimate=result,
+                    wind_east_mps=sample.wind_east_mps
+                    if sample.wind_east_mps is not None
+                    else 0.0,
+                    wind_north_mps=sample.wind_north_mps
+                    if sample.wind_north_mps is not None
+                    else 0.0,
+                    sensors=self.sensors,
+                    controller=self.controller,
+                )
+                if particle is not None:
+                    particles.append(particle)
+                    position_legs = best_position_legs(position_legs, result)
 
-            particle = ParticleTrack.from_estimate(
-                estimate=result,
-                wind_east_mps=sample.wind_east_mps if sample.wind_east_mps is not None else 0.0,
-                wind_north_mps=sample.wind_north_mps if sample.wind_north_mps is not None else 0.0,
-                sensors=self.sensors,
-                controller=self.controller,
-            )
-            if particle is None:
-                continue
-
-            particles.append(particle)
-            position_legs = best_position_legs(position_legs, result)
+            if self.progress is not None:
+                self.progress(sample_index + 1, self.plan.samples)
 
         return ParticlePopulation(
             particles=tuple(particles),

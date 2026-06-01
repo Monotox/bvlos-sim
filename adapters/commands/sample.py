@@ -13,13 +13,20 @@ from adapters.cli_support import (
     _write_output,
 )
 from adapters.io import InputLoadError, load_mission, load_vehicle
+from adapters.progress import progress_reporter
 from adapters.uncertainty_envelope import build_uncertainty_envelope
-from adapters.uncertainty_io import load_uncertainty_plan, resolve_uncertainty_asset_path
+from adapters.uncertainty_io import (
+    load_uncertainty_plan,
+    resolve_uncertainty_asset_path,
+)
 
 
 def sample(
     uncertainty_file: Path = typer.Argument(
-        ..., exists=True, readable=True, resolve_path=True,
+        ...,
+        exists=True,
+        readable=True,
+        resolve_path=True,
         help="Path to uncertainty.v1 YAML file.",
     ),
     format: cli.SummaryOutputFormat = typer.Option(
@@ -27,7 +34,19 @@ def sample(
         "--format",
         help="Output format. Use summary for a one-line feasibility and reserve result.",
     ),
-    output: Path | None = typer.Option(None, "--output", "-o", help="Write output to file instead of stdout."),
+    output: Path | None = typer.Option(
+        None, "--output", "-o", help="Write output to file instead of stdout."
+    ),
+    progress_format: cli.ProgressFormat = typer.Option(
+        cli.ProgressFormat.NONE,
+        "--progress-format",
+        help="Emit machine-readable progress. Use jsonl for one JSON record per interval on stderr.",
+    ),
+    progress_file: Path | None = typer.Option(
+        None,
+        "--progress-file",
+        help="Write JSONL progress to this file instead of stderr (implies --progress-format jsonl).",
+    ),
     validate_only: bool = typer.Option(
         False,
         "--validate-only",
@@ -69,17 +88,23 @@ def sample(
             mission_document=mission_document,
         )
 
-        result = cli.run_monte_carlo(
-            plan,
-            mission_model,
-            vehicle_model,
-            wind_provider=mission_assets.wind_provider,
-            terrain_provider=mission_assets.terrain_provider,
-            population_provider=mission_assets.population_provider,
-            obstacle_provider=mission_assets.obstacle_provider,
-            geofences=mission_assets.geofences,
-            landing_zones=mission_assets.landing_zones,
-        )
+        with progress_reporter(
+            "sample",
+            enabled=progress_format is cli.ProgressFormat.JSONL,
+            progress_file=progress_file,
+        ) as reporter:
+            result = cli.run_monte_carlo(
+                plan,
+                mission_model,
+                vehicle_model,
+                wind_provider=mission_assets.wind_provider,
+                terrain_provider=mission_assets.terrain_provider,
+                population_provider=mission_assets.population_provider,
+                obstacle_provider=mission_assets.obstacle_provider,
+                geofences=mission_assets.geofences,
+                landing_zones=mission_assets.landing_zones,
+                progress=reporter,
+            )
         envelope = build_uncertainty_envelope(
             result=result,
             uncertainty_document=uncertainty_document,

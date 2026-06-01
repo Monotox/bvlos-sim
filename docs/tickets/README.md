@@ -1,6 +1,6 @@
 # Ticket Backlog
 
-**61 implemented · 17 planned · 1245 tests passing**
+**62 implemented · 16 planned · 1251 tests passing**
 
 This directory tracks every capability from idea to implementation. Completed
 tickets are kept as historical records. Open tickets describe what to build
@@ -53,7 +53,6 @@ worker depends on.
 
 | # | Ticket | What it adds |
 |---|---|---|
-| 106 | [Machine-readable run progress](./106-machine-readable-run-progress.md) | JSONL progress for `propagate`/`sample`/`batch` so a non-TTY worker can show live progress (extends 067) |
 | 107 | [Machine-readable preflight report](./107-machine-readable-preflight-report.md) | JSON `--validate-only` envelope plus GeoJSON asset preflight across run types (composes with 089) |
 
 ### Core simulation gaps
@@ -203,3 +202,4 @@ New capabilities should work *with* existing pieces, not alongside them in isola
 58. [083](./083-calibration-profile-data-and-fitting.md) Calibration profile data and fitting
 59. [104](./104-atomic-output-writes-and-cancellation.md) Atomic output writes and clean cancellation
 60. [105](./105-contract-version-discovery-command.md) Contract-version discovery command
+61. [106](./106-machine-readable-run-progress.md) Machine-readable run progress
