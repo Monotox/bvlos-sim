@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from time import monotonic
+from time import monotonic, sleep
 from typing import ClassVar, cast
 
 from adapters.sitl.artifacts import SitlArtifactRecorder
@@ -13,12 +13,11 @@ from adapters.sitl.ardupilot_mavlink import (
     RUN_STATE_MESSAGE_TYPES,
     MavConnection,
     MavutilModule,
+    arm_with_retry,
     drain_mission_progress_messages,
     mission_execution_complete,
     mission_execution_progressed,
-    send_arm_command,
     set_auto_mode,
-    wait_for_armed_state,
 )
 from adapters.sitl.ardupilot_mission import (
     ALTITUDE_REFERENCE_TO_MAVLINK_FRAME,
@@ -42,6 +41,9 @@ from schemas.sitl import (
     SitlSimulatorMetadata,
 )
 from schemas.vehicle import VehicleProfile
+
+_MISSION_UPLOAD_ATTEMPTS = 3
+_MISSION_UPLOAD_RETRY_DELAY_S = 5.0
 
 
 @dataclass(init=False)
@@ -100,10 +102,20 @@ class ArduPilotSitlAdapter:
         mavlink = self._mavutil().mavlink
         items = build_mission_items(cast(MissionLike, mission))
 
-        MissionUploadProtocol(
+        protocol = MissionUploadProtocol(
             timeout_s=self.config.mission_upload_timeout_s,
             command_recorder=self._record_command,
-        ).upload(connection, mavlink, items)
+        )
+        # A freshly booted SITL can reject or drop the first transfer while
+        # parameters and pre-arm state are still settling; retry bounded.
+        for attempt in range(1, _MISSION_UPLOAD_ATTEMPTS + 1):
+            try:
+                protocol.upload(connection, mavlink, items)
+                break
+            except ArduPilotAdapterError:
+                if attempt == _MISSION_UPLOAD_ATTEMPTS:
+                    raise
+                sleep(_MISSION_UPLOAD_RETRY_DELAY_S)
         self._mission_item_count = len(items)
         self._record_adapter_event("mission_uploaded", {"item_count": len(items)})
         return MissionUploadResult(item_count=len(items), acknowledged=True)
@@ -111,7 +123,6 @@ class ArduPilotSitlAdapter:
     def arm_and_start(self) -> None:
         connection = self._require_connection()
         mavlink = self._mavutil().mavlink
-        send_arm_command(connection, mavlink)
         self._record_command(
             "COMMAND_LONG_ARM",
             {
@@ -119,7 +130,7 @@ class ArduPilotSitlAdapter:
                 "target_component": connection.target_component,
             },
         )
-        wait_for_armed_state(connection, self.config.arm_timeout_s)
+        arm_with_retry(connection, mavlink, self.config.arm_timeout_s)
         drain_mission_progress_messages(connection)
         set_auto_mode(connection, mavlink)
         self._record_command(

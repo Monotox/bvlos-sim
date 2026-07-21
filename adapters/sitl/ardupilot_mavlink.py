@@ -218,6 +218,32 @@ def send_arm_command(connection: MavConnection, mavlink: object) -> None:
     )
 
 
+def arm_with_retry(
+    connection: MavConnection,
+    mavlink: object,
+    timeout_s: float,
+    retry_interval_s: float = 5.0,
+) -> None:
+    """Re-send the arm command until an armed HEARTBEAT arrives.
+
+    A freshly booted SITL rejects arming while pre-arm checks (EKF origin,
+    GPS lock) are still settling, so a single command followed by a long
+    wait can never arm; the command has to be repeated.
+    """
+    deadline = monotonic() + timeout_s
+    while monotonic() < deadline:
+        send_arm_command(connection, mavlink)
+        wait_slice_s = min(retry_interval_s, max(0.0, deadline - monotonic()))
+        try:
+            wait_for_armed_state(connection, wait_slice_s)
+        except ArduPilotAdapterError:
+            continue
+        return
+    raise ArduPilotAdapterError(
+        f"Timed out waiting {timeout_s:.1f}s for ArduPilot to arm"
+    )
+
+
 def wait_for_armed_state(
     connection: MavConnection,
     timeout_s: float,
@@ -332,6 +358,7 @@ __all__ = [
     "mission_execution_progressed",
     "mission_type",
     "raise_for_rejected_mission_ack",
+    "arm_with_retry",
     "send_arm_command",
     "set_auto_mode",
     "wait_for_armed_state",
