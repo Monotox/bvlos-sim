@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import importlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -26,6 +27,15 @@ from adapters.flight_log.ulog import ULOG_MAGIC, _battery_rows, _mode_rows, inge
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 runner = CliRunner()
+
+requires_pymavlink = pytest.mark.skipif(
+    importlib.util.find_spec("pymavlink") is None,
+    reason="requires the 'flight-logs' optional dependency",
+)
+requires_pyulog = pytest.mark.skipif(
+    importlib.util.find_spec("pyulog") is None,
+    reason="requires the 'flight-logs' optional dependency",
+)
 
 
 def test_dispatch_rejects_unknown_content(tmp_path: Path) -> None:
@@ -164,6 +174,7 @@ def _ulog_fixture() -> bytes:
     return header + flags + format_message + subscription + b"".join(records)
 
 
+@requires_pymavlink
 def test_real_dataflash_binary_is_decoded_by_pymavlink(tmp_path: Path) -> None:
     path = tmp_path / "flight.bin"
     path.write_bytes(_dataflash_binary_fixture())
@@ -174,6 +185,7 @@ def test_real_dataflash_binary_is_decoded_by_pymavlink(tmp_path: Path) -> None:
     assert trace.records[1].lat_deg == pytest.approx(47.001)
 
 
+@requires_pymavlink
 def test_dataflash_binary_reader_closes_after_exhaustion(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -197,6 +209,7 @@ def test_dataflash_binary_reader_closes_after_exhaustion(
     assert reader.closed is True
 
 
+@requires_pymavlink
 def test_dataflash_binary_reader_closes_when_iteration_is_abandoned(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -230,6 +243,7 @@ def test_dataflash_binary_reader_closes_when_iteration_is_abandoned(
     assert reader.closed is True
 
 
+@requires_pyulog
 def test_real_ulog_is_decoded_by_pyulog(tmp_path: Path) -> None:
     path = tmp_path / "flight.ulg"
     path.write_bytes(_ulog_fixture())
