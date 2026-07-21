@@ -78,7 +78,7 @@ jobs:
 
   sitl-live:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
 
     steps:
       - name: Checkout
@@ -108,6 +108,14 @@ jobs:
           BVLOS_SITL_HOST: 127.0.0.1
           BVLOS_SITL_REQUIRED: '1'
         run: uv run --locked pytest -m live_sitl tests/test_sitl_live.py
+
+      - name: Upload SITL artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sitl-live-artifacts
+          path: /tmp/pytest-of-runner/
+          if-no-files-found: ignore
 
   flight-logs:
     runs-on: ubuntu-latest

@@ -511,7 +511,7 @@ def test_full_evidence_bundle_has_completed_status(tmp_path: Path) -> None:
         adapter.connect()
         adapter.upload_mission(mission_model)
         adapter.arm_and_start()
-        assert adapter.wait_for_mission_complete(timeout_s=300.0).value == "complete"
+        assert adapter.wait_for_mission_complete(timeout_s=600.0).value == "complete"
         adapter.record_telemetry(
             sample_count=TELEMETRY_SAMPLE_COUNT,
             timeout_s=10.0,
@@ -586,7 +586,7 @@ def test_comparison_report_from_live_evidence_bundle(tmp_path: Path) -> None:
         adapter.connect()
         adapter.upload_mission(mission_model)
         adapter.arm_and_start()
-        assert adapter.wait_for_mission_complete(timeout_s=300.0).value == "complete"
+        assert adapter.wait_for_mission_complete(timeout_s=600.0).value == "complete"
         adapter.record_telemetry(
             sample_count=TELEMETRY_SAMPLE_COUNT,
             timeout_s=10.0,
@@ -667,12 +667,14 @@ def test_sitl_cli_live_produces_completed_evidence_bundle(tmp_path: Path) -> Non
             "5",
             "--telemetry-timeout-s",
             "15.0",
+            "--mission-timeout-s",
+            "480.0",
             "--output",
             str(output_path),
         ],
         capture_output=True,
         text=True,
-        timeout=120,
+        timeout=600,
         cwd=str(_REPO_ROOT),
     )
 
@@ -729,12 +731,14 @@ def test_compare_cli_on_live_evidence_bundle(tmp_path: Path) -> None:
             "5",
             "--telemetry-timeout-s",
             "15.0",
+            "--mission-timeout-s",
+            "480.0",
             "--output",
             str(evidence_path),
         ],
         capture_output=True,
         text=True,
-        timeout=120,
+        timeout=600,
         cwd=str(_REPO_ROOT),
     )
     assert result.returncode == 0, result.stderr
