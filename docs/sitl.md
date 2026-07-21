@@ -55,7 +55,10 @@ uv run bvlos-sim sitl \
 A live run connects, uploads the mission, arms, flies AUTO, and records
 telemetry. It reports `status: completed` only on explicit
 mission-completion evidence — the final item merely becoming current is not
-enough. The artifact directory receives `telemetry.json`, `command_log.json`,
+enough. For a mission ending in `rtl`, ArduPlane executes the item by
+switching out of AUTO into an RTL mode and never reports the item reached;
+the adapter accepts that handoff as completion once the mission has advanced
+to the final item. The artifact directory receives `telemetry.json`, `command_log.json`,
 `simulator_log.json`, and `adapter_log.json`; each is referenced from the
 bundle with role, format, and SHA-256 checksum. Artifacts are caller-managed —
 keep them with their inputs when preserving validation evidence.

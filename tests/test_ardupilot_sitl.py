@@ -505,6 +505,59 @@ def test_wait_for_mission_complete_requires_completion_evidence() -> None:
     assert adapter.wait_for_mission_complete(timeout_s=0.1).value == "complete"
 
 
+def _rtl_mission() -> MissionPlan:
+    return _mission(
+        [
+            _waypoint("wp1"),
+            RouteItem(id="rtl", action=MissionAction.RTL),
+        ],
+    )
+
+
+def test_wait_for_mission_complete_accepts_rtl_handoff() -> None:
+    connection = FakeConnection(_upload_messages(item_count=3))
+    adapter, _connection = _connected_adapter(connection)
+    adapter.upload_mission(_rtl_mission())
+    connection.messages.extend(
+        [
+            FakeMessage("MISSION_ITEM_REACHED", seq=1),
+            FakeMessage("MISSION_CURRENT", seq=2, mission_state=2),
+            FakeMessage("HEARTBEAT", type=1, custom_mode=11, base_mode=217),
+        ]
+    )
+
+    assert adapter.wait_for_mission_complete(timeout_s=0.1).value == "complete"
+
+
+def test_wait_for_mission_complete_rtl_handoff_needs_final_sequence() -> None:
+    connection = FakeConnection(_upload_messages(item_count=3))
+    adapter, _connection = _connected_adapter(connection)
+    adapter.upload_mission(_rtl_mission())
+    connection.messages.extend(
+        [
+            FakeMessage("MISSION_ITEM_REACHED", seq=1),
+            FakeMessage("HEARTBEAT", type=1, custom_mode=11, base_mode=217),
+        ]
+    )
+
+    assert adapter.wait_for_mission_complete(timeout_s=0.001).value == "timeout"
+
+
+def test_wait_for_mission_complete_ignores_rtl_mode_for_non_rtl_mission() -> None:
+    connection = FakeConnection(_upload_messages(item_count=4))
+    adapter, _connection = _connected_adapter(connection)
+    adapter.upload_mission(_three_item_mission())
+    connection.messages.extend(
+        [
+            FakeMessage("MISSION_ITEM_REACHED", seq=1),
+            FakeMessage("MISSION_CURRENT", seq=3, mission_state=2),
+            FakeMessage("HEARTBEAT", type=1, custom_mode=11, base_mode=217),
+        ]
+    )
+
+    assert adapter.wait_for_mission_complete(timeout_s=0.001).value == "timeout"
+
+
 def test_wait_for_mission_complete_aborts_on_stalled_sequence() -> None:
     connection = FakeConnection(_upload_messages(item_count=4))
     adapter, _connection = _connected_adapter(connection)

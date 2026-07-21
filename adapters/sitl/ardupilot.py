@@ -15,6 +15,7 @@ from adapters.sitl.ardupilot_mavlink import (
     MavutilModule,
     arm_with_retry,
     drain_mission_progress_messages,
+    heartbeat_indicates_rtl,
     message_sequence,
     message_type,
     mission_execution_complete,
@@ -23,6 +24,7 @@ from adapters.sitl.ardupilot_mavlink import (
 )
 from adapters.sitl.ardupilot_mission import (
     ALTITUDE_REFERENCE_TO_MAVLINK_FRAME,
+    MAV_CMD_NAV_RETURN_TO_LAUNCH,
     MISSION_ACTION_TO_MAVLINK_CMD,
     MissionLike,
     altitude_reference_to_mavlink_frame,
@@ -71,6 +73,7 @@ class ArduPilotSitlAdapter:
     _connection: MavConnection | None = field(init=False, default=None, repr=False)
     _heartbeat: object | None = field(init=False, default=None, repr=False)
     _mission_item_count: int | None = field(init=False, default=None, repr=False)
+    _final_item_is_rtl: bool = field(init=False, default=False, repr=False)
     _run_state: RunState | None = field(init=False, default=None, repr=False)
     _artifact_recorder: SitlArtifactRecorder | None = field(
         init=False,
@@ -83,6 +86,7 @@ class ArduPilotSitlAdapter:
         self._connection = None
         self._heartbeat = None
         self._mission_item_count = None
+        self._final_item_is_rtl = False
         self._run_state = None
         self._artifact_recorder = None
 
@@ -131,6 +135,9 @@ class ArduPilotSitlAdapter:
                     raise
                 sleep(_MISSION_UPLOAD_RETRY_DELAY_S)
         self._mission_item_count = len(items)
+        self._final_item_is_rtl = (
+            items[-1].command == MAV_CMD_NAV_RETURN_TO_LAUNCH
+        )
         self._record_adapter_event("mission_uploaded", {"item_count": len(items)})
         return MissionUploadResult(item_count=len(items), acknowledged=True)
 
@@ -212,6 +219,21 @@ class ArduPilotSitlAdapter:
                 if sequence is not None and sequence > best_sequence:
                     best_sequence = sequence
                     last_advance = monotonic()
+                # ArduPlane runs a mission RTL item by switching out of AUTO
+                # into an RTL mode and loitering at home, so the final item
+                # never reports reached. The handoff itself is the terminal
+                # evidence once the mission has advanced to that final item.
+                if (
+                    self._final_item_is_rtl
+                    and current_run_progress_seen
+                    and best_sequence >= final_sequence
+                    and heartbeat_indicates_rtl(message)
+                ):
+                    self._record_adapter_event(
+                        "mission_completed_via_rtl_handoff",
+                        {"final_sequence": final_sequence},
+                    )
+                    return self._set_run_state(RunState.COMPLETE)
             except (AttributeError, OSError, RuntimeError, TypeError, ValueError):
                 return self._set_run_state(RunState.ERROR)
         return self._set_run_state(RunState.TIMEOUT)

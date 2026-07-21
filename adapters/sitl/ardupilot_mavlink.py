@@ -147,6 +147,31 @@ def mission_execution_complete(
     return message_sequence(message) == item_count
 
 
+# ArduPilot executes a mission RETURN_TO_LAUNCH item by leaving AUTO for an
+# RTL flight mode, so no MISSION_ITEM_REACHED ever arrives for that final
+# item. Custom mode numbers are per-vehicle-type; MAV_TYPE 1 covers the plane
+# family (RTL=11, QRTL=21), the rotor types map to copter RTL=6.
+_RTL_CUSTOM_MODES_BY_MAV_TYPE: Mapping[int, frozenset[int]] = {
+    1: frozenset({11, 21}),
+    2: frozenset({6}),
+    13: frozenset({6}),
+    14: frozenset({6}),
+    15: frozenset({6}),
+}
+
+
+def heartbeat_indicates_rtl(message: object | None) -> bool:
+    """True when a HEARTBEAT shows the autopilot flying an RTL mode."""
+    if message is None or message_type(message) != "HEARTBEAT":
+        return False
+    try:
+        mav_type = int(getattr(message, "type"))
+        custom_mode = int(getattr(message, "custom_mode"))
+    except (AttributeError, TypeError, ValueError):
+        return False
+    return custom_mode in _RTL_CUSTOM_MODES_BY_MAV_TYPE.get(mav_type, frozenset())
+
+
 def mission_execution_progressed(
     message: object | None,
     *,
@@ -355,6 +380,7 @@ __all__ = [
     "message_sequence",
     "message_type",
     "mission_execution_complete",
+    "heartbeat_indicates_rtl",
     "mission_execution_progressed",
     "mission_type",
     "raise_for_rejected_mission_ack",
