@@ -48,7 +48,7 @@ INFEASIBLE   reserve −179.7 %   flight 7m 55s   RTH infeasible   [INSUFFICIENT
 The mission consumes 101.94677145 Wh, leaving -16.94677145 Wh at landing with
 the 85 Wh battery. The required 25 % reserve threshold is 21.25 Wh, and the
 hard RTH reserve check also fails. Running `size-battery` with
-`quadplane_small_battery_sizing.yaml` reports a minimum 181.6481554 Wh for the
+`quadplane_small_battery_sizing.yaml` reports a minimum 183.2 Wh for the
 current route and RTH model; reducing route demand is the alternative.
 
 ## Re-fetch the assets yourself

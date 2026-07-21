@@ -5,7 +5,7 @@ Monte Carlo uncertainty plans for the pipeline demo mission. Use with `bvlos-sim
 | File | What it models |
 |---|---|
 | `pipeline_demo_001_wind_uncertainty.yaml` | 200 samples varying east and north wind components. |
-| `pipeline_demo_001_speed_uncertainty.yaml` | 200 samples varying cruise speed. |
+| `pipeline_demo_001_speed_uncertainty.yaml` | 100 samples varying cruise speed. |
 
 ## Quick start
 

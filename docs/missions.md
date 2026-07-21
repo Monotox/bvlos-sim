@@ -47,7 +47,7 @@ route:
     action: rtl
 ```
 
-Route actions: `vtol_takeoff`, `waypoint`, `loiter_time` (needs
+Route actions: `takeoff`, `vtol_takeoff`, `waypoint`, `loiter_time` (needs
 `loiter_time_s`), `land`, `rtl`. Each item needs a unique slug `id`; `lat`,
 `lon`, `altitude_m`, and `altitude_reference` apply per item.
 `altitude_reference: terrain` resolves altitude above ground and requires a
