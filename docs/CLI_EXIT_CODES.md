@@ -52,13 +52,14 @@ Python's default `KeyboardInterrupt` behaviour.
 | `sample`       |  ✓  |      |  ✓   |      |  ✓   | Never `10`: an infeasible Monte Carlo result is in the body, exit is `0` (divergence). |
 | `propagate`    |  ✓  |      |  ✓   |      |  ✓   | Never `10`: an infeasible stochastic result is in the body, exit is `0` (divergence). |
 | `size-battery` |  ✓  |      |  ✓   |      |  ✓   | A NO answer (no feasible capacity) is in the body, not via `10`. |
-| `sora`         |  ✓  |      |  ✓   |      |  ✓   | SAIL / risk verdict is in the body, not via `10`.           |
+| `sora`         |  ✓  |  ✓   |  ✓   |  ✓   |  ✓   | `10` when the assessment is outside the specific-category method scope (out-of-scope Step 8, GRC > 7) or the estimator reports the mission infeasible; `12` for an unsupported estimator failure. The SAIL value itself is in the body. |
 | `validate`     |  ✓  |  ✓   |  ✓   |      |  ✓   | `10` when one or more configured acceptance thresholds fail. |
 | `calibrate`    |  ✓  |      |  ✓   |      |  ✓   | Fitted profile is in the body.                              |
 | `compare`      |  ✓  |  ✓   |  ✓   |  ✓   |  ✓   | SITL drift/fail maps to `10`; unsupported comparison maps to `12`. |
 | `batch`        |  ✓  |  ✓   |  ✓   |      |  ✓   | `10` if any run is infeasible or operational NO-GO; `--engineering-only` opts out. `11` if any run failed to load. No `12`. |
 | `export`       |  ✓  |      |  ✓   |      |  ✓   | Mission load / exportability failures are `11`.             |
 | `convert`      |  ✓  |      |  ✓   |      |  ✓   | A missing/blank `--vehicle-profile` and parse errors are `11`. |
+| `migrate`      |  ✓  |      |  ✓   |      |      | Legacy input that cannot be migrated is `11`.               |
 | `ingest-log`   |  ✓  |      |  ✓   |      |  ✓   | Unknown/oversized logs, missing readers, and incomplete mission/vehicle pairing are `11`. |
 | `sitl`         |  ✓  |      |  ✓   |      |  ✓   | Input/asset failures are `11`; live adapter connect, upload, execution, telemetry, and timeout failures are `13`. |
 | `bump`         |  ✓  |      |  ✓   |      |      | Developer-only release tool. `11` on drift or a missing version part. |

@@ -137,7 +137,7 @@ The committed `geofences.geojson` was produced via the Overpass fallback.
 |---|---|---|
 | `terrain.yaml` | SRTM via `srtm.py` | lat 46.9–47.2, lon 8.1–8.4, 31×31 grid |
 | `wind_grid.yaml` | Open-Meteo archive (2025-06-15 14:00 UTC) | 4 altitude bands, 4 hourly slices |
-| `landing_zones.geojson` | OpenStreetMap via Overpass | 12 helipads/aerodromes/runways |
+| `landing_zones.geojson` | OpenStreetMap via Overpass | 13 helipads/aerodromes/runways |
 | `geofences.geojson` | OpenStreetMap via Overpass | way-based aeronautical boundaries |
 
 The area covers the Lucerne basin and surrounding pre-Alps, including the

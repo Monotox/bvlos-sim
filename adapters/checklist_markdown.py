@@ -2,7 +2,10 @@
 
 from adapters.envelope import EstimatorResultEnvelope
 from adapters.scenario_envelope import ScenarioResultEnvelope
-from adapters.operational_readiness import evaluate_operational_readiness
+from adapters.operational_readiness import (
+    OperationalReadiness,
+    evaluate_operational_readiness,
+)
 from estimator.core.results import (
     EnergyEstimate,
     GeofenceEstimate,
@@ -259,10 +262,32 @@ def _render_checklist(result: MissionEstimate | None, mission_id: str) -> str:
         lines.append(departure_row)
     lines.append(_warnings_row(result))
     lines.append("")
-    status = "GO" if checklist_is_go(result) else "NO-GO"
-    lines.append(f"Status: {status}")
+    readiness = evaluate_operational_readiness(result)
+    lines.append(f"Status: {'GO' if readiness.is_go else 'NO-GO'}")
+    if not readiness.is_go:
+        reason = _blocked_by(readiness)
+        if reason:
+            lines.append(reason)
     lines.append("")
     return "\n".join(lines)
+
+
+def _blocked_by(readiness: OperationalReadiness) -> str:
+    parts: list[str] = []
+    if readiness.missing_evidence:
+        parts.append(
+            "missing evidence (" + ", ".join(readiness.missing_evidence) + ")"
+        )
+    failed = [check for check in readiness.failed_checks if check != "warnings"]
+    if failed:
+        parts.append("failed checks (" + ", ".join(failed) + ")")
+    if "warnings" in readiness.failed_checks:
+        parts.append(
+            "blocking warnings (" + ", ".join(readiness.warning_codes) + ")"
+        )
+    if not parts:
+        return ""
+    return "Blocked by: " + "; ".join(parts) + " — the checklist is fail-closed"
 
 
 def render_checklist_markdown(

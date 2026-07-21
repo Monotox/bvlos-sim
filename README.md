@@ -17,14 +17,14 @@ $ bvlos-sim estimate alpine_mission.yaml quadplane_v1.yaml --format checklist
 
 ✓ Energy feasibility        PASS   reserve 573.05 Wh above threshold (798.05 Wh at landing, 225.00 Wh threshold)
 ✓ Geofence clearance        PASS   0 conflicts across 0 zone(s)
-✓ Landing-zone coverage     PASS   reachable zone found at all 4 checked state(s)
+✓ Landing-zone coverage     PASS   reachable zone found at all 166 checked state(s)
 ◌ Resource availability     N/A    not evaluated
 ◌ Link availability         N/A    not evaluated
 ◌ Obstacle clearance        N/A    not evaluated
-✓ Weather limits            PASS   worst wind 0.00 m/s at leg 1 (wp_ridge)
+✓ Weather limits            PASS   worst wind 0.00 m/s at leg 0 (takeoff)
 ✓ RTH reserve               PASS   reserve intact for RTH from all 4 leg(s)
 ◌ Ground risk class         N/A    not evaluated
-  Advisory warnings         1      DIVERT_ENERGY_TAS_ONLY
+  Advisory warnings         NONE
 
 Status: NO-GO
 
@@ -32,7 +32,7 @@ $ bvlos-sim estimate alpine_infeasible.yaml small_battery.yaml --format summary
 INFEASIBLE   reserve −179.7 %   flight 7m 55s   RTH infeasible   [INSUFFICIENT_ENERGY]
 
 $ bvlos-sim sample wind_uncertainty.yaml --format summary
-feasible 100%   reserve p5 823.9 Wh   p50 858.2 Wh   p95 903.3 Wh   time p50 2m 50s   n=200
+DIAGNOSTIC   modeled_pass 100%   conditional_end_energy p5 811.3 Wh   p50 854.9 Wh   p95 898.2 Wh   time p50 2m 50s   n=200
 ```
 
 JSON envelopes, one-line go/no-go summaries, and GeoJSON/KML exports that open in QGroundControl, QGIS, and Google Earth.
@@ -46,6 +46,9 @@ failed RTH/risk check cannot produce `GO`.
 uv sync
 
 # run the pre-fetched Alpine demo (SRTM terrain, Open-Meteo wind, Overpass LZs — no network)
+# expect `Status: NO-GO` and exit code 10: the demo deliberately omits
+# resource/link/obstacle/ground-risk evidence and the checklist is fail-closed;
+# add --engineering-only for a purely computational PASS (exit 0)
 uv run bvlos-sim estimate \
   examples/real_world/alpine_mission.yaml \
   examples/real_world/quadplane_v1.yaml \
@@ -174,6 +177,9 @@ Full usage details are in [docs/USAGE.md](./docs/USAGE.md).
 - `ingest-log`: normalize ArduPilot `.log`/`.bin` or PX4 `.ulg` controller logs
 - `validate`: compare a predicted mission estimate against an observed flight trace
 - `calibrate`: fit a calibration profile from a base vehicle and observed flight traces
+- `size-battery`: search the minimum battery capacity that keeps a mission feasible
+- `export`: export a mission and its estimate as GeoJSON or KML
+- `schema-versions`: print the input/output contract versions this build accepts
 
 `compare` exits `0` for a passing comparison, `10` for drifted or failed
 comparisons, and `12` when the requested comparison is unsupported.

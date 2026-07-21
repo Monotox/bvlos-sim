@@ -61,9 +61,10 @@ developer-only `bump` command):
 | sitl | success | - | invalid input/asset | - | adapter runtime/write error |
 | compare | passed | drifted/failed | invalid input | unsupported (contract-only) | internal/write error |
 | convert | success | - | invalid input | - | internal error |
+| migrate | success | - | invalid input | - | - |
 | export | success | - | invalid input | - | internal error |
 | batch | all operational GO, or engineering-only computationally feasible | any infeasible or operational NO-GO | invalid input/run | - | internal error |
-| sora | success | - | invalid input | - | internal error |
+| sora | in-scope assessment | out-of-scope Step 8, GRC > 7, or infeasible mission | invalid input | unsupported estimator failure | internal error |
 | ingest-log | success | - | invalid/unsupported log | - | internal error |
 | validate | within thresholds | outside validation thresholds | invalid input | - | internal error |
 | calibrate | success | - | invalid input | - | internal error |
@@ -1698,7 +1699,7 @@ uv run bvlos-sim sample \
   --format summary
 ```
 
-Example output: `DIAGNOSTIC   modeled_pass 100%   conditional_reserve p5 823.9 Wh   p50 858.2 Wh   p95 903.3 Wh   time p50 2m 50s   n=200`
+Example output: `DIAGNOSTIC   modeled_pass 100%   conditional_end_energy p5 811.3 Wh   p50 854.9 Wh   p95 898.2 Wh   time p50 2m 50s   n=200`
 
 The `seed` in the uncertainty YAML makes repeated runs reproducible for the same
 sample count and distributions. `modeled_constraint_pass_rate` is the fraction
@@ -1706,6 +1707,11 @@ of evaluated samples whose independent deterministic run passed the modeled
 constraints; failed executions are excluded from its denominator. It is not an
 operational, landing, control, or spatial-coverage probability. Mission-time and
 mission-end-energy percentiles are conditional on modeled-pass samples only.
+
+Reading the percentiles: `p5` is the 5th percentile — 95% of modeled-pass
+samples landed with at least that much energy, so plan against `p5`, not the
+median `p50`. `p95` is the optimistic tail. A wide `p5`–`p95` spread means the
+sampled uncertainty (for example wind) dominates the outcome.
 
 ### Uncertainty YAML reference
 

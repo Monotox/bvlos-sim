@@ -1,5 +1,7 @@
 """Shared CLI support for mission assets and scenario execution."""
 
+import contextlib
+import sys
 from collections.abc import Callable
 from dataclasses import dataclass
 from math import isfinite
@@ -524,9 +526,15 @@ _ROUTE_EXPORT_FORMATS: frozenset[OutputFormat] = frozenset(
 def _write_output(rendered: str, output: Path | None) -> None:
     try:
         if output is None:
-            typer.echo(rendered, nl=False)
+            typer.echo(rendered, nl=not rendered.endswith("\n"))
             return
         atomic_write_text(output, rendered)
+    except BrokenPipeError:
+        # The downstream reader (head, less, ...) closed the pipe; close
+        # stdout quietly so interpreter shutdown does not report the failure.
+        with contextlib.suppress(OSError):
+            sys.stdout.close()
+        raise typer.Exit(code=0) from None
     except AtomicWriteDurabilityError as exc:
         raise OutputWriteError(
             "Output was replaced, but filesystem durability could not be confirmed."

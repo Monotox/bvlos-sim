@@ -12,12 +12,14 @@ Vehicle profiles for the pipeline demo and community reference aircraft.
 ## Quick start
 
 ```bash
-# Check a vehicle profile is valid
-uv run bvlos-sim estimate --help   # then pass a mission + vehicle
-
-# Estimate with the baseline VTOL
+# Check a vehicle profile is valid (no estimation)
 uv run bvlos-sim estimate examples/missions/pipeline_demo_001.yaml \
-  examples/vehicles/quadplane_v1.yaml --format summary
+  examples/vehicles/quadplane_v1.yaml --validate-only
+
+# Estimate with the baseline VTOL (--engineering-only: the demo mission has no
+# resource/link/obstacle/ground-risk evidence, so the operational verdict is NO-GO)
+uv run bvlos-sim estimate examples/missions/pipeline_demo_001.yaml \
+  examples/vehicles/quadplane_v1.yaml --format summary --engineering-only
 ```
 
 ## Adding your own profile

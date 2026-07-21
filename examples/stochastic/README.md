@@ -10,7 +10,7 @@ Stochastic propagation plans for the pipeline demo mission. Use with `bvlos-sim 
 ## Quick start
 
 ```bash
-# One-line summary: feasibility rate and p5/p50/p95 reserve
+# One-line diagnostic: modeled-pass rate and conditional p5/p50/p95 end energy
 uv run bvlos-sim propagate examples/stochastic/pipeline_demo_001_stochastic.yaml \
   --format summary
 
