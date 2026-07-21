@@ -283,25 +283,25 @@ def test_connect_closes_connection_when_heartbeat_times_out() -> None:
 
 
 def test_upload_mission_sends_correct_item_count() -> None:
-    connection = FakeConnection(_upload_messages(item_count=3))
+    connection = FakeConnection(_upload_messages(item_count=4))
     adapter, _connection = _connected_adapter(connection)
 
     adapter.upload_mission(_three_item_mission())
 
-    assert connection.mav.mission_counts[0][2] == 3
+    assert connection.mav.mission_counts[0][2] == 4
 
 
 def test_upload_mission_returns_acknowledged_result() -> None:
-    connection = FakeConnection(_upload_messages(item_count=3))
+    connection = FakeConnection(_upload_messages(item_count=4))
     adapter, _connection = _connected_adapter(connection)
 
     result = adapter.upload_mission(_three_item_mission())
 
-    assert result == MissionUploadResult(item_count=3, acknowledged=True)
+    assert result == MissionUploadResult(item_count=4, acknowledged=True)
 
 
 def test_arm_and_start_requires_armed_heartbeat() -> None:
-    connection = FakeConnection(_upload_messages(item_count=3))
+    connection = FakeConnection(_upload_messages(item_count=4))
     adapter, _connection = _connected_adapter(connection)
     adapter.upload_mission(_three_item_mission())
     connection.messages.append(FakeMessage("HEARTBEAT", base_mode=128))
@@ -313,7 +313,7 @@ def test_arm_and_start_requires_armed_heartbeat() -> None:
 
 
 def test_arm_and_start_drains_stale_mission_progress_before_auto() -> None:
-    connection = FakeConnection(_upload_messages(item_count=3))
+    connection = FakeConnection(_upload_messages(item_count=4))
     adapter, _connection = _connected_adapter(connection)
     adapter.upload_mission(_three_item_mission())
     connection.messages.extend(
@@ -330,7 +330,7 @@ def test_arm_and_start_drains_stale_mission_progress_before_auto() -> None:
 
 
 def test_arm_and_start_times_out_without_armed_heartbeat() -> None:
-    connection = FakeConnection(_upload_messages(item_count=3))
+    connection = FakeConnection(_upload_messages(item_count=4))
     adapter, _connection = _connected_adapter(connection)
     adapter.upload_mission(_three_item_mission())
     adapter.config = ArduPilotSitlConfig(arm_timeout_s=0.001)
@@ -352,6 +352,7 @@ def test_unsupported_action_raises_adapter_error() -> None:
         acceptance_radius_m=None,
     )
     mission = MissionPlan.model_construct(
+        planned_home=PlannedHome(lat=52.0, lon=4.0, altitude_amsl_m=10.0),
         defaults=MissionDefaults(
             altitude_reference=AltitudeReference.RELATIVE_HOME,
         ),
@@ -448,7 +449,7 @@ def test_start_recording_twice_raises_adapter_error(tmp_path: Path) -> None:
 
 
 def test_adapter_records_telemetry_and_command_artifacts(tmp_path: Path) -> None:
-    connection = FakeConnection(_upload_messages(item_count=3))
+    connection = FakeConnection(_upload_messages(item_count=4))
     adapter = StubbedArduPilotSitlAdapter(connection)
     adapter.start_recording(tmp_path)
     adapter.connect()
@@ -491,13 +492,13 @@ def test_missing_telemetry_raises_explicit_adapter_error(tmp_path: Path) -> None
 
 
 def test_wait_for_mission_complete_requires_completion_evidence() -> None:
-    connection = FakeConnection(_upload_messages(item_count=3))
+    connection = FakeConnection(_upload_messages(item_count=4))
     adapter, _connection = _connected_adapter(connection)
     adapter.upload_mission(_three_item_mission())
     connection.messages.extend(
         [
             FakeMessage("MISSION_CURRENT", seq=2),
-            FakeMessage("MISSION_ITEM_REACHED", seq=2),
+            FakeMessage("MISSION_ITEM_REACHED", seq=3),
         ]
     )
 
@@ -505,7 +506,7 @@ def test_wait_for_mission_complete_requires_completion_evidence() -> None:
 
 
 def test_wait_for_mission_complete_aborts_on_stalled_sequence() -> None:
-    connection = FakeConnection(_upload_messages(item_count=3))
+    connection = FakeConnection(_upload_messages(item_count=4))
     adapter, _connection = _connected_adapter(connection)
     adapter.upload_mission(_three_item_mission())
     adapter.config = ArduPilotSitlConfig(mission_stall_timeout_s=0.01)
@@ -517,7 +518,7 @@ def test_wait_for_mission_complete_aborts_on_stalled_sequence() -> None:
 
 
 def test_wait_for_mission_complete_sequence_advance_defers_stall() -> None:
-    connection = FakeConnection(_upload_messages(item_count=3))
+    connection = FakeConnection(_upload_messages(item_count=4))
     adapter, _connection = _connected_adapter(connection)
     adapter.upload_mission(_three_item_mission())
     adapter.config = ArduPilotSitlConfig(mission_stall_timeout_s=10.0)
@@ -525,7 +526,7 @@ def test_wait_for_mission_complete_sequence_advance_defers_stall() -> None:
         [
             FakeMessage("MISSION_CURRENT", seq=0, mission_state=3),
             FakeMessage("MISSION_CURRENT", seq=1, mission_state=3),
-            FakeMessage("MISSION_ITEM_REACHED", seq=2),
+            FakeMessage("MISSION_ITEM_REACHED", seq=3),
         ]
     )
 
@@ -533,7 +534,7 @@ def test_wait_for_mission_complete_sequence_advance_defers_stall() -> None:
 
 
 def test_wait_for_mission_complete_accepts_mavlink2_complete_state() -> None:
-    connection = FakeConnection(_upload_messages(item_count=3))
+    connection = FakeConnection(_upload_messages(item_count=4))
     adapter, _connection = _connected_adapter(connection)
     adapter.upload_mission(_three_item_mission())
     connection.messages.extend(
@@ -549,7 +550,7 @@ def test_wait_for_mission_complete_accepts_mavlink2_complete_state() -> None:
 def test_wait_for_mission_complete_rejects_explicit_active_state_with_stale_seq() -> (
     None
 ):
-    connection = FakeConnection(_upload_messages(item_count=3))
+    connection = FakeConnection(_upload_messages(item_count=4))
     adapter, _connection = _connected_adapter(connection)
     adapter.upload_mission(_three_item_mission())
     connection.messages.append(
@@ -560,13 +561,13 @@ def test_wait_for_mission_complete_rejects_explicit_active_state_with_stale_seq(
 
 
 def test_wait_for_mission_complete_accepts_exact_legacy_one_past_sequence() -> None:
-    connection = FakeConnection(_upload_messages(item_count=3))
+    connection = FakeConnection(_upload_messages(item_count=4))
     adapter, _connection = _connected_adapter(connection)
     adapter.upload_mission(_three_item_mission())
     connection.messages.extend(
         [
             FakeMessage("MISSION_CURRENT", seq=0),
-            FakeMessage("MISSION_CURRENT", seq=3),
+            FakeMessage("MISSION_CURRENT", seq=4),
         ]
     )
 
@@ -574,13 +575,13 @@ def test_wait_for_mission_complete_accepts_exact_legacy_one_past_sequence() -> N
 
 
 def test_wait_for_mission_complete_accepts_unknown_state_one_past_sequence() -> None:
-    connection = FakeConnection(_upload_messages(item_count=3))
+    connection = FakeConnection(_upload_messages(item_count=4))
     adapter, _connection = _connected_adapter(connection)
     adapter.upload_mission(_three_item_mission())
     connection.messages.extend(
         [
             FakeMessage("MISSION_CURRENT", seq=0, mission_state=0),
-            FakeMessage("MISSION_CURRENT", seq=3, mission_state=0),
+            FakeMessage("MISSION_CURRENT", seq=4, mission_state=0),
         ]
     )
 
@@ -588,7 +589,7 @@ def test_wait_for_mission_complete_accepts_unknown_state_one_past_sequence() -> 
 
 
 def test_wait_for_mission_complete_rejects_legacy_uint16_max_sequence() -> None:
-    connection = FakeConnection(_upload_messages(item_count=3))
+    connection = FakeConnection(_upload_messages(item_count=4))
     adapter, _connection = _connected_adapter(connection)
     adapter.upload_mission(_three_item_mission())
     connection.messages.append(FakeMessage("MISSION_CURRENT", seq=65_535))
@@ -597,10 +598,10 @@ def test_wait_for_mission_complete_rejects_legacy_uint16_max_sequence() -> None:
 
 
 def test_wait_for_mission_complete_rejects_final_item_selection() -> None:
-    connection = FakeConnection(_upload_messages(item_count=3))
+    connection = FakeConnection(_upload_messages(item_count=4))
     adapter, _connection = _connected_adapter(connection)
     adapter.upload_mission(_three_item_mission())
-    connection.messages.append(FakeMessage("MISSION_CURRENT", seq=2))
+    connection.messages.append(FakeMessage("MISSION_CURRENT", seq=3))
 
     assert adapter.wait_for_mission_complete(timeout_s=0.001).value == "timeout"
 
@@ -608,15 +609,15 @@ def test_wait_for_mission_complete_rejects_final_item_selection() -> None:
 def test_wait_for_mission_complete_ignores_late_stale_complete_until_progress(
     tmp_path: Path,
 ) -> None:
-    connection = FakeConnection(_upload_messages(item_count=3))
+    connection = FakeConnection(_upload_messages(item_count=4))
     adapter, _connection = _connected_adapter(connection)
     adapter.start_recording(tmp_path)
     adapter.upload_mission(_three_item_mission())
     connection.messages.extend(
         [
-            FakeMessage("MISSION_CURRENT", seq=2, mission_state=5),
+            FakeMessage("MISSION_CURRENT", seq=3, mission_state=5),
             FakeMessage("MISSION_CURRENT", seq=0, mission_state=3),
-            FakeMessage("MISSION_ITEM_REACHED", seq=2),
+            FakeMessage("MISSION_ITEM_REACHED", seq=3),
         ]
     )
 

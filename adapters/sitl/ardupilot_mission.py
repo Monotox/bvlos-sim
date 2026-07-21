@@ -52,8 +52,15 @@ class MissionRouteItemLike(Protocol):
     acceptance_radius_m: float | None
 
 
+class PlannedHomeLike(Protocol):
+    lat: float
+    lon: float
+    altitude_amsl_m: float
+
+
 class MissionLike(Protocol):
     defaults: MissionDefaultsLike
+    planned_home: PlannedHomeLike
     route: Sequence[MissionRouteItemLike]
 
 
@@ -81,10 +88,28 @@ def altitude_reference_to_mavlink_frame(reference: object) -> int:
 
 
 def build_mission_items(mission: MissionLike) -> tuple[MissionItem, ...]:
+    """Translate a mission into MAVLink items, home first.
+
+    ArduPilot stores mission item 0 as the home location. Uploading the first
+    route action at sequence 0 silently replaces home and drops that action
+    from the flown mission, so the planned home is always sent as item 0 and
+    route actions start at sequence 1.
+    """
     default_altitude_reference = mission.defaults.altitude_reference
-    return tuple(
-        _build_mission_item(route_item, default_altitude_reference)
-        for route_item in mission.route
+    home = mission.planned_home
+    home_item = MissionItem(
+        command=MAV_CMD_NAV_WAYPOINT,
+        frame=MAV_FRAME_GLOBAL,
+        latitude_int=_coordinate_to_int(home.lat),
+        longitude_int=_coordinate_to_int(home.lon),
+        altitude_m=home.altitude_amsl_m,
+    )
+    return (
+        home_item,
+        *(
+            _build_mission_item(route_item, default_altitude_reference)
+            for route_item in mission.route
+        ),
     )
 
 
