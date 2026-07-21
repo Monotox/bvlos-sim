@@ -7,12 +7,15 @@ from adapters.cli import CliExitCode, app
 from estimator import (
     EstimateStatus,
     FailureCode,
-    WarningCode,
     estimate_mission_distance_time,
     try_estimate_mission_distance_time,
 )
-from estimator.environment.wind import ConstantWindProvider
-from schemas.mission import MissionPlan
+from estimator.environment.wind import (
+    ConstantWindProvider,
+    TimedWindChange,
+    TimeVaryingWindProvider,
+)
+from schemas.mission import AltitudeReference, MissionAction, MissionPlan
 from tests.helpers import make_mission_payload, make_vehicle, make_vehicle_payload
 
 _RUNNER = CliRunner()
@@ -23,6 +26,8 @@ def _transit_mission(
     max_wind_mps: float | None = None,
     max_crosswind_mps: float | None = None,
     max_gust_mps: float | None = None,
+    min_visibility_m: float | None = None,
+    max_precipitation_mm_h: float | None = None,
     waypoint_lat: float = 52.0,
     waypoint_lon: float = 4.02,
 ) -> MissionPlan:
@@ -39,13 +44,20 @@ def _transit_mission(
         },
         {"id": "rtl", "action": "rtl"},
     ]
-    constraints: dict = {"min_landing_reserve_percent": 25.0}
+    constraints: dict = {
+        "min_landing_reserve_percent": 25.0,
+        "require_rth_reserve": False,
+    }
     if max_wind_mps is not None:
         constraints["max_wind_mps"] = max_wind_mps
     if max_crosswind_mps is not None:
         constraints["max_crosswind_mps"] = max_crosswind_mps
     if max_gust_mps is not None:
         constraints["max_gust_mps"] = max_gust_mps
+    if min_visibility_m is not None:
+        constraints["min_visibility_m"] = min_visibility_m
+    if max_precipitation_mm_h is not None:
+        constraints["max_precipitation_mm_h"] = max_precipitation_mm_h
     payload["constraints"] = constraints
     return MissionPlan.model_validate(payload)
 
@@ -111,15 +123,46 @@ def test_crosswind_over_limit_is_infeasible_for_known_heading() -> None:
     assert result.weather.worst_crosswind_mps > 5.0
 
 
-def test_gust_limit_without_gust_data_emits_advisory() -> None:
-    result = estimate_mission_distance_time(
+def test_gust_limit_without_gust_data_fails_closed() -> None:
+    result = try_estimate_mission_distance_time(
         _transit_mission(max_wind_mps=10.0, max_gust_mps=12.0),
         make_vehicle(),
         wind_provider=ConstantWindProvider(5.0, 0.0),
     )
 
-    assert result.status == EstimateStatus.SUCCESS
-    assert WarningCode.GUST_DATA_UNAVAILABLE in {w.code for w in result.warnings}
+    assert result.status == EstimateStatus.INFEASIBLE
+    assert result.failure is not None
+    assert result.failure.code == FailureCode.WEATHER_DATA_UNAVAILABLE
+    assert "constraints.max_gust_mps" in result.failure.context["unavailable_fields"]
+
+
+def test_visibility_limit_without_observations_fails_closed() -> None:
+    result = try_estimate_mission_distance_time(
+        _transit_mission(min_visibility_m=5_000.0),
+        make_vehicle(),
+    )
+
+    assert result.status == EstimateStatus.INFEASIBLE
+    assert result.failure is not None
+    assert result.failure.code == FailureCode.WEATHER_DATA_UNAVAILABLE
+    assert (
+        "constraints.min_visibility_m" in result.failure.context["unavailable_fields"]
+    )
+
+
+def test_precipitation_limit_without_observations_fails_closed() -> None:
+    result = try_estimate_mission_distance_time(
+        _transit_mission(max_precipitation_mm_h=0.0),
+        make_vehicle(),
+    )
+
+    assert result.status == EstimateStatus.INFEASIBLE
+    assert result.failure is not None
+    assert result.failure.code == FailureCode.WEATHER_DATA_UNAVAILABLE
+    assert (
+        "constraints.max_precipitation_mm_h"
+        in result.failure.context["unavailable_fields"]
+    )
 
 
 def test_sustained_wind_at_limit_is_feasible() -> None:
@@ -134,6 +177,57 @@ def test_sustained_wind_at_limit_is_feasible() -> None:
     assert result.weather.is_feasible
 
 
+def test_vertical_leg_is_included_in_sustained_wind_check() -> None:
+    mission = _transit_mission(max_wind_mps=5.0)
+    vertical = mission.route[0]
+    vertical.altitude_m = 80.0
+    mission.route = [vertical]
+
+    result = try_estimate_mission_distance_time(
+        mission,
+        make_vehicle(),
+        wind_provider=ConstantWindProvider(10.0, 0.0),
+    )
+
+    assert result.status == EstimateStatus.INFEASIBLE
+    assert result.failure is not None
+    assert result.failure.code == FailureCode.WIND_LIMIT_EXCEEDED
+    assert result.weather is not None
+    assert result.weather.checked_leg_count == 1
+
+
+def test_hover_loiter_checks_wind_change_during_full_dwell() -> None:
+    mission = _transit_mission()
+    loiter = mission.route[1]
+    loiter.action = MissionAction.LOITER_TIME
+    loiter.lat = mission.planned_home.lat
+    loiter.lon = mission.planned_home.lon
+    loiter.altitude_reference = AltitudeReference.AMSL
+    loiter.altitude_m = mission.planned_home.altitude_amsl_m
+    loiter.loiter_time_s = 120.0
+    mission.route = [loiter]
+    provider = TimeVaryingWindProvider(
+        ConstantWindProvider(0.0, 0.0),
+        [
+            TimedWindChange(
+                effective_elapsed_time_s=30.0,
+                provider=ConstantWindProvider(10.0, 0.0),
+            )
+        ],
+    )
+
+    result = try_estimate_mission_distance_time(
+        mission,
+        make_vehicle(),
+        wind_provider=provider,
+    )
+
+    assert result.status == EstimateStatus.INFEASIBLE
+    assert result.failure is not None
+    assert result.failure.code == FailureCode.STATION_KEEP_INFEASIBLE_WIND
+    assert result.failure.context["elapsed_time_s"] == 30.0
+
+
 def _write_yaml(path: Path, payload: dict) -> None:
     path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
 
@@ -142,11 +236,18 @@ def _write_inputs(tmp_path: Path, *, max_wind_mps: float) -> tuple[Path, Path]:
     mission_payload = make_mission_payload()
     mission_payload["route"] = [
         {"id": "takeoff", "action": "vtol_takeoff", "altitude_m": 80.0},
-        {"id": "wp1", "action": "waypoint", "lat": 52.0, "lon": 4.02, "altitude_m": 120.0},
+        {
+            "id": "wp1",
+            "action": "waypoint",
+            "lat": 52.0,
+            "lon": 4.02,
+            "altitude_m": 120.0,
+        },
         {"id": "rtl", "action": "rtl"},
     ]
     mission_payload["constraints"] = {
         "min_landing_reserve_percent": 25.0,
+        "require_rth_reserve": False,
         "max_wind_mps": max_wind_mps,
     }
     mission_path = tmp_path / "mission.yaml"
@@ -195,9 +296,14 @@ def test_checklist_shows_weather_pass(tmp_path: Path) -> None:
         ],
     )
 
-    assert result.exit_code == int(CliExitCode.SUCCESS)
+    assert result.exit_code == int(CliExitCode.INFEASIBLE)
     assert "Weather limits" in result.stdout
-    assert "Status: GO" in result.stdout
+    assert "worst wind 5.00 m/s" in result.stdout
+    assert any(
+        "Weather limits" in line and "PASS" in line
+        for line in result.stdout.splitlines()
+    )
+    assert "Status: NO-GO" in result.stdout
 
 
 def test_summary_shows_weather_fail(tmp_path: Path) -> None:

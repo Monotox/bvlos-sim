@@ -229,6 +229,7 @@ def test_checklist_shows_departure_time_when_set(tmp_path: Path) -> None:
         ],
     )
 
-    assert result.exit_code == int(CliExitCode.SUCCESS)
+    assert result.exit_code == int(CliExitCode.INFEASIBLE)
     assert "Departure time" in result.output
     assert "2026-06-01T14:00:00Z" in result.output
+    assert "Status: NO-GO" in result.output

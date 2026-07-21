@@ -21,25 +21,85 @@ def _write_inputs(
     dimension_m: float | None = 1.0,
     density_ppl_km2: float = 12.0,
     sora: dict | None = None,
+    include_footprint: bool = True,
+    operational_footprint_assemblies_present: bool = False,
 ) -> tuple[Path, Path]:
     population_path = tmp_path / "population.yaml"
     _write_yaml(
         population_path,
         {
-            "origin_lat": 51.99,
-            "origin_lon": 3.99,
+            "schema_version": "population-grid.v2",
+            "origin_lat": 51.98,
+            "origin_lon": 3.98,
             "step_lat_deg": 0.01,
             "step_lon_deg": 0.01,
-            "density_ppl_km2": [[density_ppl_km2] * 3 for _ in range(3)],
+            "density_ppl_km2": [[density_ppl_km2] * 5 for _ in range(5)],
+            "metadata": {
+                "source": "Test conservative population assessment",
+                "population_year": 2026,
+                "native_resolution_m": 100.0,
+                "effective_resolution_m": 100.0,
+                "value_semantics": "conservative_cell_maximum",
+                "authority_assessment_reference": "TEST-POP-001",
+                "valid_from": "2026-01-01T00:00:00Z",
+                "valid_until": "2026-12-31T23:59:59Z",
+                "transient_population_assessment_reference": "TEST-EVENT-001",
+                "operational_footprint_assemblies_present": (
+                    operational_footprint_assemblies_present
+                ),
+            },
+        },
+    )
+
+    terrain_path = tmp_path / "terrain.yaml"
+    _write_yaml(
+        terrain_path,
+        {
+            "origin_lat": 51.98,
+            "origin_lon": 3.98,
+            "step_lat_deg": 0.01,
+            "step_lon_deg": 0.01,
+            "elevations_m": [[12.0] * 5 for _ in range(5)],
         },
     )
 
     mission_payload = make_mission_payload()
-    mission_payload["assets"] = {"population_grid_file": population_path.name}
+    mission_payload["departure_time"] = "2026-07-21T12:00:00Z"
+    mission_payload["assets"] = {
+        "population_grid_file": population_path.name,
+        "terrain_file": terrain_path.name,
+    }
     if airspace is not None:
+        airspace = dict(airspace)
+        airspace.setdefault(
+            "operational_and_contingency_volume_assessment_reference",
+            "Test whole-volume airspace assessment",
+        )
+        airspace.setdefault("worst_case_arc_declared", True)
+        airspace.setdefault("aerodrome_environment", False)
+        airspace.setdefault("transponder_mandatory_zone", False)
         mission_payload["airspace"] = airspace
-    if sora is not None:
-        mission_payload["sora"] = sora
+    sora_payload = dict(sora or {})
+    if include_footprint:
+        sora_payload["ground_risk_footprint"] = {
+            "operational_volume_margin_m": 30.0,
+            "ground_risk_buffer_m": 300.0,
+            "vertical_contingency_margin_m": 10.0,
+            "maximum_height_agl_m": 130.0,
+            "derivation": "Test fixture conservative 1:1 buffer",
+        }
+        sora_payload.setdefault(
+            "containment_evidence",
+            {
+                "assessment_reference": "TEST-CONTAINMENT-001",
+                "average_population_density_ppl_km2": density_ppl_km2,
+                "largest_outdoor_assembly": "below_40000",
+                "sheltering_applicable": dimension_m is None or dimension_m <= 3.0,
+                "ground_risk_buffer_revalidation_reference": "TEST-GRC-RECHECK-001",
+            },
+        )
+    if sora_payload:
+        mission_payload["sora"] = sora_payload
 
     vehicle_payload = make_vehicle_payload()
     if dimension_m is not None:
@@ -61,7 +121,12 @@ def _invoke(mission_path: Path, vehicle_path: Path, fmt: str):
 
 def test_sora_markdown_reports_sail_osos_and_disclaimer(tmp_path: Path) -> None:
     mission_path, vehicle_path = _write_inputs(
-        tmp_path, airspace={"class": "G", "max_altitude_agl_m": 120.0}
+        tmp_path,
+        airspace={
+            "class": "G",
+            "max_altitude_agl_m": 130.0,
+            "over_urban_area": False,
+        },
     )
 
     result = _invoke(mission_path, vehicle_path, "markdown")
@@ -69,188 +134,435 @@ def test_sora_markdown_reports_sail_osos_and_disclaimer(tmp_path: Path) -> None:
     assert result.exit_code == int(CliExitCode.SUCCESS)
     assert "# SORA Pre-Assessment: pipeline_demo_001" in result.stdout
     assert "SAIL:" in result.stdout
-    assert "## Applicable OSOs at SAIL" in result.stdout
+    assert "TMPR required robustness:" in result.stdout
+    assert "## Table 14 OSOs at SAIL" in result.stdout
     assert "OSO#01" in result.stdout
+    assert result.stdout.count("| OSO#") == 17
+    assert "| OSO#02 |" in result.stdout
+    assert "| NR | no |" in result.stdout
+    assert "INCOMPLETE SORA" in result.stdout
+    assert "Annex E containment compliance:     NOT ASSESSED" in result.stdout
     assert "not a certified determination" in result.stdout
 
 
 def test_sora_json_envelope_contains_sail(tmp_path: Path) -> None:
     mission_path, vehicle_path = _write_inputs(
-        tmp_path, airspace={"class": "G", "max_altitude_agl_m": 120.0}
+        tmp_path,
+        airspace={
+            "class": "G",
+            "max_altitude_agl_m": 130.0,
+            "over_urban_area": False,
+        },
     )
 
     result = _invoke(mission_path, vehicle_path, "json")
 
     assert result.exit_code == int(CliExitCode.SUCCESS)
     payload = json.loads(result.stdout)
-    assert payload["schema_version"] == "sora-envelope.v1"
-    assert payload["sora_schema_version"] == "sora-assessment.v1"
+    assert payload["schema_version"] == "sora-envelope.v3"
+    assert payload["sora_schema_version"] == "sora-assessment.v3"
     assessment = payload["result"]
     assert assessment["intrinsic_grc"] == 3
     assert assessment["final_grc"] == 3
     assert assessment["air_risk_class"] == "b"
+    assert assessment["sora_version"] == "2.5"
+    assert assessment["complete_sora_assessment"] is False
+    assert assessment["oso_compliance_status"] == "not_assessed"
+    assert assessment["within_specific_category_method_scope"] is True
+    assert assessment["max_speed_mps"] == 25.0
+    assert (
+        assessment["operational_and_contingency_volume_assessment_reference"]
+        == "Test whole-volume airspace assessment"
+    )
+    assert assessment["worst_case_arc_declared"] is True
+    assert assessment["population_evidence"]["schema_version"] == "population-grid.v2"
+    assert "rural area" in assessment["air_risk_rationale"]
+    assert assessment["ground_risk_footprint"] == {
+        "buffer_method": "initial_1_to_1",
+        "derivation": "Test fixture conservative 1:1 buffer",
+        "ground_risk_buffer_m": 300.0,
+        "maximum_height_agl_m": 130.0,
+        "operational_volume_margin_m": 30.0,
+        "vertical_contingency_margin_m": 10.0,
+    }
+    assert assessment["tactical_mitigation_requirement"] == {
+        "required_robustness": "low"
+    }
     assert assessment["sail"] == "II"
-    assert assessment["applicable_osos"]
+    assert assessment["containment_requirement"] == {
+        "method": "tables_8_to_13",
+        "adjacent_area_outer_limit_m": 5000.0,
+        "adjacent_area_assessment_required": True,
+        "selected_table": 9,
+        "assessment_reference": "TEST-CONTAINMENT-001",
+        "average_population_density_ppl_km2": 12.0,
+        "largest_outdoor_assembly": "below_40000",
+        "sheltering_assumed": True,
+        "population_density_operational_limit": "below_5000_ppl_km2",
+        "outdoor_assembly_operational_limit": "below_40000",
+        "required_robustness": "low",
+        "ground_risk_buffer_revalidation_reference": "TEST-GRC-RECHECK-001",
+        "within_specific_category_method_scope": True,
+        "annex_e_compliance_status": "not_assessed",
+    }
+    assert len(assessment["applicable_osos"]) == 17
+    oso02 = next(
+        oso for oso in assessment["applicable_osos"] if oso["oso_id"] == "OSO#02"
+    )
+    assert oso02["robustness"] == "NR"
+    assert oso02["required"] is False
+    assert oso02["party_dependencies"]["designer"] == {
+        "applicable": True,
+        "criterion_refs": [],
+    }
+    oso05 = next(
+        oso for oso in assessment["applicable_osos"] if oso["oso_id"] == "OSO#05"
+    )
+    assert oso05["note_refs"] == ["4.9.3(c)"]
 
 
-def test_near_aerodrome_yields_higher_arc_than_low_altitude(tmp_path: Path) -> None:
+def test_aerodrome_environment_yields_higher_arc_than_low_altitude(
+    tmp_path: Path,
+) -> None:
     low_dir = tmp_path / "low"
     aero_dir = tmp_path / "aero"
     low_dir.mkdir()
     aero_dir.mkdir()
 
     low_mission, low_vehicle = _write_inputs(
-        low_dir, airspace={"class": "G", "max_altitude_agl_m": 120.0}
+        low_dir,
+        airspace={
+            "class": "G",
+            "max_altitude_agl_m": 130.0,
+            "over_urban_area": False,
+        },
     )
     aero_mission, aero_vehicle = _write_inputs(
         aero_dir,
-        airspace={"class": "G", "max_altitude_agl_m": 120.0, "near_aerodrome": True},
+        airspace={
+            "class": "G",
+            "max_altitude_agl_m": 130.0,
+            "aerodrome_environment": True,
+        },
     )
 
     low = json.loads(_invoke(low_mission, low_vehicle, "json").stdout)["result"]
     aero = json.loads(_invoke(aero_mission, aero_vehicle, "json").stdout)["result"]
 
     assert low["air_risk_class"] == "b"
-    assert aero["air_risk_class"] == "d"
+    assert aero["air_risk_class"] == "c"
 
 
-def test_missing_airspace_reports_grc_only(tmp_path: Path) -> None:
+def test_missing_airspace_is_rejected(tmp_path: Path) -> None:
     mission_path, vehicle_path = _write_inputs(tmp_path, airspace=None)
 
     result = _invoke(mission_path, vehicle_path, "json")
 
-    assert result.exit_code == int(CliExitCode.SUCCESS)
-    assessment = json.loads(result.stdout)["result"]
-    assert assessment["final_grc"] == 3
-    assert assessment["air_risk_class"] is None
-    assert assessment["sail"] is None
-    assert "AIRSPACE_DESCRIPTOR_MISSING" in {
-        advisory["code"] for advisory in assessment["advisories"]
-    }
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+    assert "Airspace descriptor is required" in result.stdout
+
+
+def test_missing_assessed_ground_footprint_is_rejected(tmp_path: Path) -> None:
+    mission_path, vehicle_path = _write_inputs(
+        tmp_path,
+        airspace={
+            "class": "G",
+            "max_altitude_agl_m": 130.0,
+            "over_urban_area": False,
+        },
+        include_footprint=False,
+    )
+
+    result = _invoke(mission_path, vehicle_path, "json")
+
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+    assert "centerline-only population output is diagnostic" in result.stdout
+
+
+def test_conservative_ground_risk_buffer_must_cover_operational_height(
+    tmp_path: Path,
+) -> None:
+    mission_path, vehicle_path = _write_inputs(
+        tmp_path,
+        airspace={
+            "class": "G",
+            "max_altitude_agl_m": 130.0,
+            "over_urban_area": False,
+        },
+        sora={
+            "ground_risk_footprint": {
+                "operational_volume_margin_m": 30.0,
+                "ground_risk_buffer_m": 50.0,
+                "vertical_contingency_margin_m": 10.0,
+                "maximum_height_agl_m": 130.0,
+                "derivation": "Deliberately undersized test fixture",
+            }
+        },
+        include_footprint=False,
+    )
+
+    result = _invoke(mission_path, vehicle_path, "json")
+
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+    assert "must be at least the terrain-checked maximum_height_agl_m" in result.stdout
+
+
+def test_airspace_ceiling_must_cover_verified_maximum_height(tmp_path: Path) -> None:
+    mission_path, vehicle_path = _write_inputs(
+        tmp_path,
+        airspace={
+            "class": "G",
+            "max_altitude_agl_m": 1.0,
+            "over_urban_area": False,
+        },
+    )
+
+    result = _invoke(mission_path, vehicle_path, "json")
+
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+    assert "must cover the terrain-checked" in result.stdout
 
 
 def test_grc_above_seven_flags_certified_category(tmp_path: Path) -> None:
     mission_path, vehicle_path = _write_inputs(
         tmp_path,
-        airspace={"class": "G", "max_altitude_agl_m": 120.0},
+        airspace={
+            "class": "G",
+            "max_altitude_agl_m": 130.0,
+            "over_urban_area": False,
+        },
         dimension_m=20.0,
-        density_ppl_km2=60_000.0,
+        density_ppl_km2=600.0,
     )
 
-    assessment = json.loads(_invoke(mission_path, vehicle_path, "json").stdout)["result"]
+    result = _invoke(mission_path, vehicle_path, "json")
+    assert result.exit_code == int(CliExitCode.INFEASIBLE)
+    assessment = json.loads(result.stdout)["result"]
 
     assert assessment["final_grc"] > 7
-    assert assessment["sail"] == "certified"
+    assert assessment["sail"] is None
+    assert assessment["category_outcome"] == "certified"
     assert assessment["applicable_osos"] == []
     assert "OPERATION_OUTSIDE_SPECIFIC_CATEGORY" in {
         advisory["code"] for advisory in assessment["advisories"]
     }
 
 
-def test_ground_risk_mitigations_lower_sail(tmp_path: Path) -> None:
+def test_ground_risk_mitigation_credit_is_rejected_without_criteria_evaluator(
+    tmp_path: Path,
+) -> None:
     mission_path, vehicle_path = _write_inputs(
         tmp_path,
-        airspace={"class": "G", "max_altitude_agl_m": 120.0},
+        airspace={
+            "class": "G",
+            "max_altitude_agl_m": 130.0,
+            "over_urban_area": False,
+        },
         density_ppl_km2=600.0,  # density row -> iGRC 5 for a 1 m vehicle
         sora={
             "ground_risk_mitigations": {
-                "m1_strategic": {"applied": True, "robustness": "high"},
+                "m1a_sheltering": {
+                    "applied": True,
+                    "robustness": "medium",
+                    "evidence": "Test sheltering dossier",
+                },
             }
         },
     )
 
-    assessment = json.loads(_invoke(mission_path, vehicle_path, "json").stdout)["result"]
+    result = _invoke(mission_path, vehicle_path, "json")
 
-    assert assessment["intrinsic_grc"] == 5
-    assert assessment["final_grc"] == 3
-    assert assessment["intrinsic_sail"] == "IV"
-    assert assessment["sail"] == "II"
-    assert assessment["sora_version"] == "2.0"
-    credits = assessment["ground_risk_mitigations"]
-    assert credits == [
-        {
-            "mitigation_id": "M1",
-            "title": "Strategic mitigations for ground risk",
-            "robustness": "high",
-            "grc_credit": -2,
-        }
-    ]
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+    assert "Annex B integrity-and-assurance criteria evaluator" in result.stdout
+    assert "free-text evidence reference cannot earn GRC credit" in result.stdout
 
 
-def test_tactical_air_risk_mitigation_lowers_arc(tmp_path: Path) -> None:
+def test_tactical_air_risk_credit_is_rejected(tmp_path: Path) -> None:
     mission_path, vehicle_path = _write_inputs(
         tmp_path,
         # above 500 ft AGL in controlled airspace -> ARC-d
         airspace={"class": "C", "max_altitude_agl_m": 300.0},
-        sora={"air_risk": {"tactical_mitigation": {"applied": True, "robustness": "high"}}},
+        sora={
+            "air_risk": {
+                "tactical_mitigation": {
+                    "applied": True,
+                    "robustness": "high",
+                    "evidence": "Test DAA dossier",
+                }
+            }
+        },
     )
 
-    assessment = json.loads(_invoke(mission_path, vehicle_path, "json").stdout)["result"]
+    result = _invoke(mission_path, vehicle_path, "json")
 
-    assert assessment["initial_air_risk_class"] == "d"
-    assert assessment["air_risk_class"] == "b"
-    assert assessment["tactical_air_risk_mitigation"] == {
-        "robustness": "high",
-        "arc_bands_reduced": 2,
-    }
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+    assert "Mission file failed schema validation" in result.stdout
 
 
-def test_markdown_shows_mitigation_ladder(tmp_path: Path) -> None:
+def test_markdown_request_cannot_bypass_mitigation_credit_gate(tmp_path: Path) -> None:
     mission_path, vehicle_path = _write_inputs(
         tmp_path,
-        airspace={"class": "G", "max_altitude_agl_m": 120.0},
+        airspace={
+            "class": "G",
+            "max_altitude_agl_m": 130.0,
+            "over_urban_area": False,
+        },
         density_ppl_km2=600.0,
         sora={
             "ground_risk_mitigations": {
-                "m1_strategic": {"applied": True, "robustness": "high"},
+                "m1a_sheltering": {
+                    "applied": True,
+                    "robustness": "medium",
+                    "evidence": "Test sheltering dossier",
+                },
             }
         },
     )
 
     result = _invoke(mission_path, vehicle_path, "markdown")
 
-    assert result.exit_code == int(CliExitCode.SUCCESS)
-    assert "## Ground Risk Mitigation Ladder (SORA 2.0)" in result.stdout
-    assert "Intrinsic SAIL:" in result.stdout
-    assert "Mitigated SAIL:" in result.stdout
-    assert "M1 Strategic mitigations for ground risk (high): -2" in result.stdout
-    assert "not a certified determination" in result.stdout
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+    assert "Annex B integrity-and-assurance criteria evaluator" in result.stdout
 
 
-def test_unsupported_sora_version_emits_advisory(tmp_path: Path) -> None:
+def test_unsupported_sora_version_is_rejected(tmp_path: Path) -> None:
     mission_path, vehicle_path = _write_inputs(
         tmp_path,
-        airspace={"class": "G", "max_altitude_agl_m": 120.0},
+        airspace={
+            "class": "G",
+            "max_altitude_agl_m": 130.0,
+            "over_urban_area": False,
+        },
         density_ppl_km2=600.0,
         sora={
             "version": "9.9",
-            "ground_risk_mitigations": {
-                "m1_strategic": {"applied": True, "robustness": "high"},
-            },
         },
     )
 
-    assessment = json.loads(_invoke(mission_path, vehicle_path, "json").stdout)["result"]
+    result = _invoke(mission_path, vehicle_path, "json")
 
-    assert assessment["final_grc"] == assessment["intrinsic_grc"]
-    assert assessment["ground_risk_mitigations"] == []
-    assert "MITIGATION_VERSION_UNSUPPORTED" in {
-        advisory["code"] for advisory in assessment["advisories"]
-    }
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+    assert "Mission file failed schema validation" in result.stdout
 
 
-def test_missing_dimension_reports_no_ground_risk(tmp_path: Path) -> None:
+def test_missing_dimension_is_rejected_for_sora(tmp_path: Path) -> None:
     mission_path, vehicle_path = _write_inputs(
         tmp_path,
-        airspace={"class": "G", "max_altitude_agl_m": 120.0},
+        airspace={
+            "class": "G",
+            "max_altitude_agl_m": 130.0,
+            "over_urban_area": False,
+        },
         dimension_m=None,
     )
 
-    assessment = json.loads(_invoke(mission_path, vehicle_path, "json").stdout)["result"]
+    result = _invoke(mission_path, vehicle_path, "json")
 
-    assert assessment["intrinsic_grc"] is None
-    assert assessment["final_grc"] is None
-    assert assessment["sail"] is None
-    assert "GROUND_RISK_NOT_COMPUTED" in {
-        advisory["code"] for advisory in assessment["advisories"]
-    }
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+    assert "Ground Risk Class was not computed" in result.stdout
+
+
+def test_sora_rejects_diagnostic_population_grid(tmp_path: Path) -> None:
+    mission_path, vehicle_path = _write_inputs(
+        tmp_path,
+        airspace={
+            "class": "G",
+            "max_altitude_agl_m": 130.0,
+            "over_urban_area": False,
+        },
+    )
+    population_path = tmp_path / "population.yaml"
+    population = yaml.safe_load(population_path.read_text(encoding="utf-8"))
+    population.pop("schema_version")
+    _write_yaml(population_path, population)
+
+    result = _invoke(mission_path, vehicle_path, "json")
+
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+    assert "requires a population-grid.v2 asset" in result.stdout
+
+
+def test_sora_rejects_expired_population_evidence(tmp_path: Path) -> None:
+    mission_path, vehicle_path = _write_inputs(
+        tmp_path,
+        airspace={
+            "class": "G",
+            "max_altitude_agl_m": 130.0,
+            "over_urban_area": False,
+        },
+    )
+    population_path = tmp_path / "population.yaml"
+    population = yaml.safe_load(population_path.read_text(encoding="utf-8"))
+    population["metadata"]["valid_until"] = "2026-06-01T00:00:00Z"
+    _write_yaml(population_path, population)
+
+    result = _invoke(mission_path, vehicle_path, "json")
+
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+    assert "outside the population evidence validity interval" in result.stdout
+
+
+def test_sora_rejects_declared_height_below_resolved_route_plus_margin(
+    tmp_path: Path,
+) -> None:
+    mission_path, vehicle_path = _write_inputs(
+        tmp_path,
+        airspace={
+            "class": "G",
+            "max_altitude_agl_m": 130.0,
+            "over_urban_area": False,
+        },
+    )
+    mission = yaml.safe_load(mission_path.read_text(encoding="utf-8"))
+    mission["sora"]["ground_risk_footprint"]["maximum_height_agl_m"] = 125.0
+    _write_yaml(mission_path, mission)
+
+    result = _invoke(mission_path, vehicle_path, "json")
+
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+    assert "route maximum AGL plus vertical_contingency_margin_m" in result.stdout
+
+
+def test_sora_preserves_estimator_infeasibility_reason(tmp_path: Path) -> None:
+    mission_path, vehicle_path = _write_inputs(
+        tmp_path,
+        airspace={
+            "class": "G",
+            "max_altitude_agl_m": 130.0,
+            "over_urban_area": False,
+        },
+    )
+    vehicle = yaml.safe_load(vehicle_path.read_text(encoding="utf-8"))
+    vehicle["energy"]["battery_capacity_wh"] = 1.0
+    _write_yaml(vehicle_path, vehicle)
+
+    result = _invoke(mission_path, vehicle_path, "json")
+
+    assert result.exit_code == int(CliExitCode.INFEASIBLE)
+    assert "INSUFFICIENT_ENERGY" in result.stdout
+    assert "Ground Risk Class was not computed" not in result.stdout
+
+
+def test_operational_footprint_assembly_forces_highest_population_band(
+    tmp_path: Path,
+) -> None:
+    mission_path, vehicle_path = _write_inputs(
+        tmp_path,
+        airspace={
+            "class": "G",
+            "max_altitude_agl_m": 130.0,
+            "over_urban_area": False,
+        },
+        density_ppl_km2=12.0,
+        operational_footprint_assemblies_present=True,
+    )
+
+    result = _invoke(mission_path, vehicle_path, "json")
+    assessment = json.loads(result.stdout)["result"]
+
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    assert assessment["intrinsic_grc"] == 7
+    assert (
+        assessment["population_evidence"]["operational_footprint_assemblies_present"]
+        is True
+    )

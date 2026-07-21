@@ -54,19 +54,35 @@ def _cross_track_points(
 def _render_header(envelope: StochasticResultEnvelope) -> Lines:
     r = envelope.result
     lines = [
-        f"# Stochastic Propagation Report: {r.propagation_id}",
+        f"# Diagnostic Stochastic Parameter Sweep: {r.propagation_id}",
+        "",
+        "**Operational Feasibility Assessed:** No  ",
+        "**Scope:** Open-loop diagnostic parameter sweep; not a landing, control, "
+        "or operational-feasibility probability.  ",
+        "**Conditioning:** Timeline and reserve distributions include modeled-pass "
+        "samples only.  ",
         "",
         f"**Schema Version:** {envelope.schema_version}  ",
         f"**Tool Version:** {envelope.tool_version}  ",
         f"**Seed:** {r.seed}  ",
-        f"**Samples:** {r.sample_count}  ",
+        f"**Modeled-Pass Samples:** {r.sample_count}  ",
     ]
+    if r.infeasible_sample_count > 0:
+        lines.append(f"**Infeasible Samples:** {r.infeasible_sample_count}  ")
     if r.failed_sample_count > 0:
         lines.append(f"**Failed Samples:** {r.failed_sample_count}  ")
     if r.spatial_infeasible_count > 0:
-        lines.append(f"**Spatially Infeasible Samples:** {r.spatial_infeasible_count}  ")
+        lines.append(
+            f"**Spatially Infeasible Samples (subset):** {r.spatial_infeasible_count}  "
+        )
     lines.append(f"**dt_s:** {_fmt(r.dt_s)}  ")
-    lines.append(f"**Feasibility Rate:** {r.feasibility_rate * 100:.1f}%  ")
+    if r.modeled_constraint_pass_rate is None:
+        lines.append("**Modeled Constraint Pass Rate:** n/a  ")
+    else:
+        lines.append(
+            "**Modeled Constraint Pass Rate:** "
+            f"{r.modeled_constraint_pass_rate * 100:.1f}%  "
+        )
     return lines
 
 
@@ -75,15 +91,16 @@ def _render_timeline(envelope: StochasticResultEnvelope) -> Lines:
         "",
         "## Timeline",
         "",
-        "| Elapsed (s) | Energy Mean (Wh) | Energy Std | P(reserve violation) |",
-        "|-------------|------------------|------------|----------------------|",
+        "| Elapsed (s) | Energy Mean (Wh) | Energy Std | Conditional reserve violation | n |",
+        "|-------------|------------------|------------|-------------------------------|---|",
     ]
     for point in _timeline_points(envelope):
         lines.append(
             f"| {_fmt(point.elapsed_time_s)} "
             f"| {_fmt(point.energy_remaining_wh.mean)} "
             f"| {_fmt(point.energy_remaining_wh.std)} "
-            f"| {_fmt(point.p_reserve_violation, 3)} |"
+            f"| {_fmt(point.conditional_reserve_violation_rate, 3)} "
+            f"| {point.contributing_sample_count} |"
         )
     return lines
 
@@ -131,13 +148,13 @@ def _render_cross_track_timeline(envelope: StochasticResultEnvelope) -> Lines:
 
 
 def _render_reserve_distribution(result: StochasticPropagationResult) -> Lines:
-    if result.reserve_at_landing_wh is None:
+    if result.reserve_at_mission_end_wh is None:
         return []
 
-    s = result.reserve_at_landing_wh
+    s = result.reserve_at_mission_end_wh
     return [
         "",
-        "## Reserve at Landing Distribution (Wh)",
+        "## Conditional Reserve at Mission End (Wh)",
         "",
         "| Stat | Value (Wh) |",
         "|------|------------|",
@@ -162,11 +179,12 @@ def _render_baseline(result: StochasticPropagationResult) -> Lines:
     ]
     if baseline.energy is not None:
         lines.append(
-            f"**Reserve at Landing:** {_fmt(baseline.energy.reserve_at_landing_wh)} Wh "
+            "**Modeled Reserve at Mission End:** "
+            f"{_fmt(baseline.energy.reserve_at_landing_wh)} Wh "
             f"({_fmt(baseline.energy.reserve_at_landing_percent)}%)  "
         )
     else:
-        lines.append("**Reserve at Landing:** n/a  ")
+        lines.append("**Modeled Reserve at Mission End:** n/a  ")
     return lines
 
 

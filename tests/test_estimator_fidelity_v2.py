@@ -11,6 +11,7 @@ from estimator import (
     LegPhase,
     SpeedSource,
     estimate_mission_distance_time,
+    try_estimate_mission_distance_time,
 )
 from estimator.core.errors import UnsupportedEstimatorFeatureError
 from estimator.math.turn_arc import compute_turn_arc_geometry
@@ -167,18 +168,29 @@ def test_v2_turn_arc_adds_to_total_path_distance() -> None:
     assert r_v2.total_path_distance_m < r_v1.total_path_distance_m + arc_total
 
 
-def test_v2_turn_arc_zero_displacement() -> None:
+def test_v2_turn_arc_materializes_connected_tangent_geometry() -> None:
     mission = _make_turning_mission()
     result = estimate_mission_distance_time(
         mission, make_vehicle(), options=_v2_options()
     )
-    for leg in result.legs:
+    for index, leg in enumerate(result.legs):
         if leg.phase != LegPhase.TURN_ARC:
             continue
-        assert leg.horizontal_distance_m == 0.0
+        assert leg.horizontal_distance_m > 0.0
         assert leg.vertical_delta_m == 0.0
-        assert leg.start_lat == leg.end_lat
-        assert leg.start_lon == leg.end_lon
+        assert (leg.start_lat, leg.start_lon) != (leg.end_lat, leg.end_lon)
+        assert leg.path_coordinates is not None
+        assert len(leg.path_coordinates) >= 3
+        assert result.legs[index - 1].end_lat == leg.start_lat
+        assert result.legs[index - 1].end_lon == leg.start_lon
+        assert result.legs[index + 1].start_lat == leg.end_lat
+        assert result.legs[index + 1].start_lon == leg.end_lon
+
+        radius_m = make_vehicle().performance.turn_radius_m
+        assert radius_m is not None
+        turn_angle_rad = leg.path_distance_m / radius_m
+        expected_chord_m = 2.0 * radius_m * math.sin(turn_angle_rad / 2.0)
+        assert leg.horizontal_distance_m == pytest.approx(expected_chord_m, rel=2e-4)
 
 
 def test_v2_turn_arc_ground_track_equals_outgoing_direction() -> None:
@@ -195,16 +207,48 @@ def test_v2_turn_arc_ground_track_equals_outgoing_direction() -> None:
             assert math.isclose(
                 leg.ground_track_deg,
                 legs[i + 1].ground_track_deg,
-                rel_tol=1e-9,
+                abs_tol=0.01,
             )
 
 
-def test_v2_turn_arc_contributes_to_total_time() -> None:
+def test_v2_turn_arc_recomputes_total_time_from_connected_legs() -> None:
     mission = _make_turning_mission()
     vehicle = make_vehicle()
     r_v1 = estimate_mission_distance_time(mission, vehicle, options=_v1_options())
     r_v2 = estimate_mission_distance_time(mission, vehicle, options=_v2_options())
-    assert r_v2.total_time_s > r_v1.total_time_s
+    assert r_v2.total_time_s == pytest.approx(sum(leg.time_s for leg in r_v2.legs))
+    assert r_v2.total_time_s != pytest.approx(r_v1.total_time_s)
+
+
+def test_v2_rejects_unmaterializable_u_turn_fillet() -> None:
+    mission = make_mission()
+    home = mission.planned_home
+    mission.route = [
+        RouteItem(
+            id="north",
+            action=MissionAction.WAYPOINT,
+            lat=home.lat + 0.01,
+            lon=home.lon,
+            altitude_m=120.0,
+        ),
+        RouteItem(
+            id="home",
+            action=MissionAction.WAYPOINT,
+            lat=home.lat,
+            lon=home.lon,
+            altitude_m=120.0,
+        ),
+    ]
+
+    result = try_estimate_mission_distance_time(
+        mission,
+        make_vehicle(),
+        options=_v2_options(),
+    )
+
+    assert result.failure is not None
+    assert result.failure.code == FailureCode.INVALID_GEOMETRY
+    assert result.failure.context["turn_angle_deg"] == pytest.approx(180.0)
 
 
 def test_v1_and_v2_leg_count_differ_by_turn_arc_count() -> None:
@@ -312,6 +356,25 @@ def test_fw_circular_loiter_populates_wind_fields() -> None:
     assert dwell.wind_east_mps is not None
     assert dwell.wind_north_mps is not None
     assert dwell.wind_speed_mps is not None
+
+
+def test_fw_circular_loiter_rejects_unsustainable_upwind_groundspeed() -> None:
+    mission = make_mission()
+    loiter = mission.route[2]
+    loiter.lat = mission.planned_home.lat
+    loiter.lon = mission.planned_home.lon
+    mission.route = [loiter]
+    vehicle = make_fw_vehicle()
+
+    result = try_estimate_mission_distance_time(
+        mission,
+        vehicle,
+        options=_v2_options(wind_east_mps=17.0),
+    )
+
+    assert result.failure is not None
+    assert result.failure.code == FailureCode.GROUNDSPEED_BELOW_MIN
+    assert result.failure.context["groundspeed_mps"] == pytest.approx(1.0)
 
 
 def test_fw_circular_loiter_speed_source_is_cruise() -> None:

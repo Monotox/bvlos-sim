@@ -1,4 +1,4 @@
-"""Connect-only ArduPilot SITL adapter."""
+"""ArduPilot SITL mission-execution and evidence adapter."""
 
 from __future__ import annotations
 
@@ -13,10 +13,12 @@ from adapters.sitl.ardupilot_mavlink import (
     RUN_STATE_MESSAGE_TYPES,
     MavConnection,
     MavutilModule,
-    mission_current_reached,
+    drain_mission_progress_messages,
+    mission_execution_complete,
+    mission_execution_progressed,
     send_arm_command,
     set_auto_mode,
-    wait_for_armed_state_if_supported,
+    wait_for_armed_state,
 )
 from adapters.sitl.ardupilot_mission import (
     ALTITUDE_REFERENCE_TO_MAVLINK_FRAME,
@@ -53,6 +55,7 @@ class ArduPilotSitlAdapter:
     _connection: MavConnection | None = field(init=False, default=None, repr=False)
     _heartbeat: object | None = field(init=False, default=None, repr=False)
     _mission_item_count: int | None = field(init=False, default=None, repr=False)
+    _run_state: RunState | None = field(init=False, default=None, repr=False)
     _artifact_recorder: SitlArtifactRecorder | None = field(
         init=False,
         default=None,
@@ -64,12 +67,23 @@ class ArduPilotSitlAdapter:
         self._connection = None
         self._heartbeat = None
         self._mission_item_count = None
+        self._run_state = None
         self._artifact_recorder = None
 
     def connect(self) -> None:
         connection_string = self._connection_string()
         connection = self._open_connection(connection_string)
-        heartbeat = self._wait_for_heartbeat(connection, connection_string)
+        try:
+            heartbeat = self._wait_for_heartbeat(connection, connection_string)
+        except BaseException as exc:
+            try:
+                connection.close()
+            except Exception as close_exc:
+                exc.add_note(
+                    "Closing the MAVLink connection after heartbeat failure also "
+                    f"failed: {close_exc}"
+                )
+            raise
         self._connection = connection
         self._heartbeat = heartbeat
         self._record_simulator_event(
@@ -105,7 +119,8 @@ class ArduPilotSitlAdapter:
                 "target_component": connection.target_component,
             },
         )
-        wait_for_armed_state_if_supported(connection, self.config.arm_timeout_s)
+        wait_for_armed_state(connection, self.config.arm_timeout_s)
+        drain_mission_progress_messages(connection)
         set_auto_mode(connection, mavlink)
         self._record_command(
             "SET_MODE_AUTO",
@@ -114,43 +129,87 @@ class ArduPilotSitlAdapter:
                 "target_component": connection.target_component,
             },
         )
+        self._record_adapter_event("mission_started", {"mode": "AUTO"})
 
     def wait_for_mission_complete(self, timeout_s: float = 300.0) -> RunState:
         connection = self._require_connection()
         if self._mission_item_count is None:
-            return RunState.ERROR
+            return self._set_run_state(RunState.ERROR)
 
         deadline = monotonic() + timeout_s
         final_sequence = max(0, self._mission_item_count - 1)
+        current_run_progress_seen = False
         while monotonic() < deadline:
             try:
                 message = self._receive_run_state_message(connection)
-                if mission_current_reached(message, final_sequence):
-                    return RunState.COMPLETE
+                if message is not None and self._artifact_recorder is not None:
+                    self._artifact_recorder.record_telemetry_message(
+                        monotonic(), message
+                    )
+                completion_observed = mission_execution_complete(
+                    message,
+                    final_sequence=final_sequence,
+                    item_count=self._mission_item_count,
+                )
+                if completion_observed:
+                    if current_run_progress_seen:
+                        return self._set_run_state(RunState.COMPLETE)
+                    self._record_adapter_event(
+                        "mission_completion_ignored",
+                        {"reason": "no_current_run_progress"},
+                    )
+                    continue
+                if not current_run_progress_seen and mission_execution_progressed(
+                    message,
+                    final_sequence=final_sequence,
+                    item_count=self._mission_item_count,
+                ):
+                    current_run_progress_seen = True
+                    self._record_adapter_event("mission_progress_verified")
             except (AttributeError, OSError, RuntimeError, TypeError, ValueError):
-                return RunState.ERROR
-        return RunState.TIMEOUT
+                return self._set_run_state(RunState.ERROR)
+        return self._set_run_state(RunState.TIMEOUT)
+
+    @property
+    def run_state(self) -> RunState | None:
+        """Final observed mission execution state, if a run was attempted."""
+
+        return self._run_state
+
+    def _set_run_state(self, state: RunState) -> RunState:
+        self._run_state = state
+        self._record_adapter_event("mission_run_state", {"state": state.value})
+        return state
 
     def disconnect(self) -> None:
         connection = self._connection
         self._connection = None
         self._heartbeat = None
-        if connection is None:
-            return
-        artifacts_were_flushed = (
-            self._artifact_recorder is not None
-            and self._artifact_recorder.observed is not None
-        )
-        self._record_simulator_event(
-            "disconnected",
-            {
-                "target_system": connection.target_system,
-                "target_component": connection.target_component,
-            },
-        )
-        connection.close()
-        if artifacts_were_flushed and self._artifact_recorder is not None:
-            self._artifact_recorder.write()
+        close_error: Exception | None = None
+        if connection is not None:
+            self._record_simulator_event(
+                "disconnected",
+                {
+                    "target_system": connection.target_system,
+                    "target_component": connection.target_component,
+                },
+            )
+            try:
+                connection.close()
+            except Exception as exc:
+                close_error = exc
+
+        write_error: Exception | None = None
+        if self._artifact_recorder is not None:
+            try:
+                self._artifact_recorder.write()
+            except Exception as exc:
+                write_error = exc
+
+        if close_error is not None:
+            raise close_error
+        if write_error is not None:
+            raise write_error
 
     def start_recording(self, artifact_dir: Path) -> None:
         if self._artifact_recorder is not None:
@@ -189,6 +248,7 @@ class ArduPilotSitlAdapter:
 
     def simulator_metadata(self, vehicle: VehicleProfile) -> SitlSimulatorMetadata:
         connection = self._connection
+        run_state = self._run_state.value if self._run_state is not None else None
         return SitlSimulatorMetadata(
             adapter_kind=self.adapter_kind,
             adapter_id=self.adapter_id,
@@ -198,7 +258,11 @@ class ArduPilotSitlAdapter:
             simulator_version=None,
             autopilot=_vehicle_autopilot(vehicle),
             frame=_vehicle_frame(vehicle),
-            metadata=_connection_metadata(self.config, connection),
+            metadata={
+                **_connection_metadata(self.config, connection),
+                "mission_run_state": run_state,
+                "mission_execution_verified": self._run_state is RunState.COMPLETE,
+            },
         )
 
     def observed_artifacts(self) -> SitlObservedArtifacts:

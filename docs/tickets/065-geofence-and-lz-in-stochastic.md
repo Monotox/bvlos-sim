@@ -1,8 +1,12 @@
 # Ticket 065 — Geofence and Landing-Zone Awareness in Stochastic Propagation
 
-## Status: Planned
+> Safety status: superseded by the diagnostic v2 contract. The accounting
+> invariant is `sample_count + infeasible_sample_count + failed_sample_count ==
+> plan.samples`; `spatial_infeasible_count` is a subset of the infeasible count.
 
-## Problem
+## Status: Implemented in diagnostic v2
+
+## Historical Problem
 
 `run_stochastic_propagation` passes `geofences` and `landing_zones`
 to each particle's estimator call (they are propagated through

@@ -1,7 +1,7 @@
 """Fetch terrain, wind, and landing zones for a mission area in one command.
 
 Writes three asset files ready to paste into the `assets:` section of a
-mission YAML. The terrain script requires `uv sync --extra scripts` first.
+mission YAML. Install the optional helpers with `pip install 'bvlos-sim[scripts]'`.
 
 Example:
     uv run python scripts/fetch_all.py 47.05 8.30 --departure-time 14:00
@@ -25,12 +25,15 @@ sys.path.insert(0, str(_SCRIPTS))
 
 try:
     from fetch_terrain import _sample_grid  # noqa: E402
+    from fetch_terrain import srtm as _srtm  # noqa: E402
 except ImportError:
     _sample_grid = None  # srtm.py not installed; handled below
+    _srtm = None
 
 from fetch_wind import _ALTITUDES_M  # noqa: E402
 from fetch_wind import _build_grid as _build_wind_grid  # noqa: E402
 from fetch_wind import _fetch as _fetch_wind  # noqa: E402
+from fetch_wind import requests as _requests  # noqa: E402
 from fetch_landing_zones import _query as _query_lz  # noqa: E402
 from fetch_landing_zones import _to_feature  # noqa: E402
 
@@ -101,6 +104,12 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    if _requests is None:
+        sys.exit(
+            "Error: 'requests' package not installed. Run: "
+            "pip install 'bvlos-sim[scripts]'"
+        )
+
     try:
         target_date = date.fromisoformat(args.date) if args.date else date.today()
     except ValueError:
@@ -128,14 +137,15 @@ def main() -> None:
     lat_min, lat_max, lon_min, lon_max = _bbox(args.lat, args.lon, args.radius_deg)
 
     step = 1
-    total = 3 if _sample_grid is not None else 2
+    terrain_available = _sample_grid is not None and _srtm is not None
+    total = 3 if terrain_available else 2
 
     # --- terrain ---
     terrain_path = out_dir / "terrain.yaml"
-    if _sample_grid is None:
+    if not terrain_available:
         print(
             "Warning: terrain skipped — 'srtm.py' not installed. "
-            "Run: uv sync --extra scripts",
+            "Run: pip install 'bvlos-sim[scripts]'",
             file=sys.stderr,
         )
     else:
@@ -144,7 +154,9 @@ def main() -> None:
             f"lon [{lon_min}, {lon_max}] step {args.step_deg}° …"
         )
         print("       (SRTM tiles downloaded and cached on first run)")
-        lats, lons, rows = _sample_grid(lat_min, lat_max, lon_min, lon_max, args.step_deg)
+        lats, lons, rows = _sample_grid(
+            lat_min, lat_max, lon_min, lon_max, args.step_deg
+        )
         terrain_grid = {
             "origin_lat": lats[0],
             "origin_lon": lons[0],
@@ -167,12 +179,16 @@ def main() -> None:
         f"window={args.window_hours}h …"
     )
     wind_data = _fetch_wind(args.lat, args.lon, target_date)
-    wind_grid = _build_wind_grid(wind_data, args.lat, args.lon, dep_hour, args.window_hours)
+    wind_grid = _build_wind_grid(
+        wind_data, args.lat, args.lon, dep_hour, args.window_hours
+    )
     wind_path.write_text(
         yaml.dump(wind_grid, default_flow_style=None, sort_keys=False), encoding="utf-8"
     )
     n_times = _time_axis_count(wind_grid)
-    print(f"       → {wind_path} ({n_times} time steps × {len(_ALTITUDES_M)} altitude bands)")
+    print(
+        f"       → {wind_path} ({n_times} time steps × {len(_ALTITUDES_M)} altitude bands)"
+    )
     step += 1
 
     # --- landing zones ---
@@ -191,6 +207,7 @@ def main() -> None:
 
     # --- summary ---
     cwd = Path.cwd()
+
     def _rel(p: Path) -> str:
         try:
             return str(p.relative_to(cwd))

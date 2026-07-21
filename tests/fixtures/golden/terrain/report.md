@@ -1,7 +1,7 @@
 # Estimator Report
 
 - Status: `success`
-- Envelope schema: `estimator-envelope.v7`
+- Envelope schema: `estimator-envelope.v9`
 - Tool version: `0.0.0-test`
 
 ## Result Validity
@@ -21,14 +21,14 @@
 - Wind input is constant in space and time unless a layered, time-varying, or spatiotemporal grid provider is used.
 - Transit is modeled as geodesic leg-to-leg kinematics.
 - Terrain-referenced altitude uses an offline uniform elevation grid; online terrain service calls are not performed.
-- Fidelity v1 uses geodesic leg-to-leg kinematics with no turn-arc dynamics or sub-segment wind sampling; fidelity v2 adds turn-arc geometry, sub-segment sampling, and tangent-point offset subtraction (turn_radius_m * tan(|Δθ|/2)) from adjacent transit leg path_distance_m values so total path distance reflects the true Dubins-path length.
+- Fidelity v1 uses geodesic leg-to-leg kinematics with no turn-arc dynamics or sub-segment wind sampling; fidelity v2 replaces feasible corners with connected circular fillets, trims adjacent transit legs to their tangent points, and samples wind along the materialized path. Corners that cannot fit the configured turn radius fail closed.
 - Fixed-wing circular loiter requires fidelity v2; it is unsupported in fidelity v1.
 - Takeoff and landing-transit legs report path_distance_m equal to vertical_distance_m; for purely vertical movement this is the 3D slant path distance.
 - Energy feasibility uses deterministic phase power values from the vehicle profile.
-- Explicit resource systems are evaluated after route expansion; when configured, they determine resource feasibility while result.energy remains the legacy battery-only energy view.
+- Explicit resource systems are evaluated after route expansion; when configured, they determine resource feasibility while result.energy remains the legacy battery-only energy view. Onboard and hybrid resources include per-state RTH reserve demand; continuous external power replaces battery reserve gating but must cover RTH peak power.
 - Communication-link feasibility is deterministic and uses configured static availability and range constraints only; live network calls are not performed.
-- Static geofence feasibility uses 2D lon/lat segments; zones declaring floor_m/ceiling_m additionally constrain the leg's altitude band, treated as AMSL.
-- Static landing-zone reachability uses straight-line geodesic distance and deterministic cruise-power divert energy.
+- Static geofence feasibility uses the materialized 2D lon/lat flown path, including fidelity-v2 turn arcs; zones declaring floor_m/ceiling_m additionally constrain the leg's altitude band, treated as AMSL.
+- Static landing-zone reachability uses geodesic-aware Dubins distance when entry heading and vehicle turn radius are known, otherwise straight-line geodesic distance; divert energy remains deterministic and TAS-only.
 - Landing-zone v1 excludes terrain, obstacles, dynamic availability, suitability scoring, and comms dependency.
 - Dynamic landing-zone availability is a scenario-only feature; availability changes are resolved deterministically against the scenario timeline and do not affect the estimate CLI.
 - Divert route estimates use geodesic-aware Dubins path distance (bank-angle-constrained arc + straight sampled to target geometry boundary points) when entry heading and vehicle turn radius are known; otherwise straight-line geodesic distance. When a wind provider is configured, a wind-triangle correction is applied to the divert ground speed; without a wind provider, TAS is used and a DIVERT_ENERGY_TAS_ONLY warning is emitted.
@@ -37,7 +37,7 @@
 ## Provenance
 
 - Estimator API: `estimator.try_estimate_mission_distance_time`
-- mission: `yaml` sha256 `b8bb0971a34817a6a6048a41300f15c3a0e9cce2baed2705855c8fd1d9cebe14`
+- mission: `yaml` sha256 `085d5948535c896a84fb902c61de4579a82849a64f9c2ac6082121996208363d`
 - vehicle: `yaml` sha256 `4067f6697bba308915271afc95bf273ae7dc7637f3d921c71ac30b15a26453e5`
 - terrain: `yaml` sha256 `69c0c7349f2d821bb69c116ad41f03f40e4d9c9d31ac2c3455a08e9d811e00c8`
 
@@ -59,7 +59,7 @@
 | # | ID | Action | Dist m | Time s | Alt m | GS m/s | Wind m/s | Energy Wh |
 |---|-----|--------|-------:|-------:|------:|-------:|---------:|----------:|
 | 0 | takeoff | vtol_takeoff | 78.00 | 26.00 | 90.00 | — | — | 10.83 |
-| 1 | wp1 | waypoint | 176.77 | 13.33 | 130.00 | 18.00 | 0.00 | 1.67 |
+| 1 | wp1 | waypoint | 176.77 | 13.33 | 130.00 | 18.00 | 0.00 | 5.56 |
 | 2 | loiter | loiter_time | 176.76 | 9.82 | 130.00 | 18.00 | 0.00 | 1.23 |
 | 3 | loiter | loiter_time | 0.00 | 60.00 | 130.00 | — | 0.00 | 20.00 |
 | 4 | rtl | rtl | 353.53 | 59.00 | 12.00 | 18.00 | 0.00 | 7.38 |
@@ -67,13 +67,13 @@
 ## Energy Feasibility
 
 - Feasible: `true`
-- Total energy Wh: `41.10`
+- Total energy Wh: `44.99`
 - Battery capacity Wh: `900.00`
 - Usable energy Wh: `675.00`
 - Reserve threshold percent: `25.00`
 - Reserve threshold Wh: `225.00`
-- Reserve at landing Wh: `858.90`
-- Reserve at landing percent: `95.43`
+- Reserve at landing Wh: `855.01`
+- Reserve at landing percent: `95.00`
 - Energy legs: `5`
 - RTH feasible: `true`
 
@@ -81,11 +81,11 @@
 
 | Leg | ID | RTH Distance m | RTH Energy Wh | Reserve After RTH Wh | Margin Wh | Feasible |
 |----:|----|---------------:|--------------:|---------------------:|----------:|----------|
-| 0 | takeoff | 0.00 | 0.00 | 889.17 | 664.17 | true |
-| 1 | wp1 | 176.77 | 1.23 | 886.27 | 661.27 | true |
-| 2 | loiter | 353.53 | 2.46 | 883.82 | 658.82 | true |
-| 3 | loiter | 353.53 | 2.46 | 863.82 | 638.82 | true |
-| 4 | rtl | 0.00 | 0.00 | 858.90 | 633.90 | true |
+| 0 | takeoff | 0.00 | 4.88 | 884.29 | 659.29 | true |
+| 1 | wp1 | 496.09 | 10.82 | 872.79 | 647.79 | true |
+| 2 | loiter | 640.46 | 11.82 | 870.56 | 645.56 | true |
+| 3 | loiter | 353.53 | 9.83 | 852.55 | 627.55 | true |
+| 4 | rtl | 0.00 | 0.00 | 855.01 | 630.01 | true |
 
 ## Warnings
 

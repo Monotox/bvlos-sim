@@ -3,13 +3,20 @@
 import math
 
 import pytest
+from pyproj import Geod
 
 from estimator import (
+    ConstantWindProvider,
     EstimationOptions,
+    EstimateStatus,
+    FailureCode,
     LayeredWindProvider,
     WindLayer,
+    WindVector,
     estimate_mission_distance_time,
+    try_estimate_mission_distance_time,
 )
+from estimator.environment.wind import TimedWindChange, TimeVaryingWindProvider
 from schemas import AltitudeReference, MissionPlan
 from tests.helpers import make_mission, make_vehicle
 
@@ -24,6 +31,59 @@ def _flat_waypoint_mission() -> MissionPlan:
     wp.altitude_m = mission.planned_home.altitude_amsl_m
     mission.route = [wp]
     mission.defaults.cruise_speed_mps = 20.0
+    return mission
+
+
+class _LongitudeStepWindProvider:
+    def __init__(self, *, east_mps: float, north_mps: float) -> None:
+        self.east_mps = east_mps
+        self.north_mps = north_mps
+
+    def wind_at(
+        self,
+        *,
+        lat: float,
+        lon: float,
+        altitude_amsl_m: float,
+        elapsed_time_s: float,
+    ) -> WindVector:
+        del lat, altitude_amsl_m, elapsed_time_s
+        if lon <= 4.001:
+            return WindVector(wind_east_mps=0.0, wind_north_mps=0.0)
+        return WindVector(
+            wind_east_mps=self.east_mps,
+            wind_north_mps=self.north_mps,
+        )
+
+
+class _ElapsedStepWindProvider:
+    def wind_at(
+        self,
+        *,
+        lat: float,
+        lon: float,
+        altitude_amsl_m: float,
+        elapsed_time_s: float,
+    ) -> WindVector:
+        del lat, lon, altitude_amsl_m
+        return WindVector(
+            wind_east_mps=-15.0 if elapsed_time_s < 5.0 else 15.0,
+            wind_north_mps=0.0,
+        )
+
+
+def _short_eastbound_mission(*, distance_m: float = 100.2699) -> MissionPlan:
+    mission = _flat_waypoint_mission()
+    lon, lat, _ = Geod(ellps="WGS84").fwd(
+        mission.planned_home.lon,
+        mission.planned_home.lat,
+        90.0,
+        distance_m,
+    )
+    mission.route[0].lat = lat
+    mission.route[0].lon = lon
+    mission.constraints.max_wind_mps = 40.0
+    mission.constraints.require_rth_reserve = False
     return mission
 
 
@@ -106,25 +166,85 @@ def test_layered_wind_sub_segment_changes_time_vs_constant_start_sample() -> Non
     assert r_v2.total_time_s < r_v1.total_time_s
 
 
+def test_later_subsegment_sustained_wind_limit_is_enforced() -> None:
+    mission = _flat_waypoint_mission()
+    mission.constraints.max_wind_mps = 5.0
+    mission.constraints.require_rth_reserve = False
+
+    result = try_estimate_mission_distance_time(
+        mission,
+        make_vehicle(),
+        options=EstimationOptions(max_segment_length_m=100.0),
+        wind_provider=_LongitudeStepWindProvider(east_mps=10.0, north_mps=0.0),
+    )
+
+    assert result.status == EstimateStatus.INFEASIBLE
+    assert result.failure is not None
+    assert result.failure.code == FailureCode.WIND_LIMIT_EXCEEDED
+
+
+def test_later_subsegment_crab_angle_limit_is_enforced() -> None:
+    mission = _flat_waypoint_mission()
+    mission.defaults.cruise_speed_mps = 18.0
+    mission.constraints.require_rth_reserve = False
+    vehicle = make_vehicle()
+    vehicle.performance.max_crab_angle_deg = 35.0
+
+    result = try_estimate_mission_distance_time(
+        mission,
+        vehicle,
+        options=EstimationOptions(max_segment_length_m=100.0),
+        wind_provider=_LongitudeStepWindProvider(east_mps=0.0, north_mps=17.0),
+    )
+
+    assert result.status == EstimateStatus.INFEASIBLE
+    assert result.failure is not None
+    assert result.failure.code == FailureCode.CRAB_ANGLE_LIMIT_EXCEEDED
+    assert result.failure.context["segment_index"] > 0
+
+
+def test_later_subsegment_minimum_groundspeed_is_enforced() -> None:
+    mission = _flat_waypoint_mission()
+    mission.constraints.require_rth_reserve = False
+
+    result = try_estimate_mission_distance_time(
+        mission,
+        make_vehicle(),
+        options=EstimationOptions(
+            max_segment_length_m=100.0,
+            min_groundspeed_mps=5.0,
+        ),
+        wind_provider=_LongitudeStepWindProvider(east_mps=-16.0, north_mps=0.0),
+    )
+
+    assert result.status == EstimateStatus.INFEASIBLE
+    assert result.failure is not None
+    assert result.failure.code == FailureCode.GROUNDSPEED_BELOW_MIN
+    assert result.failure.context["segment_index"] > 0
+
+
 # ---------------------------------------------------------------------------
 # Sub-segment count
 # ---------------------------------------------------------------------------
 
 
-def test_leg_shorter_than_max_segment_skips_sub_segmentation() -> None:
-    """When the leg is shorter than max_segment_length_m, the v1 code path is taken.
-
-    The sub-segment loop is not entered; the result is identical to max_segment_length_m=None.
-    """
+def test_leg_shorter_than_max_segment_still_samples_its_midpoint() -> None:
+    """A configured sampling interval applies even when it yields one segment."""
     mission = _flat_waypoint_mission()
     vehicle = make_vehicle()
-    opts_large_seg = EstimationOptions(
-        wind_east_mps=5.0, wind_north_mps=0.0, max_segment_length_m=1_000_000.0
+    provider = _LongitudeStepWindProvider(east_mps=5.0, north_mps=0.0)
+    r_midpoint = estimate_mission_distance_time(
+        mission,
+        vehicle,
+        options=EstimationOptions(max_segment_length_m=1_000_000.0),
+        wind_provider=provider,
     )
-    opts_no_seg = EstimationOptions(wind_east_mps=5.0, wind_north_mps=0.0)
-    r_large = estimate_mission_distance_time(mission, vehicle, options=opts_large_seg)
-    r_none = estimate_mission_distance_time(mission, vehicle, options=opts_no_seg)
-    assert math.isclose(r_large.total_time_s, r_none.total_time_s, rel_tol=1e-9)
+    r_start = estimate_mission_distance_time(
+        mission,
+        vehicle,
+        wind_provider=provider,
+    )
+    assert r_midpoint.total_time_s < r_start.total_time_s
 
 
 def test_two_runs_with_same_inputs_produce_identical_results_v2() -> None:
@@ -136,6 +256,48 @@ def test_two_runs_with_same_inputs_produce_identical_results_v2() -> None:
     r1 = estimate_mission_distance_time(mission, vehicle, options=opts)
     r2 = estimate_mission_distance_time(mission, vehicle, options=opts)
     assert r1.total_time_s == r2.total_time_s
+
+
+def test_time_varying_wind_is_integrated_piecewise_at_change_boundary() -> None:
+    mission = _short_eastbound_mission()
+    vehicle = make_vehicle()
+    vehicle.performance.max_crab_angle_deg = 80.0
+    provider = TimeVaryingWindProvider(
+        ConstantWindProvider(wind_east_mps=-15.0, wind_north_mps=0.0),
+        [
+            TimedWindChange(
+                effective_elapsed_time_s=5.0,
+                provider=ConstantWindProvider(
+                    wind_east_mps=15.0,
+                    wind_north_mps=0.0,
+                ),
+            )
+        ],
+    )
+
+    result = estimate_mission_distance_time(
+        mission,
+        vehicle,
+        options=EstimationOptions(max_segment_length_m=1_000.0),
+        wind_provider=provider,
+    )
+
+    expected_time_s = 5.0 + (100.2699 - 5.0 * 5.0) / 35.0
+    assert result.total_time_s == pytest.approx(expected_time_s, abs=1e-6)
+
+
+def test_unannounced_time_step_that_oscillates_fails_closed() -> None:
+    result = try_estimate_mission_distance_time(
+        _short_eastbound_mission(),
+        make_vehicle(),
+        options=EstimationOptions(max_segment_length_m=1_000.0),
+        wind_provider=_ElapsedStepWindProvider(),
+    )
+
+    assert result.status == EstimateStatus.ERROR
+    assert result.failure is not None
+    assert result.failure.code == FailureCode.INVALID_GEOMETRY
+    assert result.failure.context["reason"] == "two_cycle"
 
 
 # ---------------------------------------------------------------------------

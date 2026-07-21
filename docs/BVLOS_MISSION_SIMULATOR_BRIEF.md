@@ -97,7 +97,7 @@ Typical output includes:
 
 Current input contracts:
 
-- `mission.v6`: route, planned home, defaults, constraints, assets, policy
+- `mission.v7`: route, planned home, defaults, constraints, assets, policy, SORA footprint evidence
   references, link systems, population grids, and persisted estimator settings
 - `vehicle.v4`: vehicle class, mass, performance, energy, characteristic
   dimension, resource systems, failsafe, capabilities, SITL metadata, and
@@ -107,18 +107,24 @@ Current input contracts:
 - `geofence-geojson.v1`: static GeoJSON geofences with optional
   `floor_m`/`ceiling_m` altitude bounds
 - `landing-zone-geojson.v1`: static GeoJSON landing zones
-- `population-grid.v1`: offline population-density grids for SORA iGRC pre-assessment
+- legacy/`population-grid.v1`: diagnostic population-density grids
+- `population-grid.v2`: conservative, validity-bounded population evidence for
+  SORA 2.5 pre-assessment
 
 Mission, vehicle, and scenario files may be authored as YAML or JSON.
+Mission files must explicitly declare `schema_version: mission.v7`; legacy
+unversioned or `mission.v6` inputs must pass through `bvlos-sim migrate` before
+normal loading.
 
 ## Outputs
 
 Current output contracts:
 
-- `estimator-envelope.v7`: canonical estimator JSON envelope
-- `scenario-report.v2`: canonical scenario JSON envelope
-- `uncertainty-report.v1`: canonical uncertainty JSON envelope
-- `stochastic-envelope.v1`: canonical stochastic propagation JSON envelope
+- `estimator-envelope.v9`: canonical estimator JSON envelope
+- `scenario-report.v3`: canonical scenario JSON envelope
+- `uncertainty-report.v2`: canonical diagnostic uncertainty JSON envelope
+- `stochastic-envelope.v2`: canonical open-loop stochastic diagnostic envelope;
+  never an operational-feasibility verdict
 - `sitl-evidence.v1`: canonical SITL evidence bundle
 - `sitl-comparison.v1`: canonical SITL comparison report
 - Markdown reports for estimator, scenario, uncertainty, stochastic, and SITL
@@ -126,6 +132,14 @@ Current output contracts:
 
 JSON rendering is deterministic and sorted, and representative outputs are
 covered by golden fixture tests.
+
+Estimator and scenario envelopes include structured operational readiness.
+`estimate`, `scenario`, and `batch` fail closed with exit `10` in every output
+format unless the caller explicitly requests non-operational computational
+behavior with `--engineering-only`.
+This readiness verdict covers the deterministic estimator's modeled preflight
+categories only; it is not regulatory approval and does not attest live data,
+aircraft qualification, flight validation, or SITL/HITL evidence.
 
 ## Architecture
 
@@ -183,7 +197,10 @@ Fidelity v2 adds:
 
 - turn-arc legs at waypoint heading changes
 - fixed-wing circular loiter support
-- optional sub-segment wind sampling for long transit legs
+
+Optional straight-leg sub-segment wind sampling is controlled independently by
+`max_segment_length_m` / `--max-segment-length-m`; selecting fidelity v2 alone
+does not enable it.
 
 The scenario runner builds on estimator outputs. It constructs a deterministic
 timeline, resolves events against that timeline, evaluates assertions, and
@@ -201,7 +218,9 @@ Known gaps in the current release:
 - no REST API or UI; Ticket 050
 - no live comms, UTM/U-space, Remote ID, or traffic integrations; Tickets 070,
   071
-- no real-world calibration pipeline from flight logs; Tickets 080–084
+- no bundled qualification corpus or aircraft-specific held-out acceptance;
+  ingestion, calibration, and thresholded validation are implemented, but each
+  team must supply representative controller logs and acceptance evidence
 
 See [tickets/README.md](./tickets/README.md) for the full planned backlog.
 
@@ -247,9 +266,11 @@ includes `sensors` and `controller` blocks; see
 
 Ticket 061 is implemented: static geofence checks now honor optional GeoJSON
 `floor_m` and `ceiling_m` altitude bounds in metres AMSL. Ticket 094 is
-implemented: `estimate --format ground-risk` computes a SORA iGRC
-pre-assessment from an offline population-density grid and the vehicle
-characteristic dimension. Ticket 095 adds air risk and SAIL.
+implemented: `estimate --format ground-risk` computes a SORA 2.5 iGRC
+pre-assessment from conservative footprint population evidence and the
+vehicle's maximum characteristic dimension and speed. Ticket 095 adds air risk,
+SAIL, and an explicit incomplete-assessment contract; it does not certify an
+operation or assess Annex E OSO compliance.
 
 Longer-term priorities are NOTAM/live airspace integration (Ticket 058), PX4 SITL adapter
 (Tickets 045–046), API/UI surfaces (Ticket 050), operational integration

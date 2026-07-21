@@ -5,7 +5,11 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from adapters.canonical_json import canonical_float, canonical_json_value, render_canonical_json
+from adapters.canonical_json import (
+    canonical_float,
+    canonical_json_value,
+    render_canonical_json,
+)
 from adapters.envelope import (
     EnvelopeInputs,
     EstimatorResultEnvelope,
@@ -124,6 +128,16 @@ def test_envelope_schema_rejects_unknown_top_level_fields() -> None:
         EstimatorResultEnvelope.model_validate(payload)
 
 
+def test_envelope_schema_rejects_wrong_contract_version() -> None:
+    payload = json.loads(
+        (FIXTURE_ROOT / "success" / "envelope.json").read_text(encoding="utf-8")
+    )
+    payload["schema_version"] = "estimator-envelope.v8"
+
+    with pytest.raises(ValidationError):
+        EstimatorResultEnvelope.model_validate(payload)
+
+
 def test_invalid_input_envelope_uses_stable_parse_context_and_failed_input_provenance(
     tmp_path: Path,
 ) -> None:
@@ -195,12 +209,14 @@ def test_internal_error_envelope_uses_stable_error_type_context() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_canonical_float_passes_through_inf() -> None:
-    assert canonical_float(math.inf) == math.inf
+def test_canonical_float_rejects_inf() -> None:
+    with pytest.raises(ValueError, match="non-finite"):
+        canonical_float(math.inf)
 
 
-def test_canonical_float_passes_through_nan() -> None:
-    assert math.isnan(canonical_float(math.nan))
+def test_canonical_float_rejects_nan() -> None:
+    with pytest.raises(ValueError, match="non-finite"):
+        canonical_float(math.nan)
 
 
 def test_canonical_float_normalizes_negative_zero_to_positive() -> None:
@@ -228,7 +244,9 @@ def test_render_canonical_json_sorts_keys_and_ends_with_newline() -> None:
 
 
 def _fake_doc(name: str) -> InputDocument:
-    return InputDocument(path=Path(f"/fake/{name}.yaml"), format="yaml", sha256="0" * 64)
+    return InputDocument(
+        path=Path(f"/fake/{name}.yaml"), format="yaml", sha256="0" * 64
+    )
 
 
 def _bare_mission_estimate(**kwargs) -> MissionEstimate:
@@ -246,7 +264,9 @@ def _bare_mission_estimate(**kwargs) -> MissionEstimate:
 def _build_minimal_envelope(result: MissionEstimate) -> str:
     envelope = build_estimator_envelope(
         result=result,
-        inputs=EnvelopeInputs(mission=_fake_doc("mission"), vehicle=_fake_doc("vehicle")),
+        inputs=EnvelopeInputs(
+            mission=_fake_doc("mission"), vehicle=_fake_doc("vehicle")
+        ),
     )
     return render_envelope_markdown(envelope)
 

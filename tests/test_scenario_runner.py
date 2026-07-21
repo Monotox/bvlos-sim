@@ -233,7 +233,10 @@ def test_unsupported_field_path_rejected_at_schema_load() -> None:
         _plan(
             assertions=[
                 _assertion(
-                    "a1", "field_lt", field_path="estimate.unknown_field", expected=100.0
+                    "a1",
+                    "field_lt",
+                    field_path="estimate.unknown_field",
+                    expected=100.0,
                 )
             ]
         )
@@ -244,7 +247,10 @@ def test_unsupported_field_path_error_lists_valid_paths() -> None:
         _plan(
             assertions=[
                 _assertion(
-                    "a1", "field_lt", field_path="estimate.unknown_field", expected=100.0
+                    "a1",
+                    "field_lt",
+                    field_path="estimate.unknown_field",
+                    expected=100.0,
                 )
             ]
         )
@@ -384,7 +390,9 @@ def test_observe_at_route_item_with_unknown_id_not_fired() -> None:
 def test_observe_at_elapsed_time_beyond_mission_end_not_fired() -> None:
     plan = _plan(
         events=[
-            _observe_event("late-ev", "at_elapsed_time", trigger_elapsed_time_s=999_999.0)
+            _observe_event(
+                "late-ev", "at_elapsed_time", trigger_elapsed_time_s=999_999.0
+            )
         ]
     )
     result = run_scenario(plan, make_mission(), make_vehicle())
@@ -593,7 +601,9 @@ def test_policy_action_eq_skipped_when_event_not_fired() -> None:
 
 def test_not_fired_reason_set_for_unknown_route_item() -> None:
     plan = _plan(
-        events=[_observe_event("obs", "at_route_item", trigger_route_item_id="no-such-wp")],
+        events=[
+            _observe_event("obs", "at_route_item", trigger_route_item_id="no-such-wp")
+        ],
     )
     result = run_scenario(plan, make_mission(), make_vehicle())
     outcome = result.event_outcomes[0]
@@ -604,7 +614,9 @@ def test_not_fired_reason_set_for_unknown_route_item() -> None:
 
 def test_not_fired_reason_set_for_exceeded_elapsed_time() -> None:
     plan = _plan(
-        events=[_observe_event("obs", "at_elapsed_time", trigger_elapsed_time_s=99999.0)],
+        events=[
+            _observe_event("obs", "at_elapsed_time", trigger_elapsed_time_s=99999.0)
+        ],
     )
     result = run_scenario(plan, make_mission(), make_vehicle())
     outcome = result.event_outcomes[0]
@@ -649,10 +661,16 @@ def test_policy_action_eq_carries_expected_and_actual() -> None:
     assert ar.actual == "rtl"
 
 
-def test_divert_policy_without_landing_zones_produces_infeasible_divert_estimate() -> None:
+def test_divert_policy_without_landing_zones_produces_infeasible_divert_estimate() -> (
+    None
+):
     plan = _plan(
         events=[_lost_link_event("ll", "at_mission_start")],
-        lost_link_policy={"action": "divert", "loiter_s": 0.0, "divert_target_id": "lz-alpha"},
+        lost_link_policy={
+            "action": "divert",
+            "loiter_s": 0.0,
+            "divert_target_id": "lz-alpha",
+        },
     )
     result = run_scenario(plan, make_mission(), make_vehicle())
     po = result.event_outcomes[0].policy_outcome
@@ -678,9 +696,15 @@ def _divert_assertion(assertion_id: str, event_id: str) -> dict:
 
 def test_policy_divert_feasible_skipped_when_event_not_fired() -> None:
     plan = _plan(
-        events=[_lost_link_event("ll", "at_route_item", trigger_route_item_id="no-item")],
+        events=[
+            _lost_link_event("ll", "at_route_item", trigger_route_item_id="no-item")
+        ],
         assertions=[_divert_assertion("a1", "ll")],
-        lost_link_policy={"action": "divert", "loiter_s": 0.0, "divert_target_id": "lz-x"},
+        lost_link_policy={
+            "action": "divert",
+            "loiter_s": 0.0,
+            "divert_target_id": "lz-x",
+        },
     )
     result = run_scenario(plan, make_mission(), make_vehicle())
     assert result.assertion_results[0].outcome == AssertionOutcome.SKIPPED
@@ -709,7 +733,11 @@ def test_policy_divert_feasible_failed_when_no_landing_zones() -> None:
     plan = _plan(
         events=[_lost_link_event("ll", "at_mission_start")],
         assertions=[_divert_assertion("a1", "ll")],
-        lost_link_policy={"action": "divert", "loiter_s": 0.0, "divert_target_id": "lz-alpha"},
+        lost_link_policy={
+            "action": "divert",
+            "loiter_s": 0.0,
+            "divert_target_id": "lz-alpha",
+        },
     )
     result = run_scenario(plan, make_mission(), make_vehicle())
     assert result.assertion_results[0].outcome == AssertionOutcome.FAILED
@@ -737,12 +765,20 @@ def test_policy_divert_feasible_requires_event_id_at_schema_level() -> None:
 
 def test_policy_divert_feasible_passed_when_route_is_feasible() -> None:
     zone = LandingZone.model_validate(
-        {"id": "lz-near", "geometry": {"points": [{"lat": 52.001, "lon": 4.001}]}}
+        {
+            "id": "lz-near",
+            "altitude_amsl_m": 12.0,
+            "geometry": {"points": [{"lat": 52.001, "lon": 4.001}]},
+        }
     )
     plan = _plan(
         events=[_lost_link_event("ll", "at_mission_start")],
         assertions=[_divert_assertion("a1", "ll")],
-        lost_link_policy={"action": "divert", "loiter_s": 0.0, "divert_target_id": "lz-near"},
+        lost_link_policy={
+            "action": "divert",
+            "loiter_s": 0.0,
+            "divert_target_id": "lz-near",
+        },
     )
     result = run_scenario(plan, make_mission(), make_vehicle(), landing_zones=[zone])
     assert result.assertion_results[0].outcome == AssertionOutcome.PASSED
@@ -855,13 +891,22 @@ def test_weather_and_ground_risk_field_paths_accepted_at_schema_load() -> None:
     plan = _plan(
         assertions=[
             _assertion(
-                "w1", "field_eq", field_path="estimate.weather.is_feasible", expected=True
+                "w1",
+                "field_eq",
+                field_path="estimate.weather.is_feasible",
+                expected=True,
             ),
             _assertion(
-                "w2", "field_le", field_path="estimate.weather.worst_wind_speed_mps", expected=12.0
+                "w2",
+                "field_le",
+                field_path="estimate.weather.worst_wind_speed_mps",
+                expected=12.0,
             ),
             _assertion(
-                "g1", "field_le", field_path="estimate.ground_risk.mission_igrc", expected=7
+                "g1",
+                "field_le",
+                field_path="estimate.ground_risk.mission_igrc",
+                expected=7,
             ),
             _assertion(
                 "r1", "field_eq", field_path="estimate.rth_is_feasible", expected=True
@@ -901,7 +946,9 @@ def test_weather_and_ground_risk_field_resolvers_read_estimate_blocks() -> None:
     )
 
     assert resolve_field_value("estimate.weather.is_feasible", estimate) is False
-    assert resolve_field_value("estimate.weather.worst_wind_speed_mps", estimate) == 14.0
+    assert (
+        resolve_field_value("estimate.weather.worst_wind_speed_mps", estimate) == 14.0
+    )
     assert resolve_field_value("estimate.ground_risk.mission_igrc", estimate) == 6
     assert resolve_field_value("estimate.rth_is_feasible", estimate) is None
 
@@ -944,8 +991,12 @@ def _make_turning_mission():
     from schemas.mission import MissionAction, RouteItem
 
     mission = make_mission()
-    wp_north = RouteItem(id="north", action=MissionAction.WAYPOINT, lat=52.01, lon=4.0, altitude_m=120.0)
-    wp_east = RouteItem(id="east", action=MissionAction.WAYPOINT, lat=52.01, lon=4.02, altitude_m=120.0)
+    wp_north = RouteItem(
+        id="north", action=MissionAction.WAYPOINT, lat=52.01, lon=4.0, altitude_m=120.0
+    )
+    wp_east = RouteItem(
+        id="east", action=MissionAction.WAYPOINT, lat=52.01, lon=4.02, altitude_m=120.0
+    )
     rtl = RouteItem(id="rtl", action=MissionAction.RTL)
     mission.route = [wp_north, wp_east, rtl]
     return mission
@@ -977,7 +1028,9 @@ def test_scenario_without_explicit_fidelity_inherits_mission_fidelity_v2() -> No
     result = run_scenario(plan, mission, vehicle)
     assert result.estimate is not None
     phases = {leg.phase for leg in result.estimate.legs}
-    assert LegPhase.TURN_ARC in phases, "v2 fidelity inherited from mission should produce turn arcs"
+    assert LegPhase.TURN_ARC in phases, (
+        "v2 fidelity inherited from mission should produce turn arcs"
+    )
 
 
 def test_scenario_with_explicit_fidelity_v1_overrides_mission_v2() -> None:
@@ -1005,4 +1058,6 @@ def test_scenario_with_explicit_fidelity_v1_overrides_mission_v2() -> None:
     result = run_scenario(plan, mission, vehicle)
     assert result.estimate is not None
     phases = {leg.phase for leg in result.estimate.legs}
-    assert LegPhase.TURN_ARC not in phases, "explicit v1 in scenario should override mission v2"
+    assert LegPhase.TURN_ARC not in phases, (
+        "explicit v1 in scenario should override mission v2"
+    )

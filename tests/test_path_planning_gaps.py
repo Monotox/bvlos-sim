@@ -1,7 +1,7 @@
 """Tests for Ticket 039: path-planning model gaps.
 
 Covers:
-- Fidelity v2 tangent-point offset subtraction on transit legs adjacent to turn arcs
+- Fidelity v2 materialized tangent geometry on transit legs adjacent to turn arcs
 - 3D slant path distance for vertical-only (takeoff/landing-transit) legs
 - Retired Dubins divert planar approximation limit warning
 """
@@ -9,15 +9,19 @@ Covers:
 import math
 
 import pytest
+from pyproj import Geod
 
 from estimator.core.enums import WarningCode
 from estimator import (
     DivertRouteEstimate,
     EstimationOptions,
+    EstimateStatus,
+    FailureCode,
     FidelityMode,
     LandingZone,
     LegPhase,
     estimate_mission_distance_time,
+    try_estimate_mission_distance_time,
 )
 from estimator.core.results import EnergyEstimate
 from estimator.execution.divert import compute_divert_estimate
@@ -48,7 +52,11 @@ def _right_angle_mission():
 
 def _point_zone(zone_id: str, *, lat: float, lon: float) -> LandingZone:
     return LandingZone.model_validate(
-        {"id": zone_id, "geometry": {"points": [{"lat": lat, "lon": lon}]}}
+        {
+            "id": zone_id,
+            "altitude_amsl_m": 12.0,
+            "geometry": {"points": [{"lat": lat, "lon": lon}]},
+        }
     )
 
 
@@ -91,11 +99,17 @@ def test_v2_transit_leg_before_turn_arc_is_trimmed_by_tangent_offset() -> None:
         # The tangent offset for this arc
         arc_angle_rad = leg.path_distance_m / turn_radius_m
         expected_offset = turn_radius_m * math.tan(arc_angle_rad / 2.0)
-        # path_distance_m must have been reduced by the offset (clamped to 0)
-        assert prev.path_distance_m <= prev.horizontal_distance_m
-        assert prev.path_distance_m == pytest.approx(
-            max(0.0, prev.horizontal_distance_m - expected_offset), rel=1e-6
+        _, _, original_distance_m = Geod(ellps="WGS84").inv(
+            prev.start_lon,
+            prev.start_lat,
+            mission.route[0].lon,
+            mission.route[0].lat,
         )
+        assert prev.path_distance_m == pytest.approx(prev.horizontal_distance_m)
+        assert original_distance_m - prev.path_distance_m == pytest.approx(
+            expected_offset, rel=2e-4
+        )
+        assert (prev.end_lat, prev.end_lon) == (leg.start_lat, leg.start_lon)
 
 
 def test_v2_transit_leg_after_turn_arc_is_trimmed_by_tangent_offset() -> None:
@@ -115,10 +129,17 @@ def test_v2_transit_leg_after_turn_arc_is_trimmed_by_tangent_offset() -> None:
         nxt = legs[i + 1]
         arc_angle_rad = leg.path_distance_m / turn_radius_m
         expected_offset = turn_radius_m * math.tan(arc_angle_rad / 2.0)
-        assert nxt.path_distance_m <= nxt.horizontal_distance_m
-        assert nxt.path_distance_m == pytest.approx(
-            max(0.0, nxt.horizontal_distance_m - expected_offset), rel=1e-6
+        _, _, original_distance_m = Geod(ellps="WGS84").inv(
+            mission.route[0].lon,
+            mission.route[0].lat,
+            mission.route[1].lon,
+            mission.route[1].lat,
         )
+        assert nxt.path_distance_m == pytest.approx(nxt.horizontal_distance_m)
+        assert original_distance_m - nxt.path_distance_m == pytest.approx(
+            expected_offset, rel=2e-4
+        )
+        assert (nxt.start_lat, nxt.start_lon) == (leg.end_lat, leg.end_lon)
 
 
 def test_v2_total_path_less_than_v1_plus_raw_arc_total() -> None:
@@ -172,8 +193,8 @@ def test_v2_no_tangent_offset_without_turn_radius() -> None:
             )
 
 
-def test_v2_tangent_offset_does_not_make_path_distance_negative() -> None:
-    """Even for very sharp turns or short legs, path_distance_m is clamped to 0."""
+def test_v2_turn_fails_when_tangent_offset_exceeds_adjacent_leg() -> None:
+    """A turn that cannot fit is rejected instead of creating zero-length legs."""
     mission = make_mission()
     # Very short segment (1 cm north) then sharp turn — offset will exceed segment length
     wp1 = RouteItem(
@@ -192,11 +213,13 @@ def test_v2_tangent_offset_does_not_make_path_distance_negative() -> None:
     )
     mission.route = [wp1, wp2]
 
-    result = estimate_mission_distance_time(
+    result = try_estimate_mission_distance_time(
         mission, make_vehicle(), options=_v2_options()
     )
-    for leg in result.legs:
-        assert leg.path_distance_m >= 0.0, f"Negative path_distance_m on {leg.phase}"
+
+    assert result.status == EstimateStatus.INFEASIBLE
+    assert result.failure is not None
+    assert result.failure.code == FailureCode.INVALID_GEOMETRY
 
 
 # ---------------------------------------------------------------------------

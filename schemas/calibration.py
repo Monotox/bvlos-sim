@@ -70,7 +70,10 @@ class CalibratedParameter(BaseModel):
     )
     calibration_dataset_version: str = Field(
         min_length=1,
-        description="Deterministic identifier of the dataset this fit was derived from.",
+        description=(
+            "Content-addressed identifier of the complete traces and segmentations "
+            "this fit was derived from."
+        ),
     )
     applicable_conditions: list[str] = Field(
         default_factory=list,
@@ -101,7 +104,10 @@ class CalibrationProvenance(BaseModel):
     )
     calibration_dataset_version: str = Field(
         min_length=1,
-        description="Deterministic identifier of the calibration dataset.",
+        description=(
+            "Content-addressed identifier covering trace records/provenance and "
+            "segmentation records/settings."
+        ),
     )
     source_trace_ids: list[str] = Field(
         default_factory=list,
@@ -116,7 +122,7 @@ class CalibrationProvenance(BaseModel):
 class CalibrationProfile(BaseModel):
     """Versioned, deterministic calibration artifact layered on a base vehicle.
 
-    The same base vehicle and the same ordered set of traces/segmentations always
+    The same base vehicle and the same collection of traces/segmentations always
     produce the same profile. The artifact references ``base_vehicle_id`` and
     overrides only the listed parameters when applied; every other vehicle field is
     inherited unchanged.

@@ -11,10 +11,13 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, model_validator
 
 from schemas.resource_link import LinkSystemConfig
+from schemas.numeric import FiniteFloat
 from schemas.sora import SoraMitigations
+
+MISSION_SCHEMA_VERSION = "mission.v7"
 
 
 class AltitudeReference(StrEnum):
@@ -143,26 +146,30 @@ class PlannedHome(BaseModel):
     This mirrors the planning role of QGroundControl's plannedHomePosition.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
-    lat: float = Field(ge=-90, le=90, description="Home latitude in decimal degrees.")
-    lon: float = Field(
+    lat: FiniteFloat = Field(
+        ge=-90, le=90, description="Home latitude in decimal degrees."
+    )
+    lon: FiniteFloat = Field(
         ge=-180, le=180, description="Home longitude in decimal degrees."
     )
-    altitude_amsl_m: float = Field(description="Home altitude above mean sea level.")
+    altitude_amsl_m: FiniteFloat = Field(
+        description="Home altitude above mean sea level."
+    )
 
 
 class MissionDefaults(BaseModel):
     """Plan-wide defaults similar to QGroundControl mission defaults."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
-    cruise_speed_mps: float | None = Field(
+    cruise_speed_mps: FiniteFloat | None = Field(
         default=None,
         gt=0,
         description="Default fixed-wing/VTOL cruise speed. Source: QGC cruiseSpeed.",
     )
-    hover_speed_mps: float | None = Field(
+    hover_speed_mps: FiniteFloat | None = Field(
         default=None,
         gt=0,
         description=(
@@ -186,16 +193,16 @@ class WindLayerConfig(BaseModel):
     constant-wind values.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
-    altitude_m: float = Field(
+    altitude_m: FiniteFloat = Field(
         description="Lower bound of this wind band in metres AMSL.",
     )
-    wind_east_mps: float = Field(
+    wind_east_mps: FiniteFloat = Field(
         default=0.0,
         description="Wind east component in m/s for this band.",
     )
-    wind_north_mps: float = Field(
+    wind_north_mps: FiniteFloat = Field(
         default=0.0,
         description="Wind north component in m/s for this band.",
     )
@@ -210,15 +217,15 @@ class MissionEstimation(BaseModel):
     ``wind_east_mps`` / ``wind_north_mps`` values are ignored.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
-    wind_east_mps: float = Field(
+    wind_east_mps: FiniteFloat = Field(
         default=0.0,
         description=(
             "Constant wind east component in m/s. Ignored when ``wind_layers`` is set."
         ),
     )
-    wind_north_mps: float = Field(
+    wind_north_mps: FiniteFloat = Field(
         default=0.0,
         description=(
             "Constant wind north component in m/s. Ignored when ``wind_layers`` is set."
@@ -232,11 +239,11 @@ class MissionEstimation(BaseModel):
             "sorted; the estimator picks the highest layer not exceeding the query altitude."
         ),
     )
-    min_groundspeed_mps: float | None = Field(
+    min_groundspeed_mps: FiniteFloat | None = Field(
         default=None,
         description="Optional mission-level minimum operational groundspeed in m/s.",
     )
-    max_segment_length_m: float | None = Field(
+    max_segment_length_m: FiniteFloat | None = Field(
         default=None,
         gt=0,
         description=(
@@ -257,7 +264,7 @@ class MissionEstimation(BaseModel):
 class RouteItem(BaseModel):
     """Human-readable route item that can later map to MAVLink mission commands."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
     id: str = Field(
         min_length=1,
@@ -270,19 +277,19 @@ class RouteItem(BaseModel):
             "or related commands."
         ),
     )
-    lat: float | None = Field(
+    lat: FiniteFloat | None = Field(
         default=None,
         ge=-90,
         le=90,
         description="Target latitude in decimal degrees when the action needs a position.",
     )
-    lon: float | None = Field(
+    lon: FiniteFloat | None = Field(
         default=None,
         ge=-180,
         le=180,
         description="Target longitude in decimal degrees when the action needs a position.",
     )
-    altitude_m: float | None = Field(
+    altitude_m: FiniteFloat | None = Field(
         default=None,
         ge=0,
         description=(
@@ -294,7 +301,7 @@ class RouteItem(BaseModel):
         default=None,
         description="Optional per-item altitude reference override.",
     )
-    acceptance_radius_m: float | None = Field(
+    acceptance_radius_m: FiniteFloat | None = Field(
         default=None,
         gt=0,
         description=(
@@ -303,12 +310,12 @@ class RouteItem(BaseModel):
             "flies to the exact target coordinates."
         ),
     )
-    loiter_time_s: float | None = Field(
+    loiter_time_s: FiniteFloat | None = Field(
         default=None,
         gt=0,
         description="Loiter duration in seconds. Required for loiter_time actions.",
     )
-    loiter_radius_m: float | None = Field(
+    loiter_radius_m: FiniteFloat | None = Field(
         default=None,
         gt=0,
         description=(
@@ -332,9 +339,9 @@ class RouteItem(BaseModel):
 class MissionConstraints(BaseModel):
     """Mission-level safety constraints evaluated by the validator."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
-    min_landing_reserve_percent: float | None = Field(
+    min_landing_reserve_percent: FiniteFloat | None = Field(
         default=None,
         ge=0,
         le=100,
@@ -343,14 +350,16 @@ class MissionConstraints(BaseModel):
             "energy feasibility uses vehicle.energy.reserve_percent_default."
         ),
     )
-    require_rth_reserve: bool = Field(
-        default=False,
+    require_rth_reserve: StrictBool = Field(
+        default=True,
         description=(
-            "When true, return-to-home reserve must remain above the landing "
-            "reserve threshold at every evaluated route leg."
+            "Return-to-home reserve must remain above the landing reserve "
+            "threshold at every evaluated route leg. Defaults to true so "
+            "missions fail closed unless an operator explicitly accepts a "
+            "non-operational engineering-only estimate."
         ),
     )
-    max_wind_mps: float | None = Field(
+    max_wind_mps: FiniteFloat | None = Field(
         default=None,
         ge=0,
         description=(
@@ -359,16 +368,16 @@ class MissionConstraints(BaseModel):
             "limit makes the mission INFEASIBLE (WIND_LIMIT_EXCEEDED)."
         ),
     )
-    max_gust_mps: float | None = Field(
+    max_gust_mps: FiniteFloat | None = Field(
         default=None,
         ge=0,
         description=(
-            "Maximum gust speed in m/s. Enforcement requires gust data in the "
-            "wind grid; when unavailable a GUST_DATA_UNAVAILABLE advisory is "
-            "emitted and the gust check is skipped."
+            "Maximum gust speed in m/s. The active providers do not currently "
+            "supply gust observations, so configuring this limit fails closed "
+            "with WEATHER_DATA_UNAVAILABLE."
         ),
     )
-    max_crosswind_mps: float | None = Field(
+    max_crosswind_mps: FiniteFloat | None = Field(
         default=None,
         ge=0,
         description=(
@@ -377,25 +386,25 @@ class MissionConstraints(BaseModel):
             "(CROSSWIND_LIMIT_EXCEEDED) when a wind provider is configured."
         ),
     )
-    min_visibility_m: float | None = Field(
+    min_visibility_m: FiniteFloat | None = Field(
         default=None,
         ge=0,
         description=(
-            "Minimum horizontal visibility in metres. Accepted for operational "
-            "documentation; enforcement requires an external visibility data "
-            "source and is not performed by the estimator."
+            "Minimum horizontal visibility in metres. The active providers do "
+            "not currently supply visibility observations, so configuring this "
+            "limit fails closed with WEATHER_DATA_UNAVAILABLE."
         ),
     )
-    max_precipitation_mm_h: float | None = Field(
+    max_precipitation_mm_h: FiniteFloat | None = Field(
         default=None,
         ge=0,
         description=(
-            "Maximum precipitation rate in mm/h. Accepted for operational "
-            "documentation; enforcement requires an external precipitation data "
-            "source and is not performed by the estimator."
+            "Maximum precipitation rate in mm/h. The active providers do not "
+            "currently supply precipitation observations, so configuring this "
+            "limit fails closed with WEATHER_DATA_UNAVAILABLE."
         ),
     )
-    min_obstacle_clearance_m: float | None = Field(
+    min_obstacle_clearance_m: FiniteFloat | None = Field(
         default=None,
         ge=0,
         description=(
@@ -403,7 +412,7 @@ class MissionConstraints(BaseModel):
             "configured static obstacles."
         ),
     )
-    min_terrain_clearance_m: float | None = Field(
+    min_terrain_clearance_m: FiniteFloat | None = Field(
         default=None,
         ge=0,
         description=(
@@ -411,7 +420,7 @@ class MissionConstraints(BaseModel):
             "each route leg when a terrain grid is configured."
         ),
     )
-    min_distance_to_landing_zone_m: float | None = Field(
+    min_distance_to_landing_zone_m: FiniteFloat | None = Field(
         default=None,
         ge=0,
         description=(
@@ -468,36 +477,136 @@ class IcaoAirspaceClass(StrEnum):
 
 
 class Airspace(BaseModel):
-    """Operational airspace descriptor used for SORA Air Risk classification."""
+    """Whole-volume airspace descriptor used for SORA Air Risk classification."""
 
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, allow_inf_nan=False
+    )
 
     airspace_class: IcaoAirspaceClass = Field(
         alias="class",
         description="ICAO airspace class at the operational altitude.",
     )
-    max_altitude_agl_m: float = Field(
+    max_altitude_agl_m: FiniteFloat = Field(
         gt=0,
-        description="Operational ceiling above ground level in metres.",
-    )
-    near_aerodrome: bool = Field(
-        default=False,
-        description="True when the operational volume lies within an aerodrome traffic zone.",
-    )
-    atypical_or_segregated: bool = Field(
-        default=False,
         description=(
-            "True when the volume is atypical or segregated (e.g. an active "
-            "danger area) where manned traffic is not expected."
+            "Worst-case ceiling above ground level across the operational and "
+            "contingency volumes, in metres."
         ),
     )
-    strategic_mitigation: bool = Field(
-        default=False,
+    operational_and_contingency_volume_assessment_reference: str = Field(
+        min_length=1,
         description=(
-            "When true, applies a one-band strategic Air Risk reduction where the "
-            "SORA methodology permits. Tactical mitigation is out of scope."
+            "Auditable reference for the assessment covering the entire "
+            "operational and contingency volumes."
         ),
     )
+    worst_case_arc_declared: StrictBool = Field(
+        description=(
+            "Confirms that every airspace descriptor is the worst-case condition "
+            "anywhere in the operational or contingency volume."
+        ),
+    )
+    aerodrome_environment: StrictBool = Field(
+        description=(
+            "SORA Annex I aerodrome-environment result for the entire volume: "
+            "includes applicable aerodrome-connected controlled airspace, a "
+            "Mode-C veil/TMZ in Class A-E, or the defined 5/3/2 NM proximity to "
+            "an airport or heliport."
+        ),
+    )
+    atypical_or_segregated: StrictBool = Field(
+        default=False,
+        description=(
+            "Reserved ARC-a declaration. True is rejected until an authority-backed "
+            "atypical-airspace evidence workflow is implemented."
+        ),
+    )
+    over_urban_area: StrictBool | None = Field(
+        default=None,
+        description=(
+            "Whether the operational volume is over an urban rather than rural "
+            "area. Required for typical uncontrolled operations at or below 500 ft AGL."
+        ),
+    )
+    transponder_mandatory_zone: StrictBool = Field(
+        description="True when the assessed volume lies in a Mode-C veil or TMZ.",
+    )
+    entirely_above_flight_level_600: StrictBool = Field(
+        default=False,
+        description=(
+            "Reserved above-FL600 declaration. True is rejected until a "
+            "pressure-altitude evidence workflow is implemented."
+        ),
+    )
+    strategic_mitigation: StrictBool = Field(
+        default=False,
+        description=(
+            "Reserved for a future evidence-backed strategic air-risk assessment."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def validate_air_risk_inputs(self) -> "Airspace":
+        if not self.operational_and_contingency_volume_assessment_reference.strip():
+            raise ValueError(
+                "operational_and_contingency_volume_assessment_reference must not "
+                "be blank"
+            )
+        if not self.worst_case_arc_declared:
+            raise ValueError(
+                "worst_case_arc_declared must be true after assessing the entire "
+                "operational and contingency volumes"
+            )
+        if self.atypical_or_segregated:
+            raise ValueError(
+                "atypical_or_segregated ARC-a assignment is unsupported until an "
+                "authority-backed atypical-airspace evidence workflow is implemented"
+            )
+        if self.entirely_above_flight_level_600:
+            raise ValueError(
+                "entirely_above_flight_level_600 assignment is unsupported until a "
+                "pressure-altitude evidence workflow is implemented"
+            )
+        if self.strategic_mitigation:
+            raise ValueError(
+                "strategic_mitigation cannot be credited from a boolean declaration; "
+                "an evidence-backed local encounter-rate assessment is required"
+            )
+        if (
+            self.transponder_mandatory_zone
+            and self.airspace_class
+            in {
+                IcaoAirspaceClass.A,
+                IcaoAirspaceClass.B,
+                IcaoAirspaceClass.C,
+                IcaoAirspaceClass.D,
+                IcaoAirspaceClass.E,
+            }
+            and not self.aerodrome_environment
+        ):
+            raise ValueError(
+                "a Mode-C veil/TMZ in Class A-E is an aerodrome_environment "
+                "under SORA Annex I"
+            )
+        uncontrolled = self.airspace_class in {
+            IcaoAirspaceClass.F,
+            IcaoAirspaceClass.G,
+        }
+        if (
+            uncontrolled
+            and self.max_altitude_agl_m <= 152.4
+            and not self.aerodrome_environment
+            and not self.atypical_or_segregated
+            and not self.transponder_mandatory_zone
+            and not self.entirely_above_flight_level_600
+            and self.over_urban_area is None
+        ):
+            raise ValueError(
+                "over_urban_area is required for typical uncontrolled operations "
+                "at or below 500 ft AGL"
+            )
+        return self
 
 
 class MissionPolicyRef(BaseModel):
@@ -516,6 +625,7 @@ class MissionPlan(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    schema_version: Literal["mission.v7"] = MISSION_SCHEMA_VERSION
     mission_id: str = Field(
         min_length=1,
         pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$",
@@ -551,9 +661,9 @@ class MissionPlan(BaseModel):
     sora: SoraMitigations | None = Field(
         default=None,
         description=(
-            "Optional operator-declared SORA mitigations (M1/M2/M3 and tactical "
-            "air-risk reduction) applied to derive the final GRC, residual ARC, "
-            "and mitigated SAIL in the pre-assessment."
+            "Optional SORA 2.5 M1(A/B/C) and M2 ground-risk declarations used "
+            "to derive the final GRC and SAIL. Tactical mitigation determines "
+            "TMPR compliance and is not an ARC reduction."
         ),
     )
     policy: MissionPolicyRef = Field(default_factory=MissionPolicyRef)

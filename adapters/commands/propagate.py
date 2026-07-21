@@ -76,12 +76,15 @@ def propagate(
         exists=True,
         readable=True,
         resolve_path=True,
-        help="Path to stochastic.v1 YAML file.",
+        help="Path to stochastic.v2 diagnostic YAML file.",
     ),
     format: cli.SummaryOutputFormat = typer.Option(
         cli.SummaryOutputFormat.JSON,
         "--format",
-        help="Output format. Use summary for a one-line feasibility and reserve result.",
+        help=(
+            "Output format. Summary reports a diagnostic modeled-pass rate and "
+            "conditional reserve distribution, never operational feasibility."
+        ),
     ),
     output: Path | None = typer.Option(
         None, "--output", "-o", help="Write output to file instead of stdout."
@@ -111,7 +114,7 @@ def propagate(
         help="Validate-only output: text (default) or json for a preflight-validation.v1 envelope.",
     ),
 ) -> None:
-    """Run stochastic state propagation and emit a stochastic-envelope.v1 report."""
+    """Run an open-loop parameter sweep and emit stochastic-envelope.v2."""
 
     if validate_only:
         _run_propagate_preflight(
@@ -147,6 +150,13 @@ def propagate(
             "propagate",
             enabled=progress_format is cli.ProgressFormat.JSONL,
             progress_file=progress_file,
+            protected_paths=(
+                stochastic_file,
+                mission_path,
+                vehicle_path,
+                output,
+                *(doc.path for doc in mission_assets.known_documents().values() if doc),
+            ),
         ) as reporter:
             result = cli.run_stochastic_propagation(
                 plan,

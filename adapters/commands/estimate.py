@@ -7,6 +7,7 @@ import typer
 
 import adapters.cli as cli
 from adapters.calibration import load_and_apply_calibration, load_calibration_profile
+from adapters.checklist_markdown import checklist_is_go
 from adapters.cli_support import (
     MissionAssetBundle,
     OutputWriteError,
@@ -238,8 +239,14 @@ def _render_estimate_error_output(
     return _render_output(_envelope_output_format(output_format), envelope)
 
 
-def _exit_code_for_result(result: MissionEstimate) -> cli.CliExitCode:
+def _exit_code_for_result(
+    result: MissionEstimate,
+    *,
+    engineering_only: bool = False,
+) -> cli.CliExitCode:
     if result.status == EstimateStatus.SUCCESS:
+        if not engineering_only and not checklist_is_go(result):
+            return cli.CliExitCode.INFEASIBLE
         return cli.CliExitCode.SUCCESS
     failure = result.failure
     if failure is None:
@@ -319,14 +326,37 @@ def _run_estimate_preflight(
 
 
 def estimate(
-    mission: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True, help="Path to mission.v6 YAML file."),
-    vehicle: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True, help="Path to vehicle profile YAML file."),
+    mission: Path = typer.Argument(
+        ...,
+        exists=True,
+        readable=True,
+        resolve_path=True,
+        help="Path to mission.v7 YAML file.",
+    ),
+    vehicle: Path = typer.Argument(
+        ...,
+        exists=True,
+        readable=True,
+        resolve_path=True,
+        help="Path to vehicle profile YAML file.",
+    ),
     format: OutputFormat = typer.Option(
         OutputFormat.JSON,
         "--format",
         help="Output format. Use summary for a one-line result, checklist for pre-flight go/no-go, sensitivity for a reserve sweep, or ground-risk for SORA iGRC.",
     ),
-    output: Path | None = typer.Option(None, "--output", "-o", help="Write output to file instead of stdout."),
+    output: Path | None = typer.Option(
+        None, "--output", "-o", help="Write output to file instead of stdout."
+    ),
+    engineering_only: bool = typer.Option(
+        False,
+        "--engineering-only",
+        help=(
+            "Return success for a computationally feasible estimate even when "
+            "operational evidence is missing. Default behavior is fail-closed "
+            "GO/NO-GO evaluation for every output format."
+        ),
+    ),
     calibration: Path | None = typer.Option(
         None,
         "--calibration",
@@ -461,7 +491,9 @@ def estimate(
                 mission_assets,
             )
         _write_output(rendered, output)
-        raise typer.Exit(code=int(_exit_code_for_result(result)))
+        raise typer.Exit(
+            code=int(_exit_code_for_result(result, engineering_only=engineering_only))
+        )
     except InputLoadError as exc:
         envelope = build_invalid_input_envelope(
             error=exc,

@@ -42,16 +42,18 @@ raises `KeyboardInterrupt` (a `BaseException`) that bypasses every
 
 - Interrupting any command mid-write never leaves a partial `--output` file; the
   destination is either the prior content or absent.
-- `SIGTERM`/`SIGINT` during a run exits with the documented cancellation code and
-  writes no output file.
+- `SIGTERM`/`SIGINT` during a run exits with the documented cancellation code;
+  output is never partial, though a signal after the atomic commit may leave the
+  new complete artifact present.
 - The atomic-write change does not alter output bytes for a normal run; golden
   fixtures are unchanged.
 - New tests cover the temp-then-replace path and the signal exit code.
 
 ## Out of Scope
 
-- A partial-result envelope on interruption. A clean abort with no output file is
-  the safer contract for a consuming backend and is what this ticket implements.
+- A partial-result envelope on interruption. Consumers use the exit code to
+  distinguish a completed command from a cancellation even when a fully committed
+  artifact exists.
 
 ## Notes
 

@@ -7,6 +7,7 @@ traceback (shell status ``1``). They also assert the success exit is unchanged
 by the catch-all. See ``docs/CLI_EXIT_CODES.md`` for the full per-command table.
 """
 
+import json
 from pathlib import Path
 
 import pytest
@@ -31,6 +32,7 @@ _TRACE = EXAMPLES / "flight_logs" / "pipeline_demo_001_trace.json"
 
 INTERNAL_ERROR = int(CliExitCode.INTERNAL_ERROR)
 SUCCESS = int(CliExitCode.SUCCESS)
+INFEASIBLE = int(CliExitCode.INFEASIBLE)
 
 
 def _boom(*_args: object, **_kwargs: object) -> None:
@@ -40,9 +42,22 @@ def _boom(*_args: object, **_kwargs: object) -> None:
 # --- validate -------------------------------------------------------------
 
 
-def test_validate_success_exit_code() -> None:
+def test_validate_out_of_threshold_exit_code() -> None:
     result = runner.invoke(app, ["validate", str(_MISSION), str(_VEHICLE), str(_TRACE)])
-    assert result.exit_code == SUCCESS
+    assert result.exit_code == INFEASIBLE
+    assert "Acceptance: **FAIL**" in result.stdout
+
+
+def test_validate_rejects_mismatched_trace_hash(tmp_path: Path) -> None:
+    payload = json.loads(_TRACE.read_text(encoding="utf-8"))
+    payload["mission_ref"]["mission_sha256"] = "0" * 64
+    trace = tmp_path / "trace.json"
+    trace.write_text(json.dumps(payload), encoding="utf-8")
+
+    result = runner.invoke(app, ["validate", str(_MISSION), str(_VEHICLE), str(trace)])
+
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+    assert "does not match" in result.stdout
 
 
 def test_validate_internal_error_exit_code(monkeypatch: pytest.MonkeyPatch) -> None:

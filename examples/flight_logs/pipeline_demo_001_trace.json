@@ -1,5 +1,10 @@
 {
-  "mission_ref": null,
+  "mission_ref": {
+    "mission_file": "examples/missions/pipeline_demo_001.yaml",
+    "mission_sha256": "5b129726fcf680a606b2c6e902599832b5615d94ed891791c7c1f8ca13571782",
+    "vehicle_file": "examples/vehicles/quadplane_v1.yaml",
+    "vehicle_sha256": "10b240330f63b4109bab8d58d107e4816bebb30daae42a270a0c41ff9ba3f133"
+  },
   "provenance": {
     "missing_fields": [],
     "parsing_assumptions": [

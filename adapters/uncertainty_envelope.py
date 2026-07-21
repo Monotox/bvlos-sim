@@ -8,8 +8,8 @@ from adapters.version import tool_version
 from adapters.io import InputDocument
 from estimator.core.uncertainty import MonteCarloResult
 
-UNCERTAINTY_REPORT_SCHEMA_VERSION = "uncertainty-report.v1"
-UNCERTAINTY_INPUT_SCHEMA_VERSION = "uncertainty.v1"
+UNCERTAINTY_REPORT_SCHEMA_VERSION = "uncertainty-report.v2"
+UNCERTAINTY_INPUT_SCHEMA_VERSION = "uncertainty.v2"
 
 
 # ---------------------------------------------------------------------------

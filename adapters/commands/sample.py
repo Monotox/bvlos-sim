@@ -79,12 +79,15 @@ def sample(
         exists=True,
         readable=True,
         resolve_path=True,
-        help="Path to uncertainty.v1 YAML file.",
+        help="Path to uncertainty.v2 diagnostic YAML file.",
     ),
     format: cli.SummaryOutputFormat = typer.Option(
         cli.SummaryOutputFormat.JSON,
         "--format",
-        help="Output format. Use summary for a one-line feasibility and reserve result.",
+        help=(
+            "Output format. Summary reports a diagnostic modeled-pass rate and "
+            "conditional mission-end energy distribution."
+        ),
     ),
     output: Path | None = typer.Option(
         None, "--output", "-o", help="Write output to file instead of stdout."
@@ -114,7 +117,7 @@ def sample(
         help="Validate-only output: text (default) or json for a preflight-validation.v1 envelope.",
     ),
 ) -> None:
-    """Run a seeded Monte Carlo uncertainty analysis and emit an uncertainty report."""
+    """Run a diagnostic parameter sweep and emit uncertainty-report.v2."""
 
     if validate_only:
         _run_sample_preflight(
@@ -150,6 +153,13 @@ def sample(
             "sample",
             enabled=progress_format is cli.ProgressFormat.JSONL,
             progress_file=progress_file,
+            protected_paths=(
+                uncertainty_file,
+                mission_path,
+                vehicle_path,
+                output,
+                *(doc.path for doc in mission_assets.known_documents().values() if doc),
+            ),
         ) as reporter:
             result = cli.run_monte_carlo(
                 plan,

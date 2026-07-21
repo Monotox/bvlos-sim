@@ -165,7 +165,9 @@ def _first_failed_assertion(
     )
 
 
-def _unsupported_assertion_field(assertions: Iterable[ScenarioAssertionResult]) -> str | None:
+def _unsupported_assertion_field(
+    assertions: Iterable[ScenarioAssertionResult],
+) -> str | None:
     count = sum(a.outcome == AssertionOutcome.UNSUPPORTED for a in assertions)
     return f"[{count} unsupported]" if count > 0 else None
 
@@ -188,16 +190,17 @@ def _estimate_fields(estimate: MissionEstimate | None) -> tuple[str | None, str 
 
 
 def format_uncertainty_summary(result: MonteCarloResult) -> str:
-    """Format a Monte Carlo result as a single summary line."""
-    feasibility = result.feasibility_rate
-    feasibility_field = (
-        f"feasible {feasibility * 100:.0f}%" if feasibility is not None else None
+    """Format a diagnostic sampled-parameter result as a single summary line."""
+    pass_rate = result.modeled_constraint_pass_rate
+    pass_rate_field = (
+        f"modeled_pass {pass_rate * 100:.0f}%" if pass_rate is not None else None
     )
-    reserve = result.reserve_at_landing_wh
+    reserve = result.reserve_at_mission_end_wh
     reserve_field: str | None = None
     if reserve is not None:
         reserve_field = (
-            f"reserve p5 {reserve.p5:.1f} Wh   p50 {reserve.p50:.1f} Wh"
+            f"conditional_end_energy p5 {reserve.p5:.1f} Wh   "
+            f"p50 {reserve.p50:.1f} Wh"
             f"   p95 {reserve.p95:.1f} Wh"
         )
     time_field: str | None = None
@@ -205,21 +208,41 @@ def format_uncertainty_summary(result: MonteCarloResult) -> str:
         minutes = int(result.total_time_s.p50 // 60)
         seconds = int(result.total_time_s.p50 % 60)
         time_field = f"time p50 {minutes}m {seconds:02d}s"
-    samples_field = f"n={result.completed_sample_count}"
-    failed_field = (
-        f"failed={result.failed_sample_count}" if result.failed_sample_count > 0 else None
+    samples_field = f"n={result.modeled_pass_sample_count}"
+    infeasible_field = (
+        f"infeasible={result.infeasible_sample_count}"
+        if result.infeasible_sample_count > 0
+        else None
     )
-    return _join_fields((feasibility_field, reserve_field, time_field, samples_field, failed_field))
+    failed_field = (
+        f"failed={result.failed_sample_count}"
+        if result.failed_sample_count > 0
+        else None
+    )
+    return _join_fields(
+        (
+            "DIAGNOSTIC",
+            pass_rate_field,
+            reserve_field,
+            time_field,
+            samples_field,
+            infeasible_field,
+            failed_field,
+        )
+    )
 
 
 def format_stochastic_summary(result: StochasticPropagationResult) -> str:
-    """Format a stochastic propagation result as a single summary line."""
-    feasibility_field = f"feasible {result.feasibility_rate * 100:.0f}%"
-    reserve = result.reserve_at_landing_wh
+    """Format a diagnostic stochastic result as a single summary line."""
+    pass_rate = result.modeled_constraint_pass_rate
+    pass_rate_field = (
+        f"modeled_pass {pass_rate * 100:.0f}%" if pass_rate is not None else None
+    )
+    reserve = result.reserve_at_mission_end_wh
     reserve_field: str | None = None
     if reserve is not None:
         reserve_field = (
-            f"reserve p5 {reserve.p5:.1f} Wh   p50 {reserve.p50:.1f} Wh"
+            f"conditional_reserve p5 {reserve.p5:.1f} Wh   p50 {reserve.p50:.1f} Wh"
             f"   p95 {reserve.p95:.1f} Wh"
         )
     time_field: str | None = None
@@ -230,7 +253,14 @@ def format_stochastic_summary(result: StochasticPropagationResult) -> str:
         time_field = f"time {minutes}m {seconds:02d}s"
     samples_field = f"n={result.sample_count}"
     failed_field = (
-        f"failed={result.failed_sample_count}" if result.failed_sample_count > 0 else None
+        f"failed={result.failed_sample_count}"
+        if result.failed_sample_count > 0
+        else None
+    )
+    infeasible_field = (
+        f"infeasible={result.infeasible_sample_count}"
+        if result.infeasible_sample_count > 0
+        else None
     )
     spatial_field = (
         f"spatial_infeasible={result.spatial_infeasible_count}"
@@ -238,7 +268,16 @@ def format_stochastic_summary(result: StochasticPropagationResult) -> str:
         else None
     )
     return _join_fields(
-        (feasibility_field, reserve_field, time_field, samples_field, failed_field, spatial_field)
+        (
+            "DIAGNOSTIC",
+            pass_rate_field,
+            reserve_field,
+            time_field,
+            samples_field,
+            infeasible_field,
+            failed_field,
+            spatial_field,
+        )
     )
 
 

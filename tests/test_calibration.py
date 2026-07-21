@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 import pytest
@@ -75,6 +76,7 @@ def _record(
     speed: float | None = None,
     wind_e: float | None = None,
     wind_n: float | None = None,
+    heading: float | None = 0.0,
 ) -> FlightTraceRecord:
     return FlightTraceRecord(
         timestamp_s=t,
@@ -82,6 +84,7 @@ def _record(
         lon_deg=9.0,
         alt_amsl_m=alt,
         groundspeed_mps=speed,
+        heading_deg=heading,
         wind_east_mps=wind_e,
         wind_north_mps=wind_n,
     )
@@ -155,9 +158,9 @@ def _param(profile: CalibrationProfile, name: CalibratedParameterName):
 
 def test_cruise_speed_fit_from_transit_segments() -> None:
     records = [
-        _record(0.0, speed=16.0, wind_e=3.0, wind_n=4.0),
-        _record(5.0, speed=18.0, wind_e=0.0, wind_n=0.0),
-        _record(10.0, speed=20.0, wind_e=0.0, wind_n=0.0),
+        _record(0.0, speed=20.0, heading=90.0, wind_e=5.0, wind_n=0.0),
+        _record(5.0, speed=15.0, heading=0.0, wind_e=0.0, wind_n=0.0),
+        _record(10.0, speed=10.0, heading=270.0, wind_e=5.0, wind_n=0.0),
     ]
     trace = _trace(*records)
     segments = _segments(
@@ -173,14 +176,34 @@ def test_cruise_speed_fit_from_transit_segments() -> None:
 
     cruise = _param(profile, CalibratedParameterName.CRUISE_SPEED_MPS)
     assert cruise is not None
-    assert cruise.fitted_value == pytest.approx(18.0)
-    assert cruise.confidence_low == pytest.approx(16.0)
-    assert cruise.confidence_high == pytest.approx(20.0)
+    assert cruise.fitted_value == pytest.approx(15.0)
+    assert cruise.confidence_low == pytest.approx(15.0)
+    assert cruise.confidence_high == pytest.approx(15.0)
     assert cruise.sample_count == 3
     assert cruise.unit == "m/s"
-    assert cruise.spread == pytest.approx(1.632993, abs=1e-5)
-    # Wind magnitude sqrt(3^2 + 4^2) = 5.0 is the max observed condition.
+    assert cruise.spread == pytest.approx(0.0, abs=1e-12)
     assert any("5.00 m/s" in c for c in cruise.applicable_conditions)
+
+
+def test_cruise_speed_is_not_fit_without_complete_wind_vector_and_course() -> None:
+    records = [
+        _record(0.0, speed=18.0, heading=None, wind_e=0.0, wind_n=0.0),
+        _record(5.0, speed=18.0, heading=0.0, wind_e=None, wind_n=0.0),
+    ]
+    segments = _segments(
+        _segment(
+            records,
+            phase=TracePhase.TRANSIT,
+            estimator_leg_phase="transit",
+            start=0,
+            end=1,
+        )
+    )
+
+    profile = _fit(CalibrationInput(trace=_trace(*records), segments=segments))
+
+    assert _param(profile, CalibratedParameterName.CRUISE_SPEED_MPS) is None
+    assert any("both east/north wind components" in note for note in profile.notes)
 
 
 # ---------------------------------------------------------------------------
@@ -293,7 +316,10 @@ def test_moving_loiter_records_excluded_from_station_keep() -> None:
 
 
 def test_provenance_carries_sorted_traces_version_and_links() -> None:
-    records = [_record(0.0, speed=18.0), _record(5.0, speed=18.0)]
+    records = [
+        _record(0.0, speed=18.0, wind_e=0.0, wind_n=0.0),
+        _record(5.0, speed=18.0, wind_e=0.0, wind_n=0.0),
+    ]
     seg_a = _segments(
         _segment(
             records,
@@ -336,6 +362,61 @@ def test_trace_id_mismatch_between_trace_and_segments_raises() -> None:
     bad = _segments(trace_id="other")
     with pytest.raises(ValueError, match="does not match"):
         _fit(CalibrationInput(trace=_trace(*records, trace_id="t1"), segments=bad))
+
+
+def test_dataset_version_changes_when_trace_content_changes() -> None:
+    first_records = [
+        _record(0.0, speed=18.0, wind_e=0.0, wind_n=0.0),
+        _record(5.0, speed=18.0, wind_e=0.0, wind_n=0.0),
+    ]
+    second_records = [
+        _record(0.0, speed=19.0, wind_e=0.0, wind_n=0.0),
+        _record(5.0, speed=19.0, wind_e=0.0, wind_n=0.0),
+    ]
+    segments = _segments(
+        _segment(
+            first_records,
+            phase=TracePhase.TRANSIT,
+            estimator_leg_phase="transit",
+            start=0,
+            end=1,
+        )
+    )
+
+    first = _fit(CalibrationInput(trace=_trace(*first_records), segments=segments))
+    second = _fit(CalibrationInput(trace=_trace(*second_records), segments=segments))
+
+    assert (
+        first.provenance.calibration_dataset_version
+        != second.provenance.calibration_dataset_version
+    )
+
+
+def test_dataset_version_changes_with_segmentation_settings() -> None:
+    records = [
+        _record(0.0, speed=18.0, wind_e=0.0, wind_n=0.0),
+        _record(5.0, speed=18.0, wind_e=0.0, wind_n=0.0),
+    ]
+    segments = _segments(
+        _segment(
+            records,
+            phase=TracePhase.TRANSIT,
+            estimator_leg_phase="transit",
+            start=0,
+            end=1,
+        )
+    )
+    changed_segments = segments.model_copy(
+        update={"metadata": segments.metadata.model_copy(update={"method": "changed"})}
+    )
+
+    first = _fit(CalibrationInput(trace=_trace(*records), segments=segments))
+    second = _fit(CalibrationInput(trace=_trace(*records), segments=changed_segments))
+
+    assert (
+        first.provenance.calibration_dataset_version
+        != second.provenance.calibration_dataset_version
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -492,7 +573,8 @@ def test_full_path_from_example_log() -> None:
 
     cruise = _param(profile, CalibratedParameterName.CRUISE_SPEED_MPS)
     climb = _param(profile, CalibratedParameterName.CLIMB_RATE_MPS)
-    assert cruise is not None and cruise.fitted_value == pytest.approx(18.0)
+    expected_tas = math.hypot(0.8, 18.0 - 1.5)
+    assert cruise is not None and cruise.fitted_value == pytest.approx(expected_tas)
     assert climb is not None and climb.fitted_value == pytest.approx(2.5)
     # This flight neither descends nor station-keeps; both are noted, not invented.
     assert _param(profile, CalibratedParameterName.DESCENT_RATE_MPS) is None
@@ -501,7 +583,7 @@ def test_full_path_from_example_log() -> None:
 
     # Applying the fitted profile produces a usable, valid calibrated vehicle.
     calibrated = apply_calibration(_vehicle(), profile)
-    assert calibrated.performance.cruise_speed_mps == pytest.approx(18.0)
+    assert calibrated.performance.cruise_speed_mps == pytest.approx(expected_tas)
     assert calibrated.performance.climb_rate_mps == pytest.approx(2.5)
 
 
@@ -561,6 +643,7 @@ def test_cli_estimate_with_matching_calibration_succeeds() -> None:
             str(EXAMPLE_CALIBRATION),
             "--format",
             "summary",
+            "--engineering-only",
         ],
     )
     assert result.exit_code == 0

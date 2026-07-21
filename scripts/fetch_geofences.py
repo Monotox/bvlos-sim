@@ -12,7 +12,11 @@ from pathlib import Path
 try:
     import requests
 except ImportError:
-    sys.exit("Error: 'requests' package not installed. Run: uv sync")
+    requests = None  # type: ignore[assignment]
+
+_MISSING_REQUESTS = (
+    "'requests' package not installed; run: pip install 'bvlos-sim[scripts]'"
+)
 
 _OPENAIP_URL = "https://api.openaip.net/api/airspaces"
 _OVERPASS_URL = "https://overpass-api.de/api/interpreter"
@@ -69,6 +73,8 @@ def _openaip_features(
     api_key: str,
 ) -> list[dict[str, object]]:
     """Call OpenAIP API and return a list of GeoJSON Feature dicts."""
+    if requests is None:
+        raise RuntimeError(_MISSING_REQUESTS)
     params = {"bbox": f"{lon_min},{lat_min},{lon_max},{lat_max}"}
     headers = {"x-openaip-api-key": api_key}
     resp = requests.get(_OPENAIP_URL, params=params, headers=headers, timeout=60)
@@ -108,6 +114,8 @@ def _overpass_elements(
     lon_max: float,
 ) -> list[dict[str, object]]:
     """Call Overpass API and return raw element list."""
+    if requests is None:
+        raise RuntimeError(_MISSING_REQUESTS)
     bbox = f"{lat_min},{lon_min},{lat_max},{lon_max}"
     query = (
         "[out:json];\n"
@@ -206,6 +214,9 @@ def main() -> None:
     parser.add_argument("--api-key", default=None, metavar="KEY")
     parser.add_argument("--output", default="geofences.geojson", metavar="PATH")
     args = parser.parse_args()
+
+    if requests is None:
+        sys.exit(f"Error: {_MISSING_REQUESTS}")
 
     if args.lat_min >= args.lat_max:
         sys.exit("Error: lat_min must be less than lat_max")

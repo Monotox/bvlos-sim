@@ -2,35 +2,36 @@
 
 ## Status
 
-Planned.
+Implemented for the `mission.v6` → `mission.v7` migration path. The registry is
+chained and ready for additional schema steps.
 
 ## Goal
 
-Provide a `bvlos-sim migrate` command that reads an existing YAML input file,
-detects its schema version, and writes an upgraded file that conforms to the
-latest schema. This removes the current manual burden on operators when a
-schema version bumps (e.g. `mission.v5` → `mission.v6`).
+Provide a `bvlos-sim migrate` command that reads an existing mission YAML/JSON
+input, detects its schema version, and writes an upgraded file that conforms to
+the latest schema.
 
 ## Motivation
 
-Every schema version change today requires operators to manually update their
-YAML files, read the changelog, and re-run validation to discover what changed.
-There is no automated path. As the project moves toward operational use, schema
-stability and a clear migration story become critical for adoption.
+Before this ticket, schema changes required operators to update YAML manually.
+The implemented mission path now provides a guarded `mission.v6` →
+`mission.v7` conversion. Other schema families still require a registered
+migration before `migrate` can process them.
 
 The current schema surfaces that operators write directly include:
 
 | Schema | Version | Input file |
 |--------|---------|------------|
-| mission | v5 | `mission.yaml` |
-| vehicle | v3 | `vehicle.yaml` |
+| mission | v7 | `mission.yaml` |
+| vehicle | v4 | `vehicle.yaml` |
 | scenario | v1 | `scenario.yaml` |
 | uncertainty | v1 | `uncertainty.yaml` |
 | stochastic | v1 | `stochastic.yaml` |
 | batch manifest | v1 | `batch.yaml` |
 
-When any of these bumps, operators currently have no machine-readable path to
-upgrade their files.
+The mission family now has a machine-readable path. Other families need a
+registered migration step before their next breaking version can be upgraded
+automatically.
 
 ## Scope
 
@@ -55,14 +56,17 @@ Supported flags:
 
 ### Version detection
 
-The command reads the YAML, inspects `schema_version` / `format_version`
-fields, and selects the appropriate migration path. Files with no version field
-are treated as the oldest known format for that file type.
+The implemented command accepts mission `.yaml`, `.yml`, and `.json` files and
+inspects the root `schema_version`. A missing version is treated as legacy
+`mission.v6` **only inside the migration command**. Normal mission loaders
+require an explicit `schema_version: mission.v7` and direct legacy users to
+`bvlos-sim migrate`. Unknown explicit versions are rejected rather than guessed.
 
-Vehicle and mission files have no `schema_version` field at the root — their
-version is implied by the content structure. The command should detect version
-by attempting `model_validate` against the current schema and reporting the
-first unknown field or structural difference.
+The v6→v7 step refuses semantic guesses that could manufacture a safety credit:
+applied legacy M1/M2/M3 or tactical ARC credits, a strategic boolean credit,
+ambiguous `above_flight_level_600: true`, and missing urban/rural classification
+where that choice affects ARC. Those cases require an operator-authored v7
+declaration and evidence.
 
 ### Migration registry
 
@@ -70,8 +74,8 @@ A migration is a pure function `(dict) → dict` registered against a
 `(schema_name, from_version, to_version)` triple:
 
 ```python
-@register_migration("mission", from_version="v4", to_version="v5")
-def migrate_mission_v4_to_v5(payload: dict) -> dict:
+@register_migration("mission", from_version="mission.v6", to_version="mission.v7")
+def migrate_mission_v6_to_v7(payload: dict) -> dict:
     # e.g. rename field, add default, restructure nested key
     ...
 ```
@@ -79,20 +83,20 @@ def migrate_mission_v4_to_v5(payload: dict) -> dict:
 Migrations are chained automatically: `v3 → v4 → v5` applies both functions
 in sequence. This means each migration only needs to handle one version step.
 
-### YAML preservation
+### YAML rendering
 
-The migrated output should preserve comments and key ordering where possible.
-Use `ruamel.yaml` (already available in many environments) if comment
-preservation is important; otherwise fall back to `pyyaml` with `sort_keys=False`.
+YAML output uses PyYAML with `sort_keys=False`, so mapping order is retained but
+comments are not preserved. Use `--dry-run` to inspect the exact diff and
+`--backup` to retain the original before an in-place migration.
 
 ### Acceptance criteria
 
 1. `bvlos-sim migrate --help` shows usage and exits 0.
-2. `bvlos-sim migrate mission.v4.yaml --dry-run` prints the detected version,
+2. `bvlos-sim migrate mission.v6.yaml --dry-run` prints the detected version,
    the target version, and the fields that would change; does not write.
-3. `bvlos-sim migrate mission.v4.yaml --output mission.v5.yaml` writes a file
-   that passes `bvlos-sim estimate mission.v5.yaml vehicle.yaml --validate-only`.
-4. `bvlos-sim migrate mission.v5.yaml --dry-run` reports "already at latest version"
+3. `bvlos-sim migrate mission.v6.yaml --output mission.v7.yaml` writes a file
+   that passes `bvlos-sim estimate mission.v7.yaml vehicle.yaml --validate-only`.
+4. `bvlos-sim migrate mission.v7.yaml --dry-run` reports "already at latest version"
    and exits 0.
 5. `bvlos-sim migrate nonexistent.yaml` exits 11 (invalid input).
 6. Migration functions are unit-tested in isolation against known before/after payloads.
@@ -104,7 +108,8 @@ preservation is important; otherwise fall back to `pyyaml` with `sort_keys=False
 - New `adapters/commands/migrate.py` registered on the CLI app.
 - New `adapters/migration/` package containing the registry and migration
   functions for each schema type.
-- No changes to existing schemas, envelopes, or CLI commands.
+- `mission.v7` is the only mission schema accepted by normal loaders; the
+  migration package owns legacy-version detection and conversion.
 - `docs/USAGE.md` updated with a `## Schema Migration` section.
 - `CONTRIBUTING.md` updated with instructions for writing a migration function
   when a schema version bumps.

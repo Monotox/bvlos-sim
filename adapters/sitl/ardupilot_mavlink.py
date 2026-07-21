@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from time import monotonic
 from typing import Protocol, TypeVar, cast
 
 from adapters.sitl.ardupilot_types import ArduPilotAdapterError
@@ -10,6 +11,7 @@ from adapters.sitl.ardupilot_types import ArduPilotAdapterError
 MAV_MISSION_ACCEPTED = 0
 MAV_MISSION_TYPE_MISSION = 0
 MAV_MODE_FLAG_CUSTOM_MODE_ENABLED = 1
+MAV_MODE_FLAG_SAFETY_ARMED = 128
 MAV_CMD_COMPONENT_ARM_DISARM = 400
 
 AUTO_MODE = "AUTO"
@@ -20,8 +22,13 @@ MISSION_UPLOAD_MESSAGE_TYPES = (
 )
 RUN_STATE_MESSAGE_TYPES = (
     "MISSION_CURRENT",
+    "MISSION_ITEM_REACHED",
     "HEARTBEAT",
+    "GLOBAL_POSITION_INT",
 )
+MISSION_STATE_COMPLETE = 5
+MISSION_STATE_UNKNOWN = 0
+MISSION_STATE_ACTIVE = 3
 
 _T = TypeVar("_T")
 
@@ -109,12 +116,90 @@ def item_at_sequence(items: Sequence[_T], sequence: int) -> _T:
         ) from exc
 
 
-def mission_current_reached(message: object | None, final_sequence: int) -> bool:
+def mission_execution_complete(
+    message: object | None,
+    *,
+    final_sequence: int,
+    item_count: int,
+) -> bool:
+    """Return true only for explicit mission-completion evidence.
+
+    ``MISSION_CURRENT.seq`` identifies the item being executed, so selecting
+    the final item is not proof that it finished. MAVLink 2 systems can report
+    ``MISSION_STATE_COMPLETE`` on ``MISSION_CURRENT``; older systems report
+    final progress with ``MISSION_ITEM_REACHED``. Some stacks advance
+    ``MISSION_CURRENT.seq`` one past the final zero-based item on completion.
+    """
     if message is None:
         return False
-    if message_type(message) != "MISSION_CURRENT":
+    current_type = message_type(message)
+    if current_type == "MISSION_ITEM_REACHED":
+        return message_sequence(message) == final_sequence
+    if current_type != "MISSION_CURRENT":
         return False
-    return message_sequence(message) >= final_sequence
+
+    try:
+        mission_state = int(getattr(message, "mission_state"))
+    except (AttributeError, TypeError, ValueError):
+        mission_state = None
+    if mission_state not in (None, MISSION_STATE_UNKNOWN):
+        return mission_state == MISSION_STATE_COMPLETE
+    return message_sequence(message) == item_count
+
+
+def mission_execution_progressed(
+    message: object | None,
+    *,
+    final_sequence: int,
+    item_count: int,
+) -> bool:
+    """Return true for non-completion progress attributable to the current run.
+
+    Completion messages can remain queued or arrive late from an earlier AUTO
+    run.  A completion is therefore accepted only after a separate, valid
+    progress message has been observed after the current run started.
+    """
+    if message is None:
+        return False
+    current_type = message_type(message)
+    if current_type == "MISSION_ITEM_REACHED":
+        sequence = message_sequence(message)
+        return 0 <= sequence < final_sequence
+    if current_type != "MISSION_CURRENT":
+        return False
+
+    sequence = message_sequence(message)
+    if not 0 <= sequence < item_count:
+        return False
+    try:
+        mission_state = int(getattr(message, "mission_state"))
+    except (AttributeError, TypeError, ValueError):
+        mission_state = None
+    return mission_state in (None, MISSION_STATE_UNKNOWN, MISSION_STATE_ACTIVE)
+
+
+def drain_mission_progress_messages(
+    connection: MavConnection,
+    *,
+    max_messages: int = 1_000,
+) -> int:
+    """Discard queued progress from an earlier run before entering AUTO.
+
+    The bounded loop prevents a continuously publishing endpoint from holding
+    mission start forever. A non-empty queue at the limit is treated as an
+    adapter error because stale completion evidence could otherwise remain.
+    """
+    for count in range(max_messages):
+        message = connection.recv_match(
+            type=["MISSION_CURRENT", "MISSION_ITEM_REACHED"],
+            blocking=False,
+            timeout=0.0,
+        )
+        if message is None:
+            return count
+    raise ArduPilotAdapterError(
+        "Could not drain stale MAVLink mission progress before starting AUTO"
+    )
 
 
 def send_arm_command(connection: MavConnection, mavlink: object) -> None:
@@ -133,13 +218,29 @@ def send_arm_command(connection: MavConnection, mavlink: object) -> None:
     )
 
 
-def wait_for_armed_state_if_supported(
+def wait_for_armed_state(
     connection: MavConnection,
     timeout_s: float,
 ) -> None:
-    wait_for_arm = getattr(connection, "motors_armed_wait", None)
-    if callable(wait_for_arm):
-        wait_for_arm(timeout=timeout_s)
+    """Wait for an armed HEARTBEAT without relying on an unbounded helper."""
+    deadline = monotonic() + timeout_s
+    while monotonic() < deadline:
+        heartbeat = connection.recv_match(
+            type="HEARTBEAT",
+            blocking=True,
+            timeout=max(0.0, deadline - monotonic()),
+        )
+        if heartbeat is None:
+            continue
+        try:
+            base_mode = int(getattr(heartbeat, "base_mode"))
+        except (AttributeError, TypeError, ValueError):
+            continue
+        if base_mode & MAV_MODE_FLAG_SAFETY_ARMED:
+            return
+    raise ArduPilotAdapterError(
+        f"Timed out waiting {timeout_s:.1f}s for ArduPilot to arm"
+    )
 
 
 def set_auto_mode(connection: MavConnection, mavlink: object) -> None:
@@ -222,14 +323,16 @@ __all__ = [
     "MavConnection",
     "MavSender",
     "MavutilModule",
+    "drain_mission_progress_messages",
     "is_mission_item_request",
     "item_at_sequence",
     "message_sequence",
     "message_type",
-    "mission_current_reached",
+    "mission_execution_complete",
+    "mission_execution_progressed",
     "mission_type",
     "raise_for_rejected_mission_ack",
     "send_arm_command",
     "set_auto_mode",
-    "wait_for_armed_state_if_supported",
+    "wait_for_armed_state",
 ]

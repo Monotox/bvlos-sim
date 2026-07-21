@@ -15,6 +15,7 @@ from adapters.sitl.ardupilot import (
     altitude_reference_to_mavlink_frame,
     mission_action_to_mavlink_cmd,
 )
+from adapters.sitl.ardupilot_types import ArduPilotSitlConfig
 from adapters.io import InputDocument, load_vehicle
 from adapters.scenario_envelope import ScenarioResultEnvelope, build_scenario_envelope
 from adapters.sitl.evidence import build_sitl_evidence_bundle
@@ -124,6 +125,13 @@ class FakeMavutil:
         self.connection_kwargs = kwargs
         self.connection.connection_string = str(args[0])
         return self.connection
+
+
+class MissingHeartbeatConnection(FakeConnection):
+    def wait_heartbeat(self, timeout: float) -> None:
+        self.heartbeat_requested = True
+        self.heartbeat_timeout = timeout
+        return None
 
 
 class StubbedArduPilotSitlAdapter(ArduPilotSitlAdapter):
@@ -263,6 +271,17 @@ def test_connect_calls_heartbeat_wait() -> None:
     assert connection.connection_string == "tcp:127.0.0.1:5760"
 
 
+def test_connect_closes_connection_when_heartbeat_times_out() -> None:
+    connection = MissingHeartbeatConnection()
+    adapter = StubbedArduPilotSitlAdapter(connection)
+
+    with pytest.raises(ArduPilotAdapterError, match="Timed out waiting"):
+        adapter.connect()
+
+    assert connection.closed is True
+    assert adapter.simulator_metadata(_vehicle()).metadata["connected"] is False
+
+
 def test_upload_mission_sends_correct_item_count() -> None:
     connection = FakeConnection(_upload_messages(item_count=3))
     adapter, _connection = _connected_adapter(connection)
@@ -279,6 +298,45 @@ def test_upload_mission_returns_acknowledged_result() -> None:
     result = adapter.upload_mission(_three_item_mission())
 
     assert result == MissionUploadResult(item_count=3, acknowledged=True)
+
+
+def test_arm_and_start_requires_armed_heartbeat() -> None:
+    connection = FakeConnection(_upload_messages(item_count=3))
+    adapter, _connection = _connected_adapter(connection)
+    adapter.upload_mission(_three_item_mission())
+    connection.messages.append(FakeMessage("HEARTBEAT", base_mode=128))
+
+    adapter.arm_and_start()
+
+    assert connection.mav.command_longs
+    assert connection.mode == "AUTO"
+
+
+def test_arm_and_start_drains_stale_mission_progress_before_auto() -> None:
+    connection = FakeConnection(_upload_messages(item_count=3))
+    adapter, _connection = _connected_adapter(connection)
+    adapter.upload_mission(_three_item_mission())
+    connection.messages.extend(
+        [
+            FakeMessage("HEARTBEAT", base_mode=128),
+            FakeMessage("MISSION_CURRENT", seq=65_535, mission_state=5),
+        ]
+    )
+
+    adapter.arm_and_start()
+
+    assert connection.messages == []
+    assert connection.mode == "AUTO"
+
+
+def test_arm_and_start_times_out_without_armed_heartbeat() -> None:
+    connection = FakeConnection(_upload_messages(item_count=3))
+    adapter, _connection = _connected_adapter(connection)
+    adapter.upload_mission(_three_item_mission())
+    adapter.config = ArduPilotSitlConfig(arm_timeout_s=0.001)
+
+    with pytest.raises(ArduPilotAdapterError, match="Timed out waiting"):
+        adapter.arm_and_start()
 
 
 def test_unsupported_action_raises_adapter_error() -> None:
@@ -324,6 +382,19 @@ def test_disconnect_records_target_ids_before_closing(tmp_path: Path) -> None:
     disconnected = [event for event in events if event["event"] == "disconnected"]
     assert disconnected[0]["fields"]["target_component"] == 1
     assert disconnected[0]["fields"]["target_system"] == 1
+
+
+def test_disconnect_flushes_dirty_failure_evidence(tmp_path: Path) -> None:
+    adapter, _connection = _connected_adapter()
+    adapter.start_recording(tmp_path)
+
+    adapter.disconnect()
+
+    observed = adapter.observed_artifacts()
+    assert observed.adapter_logs
+    assert observed.simulator_logs
+    assert (tmp_path / "adapter_log.json").exists()
+    assert (tmp_path / "simulator_log.json").exists()
 
 
 def test_simulator_metadata_adapter_kind_is_ardupilot() -> None:
@@ -419,6 +490,120 @@ def test_missing_telemetry_raises_explicit_adapter_error(tmp_path: Path) -> None
         adapter.record_telemetry(sample_count=1, timeout_s=0.01)
 
 
+def test_wait_for_mission_complete_requires_completion_evidence() -> None:
+    connection = FakeConnection(_upload_messages(item_count=3))
+    adapter, _connection = _connected_adapter(connection)
+    adapter.upload_mission(_three_item_mission())
+    connection.messages.extend(
+        [
+            FakeMessage("MISSION_CURRENT", seq=2),
+            FakeMessage("MISSION_ITEM_REACHED", seq=2),
+        ]
+    )
+
+    assert adapter.wait_for_mission_complete(timeout_s=0.1).value == "complete"
+
+
+def test_wait_for_mission_complete_accepts_mavlink2_complete_state() -> None:
+    connection = FakeConnection(_upload_messages(item_count=3))
+    adapter, _connection = _connected_adapter(connection)
+    adapter.upload_mission(_three_item_mission())
+    connection.messages.extend(
+        [
+            FakeMessage("MISSION_CURRENT", seq=0, mission_state=3),
+            FakeMessage("MISSION_CURRENT", seq=2, mission_state=5),
+        ]
+    )
+
+    assert adapter.wait_for_mission_complete(timeout_s=0.1).value == "complete"
+
+
+def test_wait_for_mission_complete_rejects_explicit_active_state_with_stale_seq() -> (
+    None
+):
+    connection = FakeConnection(_upload_messages(item_count=3))
+    adapter, _connection = _connected_adapter(connection)
+    adapter.upload_mission(_three_item_mission())
+    connection.messages.append(
+        FakeMessage("MISSION_CURRENT", seq=65_535, mission_state=3)
+    )
+
+    assert adapter.wait_for_mission_complete(timeout_s=0.001).value == "timeout"
+
+
+def test_wait_for_mission_complete_accepts_exact_legacy_one_past_sequence() -> None:
+    connection = FakeConnection(_upload_messages(item_count=3))
+    adapter, _connection = _connected_adapter(connection)
+    adapter.upload_mission(_three_item_mission())
+    connection.messages.extend(
+        [
+            FakeMessage("MISSION_CURRENT", seq=0),
+            FakeMessage("MISSION_CURRENT", seq=3),
+        ]
+    )
+
+    assert adapter.wait_for_mission_complete(timeout_s=0.1).value == "complete"
+
+
+def test_wait_for_mission_complete_accepts_unknown_state_one_past_sequence() -> None:
+    connection = FakeConnection(_upload_messages(item_count=3))
+    adapter, _connection = _connected_adapter(connection)
+    adapter.upload_mission(_three_item_mission())
+    connection.messages.extend(
+        [
+            FakeMessage("MISSION_CURRENT", seq=0, mission_state=0),
+            FakeMessage("MISSION_CURRENT", seq=3, mission_state=0),
+        ]
+    )
+
+    assert adapter.wait_for_mission_complete(timeout_s=0.1).value == "complete"
+
+
+def test_wait_for_mission_complete_rejects_legacy_uint16_max_sequence() -> None:
+    connection = FakeConnection(_upload_messages(item_count=3))
+    adapter, _connection = _connected_adapter(connection)
+    adapter.upload_mission(_three_item_mission())
+    connection.messages.append(FakeMessage("MISSION_CURRENT", seq=65_535))
+
+    assert adapter.wait_for_mission_complete(timeout_s=0.001).value == "timeout"
+
+
+def test_wait_for_mission_complete_rejects_final_item_selection() -> None:
+    connection = FakeConnection(_upload_messages(item_count=3))
+    adapter, _connection = _connected_adapter(connection)
+    adapter.upload_mission(_three_item_mission())
+    connection.messages.append(FakeMessage("MISSION_CURRENT", seq=2))
+
+    assert adapter.wait_for_mission_complete(timeout_s=0.001).value == "timeout"
+
+
+def test_wait_for_mission_complete_ignores_late_stale_complete_until_progress(
+    tmp_path: Path,
+) -> None:
+    connection = FakeConnection(_upload_messages(item_count=3))
+    adapter, _connection = _connected_adapter(connection)
+    adapter.start_recording(tmp_path)
+    adapter.upload_mission(_three_item_mission())
+    connection.messages.extend(
+        [
+            FakeMessage("MISSION_CURRENT", seq=2, mission_state=5),
+            FakeMessage("MISSION_CURRENT", seq=0, mission_state=3),
+            FakeMessage("MISSION_ITEM_REACHED", seq=2),
+        ]
+    )
+
+    assert adapter.wait_for_mission_complete(timeout_s=0.1).value == "complete"
+    observed = adapter.flush_artifacts()
+    adapter_log = json.loads(
+        Path(observed.adapter_logs[0].path).read_text(encoding="utf-8")
+    )
+    events = [event["event"] for event in adapter_log["events"]]
+    assert "mission_completion_ignored" in events
+    assert events.index("mission_completion_ignored") < events.index(
+        "mission_progress_verified"
+    )
+
+
 def test_adapter_satisfies_sitl_adapter_protocol() -> None:
     adapter = ArduPilotSitlAdapter()
     required_attributes = ("adapter_id", "adapter_kind", "adapter_version")
@@ -448,4 +633,4 @@ def test_ardupilot_adapter_plugs_into_build_sitl_evidence_bundle() -> None:
     )
 
     assert bundle.simulator.adapter_kind == SitlAdapterKind.ARDUPILOT
-    assert bundle.status == SitlEvidenceStatus.CONTRACT_ONLY
+    assert bundle.status == SitlEvidenceStatus.ERROR

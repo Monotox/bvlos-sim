@@ -1,5 +1,6 @@
 """YAML/JSON spatiotemporal wind grid adapter."""
 
+import math
 from pathlib import Path
 from typing import Any, NoReturn
 
@@ -14,6 +15,20 @@ from estimator.environment.wind import SpatiotemporalWindProvider
 
 class WindGridLoadError(InputLoadError):
     """Raised when a spatiotemporal wind grid file cannot be loaded."""
+
+
+def _coerce_axis(raw_axis: object, name: str) -> list[float]:
+    if not isinstance(raw_axis, list):
+        raise TypeError(f"axis '{name}' must be a list")
+    axis: list[float] = []
+    for index, value in enumerate(raw_axis):
+        if isinstance(value, bool):
+            raise ValueError(f"axis '{name}'[{index}] must not be a boolean")
+        number = float(value)
+        if not math.isfinite(number):
+            raise ValueError(f"axis '{name}'[{index}] must be finite")
+        axis.append(number)
+    return axis
 
 
 def load_wind_grid(path: Path) -> tuple[SpatiotemporalWindProvider, InputDocument]:
@@ -149,10 +164,10 @@ def _build_provider(
 ) -> SpatiotemporalWindProvider:
     try:
         axes = payload["axes"]
-        time_s = [float(v) for v in axes["time_s"]]
-        altitude_m = [float(v) for v in axes["altitude_m"]]
-        lat = [float(v) for v in axes["lat"]]
-        lon = [float(v) for v in axes["lon"]]
+        time_s = _coerce_axis(axes["time_s"], "time_s")
+        altitude_m = _coerce_axis(axes["altitude_m"], "altitude_m")
+        lat = _coerce_axis(axes["lat"], "lat")
+        lon = _coerce_axis(axes["lon"], "lon")
     except (KeyError, TypeError, ValueError) as exc:
         raise WindGridLoadError(
             f"Wind grid file is missing required axes fields or has invalid values: {exc}",

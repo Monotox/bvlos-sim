@@ -1,3 +1,4 @@
+schema_version: mission.v7
 mission_id: autel_evo_max_4t_demo
 vehicle_profile: autel_evo_max_4t
 

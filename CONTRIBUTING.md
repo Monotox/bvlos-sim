@@ -51,6 +51,16 @@ asset-loading, and scenario cases.
 Before opening a pull request, run these checks and include the result in the
 PR test plan.
 
+## Knowledge Graph Workflow
+
+This repository keeps a project-local Graphify knowledge graph. Start
+architecture and cross-file questions with `graphify query`, `graphify path`,
+or `graphify explain`, verify the returned relationships in source and tests,
+then run `graphify update .` after the final change.
+
+See [Project Knowledge Graph](./docs/GRAPHIFY.md) for setup, command examples,
+artifact ownership, diagnostics, and version-control policy.
+
 ## Releasing
 
 Cutting a release is one reviewed command — no manual multi-file edits:
@@ -141,8 +151,8 @@ without a link.
 
 The public contract surfaces must not change casually. These include:
 
-- schema versions such as `mission.v6`, `vehicle.v4`, and `scenario.v1`
-- canonical JSON envelopes such as `estimator-envelope.v6` and `scenario-report.v2`
+- schema versions such as `mission.v7`, `vehicle.v4`, and `scenario.v1`
+- canonical JSON envelopes such as `estimator-envelope.v9` and `scenario-report.v3`
 - CLI exit codes
 - documented package-root imports from `estimator`
 

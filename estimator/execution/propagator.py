@@ -14,9 +14,11 @@ from estimator.environment.obstacle import ObstacleProvider
 from estimator.environment.population import GridPopulationProvider
 from estimator.environment.terrain import TerrainProvider
 from estimator.environment.wind import WindProvider
-from estimator.execution.propagation.curves import PositionInterpolator
 from estimator.execution.propagation.sampling import EstimatorInputs, ParticleSampler
-from estimator.execution.propagation.stats import compute_stats, feasibility_rate
+from estimator.execution.propagation.stats import (
+    compute_stats,
+    modeled_constraint_pass_rate,
+)
 from estimator.execution.propagation.timeline import (
     TimelineBuilder,
     reserve_threshold_wh,
@@ -39,7 +41,18 @@ def run_stochastic_propagation(
     landing_zones: Sequence[LandingZone] | None = None,
     progress: Callable[[int, int], None] | None = None,
 ) -> StochasticPropagationResult:
-    """Run seeded stochastic state propagation and return a timeline report."""
+    """Run a seeded open-loop parameter sweep and return diagnostic timelines."""
+    if plan.wind_process_noise_std_mps != 0.0:
+        raise ValueError(
+            "stochastic.v2 does not support process-wind dynamics; "
+            "wind_process_noise_std_mps must be 0.0"
+        )
+    if vehicle.controller is not None:
+        raise ValueError(
+            "stochastic.v2 does not support closed-loop controller propagation; "
+            "remove vehicle.controller and treat the output as an open-loop diagnostic"
+        )
+
     estimator_inputs = EstimatorInputs(
         mission=mission,
         vehicle=vehicle,
@@ -65,50 +78,49 @@ def run_stochastic_propagation(
     rng = random.Random(plan.seed)
     population = ParticleSampler(
         plan=plan,
-        baseline_legs=baseline.legs,
         estimator_inputs=estimator_inputs,
         rng=rng,
         sensors=vehicle.sensors,
-        controller=vehicle.controller,
         progress=progress,
     ).run()
 
     threshold_wh = reserve_threshold_wh(baseline)
     timeline, estimation_error_timeline, cross_track_timeline = TimelineBuilder(
         population=population,
-        position=PositionInterpolator(
-            legs=population.position_legs,
-            fallback_lat=mission.planned_home.lat,
-            fallback_lon=mission.planned_home.lon,
-        ),
         dt_s=plan.dt_s,
         reserve_threshold_wh=threshold_wh,
         rng=rng,
-        wind_process_noise_std_mps=plan.wind_process_noise_std_mps,
-        controller=vehicle.controller,
-        legs=population.position_legs,
     ).build()
 
-    # Compute final remaining after build so extra_energy_consumed_wh is fully accumulated
     final_remaining = [p.final_energy_remaining_wh for p in population.particles]
 
     successful_samples = len(population.particles)
+    infeasible_samples = population.infeasible_sample_count
     spatial_infeasible = population.spatial_infeasible_count
+    accounted_samples = (
+        successful_samples + infeasible_samples + population.failed_sample_count
+    )
+    if accounted_samples != plan.samples:
+        raise RuntimeError(
+            "Stochastic sample accounting invariant failed: "
+            f"{accounted_samples} outcomes for {plan.samples} requested samples."
+        )
     return StochasticPropagationResult(
         propagation_id=plan.propagation_id,
         seed=plan.seed,
         dt_s=plan.dt_s,
+        requested_sample_count=plan.samples,
         sample_count=successful_samples,
-        failed_sample_count=plan.samples - successful_samples - spatial_infeasible,
+        infeasible_sample_count=infeasible_samples,
+        failed_sample_count=population.failed_sample_count,
         spatial_infeasible_count=spatial_infeasible,
         timeline=timeline,
         estimation_error_timeline=estimation_error_timeline,
         cross_track_timeline=cross_track_timeline,
-        reserve_at_landing_wh=compute_stats(final_remaining),
-        feasibility_rate=feasibility_rate(
-            final_remaining,
-            reserve_threshold_wh=threshold_wh,
-            spatial_infeasible_count=spatial_infeasible,
+        reserve_at_mission_end_wh=compute_stats(final_remaining),
+        modeled_constraint_pass_rate=modeled_constraint_pass_rate(
+            successful_samples,
+            infeasible_sample_count=infeasible_samples,
         ),
         baseline=baseline,
     )

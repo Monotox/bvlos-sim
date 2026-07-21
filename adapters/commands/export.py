@@ -45,7 +45,11 @@ def _run_export_preflight(*, mission: Path, as_json: bool) -> None:
 
 def export(
     mission: Path = typer.Argument(
-        ..., exists=True, readable=True, resolve_path=True, help="Path to mission.v6 YAML file."
+        ...,
+        exists=True,
+        readable=True,
+        resolve_path=True,
+        help="Path to mission.v7 YAML file.",
     ),
     output: Path | None = typer.Option(
         None, "--output", "-o", help="Write the .plan JSON to a file instead of stdout."
@@ -64,7 +68,7 @@ def export(
         help="Validate-only output: text (default) or json for a preflight-validation.v1 envelope.",
     ),
 ) -> None:
-    """Export a mission.v6 YAML to a QGroundControl .plan file."""
+    """Export a mission.v7 YAML to a QGroundControl .plan file."""
 
     if validate_only:
         _run_export_preflight(mission=mission, as_json=is_json_format(validate_format))

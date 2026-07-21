@@ -13,7 +13,10 @@ Units and conventions:
 - Phase-inapplicable fields must be None.
 """
 
-from pydantic import BaseModel, ConfigDict, Field
+import math
+from dataclasses import dataclass
+
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 from estimator.core.enums import (
     EnergyPowerSource,
@@ -51,6 +54,19 @@ class EstimatorWarning(BaseModel):
 
 
 EstimatorContextValue = str | int | float | bool | None
+
+
+@dataclass(frozen=True, slots=True)
+class LegTimingProfile:
+    """Internal mapping from flown-distance fraction to elapsed leg time.
+
+    This is deliberately stored as a Pydantic private attribute: risk checks
+    need the estimator's simultaneous horizontal/vertical timing, but the
+    profile is not part of the serialized result contract.
+    """
+
+    distance_time_points: tuple[tuple[float, float], ...]
+    vertical_time_s: float
 
 
 class EstimatorFailure(BaseModel):
@@ -101,6 +117,53 @@ class LegEstimate(BaseModel):
     wind_cross_track_mps: float | None = None
     speed_source: SpeedSource | None = None
     warnings: list[WarningCode] = Field(default_factory=list)
+    _path_coordinates: tuple[tuple[float, float], ...] | None = PrivateAttr(
+        default=None
+    )
+    _timing_profile: LegTimingProfile | None = PrivateAttr(default=None)
+
+    @property
+    def path_coordinates(self) -> tuple[tuple[float, float], ...] | None:
+        """Internal flown-path polyline, intentionally absent from contracts."""
+        return self._path_coordinates
+
+    def _set_path_coordinates(
+        self,
+        coordinates: tuple[tuple[float, float], ...],
+    ) -> None:
+        self._path_coordinates = coordinates
+
+    @property
+    def timing_profile(self) -> LegTimingProfile | None:
+        """Internal transit timing, intentionally absent from contracts."""
+
+        return self._timing_profile
+
+    def _set_timing_profile(self, profile: LegTimingProfile) -> None:
+        points = profile.distance_time_points
+        if (
+            len(points) < 2
+            or not math.isfinite(profile.vertical_time_s)
+            or profile.vertical_time_s < 0.0
+            or points[0] != (0.0, 0.0)
+            or points[-1][0] != 1.0
+        ):
+            raise ValueError("invalid leg timing profile")
+        previous_fraction = -math.inf
+        previous_time_s = -math.inf
+        for fraction, elapsed_time_s in points:
+            if (
+                not math.isfinite(fraction)
+                or not math.isfinite(elapsed_time_s)
+                or not 0.0 <= fraction <= 1.0
+                or elapsed_time_s < 0.0
+                or fraction < previous_fraction
+                or elapsed_time_s < previous_time_s
+            ):
+                raise ValueError("invalid leg timing profile")
+            previous_fraction = fraction
+            previous_time_s = elapsed_time_s
+        self._timing_profile = profile
 
 
 class EnergyLegEstimate(BaseModel):
@@ -339,7 +402,14 @@ class GroundRiskLegEstimate(BaseModel):
 class GroundRiskEstimate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    characteristic_dimension_m: float
+    characteristic_dimension_m: float | None
+    aircraft_mass_kg: float | None = Field(default=None, gt=0)
+    max_speed_mps: float | None = None
+    sora_version: str | None = None
+    aircraft_column: int | None = Field(default=None, ge=1, le=5)
+    controlled_ground_area_reference_igrc: int | None = None
+    population_assessment_buffer_m: float = Field(default=0.0, ge=0)
+    population_numerical_dilation_m: float = Field(default=0.0, ge=0)
     mission_igrc: int
     legs: list[GroundRiskLegEstimate]
 

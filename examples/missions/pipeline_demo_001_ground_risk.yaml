@@ -1,5 +1,7 @@
+schema_version: mission.v7
 mission_id: pipeline_demo_001_ground_risk
 vehicle_profile: quadplane_v1_ground_risk
+departure_time: 2026-07-21T12:00:00Z
 
 planned_home:
   lat: 52.0
@@ -41,13 +43,35 @@ constraints:
 
 assets:
   population_grid_file: assets/pipeline_population_grid.yaml
+  terrain_file: assets/pipeline_terrain_grid.yaml
 
 airspace:
   class: "G"
-  max_altitude_agl_m: 120.0
-  near_aerodrome: false
+  max_altitude_agl_m: 130.0
+  operational_and_contingency_volume_assessment_reference: Example airspace assessment AS-001, rev 1
+  worst_case_arc_declared: true
+  aerodrome_environment: false
   atypical_or_segregated: false
+  over_urban_area: false
+  transponder_mandatory_zone: false
+  entirely_above_flight_level_600: false
   strategic_mitigation: false
+
+sora:
+  version: "2.5"
+  ground_risk_footprint:
+    operational_volume_margin_m: 30.0
+    ground_risk_buffer_m: 130.0
+    vertical_contingency_margin_m: 10.0
+    maximum_height_agl_m: 130.0
+    buffer_method: initial_1_to_1
+    derivation: Example 30 m contingency margin plus initial 1:1 GRB, including 10 m vertical contingency
+  containment_evidence:
+    assessment_reference: Example adjacent-area assessment CONT-001, rev 1
+    average_population_density_ppl_km2: 12.0
+    largest_outdoor_assembly: below_40000
+    sheltering_applicable: true
+    ground_risk_buffer_revalidation_reference: Example GRC recheck GRC-002, rev 1
 
 policy:
   lost_link_policy: standard_lost_link_v1

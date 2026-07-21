@@ -12,24 +12,47 @@
     "inputs": {
       "mission": {
         "format": "yaml",
-        "sha256": "7bab3b2b9b996564f04f80c9cbb92051e2e187f2d4198b355e0939e9eec4473c"
+        "sha256": "f51ebfee7ac0a53d5f1f010d15fbc838d171388865d762f3732fdb113963b445"
       },
       "vehicle": {
         "format": "yaml",
-        "sha256": "4067f6697bba308915271afc95bf273ae7dc7637f3d921c71ac30b15a26453e5"
+        "sha256": "a07af0176d9e98e2bce3c1164499c02dbf6126478ef3f45f3517cbf1230043fe"
       }
     }
   },
   "result": {
     "current_capacity_wh": 900.0,
-    "current_reserve_pct": 95.38829865,
-    "current_reserve_wh": 858.49468783,
+    "current_reserve_pct": 94.95619988,
+    "current_reserve_wh": 854.60579894,
     "is_current_feasible": true,
-    "minimum_capacity_wh": 55.37109375,
-    "mission_energy_wh": 41.50531217,
-    "reserve_threshold_wh": 225.0
+    "maximum_capacity_at_mtow_wh": 900.0,
+    "maximum_feasible_capacity_wh": 900.0,
+    "minimum_capacity_wh": 37.1014502,
+    "mission_energy_wh": 27.77812583,
+    "recommendations": [
+      {
+        "margin_percent": 10,
+        "recommended_capacity_wh": 40.81159522,
+        "requested_capacity_wh": 40.81159522,
+        "unavailable_reason": null
+      },
+      {
+        "margin_percent": 20,
+        "recommended_capacity_wh": 44.52174024,
+        "requested_capacity_wh": 44.52174024,
+        "unavailable_reason": null
+      },
+      {
+        "margin_percent": 30,
+        "recommended_capacity_wh": 48.23188526,
+        "requested_capacity_wh": 48.23188526,
+        "unavailable_reason": null
+      }
+    ],
+    "reserve_threshold_wh": 9.27536255,
+    "search_tolerance_wh": 1.0
   },
-  "schema_version": "battery-sizing-report.v1",
+  "schema_version": "battery-sizing-report.v2",
   "status": "feasible",
   "tool_version": "0.0.0-test"
 }

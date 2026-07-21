@@ -8,11 +8,13 @@ from estimator.core.results import (
     EnergyEstimate,
     EstimatorContextValue,
     EstimatorFailure,
+    LegEstimate,
     LinkEstimate,
     LinkSystemEstimate,
     ResourceEstimate,
     ResourceSystemEstimate,
 )
+from estimator.execution.energy import adjusted_cruise_power_for_vehicle
 from estimator.execution.runtime import EstimationContext
 from schemas.resource_link import (
     LinkAvailability,
@@ -20,6 +22,7 @@ from schemas.resource_link import (
     ResourceSystemConfig,
     ResourceSystemKind,
 )
+from schemas.vehicle import VehicleProfile
 
 
 class ResourceLimitingReason(StrEnum):
@@ -30,6 +33,7 @@ class ResourceLimitingReason(StrEnum):
     TETHER_LENGTH_EXCEEDED = "tether_length_exceeded"
     RESOURCE_ENERGY_EXHAUSTED = "resource_energy_exhausted"
     RESOURCE_RESERVE_BELOW_THRESHOLD = "resource_reserve_below_threshold"
+    RESOURCE_RTH_RESERVE_BELOW_THRESHOLD = "resource_rth_reserve_below_threshold"
 
 
 class LinkLimitingReason(StrEnum):
@@ -68,8 +72,22 @@ def evaluate_resource_feasibility(
         return ResourceEvaluation(resource=None, failure=None)
 
     metrics = _route_metrics(context)
+    required_peak_power_w = _required_peak_power_w(
+        context.vehicle,
+        context.route_legs,
+        energy,
+        include_rth=context.mission.constraints.require_rth_reserve,
+    )
     systems = [
-        _evaluate_resource_system(system, energy, metrics)
+        _evaluate_resource_system(
+            system,
+            energy,
+            metrics,
+            vehicle=context.vehicle,
+            route_legs=context.route_legs,
+            required_peak_power_w=required_peak_power_w,
+            enforce_rth_reserve=context.mission.constraints.require_rth_reserve,
+        )
         for system in context.vehicle.resource_systems
     ]
     selected = _selected_feasible_resource(systems)
@@ -77,7 +95,7 @@ def evaluate_resource_feasibility(
         is_feasible=selected is not None,
         selected_resource_id=selected.resource_id if selected is not None else None,
         total_demand_wh=energy.total_energy_wh,
-        peak_power_w=_peak_power_w(energy),
+        peak_power_w=required_peak_power_w,
         route_distance_m=metrics.route_distance_m,
         route_time_s=metrics.route_time_s,
         max_observed_home_distance_m=metrics.max_observed_home_distance_m,
@@ -145,6 +163,136 @@ def _peak_power_w(energy: EnergyEstimate) -> float:
     return max((leg.power_w for leg in energy.legs), default=0.0)
 
 
+def _required_peak_power_w(
+    vehicle: VehicleProfile,
+    route_legs: list[LegEstimate],
+    energy: EnergyEstimate,
+    *,
+    include_rth: bool,
+) -> float:
+    peak_power_w = _peak_power_w(energy)
+    if not include_rth or energy.rth_reserve_timeline is None:
+        return peak_power_w
+    rth_peak_power_w = max(
+        (
+            adjusted_cruise_power_for_vehicle(
+                vehicle,
+                altitude_amsl_m=leg.end_alt_amsl_m,
+            )
+            for leg in route_legs
+        ),
+        default=0.0,
+    )
+    return max(peak_power_w, rth_peak_power_w)
+
+
+def _energy_used_by_leg(energy: EnergyEstimate) -> dict[int, float]:
+    total_energy_wh = 0.0
+    used_by_leg: dict[int, float] = {}
+    for leg in energy.legs:
+        total_energy_wh += leg.energy_wh
+        used_by_leg[leg.leg_index] = total_energy_wh
+    return used_by_leg
+
+
+def _hybrid_energy_used_by_leg(
+    system: ResourceSystemConfig,
+    energy: EnergyEstimate,
+) -> dict[int, float]:
+    external_power_w = system.continuous_power_w or 0.0
+    total_energy_wh = 0.0
+    used_by_leg: dict[int, float] = {}
+    for leg in energy.legs:
+        total_energy_wh += (
+            max(0.0, leg.power_w - external_power_w) * leg.time_s / 3600.0
+        )
+        used_by_leg[leg.leg_index] = total_energy_wh
+    return used_by_leg
+
+
+def _rth_reserve_is_feasible(
+    system: ResourceSystemConfig,
+    energy: EnergyEstimate,
+    *,
+    vehicle: VehicleProfile,
+    route_legs: list[LegEstimate],
+) -> bool | None:
+    timeline = energy.rth_reserve_timeline
+    if timeline is None:
+        return None
+    if system.kind == ResourceSystemKind.EXTERNAL_POWER:
+        # Report actual RTH capability even when the mission has explicitly
+        # disabled the hard RTH gate and resource selection therefore checked
+        # route power only.
+        available_power_w = system.continuous_power_w or 0.0
+        return available_power_w >= _required_peak_power_w(
+            vehicle,
+            route_legs,
+            energy,
+            include_rth=True,
+        )
+
+    capacity_wh = _battery_capacity(system, energy)
+    threshold_wh = capacity_wh * _reserve_threshold_percent(system, energy) / 100.0
+    if system.kind == ResourceSystemKind.ONBOARD_BATTERY:
+        energy_used_by_leg = _energy_used_by_leg(energy)
+        rth_energy_factor_by_leg = {leg.leg_index: 1.0 for leg in route_legs}
+    elif system.kind == ResourceSystemKind.HYBRID:
+        energy_used_by_leg = _hybrid_energy_used_by_leg(system, energy)
+        external_power_w = system.continuous_power_w or 0.0
+        rth_energy_factor_by_leg = {
+            leg.leg_index: max(
+                0.0,
+                1.0
+                - external_power_w
+                / adjusted_cruise_power_for_vehicle(
+                    vehicle,
+                    altitude_amsl_m=leg.end_alt_amsl_m,
+                ),
+            )
+            for leg in route_legs
+        }
+    else:
+        return None
+
+    for point in timeline:
+        used_wh = energy_used_by_leg.get(point.leg_index)
+        rth_factor = rth_energy_factor_by_leg.get(point.leg_index)
+        if used_wh is None or rth_factor is None:
+            return False
+        reserve_after_rth_wh = capacity_wh - used_wh - point.rth_energy_wh * rth_factor
+        if reserve_after_rth_wh < threshold_wh:
+            return False
+    return True
+
+
+def selected_resource_rth_is_feasible(
+    vehicle: VehicleProfile,
+    route_legs: list[LegEstimate],
+    energy: EnergyEstimate | None,
+    resource: ResourceEstimate | None,
+) -> bool | None:
+    """Resolve RTH feasibility against the selected explicit resource."""
+    if energy is None or resource is None or resource.selected_resource_id is None:
+        return None
+    selected = next(
+        (
+            system
+            for system in vehicle.resource_systems or []
+            if system.resource_id == resource.selected_resource_id
+        ),
+        None,
+    )
+    if selected is None:
+        return None
+    return _rth_reserve_is_feasible(
+        selected,
+        energy,
+        vehicle=vehicle,
+        route_legs=route_legs,
+    )
+
+
 def _route_constraint_reason(
     system: ResourceSystemConfig,
     metrics: _RouteMetrics,
@@ -190,6 +338,11 @@ def _battery_resource_estimate(
     system: ResourceSystemConfig,
     energy: EnergyEstimate,
     metrics: _RouteMetrics,
+    *,
+    vehicle: VehicleProfile,
+    route_legs: list[LegEstimate],
+    required_peak_power_w: float,
+    enforce_rth_reserve: bool,
 ) -> ResourceSystemEstimate:
     capacity_wh = _battery_capacity(system, energy)
     threshold_wh = capacity_wh * _reserve_threshold_percent(system, energy) / 100.0
@@ -199,6 +352,18 @@ def _battery_resource_estimate(
         limiting_reason = ResourceLimitingReason.RESOURCE_ENERGY_EXHAUSTED
     if limiting_reason is None and reserve_after_wh < threshold_wh:
         limiting_reason = ResourceLimitingReason.RESOURCE_RESERVE_BELOW_THRESHOLD
+    if (
+        limiting_reason is None
+        and enforce_rth_reserve
+        and _rth_reserve_is_feasible(
+            system,
+            energy,
+            vehicle=vehicle,
+            route_legs=route_legs,
+        )
+        is False
+    ):
+        limiting_reason = ResourceLimitingReason.RESOURCE_RTH_RESERVE_BELOW_THRESHOLD
     return _resource_system_estimate(
         system,
         energy,
@@ -208,6 +373,7 @@ def _battery_resource_estimate(
         reserve_after_resource_wh=reserve_after_wh,
         available_power_w=None,
         limiting_reason=limiting_reason,
+        peak_power_w=required_peak_power_w,
     )
 
 
@@ -215,11 +381,12 @@ def _external_resource_estimate(
     system: ResourceSystemConfig,
     energy: EnergyEstimate,
     metrics: _RouteMetrics,
+    *,
+    required_peak_power_w: float,
 ) -> ResourceSystemEstimate:
-    peak_power_w = _peak_power_w(energy)
     limiting_reason = _route_constraint_reason(system, metrics)
     if limiting_reason is None and system.continuous_power_w is not None:
-        if peak_power_w > system.continuous_power_w:
+        if required_peak_power_w > system.continuous_power_w:
             limiting_reason = ResourceLimitingReason.POWER_LIMIT_EXCEEDED
     return _resource_system_estimate(
         system,
@@ -230,6 +397,7 @@ def _external_resource_estimate(
         reserve_after_resource_wh=None,
         available_power_w=system.continuous_power_w,
         limiting_reason=limiting_reason,
+        peak_power_w=required_peak_power_w,
     )
 
 
@@ -248,6 +416,11 @@ def _hybrid_resource_estimate(
     system: ResourceSystemConfig,
     energy: EnergyEstimate,
     metrics: _RouteMetrics,
+    *,
+    vehicle: VehicleProfile,
+    route_legs: list[LegEstimate],
+    required_peak_power_w: float,
+    enforce_rth_reserve: bool,
 ) -> ResourceSystemEstimate:
     residual_energy_wh = _hybrid_residual_energy_wh(system, energy)
     capacity_wh = _battery_capacity(system, energy)
@@ -258,6 +431,18 @@ def _hybrid_resource_estimate(
         limiting_reason = ResourceLimitingReason.RESOURCE_ENERGY_EXHAUSTED
     if limiting_reason is None and reserve_after_wh < threshold_wh:
         limiting_reason = ResourceLimitingReason.RESOURCE_RESERVE_BELOW_THRESHOLD
+    if (
+        limiting_reason is None
+        and enforce_rth_reserve
+        and _rth_reserve_is_feasible(
+            system,
+            energy,
+            vehicle=vehicle,
+            route_legs=route_legs,
+        )
+        is False
+    ):
+        limiting_reason = ResourceLimitingReason.RESOURCE_RTH_RESERVE_BELOW_THRESHOLD
     return _resource_system_estimate(
         system,
         energy,
@@ -268,6 +453,7 @@ def _hybrid_resource_estimate(
         available_power_w=system.continuous_power_w,
         limiting_reason=limiting_reason,
         demand_energy_wh=residual_energy_wh,
+        peak_power_w=required_peak_power_w,
     )
 
 
@@ -275,6 +461,8 @@ def _unsupported_resource_estimate(
     system: ResourceSystemConfig,
     energy: EnergyEstimate,
     metrics: _RouteMetrics,
+    *,
+    required_peak_power_w: float,
 ) -> ResourceSystemEstimate:
     return _resource_system_estimate(
         system,
@@ -285,6 +473,7 @@ def _unsupported_resource_estimate(
         reserve_after_resource_wh=None,
         available_power_w=system.continuous_power_w,
         limiting_reason=ResourceLimitingReason.UNSUPPORTED_RESOURCE_SYSTEM,
+        peak_power_w=required_peak_power_w,
     )
 
 
@@ -292,14 +481,45 @@ def _evaluate_resource_system(
     system: ResourceSystemConfig,
     energy: EnergyEstimate,
     metrics: _RouteMetrics,
+    *,
+    vehicle: VehicleProfile,
+    route_legs: list[LegEstimate],
+    required_peak_power_w: float,
+    enforce_rth_reserve: bool,
 ) -> ResourceSystemEstimate:
     if system.kind == ResourceSystemKind.ONBOARD_BATTERY:
-        return _battery_resource_estimate(system, energy, metrics)
+        return _battery_resource_estimate(
+            system,
+            energy,
+            metrics,
+            vehicle=vehicle,
+            route_legs=route_legs,
+            required_peak_power_w=required_peak_power_w,
+            enforce_rth_reserve=enforce_rth_reserve,
+        )
     if system.kind == ResourceSystemKind.EXTERNAL_POWER:
-        return _external_resource_estimate(system, energy, metrics)
+        return _external_resource_estimate(
+            system,
+            energy,
+            metrics,
+            required_peak_power_w=required_peak_power_w,
+        )
     if system.kind == ResourceSystemKind.HYBRID:
-        return _hybrid_resource_estimate(system, energy, metrics)
-    return _unsupported_resource_estimate(system, energy, metrics)
+        return _hybrid_resource_estimate(
+            system,
+            energy,
+            metrics,
+            vehicle=vehicle,
+            route_legs=route_legs,
+            required_peak_power_w=required_peak_power_w,
+            enforce_rth_reserve=enforce_rth_reserve,
+        )
+    return _unsupported_resource_estimate(
+        system,
+        energy,
+        metrics,
+        required_peak_power_w=required_peak_power_w,
+    )
 
 
 def _resource_system_estimate(
@@ -312,6 +532,7 @@ def _resource_system_estimate(
     reserve_after_resource_wh: float | None,
     available_power_w: float | None,
     limiting_reason: ResourceLimitingReason | None,
+    peak_power_w: float,
     demand_energy_wh: float | None = None,
 ) -> ResourceSystemEstimate:
     return ResourceSystemEstimate(
@@ -325,7 +546,7 @@ def _resource_system_estimate(
         available_energy_wh=available_energy_wh,
         reserve_threshold_wh=reserve_threshold_wh,
         reserve_after_resource_wh=reserve_after_resource_wh,
-        peak_power_w=_peak_power_w(energy),
+        peak_power_w=peak_power_w,
         available_power_w=available_power_w,
         route_distance_m=metrics.route_distance_m,
         max_route_distance_m=system.max_route_distance_m,

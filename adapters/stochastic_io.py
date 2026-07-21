@@ -1,4 +1,4 @@
-"""YAML loading adapter for stochastic propagation plan files (stochastic.v1)."""
+"""YAML loading adapter for diagnostic propagation plans (stochastic.v2)."""
 
 from pathlib import Path
 

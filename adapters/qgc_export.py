@@ -1,4 +1,4 @@
-"""mission.v6 YAML to QGroundControl .plan JSON exporter.
+"""mission.v7 YAML to QGroundControl .plan JSON exporter.
 
 This is the inverse of ``qgc_plan`` (the importer). It emits a QGC 4.x ``.plan``
 document so an operator can author in bvlos-sim's richer YAML and upload via
@@ -120,7 +120,9 @@ class _PlanItemBuilder:
     def _build_waypoint(self, item: RouteItem, do_jump_id: int) -> dict[str, object]:
         frame, altitude_mode = self._resolve_frame(item)
         altitude = item.altitude_m if item.altitude_m is not None else 0.0
-        acceptance = item.acceptance_radius_m if item.acceptance_radius_m is not None else 0.0
+        acceptance = (
+            item.acceptance_radius_m if item.acceptance_radius_m is not None else 0.0
+        )
         return _simple_item(
             command=_MAV_CMD_NAV_WAYPOINT,
             frame=frame,
@@ -138,7 +140,15 @@ class _PlanItemBuilder:
         return _simple_item(
             command=_MAV_CMD_NAV_LOITER_TIME,
             frame=frame,
-            params=[item.loiter_time_s, 0.0, radius, None, item.lat, item.lon, altitude],
+            params=[
+                item.loiter_time_s,
+                0.0,
+                radius,
+                None,
+                item.lat,
+                item.lon,
+                altitude,
+            ],
             coordinate=[item.lat, item.lon, altitude],
             altitude=altitude,
             altitude_mode=altitude_mode,
@@ -190,7 +200,9 @@ def _has_omitted_fields(mission: MissionPlan) -> bool:
     return bool(constraints) or bool(assets)
 
 
-def _mission_block(mission: MissionPlan, items: list[dict[str, object]]) -> dict[str, object]:
+def _mission_block(
+    mission: MissionPlan, items: list[dict[str, object]]
+) -> dict[str, object]:
     default_reference = mission.defaults.altitude_reference
     _, global_alt_mode = _frame_and_alt_mode(
         AltitudeReference.RELATIVE_HOME
@@ -216,7 +228,9 @@ def _mission_block(mission: MissionPlan, items: list[dict[str, object]]) -> dict
     return block
 
 
-def build_qgc_plan(mission: MissionPlan) -> tuple[dict[str, object], list[ExportDiagnostic]]:
+def build_qgc_plan(
+    mission: MissionPlan,
+) -> tuple[dict[str, object], list[ExportDiagnostic]]:
     """Build a QGC .plan dict and export diagnostics from a mission."""
     builder = _PlanItemBuilder(mission)
     items = builder.build_items()

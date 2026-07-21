@@ -93,6 +93,7 @@ def _zone_from_entry(
                     path=path,
                     document=document,
                 ),
+                "altitude_amsl_m": entry.properties.get("altitude_amsl_m"),
                 "metadata": entry.properties,
             }
         )

@@ -1,5 +1,9 @@
 # Ticket 048: Closed-Loop Observation Model and Twin-State Architecture
 
+> Safety status: only the sensor/EKF diagnostic path remains enabled in
+> `stochastic.v2`. It is conditional on modeled-pass samples and makes no
+> operational-feasibility claim.
+
 ## Goal
 
 Replace the open-loop propagator from Ticket 047 with a closed-loop

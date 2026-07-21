@@ -16,6 +16,7 @@ from adapters.batch_support import (
 from adapters.cli_batch_support import (
     BatchOutputFormat,
     _batch_exit_code,
+    _batch_output_extension,
     write_batch_outputs,
 )
 from adapters.cli_support import OutputWriteError, _write_output
@@ -28,6 +29,7 @@ from adapters.preflight import (
     mission_asset_checks,
 )
 from adapters.progress import progress_reporter
+from schemas.batch import BatchManifest
 
 
 BatchStdoutRenderer = Callable[[list[BatchRunResult]], str]
@@ -40,6 +42,63 @@ _BATCH_FILE_OUTPUT_FORMATS = frozenset(
     for output_format in BatchOutputFormat
     if output_format != BatchOutputFormat.CSV
 )
+
+
+def _batch_protected_input_paths(
+    manifest: Path,
+    batch_manifest: BatchManifest,
+) -> tuple[Path, ...]:
+    """Resolve every file that a batch run may read before opening sidecars."""
+    protected = [manifest]
+    for run in batch_manifest.runs:
+        protected.extend((run.mission, run.vehicle))
+        mission_model, _mission_document = load_mission(run.mission)
+        for asset_path in mission_model.assets.model_dump().values():
+            if not isinstance(asset_path, Path):
+                continue
+            protected.append(
+                asset_path
+                if asset_path.is_absolute()
+                else run.mission.parent / asset_path
+            )
+    return tuple(protected)
+
+
+def _validate_batch_output_paths(
+    *,
+    output_dir: Path | None,
+    output_format: BatchOutputFormat,
+    batch_manifest: BatchManifest,
+    protected_paths: tuple[Path, ...],
+) -> None:
+    if output_dir is None or output_format not in _BATCH_FILE_OUTPUT_FORMATS:
+        return
+    inputs = {path.resolve(strict=False) for path in protected_paths}
+    extension = _batch_output_extension(output_format)
+    expected_names = {f"{run.id}{extension}" for run in batch_manifest.runs}
+    if output_dir.exists():
+        if not output_dir.is_dir():
+            raise ValueError(f"Batch output directory is not a directory: {output_dir}")
+        unexpected = sorted(
+            child.name
+            for child in output_dir.iterdir()
+            if child.name not in expected_names
+        )
+        if unexpected:
+            names = ", ".join(unexpected[:5])
+            suffix = " ..." if len(unexpected) > 5 else ""
+            raise ValueError(
+                "Batch output directory contains files not produced by this run: "
+                f"{names}{suffix}; use a new or matching output directory"
+            )
+    for run in batch_manifest.runs:
+        target = (output_dir / f"{run.id}{extension}").resolve(strict=False)
+        if target in inputs:
+            raise ValueError(
+                f"Batch output {target} would overwrite a manifest input or asset"
+            )
+        if target.exists() and not target.is_file():
+            raise ValueError(f"Batch output target is not a regular file: {target}")
 
 
 def _emit_batch_warnings(results: list[BatchRunResult]) -> None:
@@ -136,6 +195,14 @@ def batch(
         "--progress-file",
         help="Write JSONL progress to this file instead of stderr (implies --progress-format jsonl).",
     ),
+    engineering_only: bool = typer.Option(
+        False,
+        "--engineering-only",
+        help=(
+            "Treat computationally feasible runs as successful even when "
+            "operational evidence is missing. Default batch status is fail-closed."
+        ),
+    ),
     validate_only: bool = typer.Option(
         False,
         "--validate-only",
@@ -164,12 +231,34 @@ def batch(
                 err=True,
             )
         batch_manifest = load_batch_manifest(manifest)
+        protected_paths = _batch_protected_input_paths(manifest, batch_manifest)
+        _validate_batch_output_paths(
+            output_dir=output_dir,
+            output_format=format,
+            batch_manifest=batch_manifest,
+            protected_paths=protected_paths,
+        )
+        if (
+            progress_file is not None
+            and output_dir is not None
+            and progress_file.resolve(strict=False).is_relative_to(
+                output_dir.resolve(strict=False)
+            )
+        ):
+            raise ValueError(
+                "--progress-file must be outside --output-dir to prevent artifact collisions"
+            )
         with progress_reporter(
             "batch",
             enabled=progress_format is cli.ProgressFormat.JSONL,
             progress_file=progress_file,
+            protected_paths=protected_paths,
         ) as reporter:
-            results = run_batch_manifest(batch_manifest, progress=reporter)
+            results = run_batch_manifest(
+                batch_manifest,
+                progress=reporter,
+                engineering_only=engineering_only,
+            )
         _emit_batch_warnings(results)
         _write_batch_file_outputs(
             output_dir=output_dir,
@@ -179,6 +268,9 @@ def batch(
         _write_output(_render_batch_stdout(format, results), None)
         raise typer.Exit(code=_batch_exit_code(results))
     except InputLoadError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=int(cli.CliExitCode.INVALID_INPUT)) from exc
+    except ValueError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=int(cli.CliExitCode.INVALID_INPUT)) from exc
     except OutputWriteError as exc:

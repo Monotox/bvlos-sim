@@ -7,6 +7,7 @@ from adapters.envelope import EnvelopeInputs, build_estimator_envelope
 from adapters.io import InputDocument
 from adapters.markdown import render_envelope_markdown
 from estimator import (
+    ConstantWindProvider,
     EnergyPowerSource,
     EstimateStatus,
     FailureCode,
@@ -14,6 +15,7 @@ from estimator import (
     LandingZone,
     LegPhase,
     WarningCode,
+    WindVector,
     estimate_mission_distance_time,
     try_estimate_mission_distance_time,
 )
@@ -21,6 +23,8 @@ from estimator.execution.context_builder import build_estimation_context
 from estimator.execution.energy import evaluate_energy_feasibility
 from estimator.execution.executors import execute_route_item
 from estimator.math.atmosphere import isa_air_density_kgm3
+from estimator.math.dubins import geodesic_dubins_path_to_point_m
+from estimator.environment.wind import TimedWindChange, TimeVaryingWindProvider
 from pyproj import Geod
 from schemas import MissionAction, RouteItem, UsableCapacityPoint, VehicleProfile
 from tests.helpers import make_mission, make_vehicle
@@ -28,7 +32,11 @@ from tests.helpers import make_mission, make_vehicle
 
 def _point_zone(zone_id: str, *, lat: float, lon: float) -> LandingZone:
     return LandingZone.model_validate(
-        {"id": zone_id, "geometry": {"points": [{"lat": lat, "lon": lon}]}}
+        {
+            "id": zone_id,
+            "altitude_amsl_m": 12.0,
+            "geometry": {"points": [{"lat": lat, "lon": lon}]},
+        }
     )
 
 
@@ -65,7 +73,7 @@ def _mission_with_intermediate_rth_breach(*, require_gate: bool = False):
 
 def _rth_gate_low_capacity_vehicle() -> VehicleProfile:
     vehicle = make_vehicle()
-    vehicle.energy.battery_capacity_wh = 60.0
+    vehicle.energy.battery_capacity_wh = 120.0
     return vehicle
 
 
@@ -113,7 +121,7 @@ def test_successful_estimate_includes_energy_breakdown_and_reserve() -> None:
 
 def test_energy_reserve_below_threshold_returns_complete_infeasible_result() -> None:
     vehicle = make_vehicle()
-    vehicle.energy.battery_capacity_wh = 45.0
+    vehicle.energy.battery_capacity_wh = 50.0
 
     result = try_estimate_mission_distance_time(make_mission(), vehicle)
 
@@ -207,7 +215,7 @@ def test_rth_reserve_timeline_feasible_for_all_legs() -> None:
     assert all(point.is_feasible for point in result.energy.rth_reserve_timeline)
 
 
-def test_rth_distance_from_leg_endpoint_to_home_is_geodesic() -> None:
+def test_rth_distance_uses_dubins_path_from_leg_heading() -> None:
     mission = make_mission()
     mission.route = [
         RouteItem(
@@ -224,16 +232,72 @@ def test_rth_distance_from_leg_endpoint_to_home_is_geodesic() -> None:
     assert result.energy is not None
     assert result.energy.rth_reserve_timeline is not None
     point = result.energy.rth_reserve_timeline[0]
-    _, _, expected_distance_m = Geod(ellps="WGS84").inv(
+    geod = Geod(ellps="WGS84")
+    _, _, geodesic_distance_m = geod.inv(
         result.legs[0].end_lon,
         result.legs[0].end_lat,
         mission.planned_home.lon,
         mission.planned_home.lat,
     )
-    assert math.isclose(point.rth_distance_m, expected_distance_m, rel_tol=1e-9)
+    expected_distance_m = geodesic_dubins_path_to_point_m(
+        geod,
+        start_lat=result.legs[0].end_lat,
+        start_lon=result.legs[0].end_lon,
+        heading_deg=result.legs[0].ground_track_deg,
+        target_lat=mission.planned_home.lat,
+        target_lon=mission.planned_home.lon,
+        turn_radius_m=make_vehicle().performance.turn_radius_m,
+    )
+    assert point.rth_distance_m == pytest.approx(expected_distance_m)
+    assert point.rth_distance_m > geodesic_distance_m
 
 
-def test_rth_energy_uses_cruise_power_and_tas() -> None:
+def test_pure_vertical_waypoint_uses_climb_power() -> None:
+    mission = make_mission()
+    mission.route = [
+        RouteItem(
+            id="vertical",
+            action=MissionAction.WAYPOINT,
+            lat=mission.planned_home.lat,
+            lon=mission.planned_home.lon,
+            altitude_m=220.0,
+        )
+    ]
+
+    result = estimate_mission_distance_time(mission, make_vehicle())
+
+    assert result.energy is not None
+    leg = result.energy.legs[0]
+    assert leg.power_source == EnergyPowerSource.CLIMB_POWER
+    assert leg.power_w == pytest.approx(1500.0)
+    assert leg.energy_wh == pytest.approx(30.5555555556)
+
+
+def test_rtl_descent_uses_configured_descent_power() -> None:
+    mission = make_mission()
+    mission.route = [
+        RouteItem(
+            id="takeoff",
+            action=MissionAction.VTOL_TAKEOFF,
+            altitude_m=80.0,
+        ),
+        RouteItem(id="rtl", action=MissionAction.RTL),
+    ]
+    vehicle = make_vehicle()
+    vehicle.energy.descent_power_w = 300.0
+
+    result = estimate_mission_distance_time(mission, vehicle)
+
+    assert result.energy is not None
+    rtl_energy = next(
+        leg for leg in result.energy.legs if leg.phase == LegPhase.RTL_TRANSIT
+    )
+    assert rtl_energy.power_source == EnergyPowerSource.DESCENT_POWER
+    assert rtl_energy.power_w == pytest.approx(300.0)
+    assert rtl_energy.energy_wh == pytest.approx(3.3333333333)
+
+
+def test_rth_energy_includes_cruise_and_terminal_descent() -> None:
     mission = make_mission()
     mission.route = [
         RouteItem(
@@ -251,12 +315,45 @@ def test_rth_energy_uses_cruise_power_and_tas() -> None:
     assert result.energy is not None
     assert result.energy.rth_reserve_timeline is not None
     point = result.energy.rth_reserve_timeline[0]
-    expected_energy_wh = (
+    horizontal_energy_wh = (
         vehicle.energy.cruise_power_w
         * (point.rth_distance_m / mission.defaults.cruise_speed_mps)
         / 3600.0
     )
-    assert math.isclose(point.rth_energy_wh, expected_energy_wh, rel_tol=1e-9)
+    descent_distance_m = result.legs[0].end_alt_amsl_m - (
+        mission.planned_home.altitude_amsl_m
+    )
+    descent_energy_wh = (
+        vehicle.energy.cruise_power_w
+        * (descent_distance_m / vehicle.performance.descent_rate_mps)
+        / 3600.0
+    )
+    assert point.rth_energy_wh == pytest.approx(
+        horizontal_energy_wh + descent_energy_wh
+    )
+
+
+def test_vertical_only_rth_still_budgets_terminal_descent_energy() -> None:
+    mission = make_mission()
+    mission.route = [
+        RouteItem(
+            id="vertical",
+            action=MissionAction.WAYPOINT,
+            lat=mission.planned_home.lat,
+            lon=mission.planned_home.lon,
+            altitude_m=120.0,
+        )
+    ]
+    vehicle = make_vehicle()
+    vehicle.energy.descent_power_w = 300.0
+
+    result = estimate_mission_distance_time(mission, vehicle)
+
+    assert result.energy is not None
+    assert result.energy.rth_reserve_timeline is not None
+    point = result.energy.rth_reserve_timeline[0]
+    assert point.rth_distance_m == 0.0
+    assert point.rth_energy_wh == pytest.approx(5.0)
 
 
 def test_rth_reserve_can_fail_at_intermediate_leg_without_landing_failure() -> None:
@@ -302,7 +399,7 @@ def test_rth_reserve_gate_infeasible_uses_first_failing_leg() -> None:
     assert result.failure.route_item_index == 0
     assert result.failure.route_item_id == "far"
     assert result.failure.context["reserve_margin_wh"] < 0.0
-    assert result.failure.context["reserve_threshold_wh"] == pytest.approx(15.0)
+    assert result.failure.context["reserve_threshold_wh"] == pytest.approx(30.0)
     assert result.totals_are_partial is False
     assert result.energy is not None
     assert result.energy.is_feasible is True
@@ -333,8 +430,7 @@ def test_rth_reserve_gate_feasible_allows_success() -> None:
 
 def test_rth_reserve_failure_code_is_public_export() -> None:
     assert (
-        FailureCode.RTH_RESERVE_BELOW_THRESHOLD.value
-        == "RTH_RESERVE_BELOW_THRESHOLD"
+        FailureCode.RTH_RESERVE_BELOW_THRESHOLD.value == "RTH_RESERVE_BELOW_THRESHOLD"
     )
 
 
@@ -509,7 +605,9 @@ def test_markdown_report_includes_energy_power_factors() -> None:
         make_mission(),
         _scaled_energy_vehicle(),
     )
-    fake_doc = InputDocument(path=Path("/fake/input.yaml"), format="yaml", sha256="0" * 64)
+    fake_doc = InputDocument(
+        path=Path("/fake/input.yaml"), format="yaml", sha256="0" * 64
+    )
     envelope = build_estimator_envelope(
         result=result,
         inputs=EnvelopeInputs(mission=fake_doc, vehicle=fake_doc),
@@ -518,3 +616,170 @@ def test_markdown_report_includes_energy_power_factors() -> None:
     output = render_envelope_markdown(envelope)
 
     assert "| Leg | ID | Mass factor | Density factor |" in output
+
+
+def test_induced_phase_density_scaling_uses_inverse_square_root() -> None:
+    mission = make_mission()
+    mission.route = [
+        RouteItem(
+            id="vertical",
+            action=MissionAction.WAYPOINT,
+            lat=mission.planned_home.lat,
+            lon=mission.planned_home.lon,
+            altitude_m=220.0,
+        )
+    ]
+    vehicle = make_vehicle()
+    midpoint_altitude_m = mission.planned_home.altitude_amsl_m + 110.0
+    vehicle.energy.reference_density_kgm3 = 2.0 * isa_air_density_kgm3(
+        midpoint_altitude_m
+    )
+
+    result = estimate_mission_distance_time(mission, vehicle)
+
+    assert result.energy is not None
+    climb = result.energy.legs[0]
+    assert climb.power_source == EnergyPowerSource.CLIMB_POWER
+    assert climb.density_multiplier == pytest.approx(math.sqrt(2.0))
+
+
+def _single_eastbound_waypoint_mission():
+    mission = make_mission()
+    mission.constraints.max_wind_mps = None
+    mission.constraints.require_rth_reserve = False
+    mission.route = [
+        RouteItem(
+            id="east",
+            action=MissionAction.WAYPOINT,
+            lat=mission.planned_home.lat,
+            lon=mission.planned_home.lon + 0.01,
+            altitude_m=120.0,
+        )
+    ]
+    return mission
+
+
+class _NorthernWindProvider:
+    def wind_at(
+        self,
+        *,
+        lat: float,
+        lon: float,
+        altitude_amsl_m: float,
+        elapsed_time_s: float,
+    ) -> WindVector:
+        del lon, altitude_amsl_m, elapsed_time_s
+        # Keep the nearly constant-latitude outbound route calm while loading
+        # the materially north-going initial RTH turn.
+        return WindVector(
+            wind_east_mps=0.0,
+            wind_north_mps=12.0 if lat > 52.00001 else 0.0,
+        )
+
+
+def test_rth_energy_integrates_headwind_along_dubins_return_path() -> None:
+    mission = _single_eastbound_waypoint_mission()
+    calm_vehicle = make_vehicle()
+    windy_vehicle = make_vehicle()
+    calm_vehicle.performance.max_crab_angle_deg = 89.0
+    windy_vehicle.performance.max_crab_angle_deg = 89.0
+    calm = estimate_mission_distance_time(
+        mission,
+        calm_vehicle,
+        wind_provider=ConstantWindProvider(0.0, 0.0),
+    )
+    windy = estimate_mission_distance_time(
+        mission,
+        windy_vehicle,
+        wind_provider=ConstantWindProvider(15.0, 0.0),
+    )
+
+    assert calm.energy is not None and calm.energy.rth_reserve_timeline is not None
+    assert windy.energy is not None and windy.energy.rth_reserve_timeline is not None
+    calm_rth = calm.energy.rth_reserve_timeline[0]
+    windy_rth = windy.energy.rth_reserve_timeline[0]
+    assert windy_rth.rth_distance_m == pytest.approx(calm_rth.rth_distance_m)
+    descent_energy_wh = (
+        calm_vehicle.energy.cruise_power_w
+        * (
+            (calm.legs[0].end_alt_amsl_m - mission.planned_home.altitude_amsl_m)
+            / calm_vehicle.performance.descent_rate_mps
+        )
+        / 3600.0
+    )
+    assert (
+        windy_rth.rth_energy_wh - descent_energy_wh
+        > (calm_rth.rth_energy_wh - descent_energy_wh) * 4.5
+    )
+
+
+def test_rth_integrates_time_varying_wind_change_during_return() -> None:
+    mission = _single_eastbound_waypoint_mission()
+    vehicle = make_vehicle()
+    vehicle.performance.turn_radius_m = None
+    vehicle.performance.max_crab_angle_deg = 89.0
+    calm = estimate_mission_distance_time(
+        mission,
+        vehicle,
+        wind_provider=ConstantWindProvider(0.0, 0.0),
+    )
+    change_time_s = calm.legs[0].time_s + 5.0
+    provider = TimeVaryingWindProvider(
+        ConstantWindProvider(0.0, 0.0),
+        [
+            TimedWindChange(
+                effective_elapsed_time_s=change_time_s,
+                provider=ConstantWindProvider(15.0, 0.0),
+            )
+        ],
+    )
+
+    changed = estimate_mission_distance_time(
+        mission,
+        vehicle,
+        wind_provider=provider,
+    )
+
+    assert calm.energy is not None and calm.energy.rth_reserve_timeline is not None
+    assert (
+        changed.energy is not None and changed.energy.rth_reserve_timeline is not None
+    )
+    assert (
+        changed.energy.rth_reserve_timeline[0].rth_energy_wh
+        > calm.energy.rth_reserve_timeline[0].rth_energy_wh * 2.0
+    )
+
+
+def test_rth_fails_closed_when_headwind_makes_return_segment_impossible() -> None:
+    vehicle = make_vehicle()
+    vehicle.performance.max_crab_angle_deg = 89.0
+    result = try_estimate_mission_distance_time(
+        _single_eastbound_waypoint_mission(),
+        vehicle,
+        wind_provider=ConstantWindProvider(18.0, 0.0),
+    )
+
+    assert result.status == EstimateStatus.INFEASIBLE
+    assert result.failure is not None
+    assert result.failure.code in {
+        FailureCode.GROUNDSPEED_NON_POSITIVE,
+        FailureCode.GROUNDSPEED_BELOW_MIN,
+    }
+    assert result.failure.context["segment_index"] > 0
+
+
+def test_rth_checks_crosswind_on_initial_dubins_turn() -> None:
+    mission = _single_eastbound_waypoint_mission()
+    vehicle = make_vehicle()
+    vehicle.performance.max_crab_angle_deg = 20.0
+
+    result = try_estimate_mission_distance_time(
+        mission,
+        vehicle,
+        wind_provider=_NorthernWindProvider(),
+    )
+
+    assert result.status == EstimateStatus.INFEASIBLE
+    assert result.failure is not None
+    assert result.failure.code == FailureCode.CRAB_ANGLE_LIMIT_EXCEEDED
+    assert result.failure.context["segment_index"] == 0

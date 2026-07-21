@@ -43,6 +43,7 @@ nav:
   - Roadmap: ROADMAP.md
   - Field Semantics: ESTIMATOR_V1_FIELD_SEMANTICS.md
   - Versioning Policy: VERSIONING_POLICY.md
+  - Project Knowledge Graph: GRAPHIFY.md
   - SITL:
       - Adapter Contract: SITL_ADAPTER_CONTRACT.md
       - Local Setup: SITL_LOCAL_SETUP.md

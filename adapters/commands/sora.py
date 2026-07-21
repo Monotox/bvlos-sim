@@ -23,7 +23,13 @@ from adapters.preflight import (
 )
 from adapters.sora_envelope import build_sora_envelope, render_sora_envelope_json
 from adapters.sora_markdown import render_sora_markdown
+from estimator.core.enums import EstimateStatus, FailureKind
 from estimator.execution.sora import build_sora_assessment
+
+_FAILURE_KIND_EXIT_CODES = {
+    FailureKind.INFEASIBLE: cli.CliExitCode.INFEASIBLE,
+    FailureKind.UNSUPPORTED: cli.CliExitCode.UNSUPPORTED,
+}
 
 
 def _run_sora_preflight(*, mission: Path, vehicle: Path, as_json: bool) -> None:
@@ -59,7 +65,7 @@ def sora(
         exists=True,
         readable=True,
         resolve_path=True,
-        help="Path to mission.v6 YAML file.",
+        help="Path to mission.v7 YAML file.",
     ),
     vehicle: Path = typer.Argument(
         ...,
@@ -119,7 +125,36 @@ def sora(
             geofences=mission_assets.geofences,
             landing_zones=mission_assets.landing_zones,
         )
-        assessment = build_sora_assessment(mission_model, vehicle_model, result)
+        if result.status != EstimateStatus.SUCCESS:
+            failure = result.failure
+            if failure is None:
+                cli._exit_with_cli_error(
+                    "Estimator failed without a structured failure.",
+                    command="sora",
+                    code=cli.CliExitCode.INTERNAL_ERROR,
+                )
+            assert failure is not None
+            cli._exit_with_cli_error(
+                failure.message,
+                command="sora",
+                code=_FAILURE_KIND_EXIT_CODES.get(
+                    failure.kind, cli.CliExitCode.INVALID_INPUT
+                ),
+                details={
+                    "failure_code": failure.code.value,
+                    "failure_kind": failure.kind.value,
+                    **failure.context,
+                },
+            )
+        assessment = build_sora_assessment(
+            mission_model,
+            vehicle_model,
+            result,
+            population_evidence=getattr(
+                mission_assets.population_provider, "sora_evidence", None
+            ),
+            terrain_provider=mission_assets.terrain_provider,
+        )
         envelope = build_sora_envelope(
             result=assessment,
             mission_document=mission_document,
@@ -131,7 +166,12 @@ def sora(
         else:
             rendered = render_sora_markdown(envelope)
         _write_output(rendered, output)
-        raise typer.Exit(code=int(cli.CliExitCode.SUCCESS))
+        exit_code = (
+            cli.CliExitCode.SUCCESS
+            if assessment.within_specific_category_method_scope
+            else cli.CliExitCode.INFEASIBLE
+        )
+        raise typer.Exit(code=int(exit_code))
     except InputLoadError as exc:
         cli._exit_with_cli_error(
             str(exc),
@@ -150,6 +190,12 @@ def sora(
             "Failed to write SORA output.",
             command="sora",
             code=cli.CliExitCode.INTERNAL_ERROR,
+        )
+    except ValueError as exc:
+        cli._exit_with_cli_error(
+            str(exc),
+            command="sora",
+            code=cli.CliExitCode.INVALID_INPUT,
         )
     except typer.Exit:
         raise

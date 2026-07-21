@@ -8,8 +8,8 @@ from adapters.io import InputDocument
 from adapters.version import tool_version
 from schemas.stochastic import StochasticPropagationResult
 
-STOCHASTIC_ENVELOPE_SCHEMA_VERSION = "stochastic-envelope.v1"
-STOCHASTIC_INPUT_SCHEMA_VERSION = "stochastic.v1"
+STOCHASTIC_ENVELOPE_SCHEMA_VERSION = "stochastic-envelope.v2"
+STOCHASTIC_INPUT_SCHEMA_VERSION = "stochastic.v2"
 
 
 # ---------------------------------------------------------------------------

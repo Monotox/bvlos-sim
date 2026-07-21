@@ -1,8 +1,9 @@
 """Core landing-zone domain models."""
 
+import math
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from estimator.core.spatial import validate_closed_ring
 
@@ -50,11 +51,29 @@ class LandingZoneGeometry(BaseModel):
 class LandingZone(BaseModel):
     """A named static landing zone."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
     id: str = Field(min_length=1)
     geometry: LandingZoneGeometry
+    altitude_amsl_m: float | None = Field(
+        default=None,
+        description=(
+            "Landing-surface altitude AMSL. Required for energy-aware reachability "
+            "unless a terrain provider covers the selected landing point."
+        ),
+    )
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("altitude_amsl_m", mode="before")
+    @classmethod
+    def validate_altitude_amsl_m(cls, value: object) -> object:
+        if value is None:
+            return value
+        if isinstance(value, bool) or not isinstance(value, int | float):
+            raise ValueError("altitude_amsl_m must be a finite numeric value")
+        if not math.isfinite(float(value)):
+            raise ValueError("altitude_amsl_m must be finite")
+        return value
 
 
 __all__ = [

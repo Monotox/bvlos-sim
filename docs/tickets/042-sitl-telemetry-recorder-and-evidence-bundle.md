@@ -55,7 +55,7 @@ and release-quality debugging.
 - `build_sitl_evidence_bundle()` marks bundles with observed artifacts as
   `completed` while preserving `contract_only` for no-op or pre-recording
   adapter runs.
-- SITL input provenance now accepts an optional `uncertainty.v1` input
+- SITL input provenance now accepts an optional `uncertainty.v2` input
   reference when a caller has one.
 
 ## Out of Scope

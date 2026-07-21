@@ -2,7 +2,7 @@
   "base_vehicle_id": "quadplane_v1",
   "calibration_id": "quadplane_v1-calibration",
   "notes": [
-    "descent_rate_mps not fit: no descending records (vertical rate <= -0.5 m/s) with altitude.",
+    "descent_rate_mps not fit: no descending records (vertical rate <= -0.5 m/s) in descent/landing segments.",
     "max_station_keep_wind_mps not fit: no loiter-dwell records holding position with a wind estimate."
   ],
   "parameters": [
@@ -10,10 +10,10 @@
       "applicable_conditions": [
         "AMSL band 410.0 to 430.0 m"
       ],
-      "calibration_dataset_version": "ds-1-13fb7d6f41e6",
+      "calibration_dataset_version": "ds-1-87bd568803a2fbf294972a6080989dfaf18174601ed347252924e32b8d13c612",
       "confidence_high": 2.5,
       "confidence_low": 2.5,
-      "derivation": "mean positive vertical rate over climbing trace records",
+      "derivation": "mean positive vertical rate over takeoff/climb-phase records",
       "fitted_value": 2.5,
       "parameter": "climb_rate_mps",
       "sample_count": 2,
@@ -24,11 +24,11 @@
       "applicable_conditions": [
         "observed wind speed up to 1.70 m/s"
       ],
-      "calibration_dataset_version": "ds-1-13fb7d6f41e6",
-      "confidence_high": 18.0,
-      "confidence_low": 18.0,
-      "derivation": "mean groundspeed over transit-phase trace records",
-      "fitted_value": 18.0,
+      "calibration_dataset_version": "ds-1-87bd568803a2fbf294972a6080989dfaf18174601ed347252924e32b8d13c612",
+      "confidence_high": 16.51938256,
+      "confidence_low": 16.51938256,
+      "derivation": "mean wind-corrected true airspeed derived from ground-velocity and wind vectors over transit-phase trace records",
+      "fitted_value": 16.51938256,
       "parameter": "cruise_speed_mps",
       "sample_count": 24,
       "spread": 0.0,
@@ -36,7 +36,7 @@
     }
   ],
   "provenance": {
-    "calibration_dataset_version": "ds-1-13fb7d6f41e6",
+    "calibration_dataset_version": "ds-1-87bd568803a2fbf294972a6080989dfaf18174601ed347252924e32b8d13c612",
     "source_trace_ids": [
       "pipeline-demo-001-obs"
     ],

@@ -15,6 +15,12 @@ Mission, vehicle, scenario, uncertainty, and batch files may be `.yaml`,
 `.yml`, or `.json`. Relative asset paths are resolved from the referencing
 file's directory.
 
+Every mission file consumed by `estimate`, `scenario`, `batch`, `sora`,
+`validate`, `export`, or `sitl` must explicitly declare
+`schema_version: mission.v7`. Normal loaders do not guess a missing version.
+Use `bvlos-sim migrate` for an unversioned or `mission.v6` mission before
+running those commands.
+
 Verify the CLI:
 
 ```bash
@@ -23,19 +29,23 @@ uv run bvlos-sim --help
 
 ## CLI Commands
 
-bvlos-sim exposes fifteen commands:
+bvlos-sim exposes seventeen canonical project commands from a source checkout,
+plus `contracts` as an alias for `schema-versions` (published wheels omit the
+developer-only `bump` command):
 
 - `estimate`: run deterministic mission estimation and static feasibility checks
 - `size-battery`: compute the minimum battery capacity needed for feasibility
 - `scenario`: run deterministic scenario events and assertions
-- `convert`: convert a QGroundControl `.plan` file to a `mission.v6` YAML
-- `export`: convert a `mission.v6` YAML to a QGroundControl `.plan` file
+- `convert`: convert a QGroundControl `.plan` file to a `mission.v7` YAML
+- `export`: convert a `mission.v7` YAML to a QGroundControl `.plan` file
+- `migrate`: upgrade legacy `mission.v6` inputs to `mission.v7`
 - `batch`: run batch mission estimates from a manifest file
 - `sample`: run seeded Monte Carlo uncertainty sampling
 - `propagate`: run time-stepped stochastic particle propagation with EKF and tracking controller
 - `sitl`: build a contract-only or live SITL evidence bundle from an existing scenario
 - `compare`: compare a SITL evidence bundle against deterministic scenario expectations
 - `sora`: run the SORA pre-assessment (Ground Risk, Air Risk, and SAIL)
+- `ingest-log`: normalize ArduPilot DataFlash or PX4 ULog controller logs
 - `validate`: compare a predicted mission estimate against an observed flight trace
 - `calibrate`: fit a calibration profile from a base vehicle and observed flight traces
 - `schema-versions` (alias `contracts`): print supported input/output contract versions as JSON
@@ -43,33 +53,38 @@ bvlos-sim exposes fifteen commands:
 
 | Command | Exit 0 | Exit 10 | Exit 11 | Exit 12 | Exit 13 |
 |---------|--------|---------|---------|---------|---------|
-| estimate | success | infeasible | invalid input | unsupported | internal error |
+| estimate | operational GO, or engineering-only computational success | computationally infeasible or operational NO-GO | invalid input | unsupported | internal error |
 | size-battery | sizing succeeded | - | invalid input | - | internal error |
-| scenario | passed | failed | invalid input | - | internal error |
+| scenario | operational GO, or engineering-only computational pass | failed or operational NO-GO | invalid input | - | internal error |
 | sample | success | - | invalid input | - | internal error |
 | propagate | success | - | invalid input | - | internal error |
-| sitl | success | - | invalid input | - | internal/write error |
+| sitl | success | - | invalid input/asset | - | adapter runtime/write error |
 | compare | passed | drifted/failed | invalid input | unsupported (contract-only) | internal/write error |
 | convert | success | - | invalid input | - | internal error |
 | export | success | - | invalid input | - | internal error |
-| batch | all feasible | any infeasible | invalid input/run | - | internal error |
+| batch | all operational GO, or engineering-only computationally feasible | any infeasible or operational NO-GO | invalid input/run | - | internal error |
 | sora | success | - | invalid input | - | internal error |
-| validate | success | - | invalid input | - | internal error |
+| ingest-log | success | - | invalid/unsupported log | - | internal error |
+| validate | within thresholds | outside validation thresholds | invalid input | - | internal error |
 | calibrate | success | - | invalid input | - | internal error |
 | schema-versions | success | - | - | - | - |
 | bump | success / consistent | - | invalid input / drift | - | internal error |
 
 [`CLI_EXIT_CODES.md`](CLI_EXIT_CODES.md) is the authoritative per-command
-reference. Note the divergences a programmatic caller must branch on carefully:
+reference. `estimate`, `scenario`, and `batch` apply their operational readiness
+gate for every output format; choosing JSON, Markdown, summary, checklist,
+profile, sensitivity, GeoJSON, KML, or CSV never changes the exit verdict. Note
+the divergences a programmatic caller must branch on carefully:
 `sample` and `propagate` always exit `0` once a run completes (feasibility is in
 the body, never `10`), `scenario` has no `12` (every non-passed outcome collapses
 to `10`), and `estimate` returns `11` for a computed invalid-input failure even
 when the input files are valid.
 
-A run interrupted by `SIGTERM`/`SIGINT` exits `14` (`CANCELLED`) and writes no
-output file. All `--output` writes are atomic (temp file then `os.replace`), so
-an interrupted run never leaves a truncated file — the destination is either the
-prior content or absent.
+A run interrupted by `SIGTERM`/`SIGINT` exits `14` (`CANCELLED`). All `--output`
+writes are atomic (temp file then `os.replace`), so interruption never leaves a
+truncated file. Depending on whether the signal arrived before or after the
+atomic commit point, the destination is absent, retains its prior content, or
+contains the new complete artifact.
 
 Mission-scoped functionality is exposed through `estimate` by mission and
 vehicle YAML: fidelity settings, terrain, wind grids, geofences, landing zones,
@@ -88,14 +103,25 @@ and `--format kml` for map-ready route exports. `batch` supports `--format
 geojson|kml` when used with `--output-dir` to write one map file per run.
 `sitl` and `compare` remain JSON/Markdown only.
 
-`estimate` and `scenario` support `--format checklist` for a structured
-pre-flight go/no-go checklist. Each feasibility check is rendered on one line
-with a `✓`/`✗`/`◌` icon, and the output ends with `Status: GO` or
-`Status: NO-GO`. Suitable for terminal review or embedding in a flight brief.
-When `mission.planned_home` is set, the checklist also includes an advisory
-`RTH reserve (advisory)` row summarising whether the vehicle can return to home
-with reserve intact from every leg; it is informational and does not change the
-`GO`/`NO-GO` status unless `constraints.require_rth_reserve: true` is set.
+`estimate` and `scenario` support `--format checklist` as a human-readable view
+of the same structured operational verdict used by every format. Each check is
+rendered on one line with a `✓`/`✗`/`◌` icon, and the output ends with
+`Status: GO` or `Status: NO-GO`. The verdict is fail-closed: every energy,
+geofence, landing-zone, resource, link, obstacle, weather, RTH, and ground-risk
+result must be present and acceptable, and warnings must be empty. Missing
+evidence is `NO-GO`, not an implicit pass.
+
+This is the estimator's deterministic planning/preflight verdict. It is not a
+regulatory authorization or a complete operational safety case, and it does not
+attest live NOTAM/traffic/Remote ID/U-space state, source-data freshness,
+aircraft qualification, flight validation, or SITL/HITL evidence.
+
+Pass `--engineering-only` to `estimate`, `scenario`, or `batch` only when a
+computationally feasible/pass result should exit `0` despite missing or failed
+operational evidence. This flag changes the process/batch status, not the
+calculation or evidence: `estimator-envelope.v9` and `scenario-report.v3` still
+carry `operational_readiness` with `verdict`, `missing_evidence`,
+`failed_checks`, and `warning_codes`.
 
 `batch` also supports `--format csv` to emit a comma-separated table
 (id, status, reserve_margin_percent, flight_time_s, warning_count) for
@@ -202,7 +228,7 @@ uv run bvlos-sim compare --help
 
 ## QGroundControl Plan Conversion
 
-Convert a QGroundControl `.plan` JSON file into a starter `mission.v6` YAML.
+Convert a QGroundControl `.plan` JSON file into a starter `mission.v7` YAML.
 `--vehicle-profile` is required and must match the `vehicle_id` in the vehicle
 profile YAML you intend to use with `estimate` or `scenario`:
 
@@ -223,7 +249,7 @@ output YAML and a diagnostic is emitted to stderr:
 
 ```
 Warning: item 0 (command 22): MAV_CMD_NAV_TAKEOFF (22) normalised to vtol_takeoff;
-fixed-wing-only takeoff is not a separate action in mission.v6. Review vehicle_class
+fixed-wing-only takeoff is not a separate action in mission.v7. Review vehicle_class
 after converting.
 ```
 
@@ -243,7 +269,7 @@ uv run bvlos-sim convert plan.plan --vehicle-profile quadplane_v1 --validate-onl
 
 ## QGC Mission Export
 
-`export` is the inverse of `convert`: it turns a `mission.v6` YAML into a
+`export` is the inverse of `convert`: it turns a `mission.v7` YAML into a
 QGroundControl `.plan` JSON file so a mission authored in bvlos-sim can be
 uploaded to an aircraft via QGC or MAVLink.
 
@@ -280,6 +306,28 @@ To validate exportability without writing output:
 uv run bvlos-sim export examples/missions/pipeline_demo_001.yaml --validate-only
 ```
 
+## Mission Schema Migration
+
+`mission.v7` makes the mission contract explicit and changes SORA semantics.
+The normal mission loader requires the root field
+`schema_version: mission.v7`; it does not silently treat an unversioned file as
+current. Upgrade an unversioned/`mission.v6` file with:
+
+```bash
+uv run bvlos-sim migrate mission.yaml --dry-run
+uv run bvlos-sim migrate mission.yaml --backup
+uv run bvlos-sim migrate mission.yaml --output mission-v7.yaml
+uv run bvlos-sim migrate missions/ --glob "*.yaml" --backup
+```
+
+Only the migration command treats a missing version as legacy `mission.v6`.
+The migration adds `schema_version: mission.v7`. It refuses semantic guesses:
+SORA 2.0 blocks cannot be relabelled as 2.5, and applied legacy M1/M2/M3
+declarations, tactical ARC credits, strategic boolean ARC credits, ambiguous
+FL600 values, or missing urban/rural classification require an operator
+reassessment. A dry run prints the detected/target versions and a
+diff without writing; `--backup` writes `FILE.bak` before an in-place update.
+
 ## Batch Estimates
 
 Run multiple estimate jobs from a `batch.v1` manifest:
@@ -307,16 +355,20 @@ time, followed by a feasible/infeasible/error count. Use `--output-dir DIR` to
 write per-run output files for CI collection; `--format` controls those files
 while the table stays on stdout. Supported per-run file formats:
 
-- `--format json` — one `estimator-envelope.v7` JSON file per run (`.json`)
+- `--format json` — one `estimator-envelope.v9` JSON file per run (`.json`)
 - `--format markdown` — one Markdown report per run (`.md`)
 - `--format summary` — one one-line summary per run (`.txt`)
 - `--format geojson` — one GeoJSON map export per run (`.geojson`) with the
   same route/landing-zone/geofence layers as `estimate --format geojson`
 - `--format kml` — one KML map export per run (`.kml`)
 
-Batch exits `0` only when all runs are feasible, `10` when any run is
-infeasible and no run had an input error, `11` when any run cannot load its
-inputs, and `13` for unexpected internal failures.
+By default, batch labels a run feasible only when its fail-closed operational
+readiness verdict is `GO`. It exits `0` only when all runs are operational GO,
+`10` when any run is computationally infeasible or operational NO-GO and no
+run had an input error, `11` when any run cannot load its inputs, and `13` for
+unexpected internal failures. `--engineering-only` restores computational
+feasibility as the per-run success criterion; it does not remove structured
+readiness data from JSON outputs.
 
 `batch` supports machine-readable progress for non-interactive workers — see
 [Run Progress (JSONL)](#run-progress-jsonl) below. One record is emitted per
@@ -333,6 +385,12 @@ uv run bvlos-sim estimate \
 ```
 
 By default, the command writes canonical JSON to stdout.
+
+The default exit status is operational, not renderer-specific: a successful
+calculation exits `10` when required evidence is missing or a readiness check
+fails, even though the selected artifact is still written. Add
+`--engineering-only` only for non-operational analysis that should exit `0` on
+computational feasibility.
 
 Write JSON to a file:
 
@@ -395,8 +453,12 @@ uv run bvlos-sim estimate \
 
 When a mission has a `planned_home`, deterministic energy output includes an
 RTH reserve timeline. Each point answers: after completing this leg, how much
-energy remains after flying straight home at cruise TAS and cruise power, minus
-the configured reserve threshold?
+energy remains after flying home at cruise TAS and cruise power, minus the
+configured reserve threshold? When the current heading and vehicle turn radius
+are available, the return follows a materialized Dubins turn-and-straight path;
+otherwise it uses the direct geodesic. Both forms are spatially sampled and
+integrate the local wind triangle, including time-varying wind. An impossible
+wind triangle, excessive crab angle, or subminimum groundspeed fails closed.
 
 JSON result fields:
 
@@ -419,10 +481,8 @@ GeoJSON route features include `rth_reserve_margin_wh`,
 `rth_reserve_margin_pct`, and `rth_reserve_color` (`green`, `yellow`, `red`)
 when the timeline is available.
 
-The RTH check is an advisory reserve view. It does not replace the landing
-reserve feasibility check or change the estimate status by itself.
-
-To make RTH reserve a hard feasibility gate, opt in at mission level:
+RTH reserve is a hard feasibility gate by default. It supplements rather than
+replaces the landing reserve check:
 
 ```yaml
 constraints:
@@ -430,17 +490,16 @@ constraints:
   require_rth_reserve: true
 ```
 
-With the gate enabled, the first RTH timeline point whose
+The first RTH timeline point whose
 `reserve_margin_wh` is negative makes the estimate `INFEASIBLE` with
 `RTH_RESERVE_BELOW_THRESHOLD` in diagnostics. The failure is attributed to the
 first failing leg and includes the RTH distance, RTH energy, reserve after RTH,
 reserve margin, and reserve threshold in its context. The CLI returns the
 standard infeasible exit code.
 
-Checklist behavior follows the same opt-in rule: without the flag the row stays
-`RTH reserve (advisory)` with `INFO`; with the flag it becomes a gating
-`RTH reserve` row with `PASS` or `FAIL`, and a failed RTH reserve check changes
-the checklist status to `NO-GO`.
+Set `require_rth_reserve: false` only for explicitly non-operational engineering
+analysis. The checklist remains conservative: an absent or failed RTH result is
+still `NO-GO` even when the estimator-level gate is disabled.
 
 ## Time-Varying Geofences
 
@@ -491,7 +550,7 @@ behavior. `--format checklist` shows the mission departure time when it is set.
 
 Mission constraints can declare operational weather limits. When a wind provider
 is configured (constant, layered, or a spatiotemporal grid), the estimator
-enforces them against the per-leg sampled wind and returns `INFEASIBLE` if a
+enforces them against all per-leg path samples and returns `INFEASIBLE` if a
 limit is exceeded — turning "energy OK" into "energy OK **and** weather within
 approved limits".
 
@@ -500,23 +559,23 @@ constraints:
   max_wind_mps: 12.0          # sustained wind; exceeding -> WIND_LIMIT_EXCEEDED
   max_crosswind_mps: 8.0      # wind component across a leg's ground track ->
                               # CROSSWIND_LIMIT_EXCEEDED
-  max_gust_mps: 15.0          # advisory: requires gust data not yet modelled
-  min_visibility_m: 5000.0    # accepted for documentation; not enforced
-  max_precipitation_mm_h: 0.0 # accepted for documentation; not enforced
+  max_gust_mps: 15.0          # requires a provider that supplies gust data
+  min_visibility_m: 5000.0    # requires visibility observations
+  max_precipitation_mm_h: 0.0 # requires precipitation observations
 ```
 
 Enforcement notes:
 
-- `max_wind_mps` and `max_crosswind_mps` are enforced per route leg. The first
-  exceeded leg makes the mission `INFEASIBLE` with the corresponding failure
-  code in the result diagnostics.
+- `max_wind_mps` and `max_crosswind_mps` are enforced at every route-path
+  sample, including turn arcs. The first exceeded leg makes the mission
+  `INFEASIBLE` with the corresponding failure code in the result diagnostics.
 - When no wind provider is configured, the limits are accepted but **not
   enforced** (consistent with other provider-dependent checks); no weather block
   appears.
-- `max_gust_mps` is accepted, but the per-leg wind model carries no gust data, so
-  a `GUST_DATA_UNAVAILABLE` advisory is emitted and the gust check is skipped.
-- `min_visibility_m` and `max_precipitation_mm_h` are accepted for operational
-  documentation only; enforcement requires external data sources.
+- The built-in providers do not supply gust, visibility, or precipitation
+  observations. Configuring any corresponding limit therefore fails closed as
+  `INFEASIBLE` with `WEATHER_DATA_UNAVAILABLE`; the estimator never treats a
+  missing observation as compliant weather.
 
 The `--format checklist` output gains a **Weather limits** row showing the
 worst-case wind and the leg where it occurs, and `--format summary` adds a
@@ -604,12 +663,19 @@ uv run python scripts/fetch_obstacles.py 51.99 52.01 3.99 4.01 \
 
 Use `estimate --format ground-risk` to compute a SORA intrinsic Ground Risk
 Class pre-assessment from an offline population-density grid and the vehicle
-characteristic dimension.
+maximum characteristic dimension and maximum possible commanded speed.
 
-This output is the *intrinsic* Ground Risk Class only: it does not apply M1/M2/M3
-mitigations, Air Risk Class, or SAIL. Use the `sora` command for the full
-pre-assessment, including mitigation credits and the mitigated SAIL. Both remain
-pre-assessment aids, not certified SORA determinations.
+This output is the *intrinsic* Ground Risk Class only: it does not apply M1/M2
+mitigations, Air Risk Class, or SAIL. The `sora` command adds an unmitigated ARC,
+SAIL, and Table 14 OSO view. Ground-mitigation credit remains fail-closed until
+the tool can evaluate the Annex B integrity and assurance criteria. Both outputs
+remain pre-assessment aids, not certified SORA determinations.
+
+Without `sora.ground_risk_footprint`, `estimate --format ground-risk` assesses a
+conservative route-centerline diagnostic only. The operational `sora` command
+fails closed unless the mission declares the assessed operational/contingency
+margin and Ground Risk Buffer (GRB); centerline-only population results are not
+accepted as a SORA footprint.
 
 Mission asset:
 
@@ -618,7 +684,7 @@ assets:
   population_grid_file: assets/pipeline_population_grid.yaml
 ```
 
-Population grid format (`population-grid.v1`):
+Diagnostic population grid format (unversioned legacy/`population-grid.v1`):
 
 ```yaml
 origin_lat: 51.99
@@ -635,7 +701,18 @@ Vehicle field:
 
 ```yaml
 characteristic_dimension_m: 1.0
+performance:
+  max_speed_mps: 25.0
 ```
+
+Diagnostic grids use a bilinear planning surface and are accepted by
+`estimate --format ground-risk`, but not by `sora`. The WorldPop fetch helper
+also produces point-sampled diagnostic data; arbitrary sampling can miss
+native-raster peaks.
+
+`max_speed_mps` is the designer-defined maximum possible commanded airspeed,
+not a lower mission speed limit. Population density exactly equal to
+50,000 people/km² is conservatively assigned to the highest density band.
 
 | Flag | Description |
 |------|-------------|
@@ -667,67 +744,136 @@ Example output excerpt:
 
 ## SORA Pre-Assessment
 
-The `sora` command completes the SORA pre-assessment: it reuses the estimator's
-Ground Risk Class, derives the Air Risk Class (ARC) from an airspace descriptor,
-applies operator-declared mitigations, and combines them into the **SAIL**
-(Specific Assurance and Integrity Level) with the list of applicable Operational
-Safety Objectives (OSOs).
+The `sora` command identifies SORA 2.5 planning requirements: it reuses the
+estimator's Ground Risk Class, derives ARC and SAIL, calculates Step 8 adjacent-
+area limits and containment robustness from Tables 8–13, and emits all 17 Table
+14 OSO rows. It does **not** assess Annex E containment compliance or OSO
+compliance, and therefore never represents a complete SORA.
 
-This output is a planning aid, not a certified SORA determination. The ARC, SAIL,
-mitigation credits, and OSO list follow simplified, table-driven rules and do not
-replace a competent authority review.
+This output is a planning aid, not an authorization or certified determination.
+Out-of-scope Step 8 results and GRC values above 7 return exit code `10`; JSON is
+still written so the reason remains auditable.
 
 Mission airspace descriptor:
 
 ```yaml
 airspace:
   class: "G"                  # ICAO airspace class at operational altitude
-  max_altitude_agl_m: 120.0   # operational ceiling above ground
-  near_aerodrome: false       # within an aerodrome traffic zone
-  atypical_or_segregated: false  # active danger area / segregated volume
-  strategic_mitigation: false    # apply a one-band strategic ARC reduction
+  max_altitude_agl_m: 130.0   # worst-case whole-volume ceiling above ground
+  operational_and_contingency_volume_assessment_reference: "Airspace study AS-014 rev 2"
+  worst_case_arc_declared: true
+  aerodrome_environment: false  # explicit SORA Annex I whole-volume result
+  atypical_or_segregated: false  # true unsupported without authority evidence workflow
+  over_urban_area: false      # required for uncontrolled operations <= 500 ft
+  transponder_mandatory_zone: false  # Mode-C veil or TMZ
+  entirely_above_flight_level_600: false  # true unsupported without pressure-altitude evidence
+  strategic_mitigation: false    # reserved; boolean ARC credit is rejected
 ```
 
-The SAIL requires both a Ground Risk Class (a population grid plus
-`vehicle.characteristic_dimension_m`, see above) and an `airspace` descriptor.
-When the airspace descriptor is missing, the report shows the Ground Risk Class
-only and emits an `AIRSPACE_DESCRIPTOR_MISSING` advisory.
+The SAIL requires complete population and terrain coverage, both
+`vehicle.characteristic_dimension_m` and `vehicle.performance.max_speed_mps`,
+an `airspace` descriptor, and an explicit `sora.ground_risk_footprint`. Under
+the supported initial 1:1 method, `ground_risk_buffer_m` must be at least
+`maximum_height_agl_m`. The command independently bounds route AGL from the
+terrain asset and requires the declared height to cover that route plus the
+positive vertical contingency margin. Missing footprint coverage or required
+descriptors make the assessment invalid; they are not converted to zero
+population or advisory-only partial results. The airspace block likewise needs
+a non-blank reference covering both volumes and an explicit declaration that all
+classification inputs describe the worst case anywhere in those volumes.
+`aerodrome_environment` and `transponder_mandatory_zone` are mandatory booleans: both
+conditions can increase ARC, so omission is rejected instead of being treated
+as `false`. `aerodrome_environment` follows the exact Annex I definition,
+including the applicable airport/heliport distances and Class A–E Mode-C
+veil/TMZ case.
 
-### Mitigations (final GRC, residual ARC, and mitigated SAIL)
+The operational command accepts only `population-grid.v2` evidence. It requires
+source/year/resolution provenance, conservative source-cell maxima, a validity
+window containing `mission.departure_time`, an authority/assessor reference,
+and a transient-population/assemblies assessment. When assemblies are present
+in the operational footprint, the iGRC calculation is conservatively forced
+into the assemblies-of-people density band.
 
-Real SORA outcomes hinge on mitigations, so the intrinsic figures alone are more
-conservative than the case an operator would actually argue. Declare the applied
-mitigations in an optional `sora` block on the mission; each is rated by
-robustness (`none`, `low`, `medium`, `high`):
+```yaml
+schema_version: population-grid.v2
+origin_lat: 51.99
+origin_lon: 3.99
+step_lat_deg: 0.01
+step_lon_deg: 0.01
+density_ppl_km2:
+  - [12.0, 12.0, 12.0]
+  - [12.0, 12.0, 12.0]
+  - [12.0, 12.0, 12.0]
+metadata:
+  source: "Authority-approved conservative population map"
+  population_year: 2026
+  native_resolution_m: 100.0
+  effective_resolution_m: 100.0
+  value_semantics: conservative_cell_maximum
+  authority_assessment_reference: "POP-2026-014"
+  valid_from: 2026-01-01T00:00:00Z
+  valid_until: 2026-12-31T23:59:59Z
+  transient_population_assessment_reference: "EVENTS-2026-008"
+  operational_footprint_assemblies_present: false
+```
+
+### Mitigations (currently fail-closed)
+
+Real SORA outcomes hinge on mitigation integrity and assurance criteria. A
+robustness label plus a free-text dossier reference does not establish those
+criteria. For that reason, the operational assessment rejects every applied
+M1(A), M1(B), M1(C), or M2 declaration until an Annex B criteria evaluator is
+implemented. A no-mitigation intrinsic assessment remains usable:
 
 ```yaml
 sora:
-  version: "2.0"                 # SORA revision selecting the credit tables
+  version: "2.5"                 # only coherently implemented revision
+  ground_risk_footprint:
+    operational_volume_margin_m: 30.0  # route to outer contingency volume
+    ground_risk_buffer_m: 130.0         # initial 1:1 GRB
+    maximum_height_agl_m: 130.0         # route AGL plus contingency
+    buffer_method: initial_1_to_1
+    vertical_contingency_margin_m: 10.0
+    derivation: "Operational volume and initial GRB study GRB-2026-014"
+  containment_evidence:
+    assessment_reference: "Adjacent-area study CONT-2026-004"
+    average_population_density_ppl_km2: 1200.0
+    largest_outdoor_assembly: below_40000
+    sheltering_applicable: true
+    ground_risk_buffer_revalidation_reference: "Step 2 recheck GRC-2026-019"
   ground_risk_mitigations:
-    m1_strategic:        { applied: true,  robustness: high }   # controlled area / sheltering
-    m2_impact_reduction: { applied: false, robustness: none }   # reduce effects of impact
-    m3_erp:              { applied: true,  robustness: low }    # emergency response plan
-  air_risk:
-    tactical_mitigation: { applied: true,  robustness: medium } # e.g. detect-and-avoid (TMPR)
+    m1a_sheltering:               { applied: false, robustness: none }
+    m1b_operational_restrictions: { applied: false, robustness: none }
+    m1c_ground_observation:       { applied: false, robustness: none }
+    m2_impact_reduction:          { applied: false, robustness: none }
 ```
 
-- The M1/M2/M3 credits step the **final GRC** down from the intrinsic GRC,
-  clamped at GRC 1. An ERP (M3) at low robustness adds risk (`+1`), matching the
-  SORA table. The tactical air-risk mitigation lowers the **residual ARC** (one
-  band at medium robustness, two at high), floored at ARC-a.
-- The report shows the full ladder (iGRC → credits → final GRC) and both the
-  **intrinsic** SAIL and the **mitigated** SAIL, so the assessment is auditable.
-- With no `sora` block the final GRC equals the intrinsic GRC and the SAIL is
-  unchanged. Only SORA `2.0` mitigation tables are encoded; an unrecognised
-  `version` is reported with a `MITIGATION_VERSION_UNSUPPORTED` advisory and no
-  credits are applied.
+`maximum_height_agl_m` is checked against resolved route/terrain AGL plus
+`vertical_contingency_margin_m` and must be covered by the airspace ceiling.
+For `initial_1_to_1`, the GRB must be at least this height. Population
+assessment expands the route laterally by the operational margin plus GRB.
+Step 8 separately calculates the 3-minute maximum-speed adjacent-area distance,
+clamped to 5–35 km, and selects operational population/assembly limits. Medium
+or high containment requires a reference proving the resulting GRB was fed back
+through Step 2. Annex E compliance remains `not_assessed` in every artifact.
+
+- No ground-risk mitigation credit is computed from a declaration or free-text
+  evidence field. Applied declarations make the command return invalid input
+  with an explicit Annex B evaluator error.
+- Tactical air-risk mitigations do not lower residual ARC. The report derives
+  the Tactical Mitigation Performance Requirement (TMPR) robustness from the
+  residual ARC. A bare tactical-credit claim is rejected because it does not
+  contain evidence of TMPR compliance.
+- With no applied mitigations in the required `sora` block, the final GRC
+  equals the intrinsic GRC and the SAIL is unchanged. Only SORA `2.5` is
+  encoded; other versions are rejected instead of silently mixed.
 - These remain operator-input-driven figures for a pre-assessment, never an
   authority determination of compliance.
 
 | Flag | Description |
 |------|-------------|
-| `--format markdown` | SORA report with the GRC mitigation ladder, ARC, intrinsic/mitigated SAIL, and the OSO table (default) |
-| `--format json` | `sora-envelope.v1` JSON with provenance and determinism metadata |
+| `--format markdown` | SORA report with unmitigated GRC/ARC/SAIL and all Table 14 OSO rows (default) |
+| `--format json` | `sora-envelope.v3` JSON with provenance, population evidence, Step 8 requirements, and explicit unassessed-compliance state |
 
 ```bash
 uv run bvlos-sim sora \
@@ -746,36 +892,23 @@ Final Ground Risk Class (GRC):      3   (no mitigations applied)
 Air Risk Class (ARC):               ARC-b
 SAIL:                               II
 
-## Applicable OSOs at SAIL II
+## Table 14 OSOs at SAIL II
 
-| OSO | Title | Robustness |
-|-----|-------|------------|
-| OSO#01 | Ensure the operator is competent and/or proven | L |
-| OSO#08 | Operational procedures are defined, validated and adhered to | M |
+| OSO | Title | Robustness | Required | Operator | Training organisation | Designer | Notes |
+|-----|-------|------------|----------|----------|-----------------------|----------|-------|
+| OSO#01 | Ensure the operator is competent and/or proven | L | yes | X | - | - | - |
+| OSO#02 | UAS manufactured by competent and/or proven entity | NR | no | - | - | X | - |
 ```
 
-With mitigations declared, the report shows the credit ladder and both SAILs:
-
-```text
-Intrinsic Ground Risk Class (iGRC): 5
-Final Ground Risk Class (GRC):      3
-Air Risk Class (ARC):               ARC-b
-Intrinsic SAIL:                     IV
-Mitigated SAIL:                     II
-
-## Ground Risk Mitigation Ladder (SORA 2.0)
-
-Intrinsic GRC: 5
-- M1 Strategic mitigations for ground risk (high): -2
-Final GRC: 3
-```
-
-ARC is assigned from the airspace descriptor: atypical/segregated volumes are
-ARC-a, near-aerodrome operations are ARC-d, and otherwise the class and the
-500 ft AGL boundary select between ARC-b (low, uncontrolled), ARC-c, and ARC-d.
-`strategic_mitigation: true` lowers the ARC by one band, and a declared tactical
-air-risk mitigation lowers it by one (medium) or two (high) further bands, all
-floored at ARC-a.
+ARC is assigned from the whole-volume airspace descriptor using aerodrome
+proximity, controlled status, Mode-C veil/TMZ status, urban/rural setting, and
+the 500 ft AGL boundary. `atypical_or_segregated: true` (ARC-a) is rejected until
+an authority-backed evidence workflow exists. Likewise,
+`entirely_above_flight_level_600: true` is rejected until pressure-altitude
+evidence can be assessed. A boolean strategic ARC credit is rejected because
+SORA 2.5 requires local encounter-rate evidence.
+Tactical mitigation satisfies the TMPR derived from the residual ARC and does
+not lower the ARC.
 
 Write a route altitude profile (terrain clearance table):
 
@@ -812,14 +945,17 @@ Example output:
 ◌ Resource availability    N/A    not evaluated
 ◌ Link availability        N/A    not evaluated
 ◌ Obstacle clearance       N/A    not evaluated
+◌ Weather limits           N/A    not evaluated
 ◌ Ground risk class        N/A    not evaluated
   Advisory warnings        4      LOITER_ASSUMED_ZERO_GROUND_DISTANCE, ...
 
-Status: GO
+Status: NO-GO
 ```
 
-`Status: GO` means all evaluated checks passed. `Status: NO-GO` means at least
-one check failed. Categories not included in the estimate show `◌  N/A`.
+`Status: GO` means every required check is present and passed, mission iGRC is
+within the supported envelope, RTH reserve holds, and there are no warnings.
+`Status: NO-GO` means a check failed or required evidence is missing. Categories
+not included in the estimate show `◌  N/A` and therefore prevent `GO`.
 The same `--format checklist` flag works on the `scenario` command.
 
 ### Energy Reserve Sensitivity
@@ -865,6 +1001,26 @@ mission feasible under the same deterministic estimator used by `estimate`.
 The command exits `0` when sizing succeeds whether the current vehicle battery
 is already sufficient or needs to be increased.
 
+Sizing includes the candidate pack's mass and refuses to assume a massless
+capacity change. The vehicle must define
+`energy.battery_excluded_operating_mass_kg` and
+`energy.battery_specific_energy_wh_per_kg`. Phase powers are treated as
+calibrated at the profile's current pack mass unless `energy.reference_mass_kg`
+is explicit. The search stops at `mass.max_takeoff_kg` if no feasible pack fits
+within MTOW. It does not assume that feasibility improves monotonically with
+capacity: superlinear induced-power growth can make a heavier pack infeasible
+again. The report therefore includes the first verified feasible interval and
+its 1 Wh search resolution.
+
+Requested percentage margins are checked against that interval. A target above
+the verified upper bound is reported as `UNAVAILABLE`; JSON uses
+`recommended_capacity_wh: null` plus `unavailable_reason`. Never substitute the
+upper bound silently, and do not interpret a recommendation as permission to
+use an arbitrarily larger pack. Non-capacity blockers such as geofence, weather,
+or link failures stop sizing with the original failure code. The reported
+`mission_energy_wh` and `reserve_threshold_wh` are evaluated at the minimum
+feasible pack; fields prefixed with `current_` describe the input pack.
+
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--format` | `markdown` | Output format: `markdown`, `json`, or `summary` |
@@ -874,7 +1030,7 @@ is already sufficient or needs to be increased.
 ```bash
 uv run bvlos-sim size-battery \
   examples/real_world/alpine_infeasible.yaml \
-  examples/real_world/quadplane_small_battery.yaml \
+  examples/real_world/quadplane_small_battery_sizing.yaml \
   --margin 20
 ```
 
@@ -887,9 +1043,11 @@ Mission energy required:   69.2 Wh
 Reserve threshold (25 %):  21.2 Wh (of battery capacity)
 
 Minimum feasible capacity: 127.6 Wh
+Maximum feasible capacity: 900.0 Wh
+Search resolution: 1.0 Wh
 With 20 % safety margin:      153.1 Wh
 
-Recommendation: use >= 153.1 Wh battery (20 % margin above minimum feasible)
+Recommendation: target 153.1 Wh (20 % margin); do not exceed the verified 900.0 Wh upper bound.
 
 Status: SIZED
 ```
@@ -964,9 +1122,12 @@ energy:
 
 When `operating_mass_kg` and `reference_mass_kg` are both present, hover and
 climb power scale with the configured induced-power exponent. Cruise-like legs
-use a milder mass exponent. When `reference_density_kgm3` is present, power is
-scaled by ISA density at the leg midpoint altitude, so high-altitude,
-lower-density missions consume more energy. The usable-capacity curve derates
+use a milder mass exponent. Any leg with positive or negative vertical motion
+uses the configured climb or descent power respectively. When
+`reference_density_kgm3` is present, induced-power phases scale by the square
+root of the reference-to-actual ISA density ratio. Cruise-like phases use the
+larger of that ratio and its inverse, so extrapolation away from the calibration
+density is conservative in either direction. The usable-capacity curve derates
 `result.energy.usable_energy_wh`; it does not lower the reserve threshold.
 
 Markdown reports include a per-leg mass/density factor table when any factor is
@@ -999,21 +1160,51 @@ over trace records), mean groundspeed, and reserve at landing (estimator reserve
 counterpart (climb, descent, divert, unknown) and missing observed fields are
 reported in `notes`.
 
-To produce the trace JSON from an ArduPilot DataFlash text log:
+Install the optional readers, then normalize an ArduPilot DataFlash text/binary
+log or PX4 ULog. Supplying the paired inputs embeds their content hashes, which
+`validate` requires and verifies before comparing results:
+
+```bash
+uv sync --extra flight-logs
+uv run bvlos-sim ingest-log flight.bin \
+  --trace-id my-flight-001 \
+  --mission mission.yaml \
+  --vehicle vehicle.yaml \
+  --output my-flight-001_trace.json
+```
+
+Ingestion snapshots the source bytes before parsing to prevent path races. The
+default and hard process-safety ceiling is 64 MiB because text decoding and the
+binary reader libraries allocate additional in-memory structures. Use
+`--max-size-mib` only to lower that ceiling; split larger logs before ingestion.
+
+The public Python dispatch detects the format from file content:
 
 ```python
 from pathlib import Path
-from adapters.flight_log import ingest_dataflash_log, write_flight_trace
+from adapters.flight_log import ingest_flight_log, write_flight_trace
 
-trace = ingest_dataflash_log(Path("flight.log"), trace_id="my-flight-001")
+trace = ingest_flight_log(Path("flight.bin"), trace_id="my-flight-001")
 write_flight_trace(trace, Path("my-flight-001_trace.json"))
 ```
+
+Binary readers are library-backed (`pymavlink` and `pyulog`) and isolated in the
+`flight-logs` extra. Unknown formats and logs over the bounded size limit fail
+before parsing.
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--validation-id` | `<trace_id>-validation` | Stable report identifier |
-| `--format` | `markdown` | `markdown` report or `json` (`validation-report.v1` envelope) |
+| `--format` | `markdown` | `markdown` report or `json` (`validation-report.v2` envelope) |
 | `--output`, `-o` | stdout | Write the report to a file |
+| `--max-time-error-percent` | `20` | Maximum mission-time error |
+| `--max-distance-error-percent` | `10` | Maximum horizontal-distance error |
+| `--max-speed-error-percent` | `15` | Maximum mean-groundspeed error |
+| `--max-reserve-error-percent` | `10` | Maximum landing-reserve error |
+
+Every gated metric must be present and within its threshold. A failed acceptance
+gate still writes the report and exits `10`; a trace whose mission/vehicle hashes
+do not match the supplied inputs is rejected as invalid input (`11`).
 
 ## Calibration
 
@@ -1031,7 +1222,8 @@ uv run bvlos-sim calibrate \
 The command loads the base vehicle and one or more `flight-trace.v1` JSON files
 (from flight-log ingestion), segments each trace into flight phases, and fits:
 
-- `cruise_speed_mps` — mean groundspeed over transit-phase records,
+- `cruise_speed_mps` — mean true airspeed reconstructed from ground-velocity
+  and wind vectors over transit-phase records,
 - `climb_rate_mps` / `descent_rate_mps` — mean vertical rate over climbing /
   descending records,
 - `max_station_keep_wind_mps` — the strongest wind held against during loiter
@@ -1089,29 +1281,29 @@ they cannot drift from a real run):
     "batch": "batch.v1",
     "geofences": "geofence-geojson.v1",
     "landing_zones": "landing-zone-geojson.v1",
-    "mission": "mission.v6",
+    "mission": "mission.v7",
     "population": "population-grid.v1",
     "scenario": "scenario.v1",
-    "stochastic": "stochastic.v1",
+    "stochastic": "stochastic.v2",
     "terrain": "terrain-grid.v1",
-    "uncertainty": "uncertainty.v1",
+    "uncertainty": "uncertainty.v2",
     "vehicle": "vehicle.v4",
     "wind_grid": "wind-grid.v1"
   },
   "output_envelopes": {
-    "battery_sizing_report": "battery-sizing-report.v1",
+    "battery_sizing_report": "battery-sizing-report.v2",
     "calibration_profile": "calibration-profile.v1",
-    "estimator": "estimator-envelope.v7",
+    "estimator": "estimator-envelope.v9",
     "flight_trace": "flight-trace.v1",
     "phase_segments": "phase-segments.v1",
-    "scenario_report": "scenario-report.v2",
+    "scenario_report": "scenario-report.v3",
     "sitl_comparison": "sitl-comparison.v1",
     "sitl_evidence": "sitl-evidence.v1",
-    "sora_assessment": "sora-assessment.v1",
-    "sora_envelope": "sora-envelope.v1",
-    "stochastic_envelope": "stochastic-envelope.v1",
-    "uncertainty_report": "uncertainty-report.v1",
-    "validation_report": "validation-report.v1"
+    "sora_assessment": "sora-assessment.v3",
+    "sora_envelope": "sora-envelope.v3",
+    "stochastic_envelope": "stochastic-envelope.v2",
+    "uncertainty_report": "uncertainty-report.v2",
+    "validation_report": "validation-report.v2"
   },
   "tool_version": "0.32.0"
 }
@@ -1224,6 +1416,12 @@ Example output:
 ```text
 PASSED 3/3   reserve 281.6 %   flight 2m 49s   warnings 4
 ```
+
+`PASSED` describes scenario assertions, not operational readiness. With the
+warnings shown above (or any missing readiness evidence), the default process
+still exits `10`; `scenario-report.v3.operational_readiness` gives the reason.
+Use `--engineering-only` only when assertion pass/fail should be the shell
+criterion for a non-operational workflow.
 
 The `policy <ACTION>` field appears only when a lost-link event fires and a
 policy action is selected (e.g. `policy DIVERT`, `policy RTL`). The `warnings N`
@@ -1396,7 +1594,7 @@ events:
 validation.
 
 The divert estimate (Dubins path distance, transit time, reserve remaining) is included in the
-`scenario-report.v2` envelope under each `event_outcome.policy_outcome.divert_estimate`.
+`scenario-report.v3` envelope under each `event_outcome.policy_outcome.divert_estimate`.
 
 ### Scenario Assertions
 
@@ -1470,9 +1668,9 @@ assertions:
 
 ## Monte Carlo Sampling
 
-The `sample` command runs a seeded uncertainty plan and emits
-`uncertainty-report.v1`. Use it when wind, speed, power, or other configured
-inputs need distribution bounds rather than a single deterministic estimate.
+The `sample` command runs a seeded diagnostic parameter sweep and emits
+`uncertainty-report.v2`. Use it to study sensitivity to bounded input
+distributions rather than to claim an operational probability.
 For long runs it can stream machine-readable progress — see
 [Run Progress (JSONL)](#run-progress-jsonl).
 
@@ -1500,15 +1698,14 @@ uv run bvlos-sim sample \
   --format summary
 ```
 
-Example output: `feasible 100%   reserve p5 823.9 Wh   p50 858.2 Wh   p95 903.3 Wh   time p50 2m 50s   n=200`
+Example output: `DIAGNOSTIC   modeled_pass 100%   conditional_reserve p5 823.9 Wh   p50 858.2 Wh   p95 903.3 Wh   time p50 2m 50s   n=200`
 
 The `seed` in the uncertainty YAML makes repeated runs reproducible for the same
-sample count and distributions. `feasibility_rate` is the fraction of completed
-samples that remained feasible; values below the team's go/no-go threshold
-should be treated as operational risk, even when the deterministic estimate
-passes. Percentile fields such as `p95` describe tail behavior: for
-reserve-at-landing, low-end percentiles are usually the operational concern; for
-time or energy use, high-end percentiles show the conservative planning bound.
+sample count and distributions. `modeled_constraint_pass_rate` is the fraction
+of evaluated samples whose independent deterministic run passed the modeled
+constraints; failed executions are excluded from its denominator. It is not an
+operational, landing, control, or spatial-coverage probability. Mission-time and
+mission-end-energy percentiles are conditional on modeled-pass samples only.
 
 ### Uncertainty YAML reference
 
@@ -1520,13 +1717,13 @@ deterministic value for every sample.
 | `wind_east_mps` | wind East component (m/s) | `mean: 0.0, std: 2.0` |
 | `wind_north_mps` | wind North component (m/s) | `mean: 0.0, std: 2.0` |
 | `cruise_speed_mps` | `mission.defaults.cruise_speed_mps` | `low: 14.0, high: 22.0` |
-| `cruise_power_w` | `vehicle.energy.cruise_power_w` | `mean: 450.0, std: 30.0` |
-| `battery_capacity_wh` | `vehicle.energy.battery_capacity_wh` | `mean: 900.0, std: 25.0` |
+| `cruise_power_w` | `vehicle.energy.cruise_power_w` | `low: 400.0, high: 500.0` |
+| `battery_capacity_wh` | `vehicle.energy.battery_capacity_wh` | `low: 850.0, high: 950.0` |
 
 Two distribution kinds are supported:
 
 ```yaml
-# Normal (Gaussian) — fields: mean, std (must be > 0)
+# Normal (Gaussian) — wind components only; fields: mean, std (must be > 0)
 wind_east_mps:
   kind: normal
   mean: 0.0
@@ -1539,14 +1736,27 @@ cruise_speed_mps:
   high: 22.0
 ```
 
+`cruise_speed_mps`, `cruise_power_w`, and `battery_capacity_wh` must use
+bounded uniform distributions with `low > 0`. Unbounded normal support is
+rejected instead of clipping nonphysical draws.
+
 ## Stochastic Propagation
 
-The `propagate` command runs a time-stepped particle propagator over the full
-mission timeline. Each particle carries independently sampled wind, cruise
-speed, cruise power, and battery capacity. Per-step `p_reserve_violation`
-tracks energy risk accumulation. Emits `stochastic-envelope.v1`. For long runs
-it can stream machine-readable progress — see
+The `propagate` command runs a diagnostic, open-loop parameter sweep over the
+mission timeline. Each sample is first evaluated independently by the
+deterministic estimator, and each passing sample retains its own route timings
+and geodesic position curve. It emits `stochastic-envelope.v2`. For long runs it
+can stream machine-readable progress — see
 [Run Progress (JSONL)](#run-progress-jsonl).
+
+This output is deliberately **not an operational-feasibility or landing
+probability**. `operational_feasibility_assessed` is always `false`.
+`modeled_constraint_pass_rate` describes only the supplied deterministic model
+constraints. Timeline and reserve distributions are conditional on those
+modeled-pass samples; infeasible and failed samples are excluded from their
+statistics. The timeline field is therefore named
+`conditional_reserve_violation_rate` and includes its contributing sample
+count.
 
 ```bash
 uv run bvlos-sim propagate \
@@ -1572,58 +1782,51 @@ uv run bvlos-sim propagate \
   --format summary
 ```
 
-Example output: `feasible 100%   reserve p5 822.2 Wh   p50 858.7 Wh   p95 909.1 Wh   time 2m 49s   n=100`
+Example output: `DIAGNOSTIC   modeled_pass 100%   conditional_reserve p5 822.2 Wh   p50 858.7 Wh   p95 909.1 Wh   time 2m 49s   n=100`
 
 The `seed` in the stochastic YAML makes repeated runs reproducible for the
-same sample count and parameters. `feasibility_rate` is the fraction of
-particles that landed with sufficient reserve. `reserve_at_landing_wh` gives
-distribution statistics (mean, std, p5, p50, p95) over particles.
+same sample count and parameters. `reserve_at_mission_end_wh` gives conditional
+distribution statistics (mean, sample standard deviation, p5, p50, p95) over
+modeled-pass samples.
 
 Sample accounting in the result uses three-way partitioning:
-`sample_count + failed_sample_count + spatial_infeasible_count == plan.samples`.
+`sample_count + infeasible_sample_count + failed_sample_count == plan.samples`.
+`spatial_infeasible_count` is a subset of `infeasible_sample_count`; never add
+it to the total a second time.
 A `spatial_infeasible_count > 0` means some particles were rejected because the
 route was geometrically infeasible for that sample — for example, a sampled
 battery capacity too low to afford the divert reserve to any available landing
-zone. These are counted as infeasible in `feasibility_rate`. When
+zone. These are counted as non-passing in `modeled_constraint_pass_rate`. When
 `--format summary` is used, non-zero counts appear as extra fields:
 
 ```
-feasible 0%   time 2m 49s   n=0   spatial_infeasible=6
+DIAGNOSTIC   modeled_pass 0%   time 2m 49s   n=0   infeasible=6   spatial_infeasible=6
 ```
 
 If the mission has no geofence or landing-zone assets, `spatial_infeasible_count`
 is always 0.
 
-To activate the twin-state EKF and cross-track controller, the vehicle file
-must include `sensors` and `controller` blocks. Without those blocks the
-propagator runs in basic mode (energy-only, no twin-state tracking) and
-`estimation_error_timeline` and `cross_track_timeline` are empty. An example
-EKF-equipped vehicle is provided at
-`examples/vehicles/quadplane_v1_ekf.yaml`:
+Sensor-only EKF diagnostics remain available. A vehicle containing a
+`controller` block is rejected: the former controller propagation did not
+model nominal along-track position, vertical/loiter kinematics, or spatial
+constraint re-evaluation. Non-zero process-wind noise is likewise rejected
+rather than approximated as passive drift with an arbitrary energy multiplier.
 
-```bash
-uv run bvlos-sim propagate \
-  examples/stochastic/pipeline_demo_001_stochastic_ekf.yaml \
-  --format json \
-  --output /tmp/stochastic-ekf.json
-```
-
-The `stochastic.v1` YAML format accepts the same five parameters as `uncertainty.v1`
-(`wind_east_mps`, `wind_north_mps`, `cruise_speed_mps`, `cruise_power_w`,
-`battery_capacity_wh`) with the same `normal`/`uniform` distribution syntax.
-`wind_process_noise_std_mps` adds a per-step Gaussian perturbation to each
-particle's wind so wind state drifts continuously during propagation rather than
-staying fixed after initial sampling:
+The `stochastic.v2` YAML accepts the same five parameter names as
+`uncertainty.v2`. Wind components may use normal or uniform distributions.
+Strictly positive physical parameters (`cruise_speed_mps`, `cruise_power_w`,
+and `battery_capacity_wh`) must use a bounded uniform distribution whose lower
+bound is greater than zero. Values are never clipped to an invented minimum.
 
 ```yaml
-schema_version: stochastic.v1
+schema_version: stochastic.v2
 propagation_id: my-propagation
 mission_file: path/to/mission.yaml
 vehicle_file: path/to/vehicle.yaml
 dt_s: 2.0                       # time step in seconds
 samples: 100                    # number of particles (max 10 000)
 seed: 42                        # fixed seed for reproducibility
-wind_process_noise_std_mps: 0.5 # per-step wind drift std; set 0 to disable
+wind_process_noise_std_mps: 0.0 # only supported value in v2
 parameters:
   wind_east_mps:
     kind: normal
@@ -1638,13 +1841,13 @@ parameters:
     low: 14.0
     high: 22.0
   cruise_power_w:
-    kind: normal
-    mean: 450.0
-    std: 30.0
+    kind: uniform
+    low: 400.0
+    high: 500.0
   battery_capacity_wh:
-    kind: normal
-    mean: 900.0
-    std: 25.0
+    kind: uniform
+    low: 850.0
+    high: 950.0
 ```
 
 ## Run Progress (JSONL)
@@ -1730,20 +1933,27 @@ For a running ArduPilot SITL endpoint, `--live` requires an artifact directory.
 The directory is created if it does not exist and receives `telemetry.json`,
 `command_log.json`, `simulator_log.json`, and `adapter_log.json`.
 Live recording emits progress lines to stderr for connection, mission upload,
-telemetry recording, and evidence writing; stdout remains JSON-safe unless
-`--output` is used.
+arming, AUTO execution, verified mission completion, telemetry recording, and
+evidence writing; stdout remains JSON-safe unless `--output` is used. A final
+item merely becoming current is not accepted as completion: the adapter waits
+for MAVLink mission-complete state or a final `MISSION_ITEM_REACHED` event.
 
 ```bash
 uv run bvlos-sim sitl \
   examples/scenarios/pipeline_demo_001_scenario.yaml \
   --live \
   --host 127.0.0.1 \
-  --port 5760 \
+  --port 5770 \
   --artifact-dir /tmp/bvlos-artifacts \
   --telemetry-samples 20 \
   --telemetry-timeout-s 30.0 \
+  --mission-timeout-s 300.0 \
   --output /tmp/sitl-evidence.json
 ```
+
+The bundled pipeline scenario uses a QuadPlane profile, so the example targets
+the ArduPlane/QuadPlane launcher on port `5770`. Use port `5760` only with an
+ArduCopter-compatible mission and vehicle profile.
 
 ### SITL Comparison Reports
 
@@ -1845,6 +2055,13 @@ Scenario YAML:
 initial_conditions:
   fidelity: v2
 ```
+
+Fidelity v2 controls turn arcs and fixed-wing circular loiter only. To sample a
+straight transit leg at bounded intervals, independently set
+`estimation.max_segment_length_m`, scenario
+`initial_conditions.max_segment_length_m`, runtime
+`EstimationOptions.max_segment_length_m`, or CLI
+`--max-segment-length-m`. This option also works with fidelity v1.
 
 ### Constant Wind
 
@@ -2037,8 +2254,8 @@ where it was raised.
 | `RESERVE_BELOW_FAILSAFE_WARN_THRESHOLD` | post-estimation | Predicted reserve at landing is below `failsafe.low_battery_warn_percent`. The vehicle will likely trigger a low-battery alert mid-flight. | Add reserve margin or reduce energy consumption. |
 | `GEOFENCE_EVALUATED_2D_ONLY` | geofence check | Geofence intersection uses 2D lon/lat horizontal geometry. `floor_m`/`ceiling_m` altitude bounds are checked when declared. | Verify that any altitude-dependent zone uses AMSL metres; AGL-relative per-zone bounds are not modelled. |
 | `DEPARTURE_TIME_MISSING` | geofence check | At least one geofence has an activation window, but the mission omits `departure_time`, so the estimator treats time-windowed zones as always active. | Add a UTC mission `departure_time` to evaluate temporary restrictions against the planned flight window. |
-| `DIVERT_ENERGY_TAS_ONLY` | landing-zone reachability | Landing-zone divert energy is computed from true airspeed (TAS) without wind correction. In a headwind, a zone declared reachable may not be in practice. | Add headwind margin to landing-zone distances or use a closer alternate. |
-| `POPULATION_DENSITY_DIMENSION_MISSING` | ground-risk pre-assessment | A mission references `assets.population_grid_file`, but the vehicle profile omits `characteristic_dimension_m`, so iGRC cannot be computed. | Add the vehicle's maximum span or rotor-tip diameter before using `--format ground-risk`. |
+| `DIVERT_ENERGY_TAS_ONLY` | scenario divert routing | A scenario divert was requested without a wind-corrected action-point estimate, so its energy uses true airspeed (TAS). The mission landing-zone coverage gate is wind- and altitude-aware and does not emit this warning. | Supply the scenario wind/action-point context used by wind-corrected divert routing, or apply a conservative headwind margin. |
+| `POPULATION_DENSITY_DIMENSION_MISSING` | ground-risk pre-assessment | A mission references `assets.population_grid_file`, but the vehicle profile omits `characteristic_dimension_m`, so iGRC cannot be computed. | Add wingspan, rotor blade diameter, or the multicopter's maximum distance between blade tips before using `--format ground-risk`. |
 | `GUST_DATA_UNAVAILABLE` | weather minimums | `constraints.max_gust_mps` is set, but the per-leg wind model carries no gust data, so the gust limit is not enforced. | Treat the gust limit as informational; verify gusts against an external forecast until gust data is modelled. |
 | `ROUTE_ACTIONS_AFTER_RTL` | route structure check | Route items appear after an RTL action. Those legs are estimated but operationally unreachable — the aircraft returns home before executing them. | Remove the trailing items or re-order the route so RTL is last. |
 | `LOITER_RADIUS_IGNORED` | loiter legs | `loiter_radius_m` is set on a loiter item but ignored; the estimator models loiter as a station-keep hold using `max_station_keep_wind_mps` as authority. | Confirm the loiter duration in `loiter_time_s` is correct. Radius will be used in a future fidelity update. |
@@ -2097,18 +2314,23 @@ SCENARIO_EXIT=$?
 uv run bvlos-sim sample ... --output /tmp/uncertainty.json
 ```
 
-Each command produces independent evidence. An infeasible `estimate` (exit 10)
-is a pre-flight stop. A `scenario` failure (exit 10) means an assertion failed.
+Each command produces independent evidence. `estimate` exit `10` means either
+computational infeasibility or operational NO-GO; inspect `result.failure` and
+`operational_readiness` to distinguish them. `scenario` exit `10` can mean an
+assertion/scenario failure or operational NO-GO. Both are pre-flight stops for
+an operational workflow.
 `compare` exiting 10 (`drifted`/`failed`) requires reviewing the changed
 dimensions; exit 12 (`unsupported`) means the bundle is contract-only and
 `sitl --live` must be run first.
 
-Interpret the workflow outputs in order. A successful `estimate` means the
-static mission model is feasible under deterministic assumptions; an infeasible
-estimate is a pre-flight stop. A `scenario` failure means an assertion or policy
-expectation failed and should be resolved before live validation. In `sample`,
-a low `feasibility_rate` or weak tail reserve means uncertainty has eroded the
-deterministic margin. For `compare`, `passed` means live SITL artifacts agreed
+Interpret the workflow outputs in order. Without `--engineering-only`, a
+successful `estimate` means the deterministic model is feasible **and** its
+operational readiness verdict is GO. A scenario must both pass and reach the
+same operational GO. Resolve any failed assertion, policy expectation, missing
+evidence, or readiness failure before live validation. In `sample`, a low
+`modeled_constraint_pass_rate` or weak conditional tail energy identifies model
+sensitivity that needs engineering investigation; it is not an operational
+probability or go/no-go verdict. For `compare`, `passed` means live SITL artifacts agreed
 with the embedded expectations for supported dimensions; `drifted` means review
 the changed dimensions, usually mission upload count, telemetry presence,
 adapter lifecycle, or position proximity, before treating the run as evidence.
@@ -2155,7 +2377,7 @@ See `examples/uncertainty/` for complete uncertainty plan YAML files.
 from estimator import run_monte_carlo
 
 mc_result = run_monte_carlo(plan, mission, vehicle)
-print(mc_result.feasibility_rate)
+print(mc_result.modeled_constraint_pass_rate)
 print(mc_result.total_time_s.mean)
 print(mc_result.total_time_s.p95)
 ```
@@ -2169,15 +2391,25 @@ uv run bvlos-sim sample examples/uncertainty/pipeline_demo_001_wind_uncertainty.
 
 ## Output Contracts
 
-The estimator CLI emits `estimator-envelope.v7`.
+The estimator CLI emits `estimator-envelope.v9`.
 
-The battery sizing CLI emits `battery-sizing-report.v1` when `--format json` is used.
+It includes a required `operational_readiness` object. The same fail-closed
+verdict controls the default exit status for every estimator output format.
 
-The scenario CLI emits `scenario-report.v2`.
+The battery sizing CLI emits `battery-sizing-report.v2` when `--format json` is used.
+It includes the verified feasible capacity interval, search resolution, and
+fail-closed margin recommendations.
 
-The sample CLI emits `uncertainty-report.v1`.
+The scenario CLI emits `scenario-report.v3`.
 
-The propagate CLI emits `stochastic-envelope.v1`.
+It also includes `operational_readiness`; a non-passed scenario adds the
+scenario itself to the failed checks. The verdict controls the default exit
+status for every scenario output format.
+
+The sample CLI emits diagnostic `uncertainty-report.v2`.
+
+The propagate CLI emits diagnostic `stochastic-envelope.v2`; it explicitly
+does not assess operational feasibility.
 
 The SITL contract command emits `sitl-evidence.v1`.
 

@@ -5,6 +5,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from schemas.numeric import FiniteFloat
+
 
 class ResourceSystemKind(StrEnum):
     """Supported deterministic resource-system families."""
@@ -66,7 +68,7 @@ class ResourceSystemConfig(BaseModel):
         ge=0,
         description="Lower values are preferred when multiple resource systems are feasible.",
     )
-    battery_capacity_wh: float | None = Field(
+    battery_capacity_wh: FiniteFloat | None = Field(
         default=None,
         gt=0,
         description=(
@@ -75,7 +77,7 @@ class ResourceSystemConfig(BaseModel):
             "is used."
         ),
     )
-    reserve_percent: float | None = Field(
+    reserve_percent: FiniteFloat | None = Field(
         default=None,
         ge=0,
         le=100,
@@ -84,7 +86,7 @@ class ResourceSystemConfig(BaseModel):
             "hybrid systems; when omitted, the mission or vehicle reserve policy is used."
         ),
     )
-    continuous_power_w: float | None = Field(
+    continuous_power_w: FiniteFloat | None = Field(
         default=None,
         gt=0,
         description=(
@@ -99,17 +101,17 @@ class ResourceSystemConfig(BaseModel):
             "deterministic feasibility."
         ),
     )
-    max_route_distance_m: float | None = Field(
+    max_route_distance_m: FiniteFloat | None = Field(
         default=None,
         gt=0,
         description="Optional maximum total route path distance in metres.",
     )
-    max_route_time_s: float | None = Field(
+    max_route_time_s: FiniteFloat | None = Field(
         default=None,
         gt=0,
         description="Optional maximum total route time in seconds.",
     )
-    max_tether_length_m: float | None = Field(
+    max_tether_length_m: FiniteFloat | None = Field(
         default=None,
         gt=0,
         description=(
@@ -165,7 +167,7 @@ class LinkSystemConfig(BaseModel):
         default=LinkAvailability.AVAILABLE,
         description="Static deterministic availability used by estimate and scenario runs.",
     )
-    max_range_m: float | None = Field(
+    max_range_m: FiniteFloat | None = Field(
         default=None,
         gt=0,
         description=(

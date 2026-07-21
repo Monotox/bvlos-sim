@@ -1,4 +1,4 @@
-# Ticket 097: Opt-in Return-to-Home Reserve Feasibility Gate
+# Ticket 097: Return-to-Home Reserve Feasibility Gate
 
 ## Status
 
@@ -22,12 +22,11 @@ from an intermediate leg still reports `FEASIBLE`, exits `0`, and shows
 filing a flight authorisation, "can I always get home with reserve?" is a hard
 gate, not a footnote.
 
-Making the gate **opt-in** via a mission constraint preserves the existing
-advisory behaviour for everyone who does not set it (no golden-fixture churn,
-no contract break) while letting safety-conscious operators get an honest
-`NO-GO` and a non-zero exit code when RTH reserve cannot be guaranteed.
+The initial implementation made the gate opt-in. The production-readiness
+hardening changed the default to fail closed: missions require RTH reserve unless
+they explicitly opt out for non-operational engineering analysis.
 
-## Current gap
+## Gap at the Time
 
 - `MissionEstimate.rth_is_feasible` exists but never influences `status`,
   `failure`, the exit code, or `checklist._is_go`.
@@ -44,7 +43,7 @@ no contract break) while letting safety-conscious operators get an honest
 ```yaml
 constraints:
   min_landing_reserve_percent: 25.0
-  require_rth_reserve: true   # new; default false (advisory-only, unchanged)
+  require_rth_reserve: true   # default true; set false only for engineering analysis
 ```
 
 ### New FailureCode
@@ -61,12 +60,13 @@ RTH_RESERVE_BELOW_THRESHOLD = "RTH_RESERVE_BELOW_THRESHOLD"
   `RTH_RESERVE_BELOW_THRESHOLD`, attributing the failure to the first failing
   leg (`leg_index`, `route_item_index`, `route_item_id`) with the margin in the
   failure context.
-- When `require_rth_reserve` is false (default), behaviour is unchanged:
-  the timeline is advisory and does not affect `status`.
+- When `require_rth_reserve` is explicitly false, the estimator retains an
+  advisory timeline for engineering analysis; the fail-closed checklist still
+  refuses `GO` when RTH is absent or infeasible.
 - The check is provider-independent (it reuses the already-computed timeline) and
   deterministic.
 
-### Output integration
+### Original Output Integration Plan
 
 - Add `RTH_RESERVE_BELOW_THRESHOLD` to `_STATIC_FEASIBILITY_FAILURE_CODES`
   handling in `adapters/envelope.py` so `result_validity` is computed correctly,
@@ -81,7 +81,7 @@ RTH_RESERVE_BELOW_THRESHOLD = "RTH_RESERVE_BELOW_THRESHOLD"
 
 | File | Change |
 |---|---|
-| `schemas/mission.py` | Add `require_rth_reserve: bool = False` to `MissionConstraints` |
+| `schemas/mission.py` | Add `require_rth_reserve: bool = True` to `MissionConstraints` |
 | `estimator/core/enums.py` | Add `RTH_RESERVE_BELOW_THRESHOLD` failure code |
 | `estimator/execution/energy.py` | Emit RTH failure when the gate is active and a timeline point is infeasible |
 | `estimator/execution/engine.py` | Thread the RTH failure into the result `status`/`failure` |
@@ -99,10 +99,10 @@ RTH_RESERVE_BELOW_THRESHOLD = "RTH_RESERVE_BELOW_THRESHOLD"
    reserve is breached at an intermediate leg returns `INFEASIBLE` with
    `RTH_RESERVE_BELOW_THRESHOLD` in the diagnostics, attributed to the first
    failing leg, and the CLI exits with the infeasible exit code.
-2. The same mission with `require_rth_reserve` unset (or false) is unchanged:
-   `status` is unaffected and the RTH row stays advisory `INFO`.
+2. An explicit `require_rth_reserve: false` keeps estimator status available for
+   engineering analysis, while checklist output remains `NO-GO` on a breach.
 3. With the gate active, `--format checklist` shows `✗ RTH reserve FAIL` and
    `Status: NO-GO`; with a feasible RTH it shows `✓ PASS` and does not block GO.
 4. `RTH_RESERVE_BELOW_THRESHOLD` appears in `estimator.FailureCode` public
    exports, and the RTH feasibility field is assertable from scenarios.
-5. Existing golden fixtures are unchanged (the gate is opt-in and defaults off).
+5. Golden fixtures record the fail-closed default and deterministic RTH output.

@@ -3,6 +3,7 @@
 import json
 import signal
 from enum import IntEnum, StrEnum
+from pathlib import Path
 from types import FrameType
 from typing import NoReturn
 
@@ -100,7 +101,8 @@ def _handle_cancellation_signal(signum: int, _frame: FrameType | None) -> NoRetu
     """Exit with the documented CANCELLED code on SIGTERM/SIGINT.
 
     Atomic output writes (Ticket 104) guarantee no partial ``--output`` file is
-    left behind; this just turns an interrupt into a defined exit code instead of
+    left behind. A signal delivered after the atomic replacement may leave the
+    new, complete artifact committed; this turns an interrupt into a defined exit code instead of
     the shell's default (``143`` for SIGTERM, ``130`` for SIGINT) so a backend
     worker can branch on it. ``raise SystemExit`` unwinds the stack, running
     ``finally`` blocks and context managers.
@@ -170,12 +172,13 @@ def _summary_output_format(output_format: SummaryOutputFormat) -> OutputFormat:
 
 def _register_commands() -> None:
     from adapters.commands.batch import batch
-    from adapters.commands.bump import bump
     from adapters.commands.calibrate import calibrate
     from adapters.commands.compare import compare
     from adapters.commands.convert import convert
     from adapters.commands.estimate import estimate
     from adapters.commands.export import export
+    from adapters.commands.ingest_log import ingest_log
+    from adapters.commands.migrate import migrate
     from adapters.commands.propagate import propagate
     from adapters.commands.sample import sample
     from adapters.commands.scenario import scenario
@@ -188,6 +191,8 @@ def _register_commands() -> None:
     app.command()(convert)
     app.command()(estimate)
     app.command()(export)
+    app.command("ingest-log")(ingest_log)
+    app.command()(migrate)
     app.command("size-battery")(size_battery)
     app.command()(batch)
     app.command()(compare)
@@ -198,7 +203,13 @@ def _register_commands() -> None:
     app.command()(sora)
     app.command()(validate)
     app.command()(calibrate)
-    app.command()(bump)
+    source_root = Path(__file__).resolve().parent.parent
+    if (source_root / "pyproject.toml").is_file() and (
+        source_root / "CHANGELOG.md"
+    ).is_file():
+        from adapters.commands.bump import bump
+
+        app.command()(bump)
     app.command("schema-versions")(schema_versions)
     app.command("contracts")(schema_versions)
 

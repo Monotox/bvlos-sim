@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 
 import yaml
+import pytest
 from typer.testing import CliRunner
 
 import adapters.cli as cli_module
@@ -31,8 +32,8 @@ def test_cli_success_json_output_is_deterministic_and_complete(tmp_path: Path) -
     first = runner.invoke(app, ["estimate", str(mission_path), str(vehicle_path)])
     second = runner.invoke(app, ["estimate", str(mission_path), str(vehicle_path)])
 
-    assert first.exit_code == int(CliExitCode.SUCCESS)
-    assert second.exit_code == int(CliExitCode.SUCCESS)
+    assert first.exit_code == int(CliExitCode.INFEASIBLE)
+    assert second.exit_code == int(CliExitCode.INFEASIBLE)
     assert first.stdout == second.stdout
 
     envelope = json.loads(first.stdout)
@@ -42,6 +43,19 @@ def test_cli_success_json_output_is_deterministic_and_complete(tmp_path: Path) -
     assert envelope["result_validity"]["is_complete"] is True
     assert envelope["result_validity"]["is_valid_for_full_mission"] is True
     assert envelope["result"]["status"] == "success"
+    assert envelope["operational_readiness"]["verdict"] == "no_go"
+    assert envelope["operational_readiness"]["missing_evidence"]
+
+    engineering = runner.invoke(
+        app,
+        [
+            "estimate",
+            str(mission_path),
+            str(vehicle_path),
+            "--engineering-only",
+        ],
+    )
+    assert engineering.exit_code == int(CliExitCode.SUCCESS)
 
 
 def test_cli_markdown_can_write_to_file(tmp_path: Path) -> None:
@@ -59,6 +73,7 @@ def test_cli_markdown_can_write_to_file(tmp_path: Path) -> None:
             str(vehicle_path),
             "--format",
             "markdown",
+            "--engineering-only",
             "--output",
             str(output_path),
         ],
@@ -71,6 +86,7 @@ def test_cli_markdown_can_write_to_file(tmp_path: Path) -> None:
             str(vehicle_path),
             "--format",
             "markdown",
+            "--engineering-only",
         ],
     )
 
@@ -99,7 +115,10 @@ def test_cli_partial_invalid_result_is_marked_partial(tmp_path: Path) -> None:
     _write_yaml(mission_path, mission_payload)
     _write_yaml(vehicle_path, make_vehicle_payload())
 
-    result = runner.invoke(app, ["estimate", str(mission_path), str(vehicle_path)])
+    result = runner.invoke(
+        app,
+        ["estimate", str(mission_path), str(vehicle_path), "--engineering-only"],
+    )
 
     assert result.exit_code == int(CliExitCode.UNSUPPORTED)
     envelope = json.loads(result.stdout)
@@ -125,7 +144,10 @@ def test_cli_unsupported_result_maps_to_exit_code(tmp_path: Path) -> None:
     _write_yaml(mission_path, mission_payload)
     _write_yaml(vehicle_path, vehicle_payload)
 
-    result = runner.invoke(app, ["estimate", str(mission_path), str(vehicle_path)])
+    result = runner.invoke(
+        app,
+        ["estimate", str(mission_path), str(vehicle_path), "--engineering-only"],
+    )
 
     assert result.exit_code == int(CliExitCode.UNSUPPORTED)
     envelope = json.loads(result.stdout)
@@ -163,7 +185,7 @@ def test_cli_energy_infeasible_result_has_complete_result_validity(
     mission_path = tmp_path / "mission.yaml"
     vehicle_path = tmp_path / "vehicle.yaml"
     vehicle_payload = make_vehicle_payload()
-    vehicle_payload["energy"]["battery_capacity_wh"] = 45.0
+    vehicle_payload["energy"]["battery_capacity_wh"] = 50.0
     _write_yaml(mission_path, make_mission_payload())
     _write_yaml(vehicle_path, vehicle_payload)
 
@@ -202,7 +224,7 @@ def test_cli_rth_reserve_gate_failure_maps_to_infeasible_exit_code(
         },
     ]
     vehicle_payload = make_vehicle_payload()
-    vehicle_payload["energy"]["battery_capacity_wh"] = 60.0
+    vehicle_payload["energy"]["battery_capacity_wh"] = 120.0
     mission_path = tmp_path / "mission.yaml"
     vehicle_path = tmp_path / "vehicle.yaml"
     _write_yaml(mission_path, mission_payload)
@@ -291,7 +313,7 @@ def test_cli_loads_relative_landing_zone_asset_and_reports_reachability(
                 {
                     "type": "Feature",
                     "id": "wp1_lz",
-                    "properties": {},
+                    "properties": {"altitude_amsl_m": 12.0},
                     "geometry": {
                         "type": "Point",
                         "coordinates": [4.002, 52.001],
@@ -301,7 +323,10 @@ def test_cli_loads_relative_landing_zone_asset_and_reports_reachability(
         },
     )
 
-    result = runner.invoke(app, ["estimate", str(mission_path), str(vehicle_path)])
+    result = runner.invoke(
+        app,
+        ["estimate", str(mission_path), str(vehicle_path), "--engineering-only"],
+    )
 
     assert result.exit_code == int(CliExitCode.SUCCESS)
     envelope = json.loads(result.stdout)
@@ -398,11 +423,25 @@ def test_cli_wind_layer_flag_tailwind_is_faster_than_headwind(tmp_path: Path) ->
 
     tail = runner.invoke(
         app,
-        ["estimate", str(mission_path), str(vehicle_path), "--wind-layer", "12:5:0"],
+        [
+            "estimate",
+            str(mission_path),
+            str(vehicle_path),
+            "--engineering-only",
+            "--wind-layer",
+            "12:5:0",
+        ],
     )
     head = runner.invoke(
         app,
-        ["estimate", str(mission_path), str(vehicle_path), "--wind-layer", "12:-5:0"],
+        [
+            "estimate",
+            str(mission_path),
+            str(vehicle_path),
+            "--engineering-only",
+            "--wind-layer",
+            "12:-5:0",
+        ],
     )
 
     assert tail.exit_code == int(CliExitCode.SUCCESS)
@@ -446,6 +485,32 @@ def test_cli_wind_layer_non_numeric_returns_invalid_input(tmp_path: Path) -> Non
     assert envelope["diagnostics"][-1]["kind"] == "invalid_input"
 
 
+@pytest.mark.parametrize("value", ["nan", "inf", "-inf"])
+def test_cli_wind_layer_non_finite_returns_invalid_input(
+    tmp_path: Path,
+    value: str,
+) -> None:
+    mission_path = tmp_path / "mission.yaml"
+    vehicle_path = tmp_path / "vehicle.yaml"
+    _write_yaml(mission_path, make_mission_payload())
+    _write_yaml(vehicle_path, make_vehicle_payload())
+
+    result = runner.invoke(
+        app,
+        [
+            "estimate",
+            str(mission_path),
+            str(vehicle_path),
+            "--wind-layer",
+            f"12:{value}:0",
+        ],
+    )
+
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+    envelope = json.loads(result.stdout)
+    assert envelope["status"] == "error"
+
+
 def test_cli_fidelity_v2_returns_success(tmp_path: Path) -> None:
     mission_path = tmp_path / "mission.yaml"
     vehicle_path = tmp_path / "vehicle.yaml"
@@ -454,7 +519,14 @@ def test_cli_fidelity_v2_returns_success(tmp_path: Path) -> None:
 
     result = runner.invoke(
         app,
-        ["estimate", str(mission_path), str(vehicle_path), "--fidelity", "v2"],
+        [
+            "estimate",
+            str(mission_path),
+            str(vehicle_path),
+            "--engineering-only",
+            "--fidelity",
+            "v2",
+        ],
     )
 
     assert result.exit_code == int(CliExitCode.SUCCESS)
@@ -474,7 +546,14 @@ def test_cli_explicit_fidelity_v1_overrides_mission_yaml_v2(tmp_path: Path) -> N
 
     result = runner.invoke(
         app,
-        ["estimate", str(mission_path), str(vehicle_path), "--fidelity", "v1"],
+        [
+            "estimate",
+            str(mission_path),
+            str(vehicle_path),
+            "--engineering-only",
+            "--fidelity",
+            "v1",
+        ],
     )
 
     assert result.exit_code == int(CliExitCode.SUCCESS)
@@ -497,6 +576,7 @@ def test_cli_combines_fidelity_wind_layer_and_max_segment_length(
             "estimate",
             str(mission_path),
             str(vehicle_path),
+            "--engineering-only",
             "--fidelity",
             "v2",
             "--wind-layer",
@@ -524,7 +604,7 @@ def test_cli_fidelity_v1_default_unchanged(tmp_path: Path) -> None:
 
     result = runner.invoke(
         app,
-        ["estimate", str(mission_path), str(vehicle_path)],
+        ["estimate", str(mission_path), str(vehicle_path), "--engineering-only"],
     )
 
     assert result.exit_code == int(CliExitCode.SUCCESS)
@@ -544,6 +624,7 @@ def test_cli_max_segment_length_m_zero_returns_invalid_input(tmp_path: Path) -> 
             "estimate",
             str(mission_path),
             str(vehicle_path),
+            "--engineering-only",
             "--max-segment-length-m",
             "0",
         ],
@@ -573,6 +654,7 @@ def test_cli_max_segment_length_without_fidelity_respects_mission_fidelity(
             "estimate",
             str(mission_path),
             str(vehicle_path),
+            "--engineering-only",
             "--max-segment-length-m",
             "5000",
         ],
@@ -798,7 +880,15 @@ def test_estimate_geojson_format_produces_feature_collection(tmp_path: Path) -> 
     _write_yaml(vehicle_path, make_vehicle_payload())
 
     result = runner.invoke(
-        app, ["estimate", str(mission_path), str(vehicle_path), "--format", "geojson"]
+        app,
+        [
+            "estimate",
+            str(mission_path),
+            str(vehicle_path),
+            "--engineering-only",
+            "--format",
+            "geojson",
+        ],
     )
 
     assert result.exit_code == int(CliExitCode.SUCCESS)
@@ -815,7 +905,15 @@ def test_estimate_kml_format_produces_kml_document(tmp_path: Path) -> None:
     _write_yaml(vehicle_path, make_vehicle_payload())
 
     result = runner.invoke(
-        app, ["estimate", str(mission_path), str(vehicle_path), "--format", "kml"]
+        app,
+        [
+            "estimate",
+            str(mission_path),
+            str(vehicle_path),
+            "--engineering-only",
+            "--format",
+            "kml",
+        ],
     )
 
     assert result.exit_code == int(CliExitCode.SUCCESS)
@@ -834,6 +932,6 @@ def test_estimate_checklist_format_shows_mission_id(tmp_path: Path) -> None:
         app, ["estimate", str(mission_path), str(vehicle_path), "--format", "checklist"]
     )
 
-    assert result.exit_code == int(CliExitCode.SUCCESS)
+    assert result.exit_code == int(CliExitCode.INFEASIBLE)
     assert "## Pre-Flight Checklist: pipeline_demo_001" in result.output
-    assert "Status: GO" in result.output or "Status: NO-GO" in result.output
+    assert "Status: NO-GO" in result.output

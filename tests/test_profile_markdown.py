@@ -76,7 +76,9 @@ def _envelope(result: MissionEstimate | None = None) -> ...:
         result = _estimate()
     return build_estimator_envelope(
         result=result,
-        inputs=EnvelopeInputs(mission=_fake_doc("mission"), vehicle=_fake_doc("vehicle")),
+        inputs=EnvelopeInputs(
+            mission=_fake_doc("mission"), vehicle=_fake_doc("vehicle")
+        ),
     )
 
 
@@ -95,8 +97,12 @@ def test_profile_table_has_one_row_per_leg() -> None:
     output = render_profile_markdown(_envelope(_estimate(legs)))
     # Count data rows (not header or separator)
     data_rows = [
-        line for line in output.splitlines()
-        if line.startswith("| ") and "Phase" not in line and "---" not in line and "Leg" not in line
+        line
+        for line in output.splitlines()
+        if line.startswith("| ")
+        and "Phase" not in line
+        and "---" not in line
+        and "Leg" not in line
     ]
     assert len(data_rows) == 4
 
@@ -117,7 +123,9 @@ def test_profile_table_shows_terrain_when_constant_provider() -> None:
 def test_profile_table_clearance_equals_alt_minus_terrain() -> None:
     provider = ConstantElevationProvider(50.0)
     legs = [_leg(0, start_alt=100.0, end_alt=100.0)]
-    output = render_profile_markdown(_envelope(_estimate(legs)), terrain_provider=provider)
+    output = render_profile_markdown(
+        _envelope(_estimate(legs)), terrain_provider=provider
+    )
     # clearance = 100 - 50 = 50
     assert "50" in output
 
@@ -153,7 +161,11 @@ def test_profile_with_grid_provider_outside_coverage_shows_dashes() -> None:
         origin_lon=5.0,
         step_lat_deg=0.5,
         step_lon_deg=0.5,
-        elevations_m=[[100.0, 110.0, 120.0], [105.0, 115.0, 125.0], [110.0, 120.0, 130.0]],
+        elevations_m=[
+            [100.0, 110.0, 120.0],
+            [105.0, 115.0, 125.0],
+            [110.0, 120.0, 130.0],
+        ],
     )
     output = render_profile_markdown(_envelope(), terrain_provider=provider)
     assert "Terrain m" in output
@@ -170,7 +182,9 @@ def test_profile_no_result_shows_no_legs_message() -> None:
         path=Path("m.yaml"),
         stage=InputLoadStage.READ,
     )
-    envelope = build_invalid_input_envelope(error=error, mission_document=None, vehicle_document=None)
+    envelope = build_invalid_input_envelope(
+        error=error, mission_document=None, vehicle_document=None
+    )
     output = render_profile_markdown(envelope)
     assert "## Route Altitude Profile" in output
     assert "No legs available" in output
@@ -190,6 +204,7 @@ def test_estimate_profile_format_exits_zero() -> None:
             str(REPO_ROOT / "examples/vehicles/quadplane_v1.yaml"),
             "--format",
             "profile",
+            "--engineering-only",
         ],
     )
     assert result.exit_code == int(CliExitCode.SUCCESS)

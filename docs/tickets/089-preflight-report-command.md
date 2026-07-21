@@ -53,14 +53,17 @@ Risk:     feasible 100%   reserve p5 823.9 Wh   p50 858.2 Wh   n=200
 1. **Mission Summary** — mission_id, vehicle_id, planned_home, departure time stamp
 2. **Deterministic Estimate** — checklist table (energy, geofence, LZ, resource, link)
 3. **Contingency Scenario** — scenario summary: events fired, policy action, assertion results
-4. **Stochastic Risk** — p5/p50/p95 reserve, feasibility rate, failed and spatial-infeasible counts
+4. **Stochastic Diagnostic** — conditional p5/p50/p95 mission-end reserve,
+   modeled constraint pass rate, failed and spatial-infeasible counts
 5. **Advisory Warnings** — deduplicated warnings across all three runs
 6. **Go/No-Go Decision** — overall `Status: GO` or `Status: NO-GO` with reason
 
 The overall `Status: GO` requires:
 - estimate: FEASIBLE (all feasibility checks pass)
 - scenario: PASSED (all assertions pass, or no scenario provided)
-- stochastic: feasibility_rate ≥ configured threshold (default 95%)
+- stochastic: never grants GO because `stochastic-envelope.v2` explicitly does
+  not assess operational feasibility; it may only add a blocking diagnostic
+  condition or require separately governed evidence
 
 ### JSON envelope
 

@@ -39,19 +39,23 @@ Rules:
 Treat these as stable:
 
 - package-root `estimator` imports
-- `mission.v6`
+- `mission.v7`
 - `vehicle.v4`
 - `scenario.v1`
-- `uncertainty.v1`
-- `estimator-envelope.v7`
-- `scenario-report.v2`
-- `uncertainty-report.v1`
+- `uncertainty.v2`
+- `estimator-envelope.v9`
+- `scenario-report.v3`
+- `uncertainty-report.v2`
 - `sitl-evidence.v1`
 - `geofence-geojson.v1`
 - `landing-zone-geojson.v1`
-- `population-grid.v1`
+- `population-grid.v1` (diagnostic) / `population-grid.v2` (SORA evidence)
 - CLI exit-code semantics
 - Markdown report output covered by golden fixtures
+
+Mission files must state `schema_version: mission.v7`; do not restore implicit
+version guessing in normal loaders. The `migrate` command is the compatibility
+boundary for unversioned and `mission.v6` inputs.
 
 If a public contract changes intentionally, update:
 

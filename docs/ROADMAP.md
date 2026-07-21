@@ -75,23 +75,27 @@ Scenario runner:
 
 Uncertainty modeling:
 
-- `uncertainty.v1` YAML input schema with `normal` and `uniform` distributions
+- `uncertainty.v2` YAML input schema; wind components accept normal or uniform
+  distributions, while positive physical quantities require bounded positive
+  uniform distributions
 - seeded Monte Carlo sampling over wind, cruise speed, cruise power, and battery capacity
 - `run_monte_carlo` Python API wrapping the deterministic estimator
 - `sample` CLI command for uncertainty execution
-- `uncertainty-report.v1` JSON envelope with summary statistics (mean, std, min, p5, p50, p95, max) and deterministic baseline
+- `uncertainty-report.v2` diagnostic JSON envelope with conditional summary
+  statistics, complete sample accounting, and deterministic baseline
 - Markdown rendering for uncertainty reports
 
 Stochastic propagation:
 
-- time-stepped particle propagator with Gaussian process noise
+- diagnostic open-loop sampled-parameter timelines, with per-sample routes
 - twin true/estimated particle state via EKF predict/update cycle
 - synthetic GPS and battery-meter sensor noise models (`SensorProfile`)
-- proportional cross-track and along-track tracking controller (`ControllerProfile`)
-- `propagate` CLI command and `stochastic.v1` input schema
-- `stochastic-envelope.v1` output contract with `timeline`, `estimation_error_timeline`,
-  `cross_track_timeline`, `reserve_at_landing_wh`, `feasibility_rate`, and
-  `spatial_infeasible_count` (geofence/LZ failures counted separately from energy failures)
+- process-wind and `ControllerProfile` propagation fail closed pending validated
+  guidance and energy models
+- `propagate` CLI command and `stochastic.v2` input schema
+- `stochastic-envelope.v2` output contract with explicitly conditional
+  timelines/distributions and `modeled_constraint_pass_rate`; no operational
+  feasibility claim
 
 Interfaces and contracts:
 
@@ -100,12 +104,14 @@ Interfaces and contracts:
 - `sample` CLI command
 - `propagate` CLI command
 - `sitl` CLI command for contract-only SITL evidence bundles
-- canonical estimator JSON envelope (`estimator-envelope.v7`)
-- canonical scenario JSON envelope (`scenario-report.v2`)
-- canonical uncertainty JSON envelope (`uncertainty-report.v1`)
-- canonical stochastic propagation envelope (`stochastic-envelope.v1`)
+- canonical estimator JSON envelope (`estimator-envelope.v9`)
+- canonical scenario JSON envelope (`scenario-report.v3`)
+- canonical diagnostic uncertainty JSON envelope (`uncertainty-report.v2`)
+- canonical diagnostic stochastic envelope (`stochastic-envelope.v2`)
 - canonical SITL evidence bundle (`sitl-evidence.v1`)
 - canonical SITL comparison report (`sitl-comparison.v1`)
+- renderer-independent, fail-closed operational readiness for `estimate`,
+  `scenario`, and `batch`, with an explicit `--engineering-only` opt-out
 - ArduPilot SITL telemetry artifact recorder for completed evidence bundles
 - SITL comparison report JSON and Markdown rendering through `compare` and
   adapter APIs
@@ -137,7 +143,9 @@ Platform limitations:
 - no NOTAM/live airspace integration; Ticket 058
 - no live comms, UTM/U-space, Remote ID, or traffic integrations; Tickets 070
   and 071
-- no real-world calibration pipeline; Tickets 080-084
+- no bundled qualification corpus or aircraft-specific held-out acceptance;
+  controller-log ingestion and calibration exist, but operators must supply and
+  govern representative validation flights
 
 ## Phase Plan
 
@@ -262,9 +270,10 @@ Status: implemented.
 Scope:
 
 - Ticket 037: Monte Carlo uncertainty modeling — implemented
-- `uncertainty.v1` YAML-configured uncertainty inputs
+- `uncertainty.v2` YAML-configured diagnostic uncertainty inputs
 - explicit opt-in `sample` CLI command
-- `uncertainty-report.v1` JSON envelope and Markdown rendering preserving deterministic baseline output
+- `uncertainty-report.v2` JSON envelope and Markdown rendering preserving the
+  deterministic baseline and explicit conditional/diagnostic semantics
 
 Exit criterion: uncertainty analysis composes with existing mission, vehicle,
 terrain, wind, geofence, landing-zone, resource, link, energy, and scenario
@@ -284,8 +293,8 @@ Delivered:
 - divert route estimates use Dubins path distance (bank-angle-constrained arc +
   straight) when entry heading and `vehicle.performance.turn_radius_m` are
   available; falls back to straight-line geodesic otherwise
-- fidelity v2 turn arc confirmed as the exact Dubins solution for a
-  same-position heading change (`turn_radius_m * |Δθ|`); no change to v2 math
+- the original same-position turn placeholder was retained in this phase and
+  later superseded by connected tangent fillets in Phase 4.10
 - entry heading extracted from the last completed leg's `ground_track_deg` at
   the action timeline index
 
@@ -303,18 +312,19 @@ Scope:
 
 Delivered:
 
-- fidelity v2 transit legs adjacent to TURN_ARC legs subtract the
-  tangent-point offset (`turn_radius_m * tan(|Δθ|/2)`) from `path_distance_m`;
-  offsets clamped to zero; total path distance now matches the true Dubins-path
-  length through all waypoints
+- fidelity v2 replaces each feasible corner with a connected circular fillet;
+  entry/exit points are tangent to the adjacent geodesic tracks, transit legs
+  end at those points, and the arc has sampled non-zero displacement
+- corners whose tangent offsets do not fit both adjacent legs fail with
+  `INVALID_GEOMETRY` instead of clamping an invalid path to zero
 - takeoff and landing-transit legs report `path_distance_m = vertical_distance_m`
   (3D slant path for purely vertical legs) in all fidelity modes
 - `DUBINS_DIVERT_PLANAR_APPROXIMATION_LIMIT` warning added as an interim
   diagnostic before Ticket 044 retired the warning emission
 
-Exit criterion: fidelity v2 total path distance equals the sum of
-offset-adjusted transit legs plus turn arc lengths; takeoff and land legs
-report correct 3D slant path distance.
+Exit criterion: fidelity v2 total path distance is the sum of connected,
+geodesically recomputed transit portions and circular fillets; takeoff and land
+legs report correct 3D slant path distance.
 
 ### Phase 4.11: Geodesic Dubins Divert Path
 
@@ -417,35 +427,31 @@ consistent outputs.
 
 ### Phase 7: Stochastic State Propagation
 
-Status: implemented.
+Status: diagnostic open-loop subset implemented; process-wind and closed-loop
+control disabled pending validated models.
 
 Scope:
 
-- Ticket 047: stochastic state propagation for path-dependent risk —
-  time-stepped propagator carrying a belief state (position, energy, wind
-  estimate) forward; Gaussian EKF-style representation; per-step
-  `p_reserve_violation`; `stochastic.v1` input schema; `propagate` CLI;
-  `stochastic-envelope.v1` output contract
+- Ticket 047: diagnostic stochastic parameter sweep — per-sample deterministic
+  route/timing, conditional reserve timelines, `stochastic.v2` input schema,
+  `propagate` CLI, and `stochastic-envelope.v2` output contract
 - Ticket 048: closed-loop observation model and twin-state architecture —
   separate true state (physics) from estimated state (autopilot EKF belief);
   synthetic GPS, battery-meter, and airspeed sensor models; EKF predict/update
   cycle; policy decisions made from estimated state; `estimation_error_timeline`
   output; `SensorProfile` added to `VehicleProfile`
-- Ticket 049: stochastic closed-loop control — tracking controller model
-  (cross-track/along-track error regulator) connecting EKF estimated state back
-  to true trajectory; path-length excess and energy feedback; `ControllerProfile`
-  added to `VehicleProfile`; `cross_track_timeline` output
+- Ticket 049: stochastic closed-loop control — disabled in `propagate` because
+  the prototype omitted nominal along-track timing, vertical/loiter kinematics,
+  and post-deviation spatial checks; `ControllerProfile` inputs fail closed
 - Ticket 050: contingency trigger probability derived from the twin-state and
   cross-track timeline
 - Ticket 051: SITL telemetry replay to condition the belief state
   retrospectively and validate the controller model against observed tracks
 
-Exit criterion: the simulator can report the probability of reserve violation
-at any point mid-flight, not only at landing; path-dependent uncertainty
-accumulates correctly across legs; estimation error feeds back through the
-autopilot controller into actual trajectory deviation and reserve consumption;
-the propagation path composes with all existing wind, terrain, and energy
-models without changing deterministic defaults.
+Current exit criterion: diagnostic outputs preserve per-sample routes and make
+their modeled-pass conditioning explicit. Operational probability claims,
+process-wind dynamics, and control feedback remain deferred until validated
+against flight or higher-fidelity simulation evidence.
 
 ### Phase 8: Import, Export, and Batch Workflows
 
@@ -489,7 +495,7 @@ through observed flight data.
 
 Planned work:
 
-- flight log ingestion (done, Ticket 080)
+- DataFlash text/binary and PX4 ULog ingestion (done, Tickets 080 and 102)
 - trace normalization (done, Ticket 080)
 - flight phase segmentation (done, Ticket 081)
 - predicted-vs-observed metrics (done, Ticket 082)

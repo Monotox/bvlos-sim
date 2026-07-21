@@ -4,12 +4,24 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from adapters.battery_sizer import BatterySizingResult
+from adapters.battery_sizer import (
+    BatterySizingResult,
+    battery_capacity_recommendations,
+)
 from adapters.canonical_json import render_canonical_json
 from adapters.envelope import DeterminismMetadata, EnvelopeInputs, ProvenanceInput
 from adapters.version import tool_version
 
-BATTERY_SIZING_REPORT_SCHEMA_VERSION = "battery-sizing-report.v1"
+BATTERY_SIZING_REPORT_SCHEMA_VERSION = "battery-sizing-report.v2"
+
+
+class BatteryCapacityRecommendationPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    margin_percent: int
+    requested_capacity_wh: float
+    recommended_capacity_wh: float | None
+    unavailable_reason: str | None
 
 
 class BatterySizingPayload(BaseModel):
@@ -18,10 +30,14 @@ class BatterySizingPayload(BaseModel):
     mission_energy_wh: float
     reserve_threshold_wh: float
     minimum_capacity_wh: float
+    maximum_feasible_capacity_wh: float
+    maximum_capacity_at_mtow_wh: float
+    search_tolerance_wh: float
     current_capacity_wh: float
     current_reserve_wh: float
     current_reserve_pct: float
     is_current_feasible: bool
+    recommendations: list[BatteryCapacityRecommendationPayload]
 
 
 class BatterySizingProvenance(BaseModel):
@@ -48,8 +64,13 @@ def build_battery_sizing_envelope(
     result: BatterySizingResult,
     mission_id: str,
     inputs: EnvelopeInputs,
+    safety_margins: list[int] | None = None,
 ) -> BatterySizingEnvelope:
     """Construct the canonical battery sizing report envelope."""
+    recommendations = battery_capacity_recommendations(
+        result,
+        safety_margins=safety_margins,
+    )
     return BatterySizingEnvelope(
         schema_version=BATTERY_SIZING_REPORT_SCHEMA_VERSION,
         tool_version=tool_version(),
@@ -70,10 +91,22 @@ def build_battery_sizing_envelope(
             mission_energy_wh=result.mission_energy_wh,
             reserve_threshold_wh=result.reserve_threshold_wh,
             minimum_capacity_wh=result.minimum_capacity_wh,
+            maximum_feasible_capacity_wh=result.maximum_feasible_capacity_wh,
+            maximum_capacity_at_mtow_wh=result.maximum_capacity_at_mtow_wh,
+            search_tolerance_wh=result.search_tolerance_wh,
             current_capacity_wh=result.current_capacity_wh,
             current_reserve_wh=result.current_reserve_wh,
             current_reserve_pct=result.current_reserve_pct,
             is_current_feasible=result.is_current_feasible,
+            recommendations=[
+                BatteryCapacityRecommendationPayload(
+                    margin_percent=recommendation.margin_percent,
+                    requested_capacity_wh=recommendation.requested_capacity_wh,
+                    recommended_capacity_wh=(recommendation.recommended_capacity_wh),
+                    unavailable_reason=recommendation.unavailable_reason,
+                )
+                for recommendation in recommendations
+            ],
         ),
     )
 

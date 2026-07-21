@@ -1,4 +1,5 @@
 from pathlib import Path
+from dataclasses import replace
 
 import pytest
 
@@ -12,7 +13,7 @@ from adapters.batch_support import (
     run_batch_manifest,
 )
 from adapters.cli import CliExitCode, app
-from adapters.cli_batch_support import _batch_output_extension
+from adapters.cli_batch_support import _batch_output_extension, write_batch_outputs
 from adapters.envelope import OutputFormat
 from adapters.io import InputLoadError
 from schemas.batch import BatchManifest, BatchRun
@@ -38,7 +39,8 @@ def test_batch_feasible_run_reports_positive_reserve() -> None:
                 REPO_ROOT / "examples/missions/pipeline_demo_001.yaml",
                 REPO_ROOT / "examples/vehicles/quadplane_v1.yaml",
             )
-        )
+        ),
+        engineering_only=True,
     )
 
     assert len(results) == 1
@@ -64,6 +66,20 @@ def test_batch_infeasible_run_reports_negative_reserve() -> None:
     assert results[0].reserve_margin_percent < 0
 
 
+def test_batch_defaults_to_fail_closed_operational_status() -> None:
+    results = run_batch_manifest(
+        _manifest(
+            _run(
+                "pipeline_demo",
+                REPO_ROOT / "examples/missions/pipeline_demo_001.yaml",
+                REPO_ROOT / "examples/vehicles/quadplane_v1.yaml",
+            )
+        )
+    )
+
+    assert results[0].status == "INFEASIBLE"
+
+
 def test_batch_input_error_marks_run_error_and_continues() -> None:
     results = run_batch_manifest(
         _manifest(
@@ -77,7 +93,8 @@ def test_batch_input_error_marks_run_error_and_continues() -> None:
                 REPO_ROOT / "examples/missions/pipeline_demo_001.yaml",
                 REPO_ROOT / "examples/vehicles/quadplane_v1.yaml",
             ),
-        )
+        ),
+        engineering_only=True,
     )
 
     assert [result.status for result in results] == ["ERROR", "FEASIBLE"]
@@ -127,7 +144,10 @@ def test_batch_cli_all_feasible_exits_zero(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
-    result = _runner.invoke(app, ["batch", str(manifest_path)])
+    result = _runner.invoke(
+        app,
+        ["batch", str(manifest_path), "--engineering-only"],
+    )
     assert result.exit_code == int(CliExitCode.SUCCESS)
 
 
@@ -155,13 +175,22 @@ def test_batch_cli_output_dir_geojson_writes_geojson_files(tmp_path: Path) -> No
     )
     result = _runner.invoke(
         app,
-        ["batch", str(manifest_path), "--output-dir", str(out_dir), "--format", "geojson"],
+        [
+            "batch",
+            str(manifest_path),
+            "--engineering-only",
+            "--output-dir",
+            str(out_dir),
+            "--format",
+            "geojson",
+        ],
     )
     assert result.exit_code == int(CliExitCode.SUCCESS)
     files = list(out_dir.iterdir())
     assert len(files) == 1
     assert files[0].suffix == ".geojson"
     import json
+
     doc = json.loads(files[0].read_text(encoding="utf-8"))
     assert doc["type"] == "FeatureCollection"
     layers = {f["properties"]["layer"] for f in doc["features"]}
@@ -184,7 +213,16 @@ def test_batch_cli_output_dir_writes_envelopes(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     result = _runner.invoke(
-        app, ["batch", str(manifest_path), "--output-dir", str(out_dir), "--format", "json"]
+        app,
+        [
+            "batch",
+            str(manifest_path),
+            "--engineering-only",
+            "--output-dir",
+            str(out_dir),
+            "--format",
+            "json",
+        ],
     )
     assert result.exit_code == int(CliExitCode.SUCCESS)
     assert out_dir.is_dir()
@@ -296,7 +334,15 @@ def test_batch_cli_output_dir_markdown_writes_md_files(tmp_path: Path) -> None:
     )
     result = _runner.invoke(
         app,
-        ["batch", str(manifest_path), "--output-dir", str(out_dir), "--format", "markdown"],
+        [
+            "batch",
+            str(manifest_path),
+            "--engineering-only",
+            "--output-dir",
+            str(out_dir),
+            "--format",
+            "markdown",
+        ],
     )
     assert result.exit_code == int(CliExitCode.SUCCESS)
     files = list(out_dir.iterdir())
@@ -323,7 +369,15 @@ def test_batch_cli_output_dir_kml_writes_kml_files(tmp_path: Path) -> None:
     )
     result = _runner.invoke(
         app,
-        ["batch", str(manifest_path), "--output-dir", str(out_dir), "--format", "kml"],
+        [
+            "batch",
+            str(manifest_path),
+            "--engineering-only",
+            "--output-dir",
+            str(out_dir),
+            "--format",
+            "kml",
+        ],
     )
     assert result.exit_code == int(CliExitCode.SUCCESS)
     files = list(out_dir.iterdir())
@@ -364,7 +418,15 @@ def test_batch_cli_output_dir_profile_writes_md_files(tmp_path: Path) -> None:
     )
     result = _runner.invoke(
         app,
-        ["batch", str(manifest_path), "--output-dir", str(out_dir), "--format", "profile"],
+        [
+            "batch",
+            str(manifest_path),
+            "--engineering-only",
+            "--output-dir",
+            str(out_dir),
+            "--format",
+            "profile",
+        ],
     )
     assert result.exit_code == int(CliExitCode.SUCCESS)
     files = list(out_dir.iterdir())
@@ -372,6 +434,98 @@ def test_batch_cli_output_dir_profile_writes_md_files(tmp_path: Path) -> None:
     assert files[0].suffix == ".md"
     content = files[0].read_text(encoding="utf-8")
     assert "## Route Altitude Profile" in content
+
+
+def test_batch_profile_preserves_terrain_evidence(tmp_path: Path) -> None:
+    manifest_path = tmp_path / "batch.yaml"
+    out_dir = tmp_path / "out"
+    manifest_path.write_text(
+        "\n".join(
+            [
+                "format_version: batch.v1",
+                "runs:",
+                "  - id: alpine",
+                f"    mission: {REPO_ROOT / 'examples/real_world/alpine_mission.yaml'}",
+                f"    vehicle: {REPO_ROOT / 'examples/vehicles/quadplane_v1.yaml'}",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = _runner.invoke(
+        app,
+        [
+            "batch",
+            str(manifest_path),
+            "--output-dir",
+            str(out_dir),
+            "--format",
+            "profile",
+        ],
+    )
+
+    assert result.exit_code in {int(CliExitCode.SUCCESS), int(CliExitCode.INFEASIBLE)}
+    content = (out_dir / "alpine.md").read_text(encoding="utf-8")
+    assert "Terrain data not available" not in content
+    assert "Terrain m" in content
+
+
+def test_batch_error_overwrites_stale_success_artifact(tmp_path: Path) -> None:
+    output = tmp_path / "run.json"
+    output.write_text('{"status": "success"}\n', encoding="utf-8")
+    result = _stub_result(
+        "run",
+        status="ERROR",
+        reserve=None,
+        flight_time_s=None,
+    )
+    result = replace(result, error_message="mission input missing")
+
+    write_batch_outputs(
+        output_dir=tmp_path,
+        output_format=OutputFormat.JSON,
+        results=[result],
+    )
+
+    content = output.read_text(encoding="utf-8")
+    assert '"status": "ERROR"' in content
+    assert "mission input missing" in content
+
+
+def test_batch_cli_rejects_stale_files_from_removed_runs(tmp_path: Path) -> None:
+    manifest_path = tmp_path / "batch.yaml"
+    output_dir = tmp_path / "out"
+    output_dir.mkdir()
+    stale = output_dir / "removed-run.json"
+    stale.write_text('{"status":"success"}\n', encoding="utf-8")
+    manifest_path.write_text(
+        "\n".join(
+            [
+                "format_version: batch.v1",
+                "runs:",
+                "  - id: current-run",
+                f"    mission: {REPO_ROOT / 'examples/missions/pipeline_demo_001.yaml'}",
+                f"    vehicle: {REPO_ROOT / 'examples/vehicles/quadplane_v1.yaml'}",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = _runner.invoke(
+        app,
+        [
+            "batch",
+            str(manifest_path),
+            "--format",
+            "json",
+            "--output-dir",
+            str(output_dir),
+        ],
+    )
+
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+    assert "not produced by this run" in result.output
+    assert stale.exists()
 
 
 # ---------------------------------------------------------------------------
@@ -386,7 +540,10 @@ def test_render_batch_csv_has_header_row() -> None:
 
 
 def test_render_batch_csv_has_one_data_row_per_result() -> None:
-    results = [_stub_result("r1"), _stub_result("r2", status="INFEASIBLE", reserve=-5.0)]
+    results = [
+        _stub_result("r1"),
+        _stub_result("r2", status="INFEASIBLE", reserve=-5.0),
+    ]
     output = render_batch_csv(results)
     data_rows = output.strip().splitlines()[1:]
     assert len(data_rows) == 2
@@ -433,7 +590,15 @@ def test_batch_cli_output_dir_checklist_shows_run_id(tmp_path: Path) -> None:
     )
     result = _runner.invoke(
         app,
-        ["batch", str(manifest_path), "--output-dir", str(out_dir), "--format", "checklist"],
+        [
+            "batch",
+            str(manifest_path),
+            "--engineering-only",
+            "--output-dir",
+            str(out_dir),
+            "--format",
+            "checklist",
+        ],
     )
     assert result.exit_code == int(CliExitCode.SUCCESS)
     files = list(out_dir.iterdir())
@@ -463,7 +628,9 @@ def test_batch_validate_only_exits_success(tmp_path: Path) -> None:
     assert "quadplane_v1.yaml: OK" in result.output
 
 
-def test_batch_validate_only_invalid_mission_exits_invalid_input(tmp_path: Path) -> None:
+def test_batch_validate_only_invalid_mission_exits_invalid_input(
+    tmp_path: Path,
+) -> None:
     manifest_path = tmp_path / "batch.yaml"
     bad_mission = tmp_path / "bad.yaml"
     bad_mission.write_text("not: valid: mission", encoding="utf-8")
@@ -485,16 +652,30 @@ def test_batch_validate_only_invalid_mission_exits_invalid_input(tmp_path: Path)
 
 def test_batch_manifest_rejects_duplicate_run_ids() -> None:
     from pydantic import ValidationError
+
     with pytest.raises(ValidationError, match="Duplicate run id"):
         _manifest(
-            _run("same_id", REPO_ROOT / "examples/missions/pipeline_demo_001.yaml", REPO_ROOT / "examples/vehicles/quadplane_v1.yaml"),
-            _run("same_id", REPO_ROOT / "examples/missions/pipeline_demo_001.yaml", REPO_ROOT / "examples/vehicles/quadplane_v1.yaml"),
+            _run(
+                "same_id",
+                REPO_ROOT / "examples/missions/pipeline_demo_001.yaml",
+                REPO_ROOT / "examples/vehicles/quadplane_v1.yaml",
+            ),
+            _run(
+                "same_id",
+                REPO_ROOT / "examples/missions/pipeline_demo_001.yaml",
+                REPO_ROOT / "examples/vehicles/quadplane_v1.yaml",
+            ),
         )
 
 
 def test_batch_manifest_rejects_invalid_run_id_characters() -> None:
     from pydantic import ValidationError
+
     with pytest.raises(ValidationError, match="pattern"):
         _manifest(
-            _run("run/bad", REPO_ROOT / "examples/missions/pipeline_demo_001.yaml", REPO_ROOT / "examples/vehicles/quadplane_v1.yaml"),
+            _run(
+                "run/bad",
+                REPO_ROOT / "examples/missions/pipeline_demo_001.yaml",
+                REPO_ROOT / "examples/vehicles/quadplane_v1.yaml",
+            ),
         )

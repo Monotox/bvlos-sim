@@ -20,7 +20,7 @@ Today operators must either:
 1. Run multiple manual estimates with edited YAML files, or
 2. Run `sample` with a full uncertainty YAML for a Monte Carlo sweep.
 
-Option 1 is tedious. Option 2 requires writing an `uncertainty.v1` YAML and
+Option 1 is tedious. Option 2 requires writing an `uncertainty.v2` YAML and
 understanding Monte Carlo output. Neither gives a clean table of "what happens
 at ±10%/±20%/±30% variation?"
 

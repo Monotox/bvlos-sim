@@ -6,11 +6,10 @@ Implemented.
 
 ## Goal
 
-Compute the intrinsic Ground Risk Class (iGRC) for a mission by overlaying the
-route against a population-density grid and the aircraft's characteristic
-dimension, following the EASA SORA methodology. Output a per-leg and
-whole-mission iGRC so operators can see, before flight, which ground-risk class
-their operation falls into.
+Compute the intrinsic Ground Risk Class (iGRC) for a mission by evaluating the
+declared operational footprint against conservative population evidence and
+the aircraft's maximum characteristic dimension and speed, following JARUS
+SORA 2.5. Output per-leg and whole-mission iGRC pre-assessment evidence.
 
 ## Why This Is High Impact
 
@@ -31,9 +30,10 @@ operator would adopt it.
 
 The intrinsic GRC is a lookup on two axes:
 
-- **Aircraft characteristic dimension**: ≤1 m, ≤3 m, ≤8 m, >8 m. This bands the
-  maximum kinetic energy at impact.
-- **Population density** beneath the operational volume: controlled ground area,
+- **Aircraft column**: the first Table 2 column whose maximum characteristic
+  dimension **and** maximum speed both cover the aircraft. The 250 g / 25 m/s
+  exception is handled separately.
+- **Population density** across the assessed operational footprint: controlled ground area,
   <5 ppl/km², <50, <500, <5 000, <50 000, >50 000 (gatherings).
 
 The cell value is the iGRC. Higher dimension and higher population both raise
@@ -44,11 +44,12 @@ specific-category envelope.
 
 ### New population-density grid asset
 
-A new asset type, parallel to the terrain grid, supplying population density per
-grid cell in people per km²:
+A new evidence asset, parallel to the terrain grid, supplying conservative
+population density per grid cell in people per km²:
 
 ```yaml
-# population_grid.v1
+# population_grid.v2
+schema_version: population-grid.v2
 origin_lat: 47.04
 origin_lon: 8.29
 step_lat_deg: 0.001
@@ -56,6 +57,17 @@ step_lon_deg: 0.001
 density_ppl_km2:
   - [12.0, 12.0, 340.0, ...]   # one row per latitude step, south to north
   - ...
+metadata:
+  source: Authority-approved conservative population map
+  population_year: 2026
+  native_resolution_m: 100.0
+  effective_resolution_m: 100.0
+  value_semantics: conservative_cell_maximum
+  authority_assessment_reference: POP-001 rev 1
+  valid_from: 2026-01-01T00:00:00Z
+  valid_until: 2026-12-31T23:59:59Z
+  transient_population_assessment_reference: EVT-001 rev 1
+  operational_footprint_assemblies_present: false
 ```
 
 Referenced from the mission:
@@ -69,7 +81,7 @@ assets:
 
 ```yaml
 # schemas/vehicle.py — VehicleProfile
-characteristic_dimension_m: float | None   # max span/diameter; required for iGRC
+characteristic_dimension_m: float | None   # maximum aircraft dimension
 ```
 
 When omitted, iGRC is not computed and a `POPULATION_DENSITY_DIMENSION_MISSING`
@@ -77,11 +89,11 @@ advisory warning is emitted (consistent with other provider-dependent features).
 
 ### Computation
 
-- For each route leg, sample the population-density grid at the leg's sampled
-  midpoints (reusing the sub-segment sampling already used for wind).
-- Take the maximum density encountered along the operational volume of each leg
-  (a buffer around the route is configurable; default uses the leg path only).
-- Map (characteristic_dimension_m, max_density) → iGRC via the SORA table.
+- For each route leg, conservatively cover the declared footprint using route
+  samples and the population grid's effective resolution.
+- Take the maximum conservative cell value that can overlap that footprint.
+- Select the aircraft column using maximum characteristic dimension and maximum
+  speed, then map the maximum density to iGRC via the SORA 2.5 table.
 - The mission iGRC is the maximum iGRC across all legs.
 
 ### Output integration
@@ -102,10 +114,10 @@ advisory warning is emitted (consistent with other provider-dependent features).
 
 ### Fetch script
 
-A new `scripts/fetch_population.py` that pulls population density from an open
-gridded source (e.g. GHSL / WorldPop / GPW) for a bounding box and writes a
-`population_grid.v1` YAML. Consistent with the existing fetch-script pattern;
-not part of core CI.
+`scripts/fetch_population.py` pulls WorldPop point samples for diagnostics. Its
+output is deliberately marked ineligible for operational SORA use; it does not
+provide conservative cell maxima, authority approval, transient-population
+assessment, or bounded evidence validity.
 
 ### New schema and enum additions
 
@@ -125,8 +137,9 @@ not part of core CI.
 
 ## Non-goals
 
-- This ticket computes the **intrinsic** GRC only. Mitigations (M1/M2/M3) that
-  lower the final GRC are out of scope and belong in a later ticket.
+- This ticket computes the **intrinsic** GRC only. Mitigations were out of its
+  original scope and belong to Ticket 101. The current SORA 2.5 contract uses
+  M1(A/B/C) and M2; the former M3 ERP treatment is not a ground-credit input.
 - Air Risk Class and SAIL determination are Ticket 095.
 - The population grid is offline; live population data fetch is best-effort in
   the fetch script only, never in core estimation.
@@ -148,5 +161,6 @@ not part of core CI.
 3. `estimate --format ground-risk` produces a per-leg iGRC table and a
    mission-level iGRC.
 4. `estimate --format geojson` includes an `igrc` property on each route leg.
-5. The SORA lookup table is unit-tested at every cell boundary.
+5. The SORA lookup table is unit-tested at every dimension, speed, and density
+   boundary.
 6. A mission with no `population_grid_file` is unaffected (backward compatible).

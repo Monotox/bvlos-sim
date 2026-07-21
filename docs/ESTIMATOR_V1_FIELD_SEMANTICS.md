@@ -5,19 +5,28 @@ and which fields are accepted for compatibility but not yet consumed by runtime
 logic.
 
 The default estimator mode is fidelity v1. Fidelity v2 is opt-in and adds
-turn-arc dynamics, fixed-wing circular loiter, and compatibility with
-sub-segment wind sampling.
+turn-arc dynamics and fixed-wing circular loiter. Straight-leg sub-segment
+sampling is an independent `max_segment_length_m` option available in either
+fidelity mode.
 
 ## Mission Fields Used At Runtime
 
 Top-level mission fields:
 
+- `schema_version`: required in mission files and must be `mission.v7`; use
+  `bvlos-sim migrate` for unversioned or `mission.v6` inputs
 - `vehicle_profile`: checked against `vehicle.vehicle_id`
 - `departure_time`: UTC departure timestamp used to evaluate time-windowed geofences
 - `planned_home`: used as the initial state and RTL target
 - `defaults.cruise_speed_mps`: fallback cruise speed
 - `defaults.altitude_reference`: default altitude frame for route items
 - `constraints.min_landing_reserve_percent`: mission reserve override
+- `constraints.require_rth_reserve`: hard per-leg return-to-home reserve gate
+- `constraints.max_wind_mps`: sustained-wind feasibility limit
+- `constraints.max_crosswind_mps`: cross-track wind feasibility limit
+- `constraints.max_gust_mps`: fails closed until a gust-capable provider is available
+- `constraints.min_visibility_m`: fails closed until a visibility provider is available
+- `constraints.max_precipitation_mm_h`: fails closed until a precipitation provider is available
 - `constraints.min_distance_to_landing_zone_m`: maximum landing-zone distance
 - `constraints.min_obstacle_clearance_m`: horizontal and vertical separation buffer around configured obstacles
 - `constraints.min_terrain_clearance_m`: minimum sampled terrain clearance when a terrain provider is configured
@@ -30,6 +39,8 @@ Top-level mission fields:
 - `assets.wind_grid_file`: offline spatiotemporal wind grid file loaded by the CLI as a 4D wind provider
 - `estimation`: persisted estimator settings
 - `link_systems`: deterministic communication-link systems
+- `airspace`: SORA 2.5 Air Risk descriptor used by the `sora` command
+- `sora`: SORA 2.5 footprint evidence and ground-risk mitigation declarations
 
 Route item fields:
 
@@ -65,7 +76,7 @@ Identity and class:
 
 - `vehicle_id`
 - `vehicle_class`
-- `characteristic_dimension_m`: maximum span or rotor-tip diameter used with `assets.population_grid_file` to compute intrinsic Ground Risk Class
+- `characteristic_dimension_m`: wingspan for fixed-wing, rotor blade diameter for a rotorcraft, or maximum distance between blade tips for a multicopter; used with `assets.population_grid_file` and maximum possible commanded speed to compute iGRC
 - `capabilities.hover`
 - `capabilities.forward_flight`
 
@@ -79,6 +90,7 @@ Performance:
 - `performance.turn_radius_m`
 - `performance.max_crab_angle_deg`
 - `performance.max_station_keep_wind_mps`
+- `performance.max_wind_mps`: emits an advisory warning that blocks operational GO in every output format
 
 Energy:
 
@@ -96,6 +108,12 @@ Energy:
 Mass:
 
 - `mass.operating_mass_kg`
+
+Failsafe thresholds:
+
+- `failsafe.low_battery_warn_percent`
+- `failsafe.low_battery_abort_percent`
+- `failsafe.emergency_land_percent`
 
 Resource systems:
 
@@ -174,7 +192,6 @@ Mission:
 
 - `mission_id`
 - `defaults.hover_speed_mps`
-- `constraints.max_wind_mps`
 - `assets.comms_coverage_file`
 - `policy.lost_link_policy`
 - `link_systems[].coverage_asset_ref`
@@ -192,10 +209,8 @@ Vehicle:
 - `mass.empty_kg`
 - `mass.max_payload_kg`
 - `mass.max_takeoff_kg`
-- `performance.max_wind_mps`
 - `resource_systems[].delivery`
 - `resource_systems[].metadata`
-- `failsafe.*`
 - `sitl.*` (ignored by the deterministic estimator; the `sitl` CLI may copy
   these fields into `sitl-evidence.v1` simulator metadata)
 - `metadata`
@@ -241,16 +256,28 @@ Scenario wind changes:
   elapsed time supersede earlier ones.
 - Route-item wind-change triggers are resolved deterministically against the
   scenario timeline and re-estimated until the schedule is stable.
+- Transit, emergency-return, and landing-zone divert calculations split their
+  integration exactly at known wind-change boundaries. Custom time-dependent
+  providers that do not expose change times are solved with a bounded
+  convergence loop and fail closed when no stable travel time exists.
+- Weather checks sample every leg, including zero-horizontal-distance vertical
+  legs, at the endpoints, known wind-change boundaries, and at intervals no
+  longer than 60 seconds. A later wind increase during a long loiter is not
+  hidden by a calm initial sample.
 
 Runtime precedence:
 
-- Runtime `EstimationOptions` take precedence over mission `estimation`.
+- Runtime `EstimationOptions` merge with mission `estimation` field by field;
+  each non-null runtime field takes precedence and omitted runtime fields inherit
+  the mission value.
 - CLI `--wind-layer` provides an explicit `LayeredWindProvider`.
 - Scenario `initial_conditions` override mission `estimation` for scenario runs.
 - The `scenario` CLI loads mission asset wind grids when the scenario leaves
   initial wind unset. Explicit scenario scalar wind or `wind_layers` take
   precedence over the mission wind-grid asset.
-- If runtime options are used while mission `wind_layers` are present and no explicit wind provider is supplied, result metadata records `mission_wind_layers_ignored=true`.
+- Mission `wind_layers` remain active when runtime options change only fidelity,
+  minimum groundspeed, or segmentation. Setting either runtime scalar wind
+  component explicitly replaces the layered provider with a constant provider.
 
 ## Fidelity Semantics
 
@@ -266,11 +293,27 @@ Fidelity v2:
 
 - opt-in through Python API, CLI, mission YAML, or scenario YAML
 - injects `TURN_ARC` legs at waypoint heading changes of at least 1 degree
-- turn arc path distance is `turn_radius_m * abs(delta_heading_rad)`, which is the exact Dubins solution for a same-position heading change; the arc has zero net displacement
-- subtracts the tangent-point offset (`turn_radius_m * tan(|Δθ|/2)`) from `path_distance_m` of both transit legs adjacent to each turn arc; offsets are clamped to zero so no leg reports a negative path distance
-- total path distance in fidelity v2 equals the sum of trimmed transit-leg distances plus all turn-arc lengths, which matches the true Dubins-path length through the waypoints
+- replaces each feasible corner with a connected circular fillet whose entry and
+  exit are tangent to the adjacent transit tracks; the arc has non-zero chord
+  displacement and a sampled path geometry
+- trims the adjacent transit legs to those tangent points and recomputes their
+  geodesic distance, time, and wind samples
+- rejects a corner with `INVALID_GEOMETRY` when the tangent offsets do not fit on
+  both adjacent legs; offsets are never silently clamped
+- evaluates wind and geofences along the sampled arc as well as the straight
+  transit portions
 - fixed-wing `loiter_time` is modeled as circular loiter
 - hover-capable vehicles continue to use station-keep loiter
+- hover station-keep authority and fixed-wing orbit feasibility are checked for
+  the full loiter dwell. A fixed-wing orbit fails when the wind triangle has no
+  solution, the worst-case orbit groundspeed is below the configured minimum,
+  or the required crab angle exceeds the vehicle limit.
+
+Setting fidelity v2 does not by itself sub-segment straight transit legs. Set
+`estimation.max_segment_length_m`, scenario
+`initial_conditions.max_segment_length_m`, runtime
+`EstimationOptions.max_segment_length_m`, or CLI `--max-segment-length-m` when
+that sampling is required. The same option applies in fidelity v1.
 
 Vertical legs (takeoff and landing-transit) in all fidelity modes:
 
@@ -285,17 +328,23 @@ Result metadata field `estimator_version` records the actual fidelity used:
 - Mission reserve override comes from `constraints.min_landing_reserve_percent`.
 - Vehicle default reserve comes from `energy.reserve_percent_default`.
 - `climb_power_w` and `descent_power_w` fall back to `cruise_power_w` when omitted.
+- A route leg with positive vertical displacement uses climb power; one with
+  negative vertical displacement uses descent power, including combined
+  horizontal/vertical legs.
 - `hover_power_w` is required for hover-capable loiter dwell.
 - Fixed-wing circular loiter in fidelity v2 uses `cruise_power_w`.
 - When `mass.operating_mass_kg` and `energy.reference_mass_kg` are both set,
-  hover and climb power scale by
+  hover, climb, and descent power scale by
   `(operating_mass_kg / reference_mass_kg) ^ induced_power_mass_exponent`.
-  Cruise, turn-arc, fixed-wing loiter, RTL transit, and descent power use the
-  same mass ratio with a milder `0.5` exponent.
-- When `energy.reference_density_kgm3` is set, phase power is multiplied by
-  `reference_density_kgm3 / ISA_density(leg_midpoint_altitude_amsl_m)`, so
-  lower-density high-altitude air increases estimated power. The density model
-  is deterministic ISA troposphere logic and performs no live weather lookup.
+  Cruise, turn-arc, fixed-wing loiter, and horizontal RTL transit use the same
+  mass ratio with a milder `0.5` exponent.
+- When `energy.reference_density_kgm3` is set, induced-power phases (hover,
+  climb, and descent) scale by the square root of
+  `reference_density_kgm3 / ISA_density(leg_midpoint_altitude_amsl_m)`.
+  Cruise-like phases conservatively use the larger of that ratio and its
+  inverse because a single calibrated cruise number cannot separate parasite
+  and induced power. The density model is deterministic ISA troposphere logic
+  and performs no live weather lookup.
 - `energy.usable_capacity_curve` maps state of charge to usable-capacity
   fraction. Estimator v1 applies the full-charge usable fraction as a capacity
   derating to `result.energy.usable_energy_wh`; the reserve threshold remains
@@ -303,13 +352,28 @@ Result metadata field `estimator_version` records the actual fidelity used:
 - These mass, density, and SoC scalings are physically motivated closed-form
   adjustments. They are not a substitute for vehicle-specific log calibration.
 - Return-to-home reserve is evaluated at each route leg endpoint against
-  `mission.planned_home`. Distance is straight-line geodesic; energy uses
-  cruise TAS and the same mass/density-adjusted cruise power as route legs.
+  `mission.planned_home`. When heading and turn radius are available, distance
+  follows a materialized Dubins turn-and-straight path; otherwise it is the
+  direct geodesic. The path is spatially sampled and its wind-triangle time is
+  integrated using the active wind provider. Energy uses that time and the same
+  mass/density-adjusted cruise power as route legs. Impossible wind, crab-angle,
+  minimum-groundspeed, or path-geometry cases fail closed.
+- Return-to-home energy also includes the terminal climb or descent from the
+  route endpoint altitude to `planned_home.altitude_amsl_m`, using the resolved
+  vertical rate and climb/descent power (or its documented cruise-power
+  fallback). Wind changes that occur during the return affect all subsequent
+  return segments.
 - `result.energy.rth_reserve_timeline[].reserve_margin_wh` is
   `energy_remaining_before_rth_wh - rth_energy_wh - reserve_threshold_wh`.
-- `result.rth_is_feasible` is `True` only when every RTH timeline point has a
-  non-negative reserve margin. It is informational and does not by itself make
-  the estimate status infeasible.
+- Without explicit resource systems, `result.rth_is_feasible` is `True` only
+  when every battery RTH timeline point has a non-negative reserve margin. With
+  a selected onboard or hybrid resource it reflects that resource's capacity,
+  reserve, and residual RTH demand. It is `true` for selected continuous
+  external power after route constraints and RTH peak-power demand pass; a
+  battery reserve margin is not applicable. RTH reserve gates estimate
+  feasibility by default; setting `constraints.require_rth_reserve: false`
+  disables that estimator gate only for explicitly non-operational engineering
+  analysis.
 - Energy infeasibility does not make distance/time totals partial.
 - When `vehicle.resource_systems` is configured, `result.energy` remains the
   legacy battery-only energy view and may report `is_feasible=false` while
@@ -328,12 +392,16 @@ Result metadata field `estimator_version` records the actual fidelity used:
   `priority`, then lexicographically lowest `resource_id`.
 - `onboard_battery` uses `battery_capacity_wh` and `reserve_percent` when set;
   otherwise it uses the legacy `vehicle.energy` capacity and mission/vehicle
-  reserve threshold.
+  reserve threshold. Its reserve check includes the energy needed to return home
+  from every route state.
 - `external_power` uses `continuous_power_w` as an effectively continuous supply
   and enforces `max_route_distance_m`, `max_route_time_s`, and
-  `max_tether_length_m` when set.
+  `max_tether_length_m` when set. Its power check includes the peak cruise power
+  required by the RTH contingency, but it does not inherit a superseded base
+  battery reserve failure.
 - `hybrid` uses `continuous_power_w` first and charges only residual per-leg
-  power demand above that supply against the onboard battery capacity.
+  power demand above that supply against the onboard battery capacity. The same
+  residual-demand calculation is applied to every RTH timeline point.
 - `fuel`, `hydrogen`, and `other` are accepted extension points but currently
   produce an unsupported resource-feasibility diagnostic when configured.
 - `max_tether_length_m` is checked against the maximum horizontal distance from
@@ -389,11 +457,27 @@ Result metadata field `estimator_version` records the actual fidelity used:
 - Relative landing-zone paths resolve from the mission file directory.
 - GeoJSON coordinates are interpreted in `[lon, lat]` order.
 - Supported geometries are `Point`, `Polygon`, and `MultiPolygon`.
-- Reachability is evaluated at deterministic route leg end states.
-- Divert energy uses resolved cruise TAS and the same mass/density-adjusted
-  cruise power as route legs; distance uses Dubins path when entry heading and
-  turn radius are available, otherwise straight-line geodesic.
-- Landing-zone v1 does not evaluate terrain, obstacles, dynamic availability, suitability scoring, weather scoring, comms dependency, or landing-zone altitude.
+- `properties.altitude_amsl_m` gives the landing-surface elevation. When it is
+  absent, the configured terrain provider must cover the selected landing
+  point; otherwise reachability fails closed with `TERRAIN_COVERAGE_MISSING`.
+- Reachability is checked at route endpoints and deterministic interior samples.
+  The maximum sample spacing is 50 metres unless a smaller configured spatial
+  segment length applies. The half-gap around each sample is included in the
+  maximum-distance test so a long uncovered interval cannot pass merely because
+  both endpoints are close to different zones.
+- Divert distance follows a materialized Dubins turn-and-straight path when
+  entry heading and turn radius are available, otherwise the direct geodesic.
+  Travel time is wind-triangle integrated across spatial samples and known
+  time-varying wind changes. Impossible wind, crab-angle, minimum-groundspeed,
+  or path-geometry cases fail closed.
+- Divert energy includes the horizontal path plus terminal climb/descent to the
+  landing-surface altitude, with the same mass/density power adjustments and
+  reserve threshold used by route and RTH energy.
+- Scenario `landing_zone_unavailable` events apply from their resolved route
+  state onward and are evaluated at every interior state for that route leg.
+- Landing-zone reachability does not score surface suitability, obstacles,
+  weather at the landing surface, or communications dependency. Those remain
+  separate operational inputs/checks.
 
 ## Obstacle Clearance Semantics
 
@@ -420,6 +504,42 @@ Result metadata field `estimator_version` records the actual fidelity used:
   partial.
 - Core execution performs no live obstacle lookups. Operator-provided obstacle
   data quality, freshness, and height reference are outside the estimator.
+
+## Ground-Risk and SORA Footprint Semantics
+
+- `estimate --format ground-risk` can produce a centerline diagnostic without
+  a declared SORA footprint. That result is not sufficient for the operational
+  `sora` command.
+- SORA 2.5 requires `sora.ground_risk_footprint` with a non-blank operator
+  derivation. Step 8 containment is calculated separately; no confirmation
+  checkbox can substitute for that calculation.
+- `operational_volume_margin_m` is the lateral distance from the modeled route
+  to the outer contingency volume. `ground_risk_buffer_m` is the additional
+  Ground Risk Buffer; population is assessed across their sum.
+- `maximum_height_agl_m` is the declared maximum AGL height of the assessed
+  operational and contingency volume. The SORA command independently resolves
+  route/terrain AGL and requires this value to cover the route maximum plus the
+  positive `vertical_contingency_margin_m`.
+- `airspace.max_altitude_agl_m` must cover the declared maximum height. Under
+  `buffer_method: initial_1_to_1`,
+  `ground_risk_buffer_m` must also be at least `maximum_height_agl_m`.
+- Step 8 derives a 5–35 km adjacent-area limit, operational population/assembly
+  limits, and required containment robustness from Tables 8–13. Medium/high
+  outcomes require a referenced Step 2 GRC re-evaluation. Annex E compliance is
+  always explicitly `not_assessed`.
+- `sora` requires `population-grid.v2` conservative-cell evidence with source,
+  year, native/effective resolution, validity dates, assessor reference, and a
+  transient-population/assemblies assessment. Legacy and WorldPop point-sampled
+  grids remain diagnostic only.
+- `airspace` must cite a whole operational-and-contingency-volume assessment and
+  explicitly declare that its fields describe the worst case across both
+  volumes. ARC-a atypical/segregated and entirely-above-FL600 booleans are
+  rejected until authority and pressure-altitude evidence workflows exist.
+- Only SORA version `2.5` is supported. M1(A/B/C) and M2 declarations are
+  reserved, but every applied declaration is rejected until Annex B integrity
+  and assurance criteria can be evaluated; free-text evidence earns no credit.
+  The former M3 ERP treatment is not a ground-credit input, and a tactical
+  mitigation claim does not reduce residual ARC.
 
 ## Divert Routing Semantics
 
@@ -491,7 +611,10 @@ Parameter distributions (each may be `null` to hold the parameter at its determi
 - `parameters.cruise_power_w.kind` / `mean` / `std` / `low` / `high`
 - `parameters.battery_capacity_wh.kind` / `mean` / `std` / `low` / `high`
 
-Supported distribution kinds: `normal` (requires `mean` and `std > 0`), `uniform` (requires `low < high`).
+Supported distribution kinds: `normal` (requires `mean` and `std > 0`) and
+`uniform` (requires `low < high`). Normal distributions are supported only for
+wind components; positive physical quantities require a bounded uniform with
+`low > 0`.
 
 ## Monte Carlo Sampling Semantics
 
@@ -502,9 +625,62 @@ Supported distribution kinds: `normal` (requires `mean` and `std > 0`), `uniform
 - Terrain, obstacles, geofences, and landing zones are used unchanged across all samples.
 - The baseline estimate is computed once before sampling with unmodified mission, vehicle, and wind provider.
 - Sampling is deterministic for a given `seed`, `samples`, and parameter configuration.
-- `feasibility_rate` is the fraction of completed samples where `energy.is_feasible` is `True`. It is `None` when no completed sample produced an energy estimate.
+- `operational_feasibility_assessed` is always `false`; this is a diagnostic
+  parameter sweep.
+- `modeled_constraint_pass_rate` is modeled-pass samples divided by evaluated
+  samples; failed executions are excluded. It is not an operational or landing
+  probability.
+- `sample_count` equals `modeled_pass_sample_count + infeasible_sample_count +
+  failed_sample_count`.
+- `total_time_s`, `reserve_at_mission_end_wh`, and
+  `reserve_at_mission_end_percent` are conditioned on modeled-pass samples.
+
+## Diagnostic Stochastic Propagation Semantics
+
+`stochastic.v2` / `stochastic-envelope.v2` is an open-loop diagnostic
+parameter sweep, not an operational-feasibility assessment:
+
+- `operational_feasibility_assessed` is always `false`.
+- `modeled_constraint_pass_rate` is the fraction of evaluated samples whose
+  independent deterministic estimator run passed the constraints supplied to
+  that run. Failed samples are excluded from its denominator.
+- `sample_count + infeasible_sample_count + failed_sample_count` equals the
+  requested sample count. `spatial_infeasible_count` is a subset of
+  `infeasible_sample_count` and must not be added again.
+- `timeline`, `conditional_reserve_violation_rate`, and
+  `reserve_at_mission_end_wh` include modeled-pass samples only. Every timeline
+  point reports `contributing_sample_count` to make that conditioning explicit.
+- Every modeled-pass sample uses its own estimated leg sequence and duration.
+  Geographic interpolation is geodesic, and aggregate position uses a
+  spherical centroid so antimeridian crossings do not average toward 0°.
+  `route_position_centroid_*` is a reference-route proxy, not simulated flown
+  position.
+- `wind_process_noise_std_mps` must be `0.0`. A vehicle with a `controller`
+  profile is rejected. Neither the former passive-drift wind approximation nor
+  the former closed-loop path model is accepted as safety evidence.
+- Normal distributions remain supported for signed wind components. Positive
+  physical parameters require a bounded uniform distribution with `low > 0`;
+  draws are never clipped to an invented floor.
 
 ## Output Format Semantics
+
+`estimator-envelope.v9` and `scenario-report.v3` include a structured
+`operational_readiness` verdict. `GO` requires present and feasible energy,
+geofence, landing-zone, resource, link, obstacle, and weather results; a
+selected resource and link; feasible RTH; ground risk at or below iGRC 7; and
+no estimator warning. Missing evidence fails closed.
+
+The field name describes readiness within this deterministic estimator surface.
+It does not assert regulatory approval, current NOTAM/traffic/Remote ID/U-space
+state, source-data freshness, aircraft qualification, held-out flight
+validation, or SITL/HITL conformance.
+
+This verdict controls the default process exit for `estimate`, `scenario`, and
+`batch` independently of rendering. JSON, Markdown, summary, checklist,
+profile, sensitivity, GeoJSON, KML, and batch CSV/per-run outputs do not change
+the gate. `--engineering-only` lets a computationally feasible/pass result exit
+success for non-operational analysis, but the structured readiness verdict is
+still emitted where the output contract supports it.
 
 ### `--format summary`
 
@@ -546,7 +722,7 @@ Energy color thresholds:
 - `red`: `energy_margin_pct < 10`
 
 RTH reserve color thresholds use the same percentage bands, computed from
-`reserve_margin_wh / battery_capacity_wh Ã— 100`.
+`reserve_margin_wh / battery_capacity_wh × 100`.
 
 Geofence, landing-zone, and obstacle layers are omitted when the corresponding asset is not configured in the mission.
 

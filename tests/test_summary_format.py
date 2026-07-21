@@ -1,3 +1,5 @@
+import pytest
+
 from estimator.core.enums import (
     AssertionOutcome,
     EstimateStatus,
@@ -6,7 +8,12 @@ from estimator.core.enums import (
     ScenarioStatus,
     WarningCode,
 )
-from estimator.core.results import EnergyEstimate, EstimatorFailure, EstimatorWarning, MissionEstimate
+from estimator.core.results import (
+    EnergyEstimate,
+    EstimatorFailure,
+    EstimatorWarning,
+    MissionEstimate,
+)
 from estimator.core.scenario import (
     CommsLinkPolicyOutcome,
     ScenarioAssertionResult,
@@ -29,7 +36,10 @@ from adapters.summary import (
     format_stochastic_summary,
     format_uncertainty_summary,
 )
-from adapters.uncertainty_envelope import UncertaintyProvenance, UncertaintyResultEnvelope
+from adapters.uncertainty_envelope import (
+    UncertaintyProvenance,
+    UncertaintyResultEnvelope,
+)
 from adapters.uncertainty_markdown import render_uncertainty_markdown
 
 
@@ -328,9 +338,9 @@ def test_scenario_summary_omits_warnings_field_when_no_warnings() -> None:
 # --- Stochastic summary format tests ---
 
 
-def _stats(mean: float = 850.0) -> SampledOutputStats:
+def _stats(mean: float = 850.0, *, count: int = 100) -> SampledOutputStats:
     return SampledOutputStats(
-        count=100,
+        count=count,
         mean=mean,
         std=20.0,
         min=mean - 60,
@@ -344,41 +354,55 @@ def _stats(mean: float = 850.0) -> SampledOutputStats:
 def _timeline_point() -> PropagationTimelinePoint:
     return PropagationTimelinePoint(
         elapsed_time_s=10.0,
-        lat_mean=52.0,
-        lon_mean=4.0,
+        route_position_centroid_lat_deg=52.0,
+        route_position_centroid_lon_deg=4.0,
         energy_remaining_wh=_stats(),
-        p_reserve_violation=0.0,
+        conditional_reserve_violation_rate=0.0,
+        contributing_sample_count=100,
     )
 
 
 def _stochastic_result(
     *,
     sample_count: int = 100,
+    infeasible_sample_count: int = 0,
     failed_sample_count: int = 0,
     spatial_infeasible_count: int = 0,
-    feasibility_rate: float = 1.0,
+    modeled_constraint_pass_rate: float | None = None,
     total_time_s: float = 169.0,
     reserve: SampledOutputStats | None = None,
 ) -> StochasticPropagationResult:
     baseline = _estimate(total_time_s=total_time_s)
+    evaluated = sample_count + infeasible_sample_count
+    pass_rate = (
+        modeled_constraint_pass_rate
+        if modeled_constraint_pass_rate is not None
+        else (sample_count / evaluated if evaluated else None)
+    )
     return StochasticPropagationResult(
         propagation_id="test",
         seed=42,
         dt_s=2.0,
+        requested_sample_count=(
+            sample_count + infeasible_sample_count + failed_sample_count
+        ),
         sample_count=sample_count,
+        infeasible_sample_count=infeasible_sample_count,
         failed_sample_count=failed_sample_count,
         spatial_infeasible_count=spatial_infeasible_count,
         timeline=[_timeline_point()],
-        reserve_at_landing_wh=reserve if reserve is not None else _stats(),
-        feasibility_rate=feasibility_rate,
+        reserve_at_mission_end_wh=reserve if reserve is not None else _stats(),
+        modeled_constraint_pass_rate=pass_rate,
         baseline=baseline,
     )
 
 
-def test_stochastic_summary_contains_feasibility_and_sample_count() -> None:
+def test_stochastic_summary_is_diagnostic_and_contains_sample_count() -> None:
     output = format_stochastic_summary(_stochastic_result())
 
-    assert "feasible 100%" in output
+    assert "DIAGNOSTIC" in output
+    assert "modeled_pass 100%" in output
+    assert "feasible" not in output.lower()
     assert "n=100" in output
     _assert_one_line(output)
 
@@ -410,13 +434,15 @@ def test_stochastic_summary_includes_spatial_infeasible_field_when_nonzero() -> 
     output = format_stochastic_summary(
         _stochastic_result(
             sample_count=0,
+            infeasible_sample_count=6,
             spatial_infeasible_count=6,
-            feasibility_rate=0.0,
+            modeled_constraint_pass_rate=0.0,
         )
     )
 
     assert "spatial_infeasible=6" in output
-    assert "feasible 0%" in output
+    assert "infeasible=6" in output
+    assert "modeled_pass 0%" in output
     _assert_one_line(output)
 
 
@@ -434,30 +460,33 @@ def test_stochastic_summary_includes_reserve_percentiles() -> None:
 
 def _mc_result(
     *,
-    completed: int = 200,
+    modeled_pass: int = 200,
+    infeasible: int = 0,
     failed: int = 0,
-    feasibility_rate: float = 1.0,
 ) -> MonteCarloResult:
     baseline = _estimate(total_time_s=169.0)
-    reserve = _stats(850.0)
+    reserve = _stats(850.0, count=modeled_pass) if modeled_pass else None
+    evaluated = modeled_pass + infeasible
     return MonteCarloResult(
         uncertainty_id="test",
         seed=42,
-        sample_count=completed + failed,
-        completed_sample_count=completed,
+        sample_count=modeled_pass + infeasible + failed,
+        modeled_pass_sample_count=modeled_pass,
+        infeasible_sample_count=infeasible,
         failed_sample_count=failed,
-        feasibility_rate=feasibility_rate,
+        modeled_constraint_pass_rate=(modeled_pass / evaluated if evaluated else None),
         total_time_s=reserve,
-        reserve_at_landing_wh=reserve,
-        reserve_at_landing_percent=None,
+        reserve_at_mission_end_wh=reserve,
+        reserve_at_mission_end_percent=None,
         baseline=baseline,
     )
 
 
-def test_uncertainty_summary_contains_feasibility_and_sample_count() -> None:
+def test_uncertainty_summary_contains_modeled_pass_and_sample_count() -> None:
     output = format_uncertainty_summary(_mc_result())
 
-    assert "feasible 100%" in output
+    assert "DIAGNOSTIC" in output
+    assert "modeled_pass 100%" in output
     assert "n=200" in output
     _assert_one_line(output)
 
@@ -470,7 +499,7 @@ def test_uncertainty_summary_omits_failed_field_when_zero() -> None:
 
 
 def test_uncertainty_summary_includes_failed_field_when_nonzero() -> None:
-    output = format_uncertainty_summary(_mc_result(completed=197, failed=3))
+    output = format_uncertainty_summary(_mc_result(modeled_pass=197, failed=3))
 
     assert "failed=3" in output
     _assert_one_line(output)
@@ -478,7 +507,7 @@ def test_uncertainty_summary_includes_failed_field_when_nonzero() -> None:
 
 def test_stochastic_summary_omits_reserve_when_none() -> None:
     result = _stochastic_result()
-    result = result.model_copy(update={"reserve_at_landing_wh": None})
+    result = result.model_copy(update={"reserve_at_mission_end_wh": None})
     output = format_stochastic_summary(result)
 
     assert "p5" not in output
@@ -493,19 +522,18 @@ def test_stochastic_summary_omits_time_field_when_total_time_zero() -> None:
     _assert_one_line(output)
 
 
-def test_uncertainty_summary_omits_feasibility_when_rate_none() -> None:
-    result = _mc_result()
-    result = result.model_copy(update={"feasibility_rate": None})
+def test_uncertainty_summary_omits_modeled_pass_when_rate_none() -> None:
+    result = _mc_result(modeled_pass=0, failed=200)
     output = format_uncertainty_summary(result)
 
-    assert "feasible" not in output
-    assert "n=200" in output
+    assert "modeled_pass" not in output
+    assert "n=0" in output
     _assert_one_line(output)
 
 
 def test_uncertainty_summary_omits_reserve_when_none() -> None:
     result = _mc_result()
-    result = result.model_copy(update={"reserve_at_landing_wh": None})
+    result = result.model_copy(update={"reserve_at_mission_end_wh": None})
     output = format_uncertainty_summary(result)
 
     assert "reserve" not in output
@@ -533,9 +561,9 @@ def _det_meta() -> DeterminismMetadata:
 
 def _uncertainty_envelope(result: MonteCarloResult) -> UncertaintyResultEnvelope:
     return UncertaintyResultEnvelope(
-        schema_version="uncertainty-report.v1",
+        schema_version="uncertainty-report.v2",
         tool_version="0.0.0",
-        uncertainty_schema_version="uncertainty.v1",
+        uncertainty_schema_version="uncertainty.v2",
         uncertainty_id=result.uncertainty_id,
         determinism_metadata=_det_meta(),
         provenance=UncertaintyProvenance(
@@ -550,11 +578,13 @@ def _uncertainty_envelope(result: MonteCarloResult) -> UncertaintyResultEnvelope
     )
 
 
-def _stochastic_envelope(result: StochasticPropagationResult) -> StochasticResultEnvelope:
+def _stochastic_envelope(
+    result: StochasticPropagationResult,
+) -> StochasticResultEnvelope:
     return StochasticResultEnvelope(
-        schema_version="stochastic-envelope.v1",
+        schema_version="stochastic-envelope.v2",
         tool_version="0.0.0",
-        stochastic_schema_version="stochastic.v1",
+        stochastic_schema_version="stochastic.v2",
         propagation_id=result.propagation_id,
         determinism_metadata=_det_meta(),
         provenance=StochasticProvenance(
@@ -571,29 +601,32 @@ def _stochastic_envelope(result: StochasticPropagationResult) -> StochasticResul
 
 def test_uncertainty_markdown_contains_title() -> None:
     output = render_uncertainty_markdown(_uncertainty_envelope(_mc_result()))
-    assert "# Uncertainty Report: test" in output
+    assert "# Diagnostic Uncertainty Parameter Sweep: test" in output
 
 
 def test_uncertainty_markdown_shows_failed_samples_when_nonzero() -> None:
-    output = render_uncertainty_markdown(_uncertainty_envelope(_mc_result(failed=5, completed=95)))
-    assert "failed" in output
+    output = render_uncertainty_markdown(
+        _uncertainty_envelope(_mc_result(failed=5, modeled_pass=95))
+    )
+    assert "**Failed Samples:** 5" in output
 
 
-def test_uncertainty_markdown_shows_na_when_feasibility_rate_none() -> None:
-    result = _mc_result()
-    result = result.model_copy(update={"feasibility_rate": None})
+def test_uncertainty_markdown_shows_na_when_modeled_pass_rate_none() -> None:
+    result = _mc_result(modeled_pass=0, failed=200)
     output = render_uncertainty_markdown(_uncertainty_envelope(result))
     assert "n/a" in output
 
 
 def test_uncertainty_markdown_shows_dashes_for_none_stats_row() -> None:
     result = _mc_result()
-    assert result.reserve_at_landing_percent is None
+    assert result.reserve_at_mission_end_percent is None
     output = render_uncertainty_markdown(_uncertainty_envelope(result))
     assert "—" in output
 
 
-def test_uncertainty_markdown_shows_energy_not_available_when_baseline_has_no_energy() -> None:
+def test_uncertainty_markdown_shows_energy_not_available_when_baseline_has_no_energy() -> (
+    None
+):
     result = _mc_result()
     assert result.baseline.energy is None
     output = render_uncertainty_markdown(_uncertainty_envelope(result))
@@ -607,7 +640,8 @@ def test_uncertainty_markdown_shows_energy_not_available_when_baseline_has_no_en
 
 def test_stochastic_markdown_contains_title() -> None:
     output = render_stochastic_markdown(_stochastic_envelope(_stochastic_result()))
-    assert "# Stochastic Propagation Report: test" in output
+    assert "# Diagnostic Stochastic Parameter Sweep: test" in output
+    assert "Operational Feasibility Assessed:** No" in output
 
 
 def test_stochastic_markdown_shows_failed_samples_when_nonzero() -> None:
@@ -626,9 +660,15 @@ def test_stochastic_markdown_omits_failed_samples_when_zero() -> None:
 
 def test_stochastic_markdown_shows_spatial_infeasible_when_nonzero() -> None:
     output = render_stochastic_markdown(
-        _stochastic_envelope(_stochastic_result(spatial_infeasible_count=2))
+        _stochastic_envelope(
+            _stochastic_result(
+                infeasible_sample_count=2,
+                spatial_infeasible_count=2,
+            )
+        )
     )
     assert "Spatially Infeasible" in output
+    assert "Infeasible Samples" in output
 
 
 def test_stochastic_markdown_shows_estimation_error_section_when_present() -> None:
@@ -643,7 +683,7 @@ def test_stochastic_markdown_shows_estimation_error_section_when_present() -> No
     assert "Estimation Error Timeline" in output
 
 
-def test_stochastic_markdown_shows_cross_track_section_when_present() -> None:
+def test_stochastic_v2_rejects_cross_track_timeline() -> None:
     cross_point = CrossTrackStats(
         elapsed_time_s=10.0,
         cross_track_error_m=_stats(mean=3.0),
@@ -652,15 +692,15 @@ def test_stochastic_markdown_shows_cross_track_section_when_present() -> None:
     )
     result = _stochastic_result()
     result = result.model_copy(update={"cross_track_timeline": [cross_point]})
-    output = render_stochastic_markdown(_stochastic_envelope(result))
-    assert "Cross-Track Timeline" in output
+    with pytest.raises(ValueError, match="cross_track_timeline must be empty"):
+        _stochastic_envelope(result)
 
 
 def test_stochastic_markdown_omits_reserve_section_when_none() -> None:
     result = _stochastic_result()
-    result = result.model_copy(update={"reserve_at_landing_wh": None})
+    result = result.model_copy(update={"reserve_at_mission_end_wh": None})
     output = render_stochastic_markdown(_stochastic_envelope(result))
-    assert "Reserve at Landing Distribution" not in output
+    assert "Conditional Reserve at Mission End" not in output
 
 
 def test_stochastic_markdown_baseline_with_energy_shows_reserve_values() -> None:
@@ -685,10 +725,11 @@ def test_stochastic_markdown_long_timeline_is_downsampled_to_at_most_20_rows() -
     points = [
         PropagationTimelinePoint(
             elapsed_time_s=float(i),
-            lat_mean=52.0,
-            lon_mean=4.0,
+            route_position_centroid_lat_deg=52.0,
+            route_position_centroid_lon_deg=4.0,
             energy_remaining_wh=_stats(),
-            p_reserve_violation=0.0,
+            conditional_reserve_violation_rate=0.0,
+            contributing_sample_count=100,
         )
         for i in range(25)
     ]
@@ -705,7 +746,12 @@ def test_stochastic_markdown_long_timeline_is_downsampled_to_at_most_20_rows() -
             continue
         if in_timeline and line.startswith("## "):
             break
-        if in_timeline and line.startswith("| ") and "Elapsed" not in line and "---" not in line:
+        if (
+            in_timeline
+            and line.startswith("| ")
+            and "Elapsed" not in line
+            and "---" not in line
+        ):
             timeline_data_rows.append(line)
     assert len(timeline_data_rows) <= 20
     # With 25 points and stride=2, we get 13 sampled rows

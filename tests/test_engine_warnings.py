@@ -1,6 +1,12 @@
 """Tests for engine-level advisory warnings: max_wind, failsafe thresholds, and route structure."""
 
-from estimator import EstimationOptions, GeofenceZone, LandingZone, WarningCode, estimate_mission_distance_time
+from estimator import (
+    EstimationOptions,
+    GeofenceZone,
+    LandingZone,
+    WarningCode,
+    estimate_mission_distance_time,
+)
 from schemas.mission import MissionPlan
 from tests.helpers import make_mission, make_vehicle
 
@@ -122,12 +128,13 @@ def test_route_actions_after_rtl_warning_emitted() -> None:
     assert WarningCode.ROUTE_ACTIONS_AFTER_RTL in codes
 
 
-def test_divert_energy_tas_only_warning_emitted_when_landing_zones_configured() -> None:
+def test_divert_energy_tas_only_warning_not_emitted_for_reachability() -> None:
     mission = make_mission()
     vehicle = make_vehicle()
     zone = LandingZone.model_validate(
         {
             "id": "lz",
+            "altitude_amsl_m": 12.0,
             "geometry": {"points": [{"lat": 52.001, "lon": 4.001}], "polygons": []},
         }
     )
@@ -135,7 +142,7 @@ def test_divert_energy_tas_only_warning_emitted_when_landing_zones_configured() 
     result = estimate_mission_distance_time(mission, vehicle, landing_zones=[zone])
 
     codes = {w.code for w in result.warnings}
-    assert WarningCode.DIVERT_ENERGY_TAS_ONLY in codes
+    assert WarningCode.DIVERT_ENERGY_TAS_ONLY not in codes
 
 
 def test_divert_energy_tas_only_warning_not_emitted_without_landing_zones() -> None:

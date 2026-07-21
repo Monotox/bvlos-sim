@@ -1,3 +1,4 @@
+schema_version: mission.v7
 mission_id: pipeline_demo_001_resource_link
 vehicle_profile: quadplane_resource_link
 

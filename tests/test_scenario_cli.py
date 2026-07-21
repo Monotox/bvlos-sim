@@ -5,7 +5,7 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from adapters.cli import app
+from adapters.cli import CliExitCode, app
 
 FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "golden" / "scenarios"
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -13,8 +13,11 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 runner = CliRunner()
 
 
-def _run(args: list[str]) -> object:
-    return runner.invoke(app, args)
+def _run(args: list[str], *, engineering_only: bool = True) -> object:
+    resolved = [*args]
+    if engineering_only:
+        resolved.append("--engineering-only")
+    return runner.invoke(app, resolved)
 
 
 # ---------------------------------------------------------------------------
@@ -26,6 +29,17 @@ def test_passing_scenario_exits_0() -> None:
     scenario_path = str(FIXTURE_ROOT / "passed" / "scenario.yaml")
     result = _run(["scenario", scenario_path])
     assert result.exit_code == 0
+
+
+def test_passing_scenario_defaults_to_fail_closed_operational_exit() -> None:
+    scenario_path = str(FIXTURE_ROOT / "passed" / "scenario.yaml")
+
+    result = _run(["scenario", scenario_path], engineering_only=False)
+
+    assert result.exit_code == int(CliExitCode.INFEASIBLE)
+    payload = json.loads(result.output)
+    assert payload["status"] == "passed"
+    assert payload["operational_readiness"]["verdict"] == "no_go"
 
 
 def test_failing_scenario_exits_10() -> None:
@@ -65,7 +79,7 @@ def test_json_format_is_default() -> None:
     scenario_path = str(FIXTURE_ROOT / "passed" / "scenario.yaml")
     result = _run(["scenario", scenario_path])
     payload = json.loads(result.output)
-    assert payload["schema_version"] == "scenario-report.v2"
+    assert payload["schema_version"] == "scenario-report.v3"
 
 
 def test_v2_example_scenario_runs_from_cli() -> None:
@@ -202,10 +216,13 @@ def test_kml_format_produces_kml_document() -> None:
 
 def test_checklist_format_produces_go_no_go_status() -> None:
     scenario_path = str(FIXTURE_ROOT / "passed" / "scenario.yaml")
-    result = _run(["scenario", scenario_path, "--format", "checklist"])
-    assert result.exit_code == 0
+    result = _run(
+        ["scenario", scenario_path, "--format", "checklist"],
+        engineering_only=False,
+    )
+    assert result.exit_code == int(CliExitCode.INFEASIBLE)
     assert "## Pre-Flight Checklist:" in result.output
-    assert "Status: GO" in result.output or "Status: NO-GO" in result.output
+    assert "Status: NO-GO" in result.output
 
 
 def test_profile_format_produces_altitude_table() -> None:

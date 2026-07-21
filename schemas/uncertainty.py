@@ -1,5 +1,6 @@
-"""Uncertainty plan schema for Monte Carlo sampling (uncertainty.v1)."""
+"""Diagnostic uncertainty-plan schema for Monte Carlo sampling (v2)."""
 
+import math
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -8,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 class NormalDistribution(BaseModel):
     """Sample from a normal (Gaussian) distribution."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
     kind: Literal["normal"]
     mean: float = Field(description="Distribution mean.")
@@ -18,7 +19,7 @@ class NormalDistribution(BaseModel):
 class UniformDistribution(BaseModel):
     """Sample uniformly from [low, high)."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
     kind: Literal["uniform"]
     low: float = Field(description="Lower bound (inclusive).")
@@ -44,20 +45,20 @@ class UncertaintyParameters(BaseModel):
     their deterministic values for every sample.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
     wind_east_mps: UncertaintyDistribution | None = Field(
         default=None,
         description=(
-            "East wind component distribution in m/s. Sampled values replace the mission "
-            "wind provider with a ConstantWindProvider for that sample."
+            "East wind component distribution in m/s. A sampled value overrides only "
+            "the east component; the deterministic provider still supplies north wind."
         ),
     )
     wind_north_mps: UncertaintyDistribution | None = Field(
         default=None,
         description=(
-            "North wind component distribution in m/s. Sampled values replace the mission "
-            "wind provider with a ConstantWindProvider for that sample."
+            "North wind component distribution in m/s. A sampled value overrides only "
+            "the north component; the deterministic provider still supplies east wind."
         ),
     )
     cruise_speed_mps: UncertaintyDistribution | None = Field(
@@ -97,16 +98,16 @@ class UncertaintyParameters(BaseModel):
 
 
 class UncertaintyPlan(BaseModel):
-    """Top-level uncertainty configuration for a Monte Carlo run.
+    """Top-level configuration for a diagnostic Monte Carlo parameter sweep.
 
     References existing mission and vehicle files. All other deterministic
     assets (terrain, wind-grid, geofences, landing zones) are loaded from
     the mission file's asset references by the CLI.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
-    schema_version: Literal["uncertainty.v1"] = Field(
+    schema_version: Literal["uncertainty.v2"] = Field(
         description="Schema version identifier."
     )
     uncertainty_id: str = Field(
@@ -115,10 +116,12 @@ class UncertaintyPlan(BaseModel):
         description="Stable identifier for this uncertainty run.",
     )
     mission_file: str = Field(
-        description="Path to the mission YAML file (relative to this file)."
+        min_length=1,
+        description="Path to the mission YAML file (relative to this file).",
     )
     vehicle_file: str = Field(
-        description="Path to the vehicle YAML file (relative to this file)."
+        min_length=1,
+        description="Path to the vehicle YAML file (relative to this file).",
     )
     samples: int = Field(
         ge=1,
@@ -129,3 +132,27 @@ class UncertaintyPlan(BaseModel):
     parameters: UncertaintyParameters = Field(
         description="Per-parameter uncertainty distributions."
     )
+
+    @model_validator(mode="after")
+    def validate_physical_parameter_support(self) -> "UncertaintyPlan":
+        """Require bounded positive support for positive physical quantities."""
+        for name in ("cruise_speed_mps", "cruise_power_w", "battery_capacity_wh"):
+            distribution = getattr(self.parameters, name)
+            if distribution is None:
+                continue
+            values = (
+                (distribution.mean, distribution.std)
+                if isinstance(distribution, NormalDistribution)
+                else (distribution.low, distribution.high)
+            )
+            if not all(math.isfinite(value) for value in values):
+                raise ValueError(f"parameters.{name} values must be finite")
+            if isinstance(distribution, NormalDistribution):
+                raise ValueError(
+                    f"parameters.{name} must use a bounded positive uniform "
+                    "distribution in uncertainty.v2; an untruncated normal has "
+                    "nonphysical negative support"
+                )
+            if distribution.low <= 0:
+                raise ValueError(f"parameters.{name}.low must be greater than 0")
+        return self

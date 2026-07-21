@@ -12,9 +12,7 @@ from adapters.preflight import check_file, emit_preflight, is_json_format
 from adapters.qgc_plan import load_and_convert_plan
 
 
-def _run_convert_preflight(
-    *, plan: Path, vehicle_profile: str, as_json: bool
-) -> None:
+def _run_convert_preflight(*, plan: Path, vehicle_profile: str, as_json: bool) -> None:
     """Validate and convert a .plan file in memory without writing output."""
     files = []
     text_lines = []
@@ -53,7 +51,9 @@ def convert(
             "Required."
         ),
     ),
-    output: Path | None = typer.Option(None, "--output", "-o", help="Write converted YAML to file instead of stdout."),
+    output: Path | None = typer.Option(
+        None, "--output", "-o", help="Write converted YAML to file instead of stdout."
+    ),
     validate_only: bool = typer.Option(
         False,
         "--validate-only",
@@ -68,7 +68,7 @@ def convert(
         help="Validate-only output: text (default) or json for a preflight-validation.v1 envelope.",
     ),
 ) -> None:
-    """Convert a QGroundControl .plan file to a mission.v6 YAML."""
+    """Convert a QGroundControl .plan file to a mission.v7 YAML."""
 
     if not vehicle_profile or not vehicle_profile.strip():
         typer.echo(
@@ -87,7 +87,9 @@ def convert(
         )
 
     try:
-        mission, diagnostics = load_and_convert_plan(plan, vehicle_profile=vehicle_profile.strip())
+        mission, diagnostics = load_and_convert_plan(
+            plan, vehicle_profile=vehicle_profile.strip()
+        )
         for diagnostic in diagnostics:
             typer.echo(
                 "Warning: item "

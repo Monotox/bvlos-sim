@@ -16,19 +16,31 @@ from adapters.envelope import (
 )
 from adapters.io import InputDocument, InputLoadError, InputLoadStage
 from estimator.core.enums import (
+    EnergyPowerSource,
     EstimateStatus,
     FailureCode,
+    LegPhase,
     ScenarioStatus,
     WarningCode,
 )
 from estimator.core.results import (
     EnergyEstimate,
+    EnergyLegEstimate,
     EstimatorWarning,
     GeofenceEstimate,
+    GroundRiskEstimate,
+    GroundRiskLegEstimate,
     LandingZoneEstimate,
     LandingZoneStateReachability,
+    LinkEstimate,
+    LinkSystemEstimate,
+    LegEstimate,
     MissionEstimate,
+    ObstacleEstimate,
+    ResourceEstimate,
+    ResourceSystemEstimate,
     RthReserveTimelinePoint,
+    WeatherEstimate,
 )
 from typer.testing import CliRunner
 
@@ -88,7 +100,9 @@ def _envelope(result: MissionEstimate | None = None) -> EstimatorResultEnvelope:
         result = _estimate()
     return build_estimator_envelope(
         result=result,
-        inputs=EnvelopeInputs(mission=_fake_doc("mission"), vehicle=_fake_doc("vehicle")),
+        inputs=EnvelopeInputs(
+            mission=_fake_doc("mission"), vehicle=_fake_doc("vehicle")
+        ),
     )
 
 
@@ -156,8 +170,7 @@ def _landing_zone(
         reachable_states = checked_states if is_feasible else max(0, checked_states - 1)
 
     states = [
-        _lz_state(i, reachable=i < reachable_states)
-        for i in range(checked_states)
+        _lz_state(i, reachable=i < reachable_states) for i in range(checked_states)
     ]
     return LandingZoneEstimate(
         is_feasible=is_feasible,
@@ -176,7 +189,9 @@ def _landing_zone(
 
 
 def test_checklist_header_contains_mission_id() -> None:
-    output = render_checklist_markdown(_envelope(_estimate()), mission_id="pipeline_survey_001")
+    output = render_checklist_markdown(
+        _envelope(_estimate()), mission_id="pipeline_survey_001"
+    )
     assert "## Pre-Flight Checklist: pipeline_survey_001" in output
 
 
@@ -186,13 +201,31 @@ def test_checklist_default_mission_id_shows_mission() -> None:
 
 
 def test_checklist_all_pass_shows_go() -> None:
-    result = _estimate(
-        energy=_energy(),
-        geofence=_geofence(),
-        landing_zone=_landing_zone(),
-    )
+    result = _complete_estimate()
     output = render_checklist_markdown(_envelope(result))
     assert "Status: GO" in output
+
+
+def test_checklist_error_status_cannot_go_without_failure_object() -> None:
+    result = _complete_estimate().model_copy(
+        update={"status": EstimateStatus.ERROR, "failure": None}
+    )
+    output = render_checklist_markdown(_envelope(result))
+    assert "Status: NO-GO" in output
+
+
+def test_checklist_partial_or_incomplete_coverage_cannot_go() -> None:
+    partial = _complete_estimate().model_copy(update={"totals_are_partial": True})
+    assert "Status: NO-GO" in render_checklist_markdown(_envelope(partial))
+
+    incomplete = _complete_estimate()
+    assert incomplete.geofence is not None
+    incomplete = incomplete.model_copy(
+        update={
+            "geofence": incomplete.geofence.model_copy(update={"checked_leg_count": 0})
+        }
+    )
+    assert "Status: NO-GO" in render_checklist_markdown(_envelope(incomplete))
 
 
 def test_checklist_energy_fail_shows_no_go() -> None:
@@ -210,7 +243,11 @@ def test_checklist_geofence_fail_shows_no_go() -> None:
 
 
 def test_checklist_landing_zone_fail_shows_no_go() -> None:
-    result = _estimate(landing_zone=_landing_zone(is_feasible=False, checked_states=5, reachable_states=4))
+    result = _estimate(
+        landing_zone=_landing_zone(
+            is_feasible=False, checked_states=5, reachable_states=4
+        )
+    )
     output = render_checklist_markdown(_envelope(result))
     assert "Status: NO-GO" in output
     assert "1/5" in output
@@ -234,8 +271,12 @@ def test_checklist_warnings_shows_count_and_code() -> None:
     result = _estimate(
         energy=_energy(),
         warnings=[
-            EstimatorWarning(code=WarningCode.MAX_WIND_EXCEEDED, message="wind too high"),
-            EstimatorWarning(code=WarningCode.LOITER_RADIUS_IGNORED, message="radius ignored"),
+            EstimatorWarning(
+                code=WarningCode.MAX_WIND_EXCEEDED, message="wind too high"
+            ),
+            EstimatorWarning(
+                code=WarningCode.LOITER_RADIUS_IGNORED, message="radius ignored"
+            ),
         ],
     )
     output = render_checklist_markdown(_envelope(result))
@@ -254,6 +295,31 @@ def test_checklist_many_warnings_truncated() -> None:
     )
     output = render_checklist_markdown(_envelope(result))
     assert "+ 3 more" in output
+
+
+def test_checklist_warning_blocks_go() -> None:
+    result = _complete_estimate(
+        warnings=[
+            EstimatorWarning(
+                code=WarningCode.MAX_WIND_EXCEEDED,
+                message="wind limit evidence is incomplete",
+            )
+        ]
+    )
+
+    output = render_checklist_markdown(_envelope(result))
+
+    assert "Status: NO-GO" in output
+
+
+def test_checklist_missing_operational_evidence_blocks_go() -> None:
+    result = _complete_estimate().model_copy(update={"link": None})
+
+    output = render_checklist_markdown(_envelope(result))
+
+    assert "Link availability" in output
+    assert "N/A" in output
+    assert "Status: NO-GO" in output
 
 
 def test_checklist_no_result_shows_no_go() -> None:
@@ -296,7 +362,129 @@ def _rth_point(leg_index: int, *, feasible: bool) -> RthReserveTimelinePoint:
     )
 
 
-def test_checklist_rth_feasible_shows_advisory_info() -> None:
+def _complete_estimate(
+    *,
+    energy: EnergyEstimate | None = None,
+    rth_is_feasible: bool = True,
+    warnings: list[EstimatorWarning] | None = None,
+) -> MissionEstimate:
+    leg = LegEstimate(
+        leg_index=0,
+        route_item_index=0,
+        route_item_id="wp-1",
+        action="waypoint",
+        phase=LegPhase.TRANSIT,
+        start_lat=52.0,
+        start_lon=4.0,
+        start_alt_amsl_m=100.0,
+        end_lat=52.001,
+        end_lon=4.001,
+        end_alt_amsl_m=100.0,
+        horizontal_distance_m=1000.0,
+        vertical_delta_m=0.0,
+        vertical_distance_m=0.0,
+        path_distance_m=1000.0,
+        time_s=1200.0,
+    )
+    energy_leg = EnergyLegEstimate(
+        leg_index=0,
+        route_item_index=0,
+        route_item_id="wp-1",
+        phase=LegPhase.TRANSIT,
+        time_s=1200.0,
+        power_w=500.0,
+        power_source=EnergyPowerSource.CRUISE_POWER,
+        energy_wh=500.0,
+    )
+    resolved_energy = energy or _energy().model_copy(
+        update={
+            "legs": [energy_leg],
+            "rth_reserve_timeline": [_rth_point(0, feasible=True)],
+        }
+    )
+    if not resolved_energy.legs:
+        resolved_energy = resolved_energy.model_copy(update={"legs": [energy_leg]})
+    return _estimate(
+        energy=resolved_energy,
+        geofence=_geofence().model_copy(update={"checked_leg_count": 1}),
+        landing_zone=_landing_zone(),
+        warnings=warnings,
+    ).model_copy(
+        update={
+            "legs": [leg],
+            "rth_is_feasible": rth_is_feasible,
+            "resource": ResourceEstimate(
+                is_feasible=True,
+                selected_resource_id="battery",
+                total_demand_wh=500.0,
+                peak_power_w=800.0,
+                route_distance_m=1_100.0,
+                route_time_s=1_200.0,
+                max_observed_home_distance_m=500.0,
+                systems=[
+                    ResourceSystemEstimate(
+                        resource_id="battery",
+                        kind="battery",
+                        priority=0,
+                        is_feasible=True,
+                        demand_energy_wh=500.0,
+                        available_energy_wh=900.0,
+                        reserve_threshold_wh=200.0,
+                        reserve_after_resource_wh=250.0,
+                        peak_power_w=800.0,
+                        route_distance_m=1_100.0,
+                        route_time_s=1_200.0,
+                        max_observed_home_distance_m=500.0,
+                    )
+                ],
+            ),
+            "link": LinkEstimate(
+                is_feasible=True,
+                selected_link_id="primary",
+                required_link_count=1,
+                available_link_count=1,
+                max_observed_range_m=500.0,
+                systems=[
+                    LinkSystemEstimate(
+                        link_id="primary",
+                        kind="direct",
+                        required=True,
+                        priority=0,
+                        is_feasible=True,
+                        availability="available",
+                        max_observed_range_m=500.0,
+                    )
+                ],
+            ),
+            "obstacle": ObstacleEstimate(
+                is_feasible=True,
+                checked_obstacle_count=1,
+                checked_leg_count=1,
+            ),
+            "weather": WeatherEstimate(
+                is_feasible=True,
+                checked_leg_count=1,
+                worst_wind_speed_mps=5.0,
+            ),
+            "ground_risk": GroundRiskEstimate(
+                characteristic_dimension_m=2.0,
+                max_speed_mps=25.0,
+                sora_version="2.5",
+                mission_igrc=3,
+                legs=[
+                    GroundRiskLegEstimate(
+                        leg_index=0,
+                        route_item_id="wp-1",
+                        max_density_ppl_km2=12.0,
+                        igrc=3,
+                    )
+                ],
+            ),
+        }
+    )
+
+
+def test_checklist_rth_feasible_is_a_required_pass() -> None:
     energy = _energy().model_copy(
         update={
             "rth_reserve_timeline": [
@@ -305,12 +493,48 @@ def test_checklist_rth_feasible_shows_advisory_info() -> None:
             ]
         }
     )
-    result = _estimate(energy=energy).model_copy(update={"rth_is_feasible": True})
+    result = _complete_estimate(energy=energy)
     output = render_checklist_markdown(_envelope(result))
-    assert "RTH reserve (advisory)" in output
-    assert "INFO" in output
+    assert "RTH reserve (advisory)" not in output
+    assert "RTH reserve" in output
+    assert "PASS" in output
     assert "all 2 leg(s)" in output
-    # Advisory RTH must not flip an otherwise-feasible mission to NO-GO.
+    assert "Status: GO" in output
+
+
+def test_checklist_external_power_reports_rth_feasibility() -> None:
+    result = _complete_estimate().model_copy(
+        update={
+            "resource": ResourceEstimate(
+                is_feasible=True,
+                selected_resource_id="fiber-power",
+                total_demand_wh=500.0,
+                peak_power_w=800.0,
+                route_distance_m=1_100.0,
+                route_time_s=1_200.0,
+                max_observed_home_distance_m=500.0,
+                systems=[
+                    ResourceSystemEstimate(
+                        resource_id="fiber-power",
+                        kind="external_power",
+                        priority=0,
+                        is_feasible=True,
+                        demand_energy_wh=500.0,
+                        peak_power_w=800.0,
+                        available_power_w=2_000.0,
+                        route_distance_m=1_100.0,
+                        route_time_s=1_200.0,
+                        max_observed_home_distance_m=500.0,
+                    )
+                ],
+            )
+        }
+    )
+
+    output = render_checklist_markdown(_envelope(result))
+
+    assert "RTH feasibility" in output
+    assert "external resource covers RTH peak power" in output
     assert "Status: GO" in output
 
 
@@ -323,12 +547,40 @@ def test_checklist_rth_infeasible_shows_first_failing_leg() -> None:
             ]
         }
     )
-    result = _estimate(energy=energy).model_copy(update={"rth_is_feasible": False})
+    result = _complete_estimate(energy=energy, rth_is_feasible=False)
     output = render_checklist_markdown(_envelope(result))
-    assert "RTH reserve (advisory)" in output
+    assert "RTH reserve (advisory)" not in output
     assert "first at leg 1" in output
-    # Still advisory: does not gate GO/NO-GO.
-    assert "Status: GO" in output
+    assert "Status: NO-GO" in output
+
+
+def test_checklist_rth_infeasible_without_timeline_details_fails_closed() -> None:
+    energy = _energy().model_copy(update={"rth_reserve_timeline": []})
+    result = _complete_estimate(energy=energy, rth_is_feasible=False)
+
+    output = render_checklist_markdown(_envelope(result))
+
+    assert "details unavailable" in output
+    assert "Status: NO-GO" in output
+
+
+def test_checklist_optional_unavailable_links_cannot_go() -> None:
+    result = _complete_estimate().model_copy(
+        update={
+            "link": LinkEstimate(
+                is_feasible=True,
+                selected_link_id=None,
+                required_link_count=0,
+                available_link_count=0,
+                max_observed_range_m=500.0,
+            )
+        }
+    )
+
+    output = render_checklist_markdown(_envelope(result))
+
+    assert "no configured link is available" in output
+    assert "Status: NO-GO" in output
 
 
 def test_checklist_rth_gate_failure_blocks_go() -> None:
@@ -340,10 +592,7 @@ def test_checklist_rth_gate_failure_blocks_go() -> None:
             ]
         }
     )
-    result = _estimate(
-        energy=energy,
-        metadata={"require_rth_reserve": True},
-    ).model_copy(update={"rth_is_feasible": False})
+    result = _complete_estimate(energy=energy, rth_is_feasible=False)
 
     output = render_checklist_markdown(_envelope(result))
 
@@ -362,10 +611,7 @@ def test_checklist_rth_gate_feasible_passes_without_blocking_go() -> None:
             ]
         }
     )
-    result = _estimate(
-        energy=energy,
-        metadata={"require_rth_reserve": True},
-    ).model_copy(update={"rth_is_feasible": True})
+    result = _complete_estimate(energy=energy)
 
     output = render_checklist_markdown(_envelope(result))
 
@@ -400,7 +646,7 @@ def test_checklist_from_scenario_uses_scenario_id() -> None:
         status=ScenarioStatus.PASSED,
         assertion_results=[],
         event_outcomes=[],
-        estimate=_estimate(energy=_energy()),
+        estimate=_complete_estimate(),
     )
     envelope = build_scenario_envelope(
         result=result,
@@ -418,7 +664,7 @@ def test_checklist_from_scenario_uses_scenario_id() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_estimate_checklist_format_exits_zero_on_feasible_mission() -> None:
+def test_estimate_checklist_fails_closed_without_required_evidence() -> None:
     result = _runner.invoke(
         app,
         [
@@ -429,9 +675,9 @@ def test_estimate_checklist_format_exits_zero_on_feasible_mission() -> None:
             "checklist",
         ],
     )
-    assert result.exit_code == int(CliExitCode.SUCCESS)
+    assert result.exit_code == int(CliExitCode.INFEASIBLE)
     assert "## Pre-Flight Checklist:" in result.output
-    assert "Status: GO" in result.output
+    assert "Status: NO-GO" in result.output
 
 
 def test_estimate_checklist_format_shows_no_go_for_infeasible_mission() -> None:

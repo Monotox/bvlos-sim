@@ -26,7 +26,7 @@ next and why.
 | Correctness fixes | 062, 065 | Wind-triangle divert correction, stochastic spatial infeasibility tracking |
 | Documentation | 096 | MkDocs Material site published to GitHub Pages, auto-built from `main` |
 | Release tooling | 098 | `bump` command (semver bump + changelog roll + `--check` drift guard); version-agnostic golden fixtures |
-| Calibration & validation | 080, 081, 082, 083 | `flight-trace.v1` ingestion, `phase-segments.v1` segmentation, `validation-report.v1` predicted-vs-observed metrics via the `validate` command, `calibration-profile.v1` parameter fitting via the `calibrate` command |
+| Calibration & validation | 080, 081, 082, 083 | `flight-trace.v1` ingestion, `phase-segments.v1` segmentation, `validation-report.v2` predicted-vs-observed metrics and acceptance gate via the `validate` command, `calibration-profile.v1` parameter fitting via the `calibrate` command |
 
 Full feature list: [`docs/tickets/README.md` implemented section](#implemented-tickets) · Test coverage: `uv run pytest`
 
@@ -105,7 +105,7 @@ reports) remains.
 | 082 | [Predicted vs. observed validation metrics](./082-predicted-vs-observed-validation-metrics.md) | implemented |
 | 083 | [Calibration profile data & fitting](./083-calibration-profile-data-and-fitting.md) | implemented |
 | 084 | [Holdout validation reports](./084-holdout-validation-reports.md) | planned |
-| 102 | [Binary flight-log ingestion (.bin, ULog)](./102-binary-flight-log-ingestion.md) | planned |
+| 102 | [Binary flight-log ingestion (.bin, ULog)](./102-binary-flight-log-ingestion.md) | implemented |
 
 ---
 
@@ -128,7 +128,7 @@ what tests are expected.
 
 Every new ticket must compose through the existing surfaces:
 
-- YAML schemas: `mission.v6`, `vehicle.v4`, `scenario.v1`, `uncertainty.v1`, `stochastic.v1`, `batch.v1`
+- YAML schemas: `mission.v7`, `vehicle.v4`, `scenario.v1`, `uncertainty.v2`, `stochastic.v2`, `batch.v1`
 - Examples: `examples/missions/`, `examples/vehicles/`, `examples/scenarios/`
 - CLI commands: `estimate`, `scenario`, `sample`, `propagate`, `batch`, `convert`, `export`, `sitl`, `compare`, `size-battery`, `sora`
 - Output contracts: canonical JSON envelopes, Markdown reports, golden fixtures
@@ -150,7 +150,7 @@ New capabilities should work *with* existing pieces, not alongside them in isola
 6. [012](./012-static-landing-zone-reachability.md) Static landing-zone reachability
 7. [020](./020-scenario-runner-core.md) Scenario runner core
 8. [021](./021-comms-link-and-contingency-policies.md) Comms link and contingency policies
-9. [030](./030-fidelity-v2-layered-wind-and-subsegments.md) Fidelity v2 — layered wind and sub-segments
+9. [030](./030-fidelity-v2-layered-wind-and-subsegments.md) Fidelity controls plus independent layered wind and sub-segments
 10. [031](./031-fidelity-v2-turns-and-fixed-wing-loiter.md) Fidelity v2 — turns and fixed-wing loiter
 11. [032](./032-terrain-referenced-altitude-execution.md) Terrain-referenced altitude execution
 12. [033](./033-continuous-spatiotemporal-wind-grid.md) Continuous spatiotemporal wind grid
@@ -192,7 +192,7 @@ New capabilities should work *with* existing pieces, not alongside them in isola
 48. [096](./096-docs-github-pages.md) Documentation site on GitHub Pages
 49. [099](./099-energy-model-fidelity.md) Energy-model fidelity
 50. [100](./100-obstacle-database-and-clearance.md) Obstacle database and vertical clearance checks
-51. [101](./101-sora-mitigation-depth.md) SORA mitigation depth — M1–M3 and tactical air-risk reduction
+51. [101](./101-sora-mitigation-depth.md) SORA 2.5 mitigation depth (original M1–M3/tactical-credit design superseded)
 52. [097](./097-rth-reserve-feasibility-gate.md) Opt-in RTH reserve feasibility gate
 53. [061](./061-3d-geofence-altitude-bounds.md) 3D geofence altitude bounds
 54. [080](./080-flight-log-ingestion-and-trace-normalization.md) Flight log ingestion and trace normalization

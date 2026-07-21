@@ -1,5 +1,9 @@
 # Ticket 049: Stochastic Closed-Loop Control
 
+> Safety status: disabled in `stochastic.v2`. Vehicles containing a
+> `controller` profile are rejected by `propagate`; the prototype behavior and
+> acceptance claims below are retained only as historical design notes.
+
 ## Goal
 
 Close the full physical loop of the simulation by adding an autopilot tracking

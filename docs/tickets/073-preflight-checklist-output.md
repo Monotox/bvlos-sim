@@ -1,13 +1,22 @@
 # Ticket 073: Pre-Flight Go/No-Go Checklist Output
 
-## Goal
+## Status
+
+Implemented, then hardened into renderer-independent operational readiness.
+The checklist is now a human-readable view of the same verdict used by JSON,
+Markdown, summary, profile, sensitivity, GeoJSON, KML, scenario, and batch
+execution. Missing evidence and any warning fail closed; `--engineering-only`
+is the explicit non-operational opt-out. The original checklist proposal below
+is retained as historical context.
+
+## Original Goal
 
 Add a `--format checklist` output mode to the `estimate` and `scenario`
 commands that emits a structured, human-readable go/no-go checklist mapping
 every feasibility result to a pass/fail line item. Drone operators review this
 output in a terminal or paste it into a flight brief instead of parsing JSON.
 
-## Motivation
+## Historical Motivation
 
 A drone operator running a pre-flight estimate wants to know four things in
 under 30 seconds:
@@ -51,7 +60,7 @@ Status: NO-GO
 The final `Status: GO / NO-GO` line makes the output machine-parseable
 (`grep "^Status:"`) while remaining human-readable.
 
-## Output Specification
+## Historical Output Specification
 
 One Markdown document with two sections.
 
@@ -104,7 +113,7 @@ Status: NO-GO
 `Advisory warnings` to be empty or contain only `WARN`-level items.
 Any `FAIL` → `NO-GO`.
 
-## Implementation
+## Original Implementation Plan
 
 ### 1 — `adapters/checklist_markdown.py` (new)
 
@@ -144,7 +153,7 @@ estimator. No changes to core, schemas, or golden fixtures. Works with both
 `estimate` and `scenario` commands because the scenario envelope embeds the
 same `MissionEstimate`.
 
-## Acceptance Criteria
+## Original Acceptance Criteria
 
 - `estimate --format checklist` exits 0 on the success fixture.
 - Output contains `Status: GO` for the success fixture.

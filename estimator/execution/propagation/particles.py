@@ -1,35 +1,28 @@
 """Particle track and population dataclasses for stochastic propagation."""
 
-import math
-import random
 from dataclasses import dataclass
 
-from estimator.core.results import LegEstimate, MissionEstimate
+from estimator.core.results import MissionEstimate
 from estimator.execution.propagator_ekf import EstimatedStateTracker
-from estimator.execution.tracking_controller import ControllerState
 from estimator.execution.propagation.curves import EnergyDrainCurve
-from schemas.vehicle_controller import ControllerProfile
+from estimator.execution.propagation.curves import PositionInterpolator
 from schemas.vehicle_sensors import SensorProfile
 
 
 @dataclass(slots=True)
 class ParticleTrack:
     battery_capacity_wh: float
+    reserve_threshold_wh: float
     energy_curve: EnergyDrainCurve
-    wind_east_mps: float
-    wind_north_mps: float
+    position: PositionInterpolator
     estimated_state: EstimatedStateTracker | None = None
-    controller_state: ControllerState | None = None
 
     @classmethod
     def from_estimate(
         cls,
         *,
         estimate: MissionEstimate,
-        wind_east_mps: float,
-        wind_north_mps: float,
         sensors: SensorProfile | None,
-        controller: ControllerProfile | None,
     ) -> "ParticleTrack | None":
         if estimate.energy is None:
             return None
@@ -49,17 +42,16 @@ class ParticleTrack:
                 sensors=sensors,
             )
 
-        controller_state = None
-        if controller is not None and sensors is not None:
-            controller_state = ControllerState(true_lat=init_lat, true_lon=init_lon)
-
         return cls(
             battery_capacity_wh=estimate.energy.battery_capacity_wh,
+            reserve_threshold_wh=estimate.energy.reserve_threshold_wh,
             energy_curve=energy_curve,
-            wind_east_mps=wind_east_mps,
-            wind_north_mps=wind_north_mps,
+            position=PositionInterpolator(
+                legs=estimate.legs,
+                fallback_lat=init_lat,
+                fallback_lon=init_lon,
+            ),
             estimated_state=estimated_state,
-            controller_state=controller_state,
         )
 
     @property
@@ -74,32 +66,15 @@ class ParticleTrack:
         nominal = self.battery_capacity_wh - self.energy_curve.energy_consumed_at(
             elapsed_time_s
         )
-        extra = (
-            self.controller_state.extra_energy_consumed_wh
-            if self.controller_state is not None
-            else 0.0
-        )
-        return max(0.0, nominal - extra)
-
-    def advance_wind(
-        self,
-        *,
-        rng: random.Random,
-        step_width_s: float,
-        wind_process_noise_std_mps: float,
-    ) -> None:
-        if step_width_s <= 0.0 or wind_process_noise_std_mps == 0.0:
-            return
-        std = wind_process_noise_std_mps * math.sqrt(step_width_s)
-        self.wind_east_mps += rng.gauss(0.0, std)
-        self.wind_north_mps += rng.gauss(0.0, std)
+        return min(self.battery_capacity_wh, max(0.0, nominal))
 
 
 @dataclass(frozen=True, slots=True)
 class ParticlePopulation:
     particles: tuple[ParticleTrack, ...]
-    position_legs: list[LegEstimate]
+    infeasible_sample_count: int = 0
     spatial_infeasible_count: int = 0
+    failed_sample_count: int = 0
 
     @property
     def final_remaining_values(self) -> list[float]:

@@ -1,4 +1,4 @@
-"""QGroundControl .plan JSON to mission.v6 YAML converter."""
+"""QGroundControl .plan JSON to mission.v7 YAML converter."""
 
 import json
 from collections import defaultdict
@@ -6,6 +6,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
+
+from schemas.mission import MISSION_SCHEMA_VERSION
 
 JsonObject = dict[str, object]
 RouteItemDict = dict[str, object]
@@ -74,7 +76,9 @@ class _QgcItem:
 
 
 # JSON primitive helpers — used across all parsing layers
-CommandHandler = Callable[[_QgcItem, RouteCounters], tuple[RouteItemDict | None, str | None]]
+CommandHandler = Callable[
+    [_QgcItem, RouteCounters], tuple[RouteItemDict | None, str | None]
+]
 
 
 def _mapping(value: object) -> JsonObject | None:
@@ -219,7 +223,7 @@ _ItemHandler = Callable[[_QgcItem], tuple[RouteItemDict | None, str | None]]
 
 
 class _RouteConverter:
-    """Converts parsed _QgcItem instances into mission.v6 route items."""
+    """Converts parsed _QgcItem instances into mission.v7 route items."""
 
     def __init__(self) -> None:
         self._counters: RouteCounters = defaultdict(int)
@@ -255,7 +259,9 @@ class _RouteConverter:
             item.update(fields)
         return item
 
-    def _convert_takeoff(self, item: _QgcItem) -> tuple[RouteItemDict | None, str | None]:
+    def _convert_takeoff(
+        self, item: _QgcItem
+    ) -> tuple[RouteItemDict | None, str | None]:
         altitude_m = (
             item.coordinate.altitude_m
             if item.coordinate is not None
@@ -267,17 +273,25 @@ class _RouteConverter:
         if item.command == _MAV_CMD_NAV_TAKEOFF:
             warning = (
                 "MAV_CMD_NAV_TAKEOFF (22) normalised to vtol_takeoff; "
-                "fixed-wing-only takeoff is not a separate action in mission.v6. "
+                "fixed-wing-only takeoff is not a separate action in mission.v7. "
                 "Review vehicle_class after converting."
             )
-        return self._route_item(action="vtol_takeoff", fields={"altitude_m": altitude_m}), warning
+        return self._route_item(
+            action="vtol_takeoff", fields={"altitude_m": altitude_m}
+        ), warning
 
-    def _convert_waypoint(self, item: _QgcItem) -> tuple[RouteItemDict | None, str | None]:
+    def _convert_waypoint(
+        self, item: _QgcItem
+    ) -> tuple[RouteItemDict | None, str | None]:
         if item.coordinate is None:
             return None, "waypoint coordinate missing or invalid"
-        return self._route_item(action="waypoint", fields=item.coordinate.route_fields()), None
+        return self._route_item(
+            action="waypoint", fields=item.coordinate.route_fields()
+        ), None
 
-    def _convert_loiter(self, item: _QgcItem) -> tuple[RouteItemDict | None, str | None]:
+    def _convert_loiter(
+        self, item: _QgcItem
+    ) -> tuple[RouteItemDict | None, str | None]:
         if item.coordinate is None:
             return None, "loiter coordinate missing or invalid"
         loiter_time_s = _QgcItemParser.param_value(item.params, 0)
@@ -298,7 +312,9 @@ class _RouteConverter:
     def _convert_land(self, item: _QgcItem) -> tuple[RouteItemDict | None, str | None]:
         if item.coordinate is None:
             return None, "land coordinate missing or invalid"
-        return self._route_item(action="land", fields=item.coordinate.route_fields()), None
+        return self._route_item(
+            action="land", fields=item.coordinate.route_fields()
+        ), None
 
     def _convert_item(
         self, item: _QgcItem
@@ -364,7 +380,7 @@ class _RouteConverter:
 
 
 class _MissionAssembler:
-    """Builds the final mission.v6 dict from parsed plan components."""
+    """Builds the final mission.v7 dict from parsed plan components."""
 
     @staticmethod
     def altitude_reference(items: list[object]) -> str:
@@ -382,7 +398,9 @@ class _MissionAssembler:
 
     @staticmethod
     def planned_home(mission: JsonObject) -> dict[str, float]:
-        planned_home = _QgcItemParser.coordinate_from_raw(mission.get("plannedHomePosition"))
+        planned_home = _QgcItemParser.coordinate_from_raw(
+            mission.get("plannedHomePosition")
+        )
         if planned_home is None:
             raise ValueError("plannedHomePosition missing or invalid in .plan mission")
         return planned_home.planned_home_fields()
@@ -410,6 +428,7 @@ class _MissionAssembler:
         route: list[RouteItemDict],
     ) -> JsonObject:
         return {
+            "schema_version": MISSION_SCHEMA_VERSION,
             "mission_id": mission_id,
             "vehicle_profile": vehicle_profile,
             "planned_home": _MissionAssembler.planned_home(mission),
@@ -425,7 +444,7 @@ def parse_qgc_plan(
     *,
     vehicle_profile: str,
 ) -> tuple[dict[str, object], list[ConvertDiagnostic]]:
-    """Parse a decoded QGC .plan dict and return a mission.v6 dict + diagnostics.
+    """Parse a decoded QGC .plan dict and return a mission.v7 dict + diagnostics.
 
     The returned mission dict has no policy or assets. The caller is responsible
     for filling operational values before use.

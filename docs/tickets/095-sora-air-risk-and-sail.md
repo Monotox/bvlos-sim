@@ -2,7 +2,10 @@
 
 ## Status
 
-Implemented.
+Implemented and hardened for the SORA 2.5-only `mission.v7` contract. The
+command rejects incomplete footprint/airspace evidence, unsupported ARC-a and
+above-FL600 shortcuts, and every applied ground-risk mitigation until the
+necessary evidence evaluators exist.
 
 ## Goal
 
@@ -43,29 +46,37 @@ airspace descriptor:
 ```yaml
 airspace:
   class: "G"                       # ICAO airspace class at operational altitude
-  max_altitude_agl_m: 120.0        # operational ceiling above ground
-  near_aerodrome: false            # within an aerodrome traffic zone
-  atypical_or_segregated: false    # e.g. active danger area, segregated volume
+  max_altitude_agl_m: 120.0        # worst-case whole-volume ceiling above ground
+  operational_and_contingency_volume_assessment_reference: "AS-014 rev 2"
+  worst_case_arc_declared: true
+  aerodrome_environment: false     # explicit SORA Annex I whole-volume assessment
+  atypical_or_segregated: false    # true unsupported pending authority evidence
+  over_urban_area: false           # required for low uncontrolled airspace
+  transponder_mandatory_zone: false # Mode-C veil or TMZ
+  entirely_above_flight_level_600: false # true unsupported pending pressure-altitude evidence
 ```
 
-The initial ARC is assigned by a deterministic rule set based on these inputs,
-following the SORA airspace encounter categorisation. If the descriptor is
-absent, ARC is not computed and a `AIRSPACE_DESCRIPTOR_MISSING` advisory is
-emitted.
+The initial ARC is assigned by a deterministic rule set based on worst-case
+conditions across the whole operational and contingency volume. A non-blank
+assessment reference and explicit worst-case declaration are mandatory.
+ARC-a from an atypical/segregated boolean and the above-FL600 shortcut are
+rejected until authority and pressure-altitude evidence workflows exist.
 
-### Strategic mitigation (optional)
+### Strategic and tactical mitigation boundary
 
-A `strategic_mitigation` flag may lower the ARC by one band where the SORA
-methodology permits (e.g. operating in an atypical/segregated volume). Tactical
-mitigation is out of scope (it is an operational, not a planning-time, property).
+Residual ARC currently equals initial ARC. A boolean `strategic_mitigation`
+claim is rejected because a reduction requires local encounter-rate evidence.
+Tactical mitigations satisfy the TMPR derived from residual ARC and do not
+lower that ARC; a bare tactical-credit declaration is likewise rejected.
 
 ### SAIL determination
 
 - Read the final GRC from the ground-risk computation (Ticket 094).
 - Read the residual ARC from the airspace rule set.
 - Look up SAIL via the SORA GRC × ARC matrix.
-- Emit the SAIL and the list of applicable OSOs at their required robustness for
-  that SAIL (a static table from the SORA annex).
+- Emit all 17 Table 14 OSO rows for the selected SAIL, including `NR` rows, an
+  explicit required flag, note references, and operator/training-organisation/
+  designer dependencies with criterion references.
 
 ### New `sora` command
 
@@ -88,7 +99,7 @@ Final Ground Risk Class (GRC):      4   (no mitigations applied)
 Air Risk Class (ARC):               b
 SAIL:                               III
 
-Applicable OSOs at SAIL III: OSO#01 (M), OSO#03 (M), ...
+Table 14 OSOs at SAIL III: OSO#01 (M, required), OSO#04 (NR), ...
 ```
 
 ### New schema, enum, and module additions
@@ -96,12 +107,12 @@ Applicable OSOs at SAIL III: OSO#01 (M), OSO#03 (M), ...
 | File | Change |
 |---|---|
 | `schemas/mission.py` | Add optional `airspace` descriptor block |
-| `schemas/sora.py` | New `sora-assessment.v1` output schema |
+| `schemas/sora.py` | SORA requirements output schema (now `sora-assessment.v3`) |
 | `estimator/execution/air_risk.py` | ARC rule set |
 | `estimator/execution/sail.py` | GRC × ARC → SAIL + OSO table |
 | `adapters/commands/sora.py` | New `sora` command |
 | `adapters/sora_markdown.py` | SORA report renderer |
-| `adapters/sora_envelope.py` | `sora-assessment.v1` JSON envelope |
+| `adapters/sora_envelope.py` | `sora-assessment.v3` in `sora-envelope.v3` JSON |
 | `adapters/cli.py` | Register `sora` command |
 | `tests/test_air_risk.py` | ARC rule-set tests |
 | `tests/test_sail.py` | SAIL matrix tests |
@@ -126,14 +137,15 @@ Applicable OSOs at SAIL III: OSO#01 (M), OSO#03 (M), ...
 
 ## Acceptance criteria
 
-1. `bvlos-sim sora mission.yaml vehicle.yaml` with a populated population grid,
-   characteristic dimension, and airspace descriptor produces a SAIL value.
+1. `bvlos-sim sora mission.yaml vehicle.yaml` with complete population
+   coverage, characteristic dimension, maximum speed, airspace descriptor, and
+   explicit SORA 2.5 ground-risk footprint produces a SAIL value.
 2. A class-G, low-altitude, no-aerodrome operation yields a low ARC; a
    near-aerodrome operation yields a higher ARC, matching the SORA airspace
    categorisation.
 3. The GRC × ARC → SAIL lookup is unit-tested at every matrix cell.
-4. A mission missing the airspace descriptor emits `AIRSPACE_DESCRIPTOR_MISSING`
-   and reports GRC only, without a SAIL.
+4. A mission missing the airspace descriptor or assessed ground-risk footprint
+   is rejected as invalid rather than producing a partial operational SAIL.
 5. The `--format markdown` report lists the applicable OSOs for the determined
    SAIL.
 6. The report carries the non-certification disclaimer.

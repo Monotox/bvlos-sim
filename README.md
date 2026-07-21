@@ -15,23 +15,29 @@ $ bvlos-sim estimate alpine_mission.yaml quadplane_v1.yaml --format checklist
 
 ## Pre-Flight Checklist: alpine_demo_001
 
-✓ Energy feasibility        PASS   reserve 605.78 Wh above threshold (830.78 Wh at landing, 225.00 Wh threshold)
+✓ Energy feasibility        PASS   reserve 573.05 Wh above threshold (798.05 Wh at landing, 225.00 Wh threshold)
 ✓ Geofence clearance        PASS   0 conflicts across 0 zone(s)
 ✓ Landing-zone coverage     PASS   reachable zone found at all 4 checked state(s)
 ◌ Resource availability     N/A    not evaluated
 ◌ Link availability         N/A    not evaluated
+◌ Obstacle clearance        N/A    not evaluated
+✓ Weather limits            PASS   worst wind 0.00 m/s at leg 1 (wp_ridge)
+✓ RTH reserve               PASS   reserve intact for RTH from all 4 leg(s)
+◌ Ground risk class         N/A    not evaluated
   Advisory warnings         1      DIVERT_ENERGY_TAS_ONLY
 
-Status: GO
+Status: NO-GO
 
 $ bvlos-sim estimate alpine_infeasible.yaml small_battery.yaml --format summary
-INFEASIBLE   reserve −25.7 %   flight 7m 55s   [RESERVE_BELOW_THRESHOLD]
+INFEASIBLE   reserve −179.7 %   flight 7m 55s   RTH infeasible   [INSUFFICIENT_ENERGY]
 
 $ bvlos-sim sample wind_uncertainty.yaml --format summary
 feasible 100%   reserve p5 823.9 Wh   p50 858.2 Wh   p95 903.3 Wh   time p50 2m 50s   n=200
 ```
 
 JSON envelopes, one-line go/no-go summaries, and GeoJSON/KML exports that open in QGroundControl, QGIS, and Google Earth.
+The checklist is deliberately fail-closed: unevaluated evidence, warnings, or a
+failed RTH/risk check cannot produce `GO`.
 
 ## Quick Start
 
@@ -68,10 +74,15 @@ This writes `terrain.yaml`, `wind_grid.yaml`, and `landing_zones.geojson` and
 prints the `assets:` block to paste into your mission YAML. See
 [`examples/real_world/README.md`](./examples/real_world/README.md) for details.
 
+Mission files must declare `schema_version: mission.v7`. Legacy unversioned or
+`mission.v6` files are rejected by normal commands; upgrade them first with
+`bvlos-sim migrate MISSION.yaml --dry-run`, then rerun without `--dry-run` (use
+`--backup` for an in-place backup).
+
 <details>
 <summary>More commands</summary>
 
-Run with fidelity v2 (turn arcs, sub-segment wind sampling):
+Run with fidelity v2 (turn arcs and fixed-wing circular loiter):
 
 ```bash
 uv run bvlos-sim estimate \
@@ -79,6 +90,10 @@ uv run bvlos-sim estimate \
   examples/vehicles/quadplane_v1.yaml \
   --fidelity v2
 ```
+
+Straight-leg sub-segment wind sampling is a separate control: set mission
+`estimation.max_segment_length_m` or pass `--max-segment-length-m`; selecting
+fidelity v2 alone does not enable it.
 
 Run a scenario (lost-link injection and policy assertions):
 
@@ -148,18 +163,20 @@ Full usage details are in [docs/USAGE.md](./docs/USAGE.md).
 
 - `estimate`: deterministic mission estimation and static feasibility checks
 - `scenario`: deterministic scenario events and assertions
-- `convert`: convert a QGroundControl `.plan` file to a `mission.v6` YAML
+- `convert`: convert a QGroundControl `.plan` file to a `mission.v7` YAML
+- `migrate`: upgrade legacy `mission.v6` YAML/JSON to `mission.v7`
 - `batch`: batch mission estimates from a manifest file
 - `sample`: seeded Monte Carlo uncertainty sampling
 - `propagate`: time-stepped stochastic state propagation with EKF and tracking controller
 - `sitl`: build a contract-only or live SITL evidence bundle
 - `compare`: compare a SITL evidence bundle against deterministic scenario expectations
-- `sora`: SORA Ground Risk, Air Risk, and SAIL pre-assessment
+- `sora`: evidence-gated SORA 2.5 GRC, ARC, SAIL, and containment pre-assessment
+- `ingest-log`: normalize ArduPilot `.log`/`.bin` or PX4 `.ulg` controller logs
 - `validate`: compare a predicted mission estimate against an observed flight trace
 - `calibrate`: fit a calibration profile from a base vehicle and observed flight traces
 
-`compare` exits `0` for a passing comparison and `10` for drifted, failed, or
-unsupported comparison summaries.
+`compare` exits `0` for a passing comparison, `10` for drifted or failed
+comparisons, and `12` when the requested comparison is unsupported.
 
 ## What You Can Do
 
@@ -170,8 +187,13 @@ unsupported comparison summaries.
 - **Geofence** — spatial intersection against real GeoJSON polygons for every route leg, with optional AMSL `floor_m`/`ceiling_m` altitude bounds for forbidden and required zones.
 - **Landing zones** — confirms at least one suitable landing point is within transit range.
 - **Resource and link** — models battery, tethered, and hybrid power; direct, cellular, satellite, and hybrid failover link architectures.
-- **Ground risk** — computes SORA-style iGRC pre-assessment from an offline population-density grid and vehicle characteristic dimension.
-- **SORA pre-assessment** — derives Air Risk Class and SAIL, then applies declared mitigations (M1/M2/M3 ground-risk credits and tactical air-risk reduction) to report the final GRC, residual ARC, and mitigated SAIL with the applicable OSOs.
+- **Ground risk** — computes SORA 2.5 iGRC from conservative population evidence,
+  the assessed operational footprint, and the vehicle's maximum characteristic
+  dimension and speed.
+- **SORA pre-assessment** — reports unmitigated SORA 2.5 GRC, ARC, SAIL, TMPR,
+  and Step 8 containment requirements. The result is explicitly incomplete:
+  Annex B mitigation credit, Annex E OSO compliance, and Annex F containment
+  evidence are not verified by the tool.
 
 ### Environmental data
 
@@ -181,15 +203,21 @@ Fetch scripts pull real data into bvlos-sim's YAML asset format:
 - `fetch_terrain.py` — SRTM tiles for any bounding box.
 - `fetch_landing_zones.py` — Overpass API helipads and aerodromes.
 - `fetch_geofences.py` — OpenAIP static airspace polygons with Overpass fallback.
-- `fetch_population.py` — WorldPop population-density samples for SORA iGRC pre-assessment.
+- `fetch_population.py` — WorldPop point samples for exploratory diagnostics;
+  these samples are not acceptable as operational SORA population evidence.
 - `fetch_all.py` — terrain, wind, and landing zones in a single command.
 
 A pre-fetched Alpine example (Lucerne/Zug area) runs offline with no network calls.
 
 ### Uncertainty and risk
 
-- **`sample`** — seeded Monte Carlo draws over wind, cruise speed, cruise power, and battery capacity; reports p5/p50/p95 reserve-at-landing against the deterministic baseline.
-- **`propagate`** — time-stepped particle propagator emitting per-step `p_reserve_violation` so you see where mid-flight energy risk peaks, not only the landing value. A twin-state EKF carries true physics state and the autopilot's estimated state separately; a cross-track controller converts estimation error into actual deviation and secondary energy burn.
+- **`sample`** — seeded diagnostic draws over wind, cruise speed, cruise power,
+  and battery capacity; reports conditional mission-end energy and time
+  distributions for modeled-pass samples.
+- **`propagate`** — time-stepped open-loop diagnostic propagation with independent
+  sample timing, conditional reserve-violation rates, and optional sensor/EKF
+  estimation-error traces. Process-wind and closed-loop controller propagation
+  fail closed until validated physical models are available.
 
 ### Contingency planning
 
@@ -198,8 +226,9 @@ A pre-fetched Alpine example (Lucerne/Zug area) runs offline with no network cal
 ### Validation against real flights
 
 `bvlos-sim validate MISSION.yaml VEHICLE.yaml TRACE.json` compares a predicted
-mission estimate against an observed flight. A real ArduPilot DataFlash log is
-ingested into a normalized trace, segmented into flight phases, and lined up
+mission estimate against an observed flight. ArduPilot DataFlash text/binary and
+PX4 ULog files can be ingested into a normalized trace, segmented into flight
+phases, and lined up
 against the estimator's legs on shared phase keys. The report gives
 predicted-vs-observed time, horizontal distance, mean groundspeed, and reserve
 at landing — at both mission and per-phase level, each with absolute and percent
@@ -216,9 +245,22 @@ and a no-op when omitted. Held-out validation is the remaining step on the
 
 ### Output formats
 
-All commands emit versioned JSON envelopes (`estimator-envelope.v7`,
-`scenario-report.v2`, `uncertainty-report.v1`, `stochastic-envelope.v1`,
-`validation-report.v1`) and optional Markdown reports.
+All commands emit versioned JSON envelopes (`estimator-envelope.v9`,
+`scenario-report.v3`, `uncertainty-report.v2`, `stochastic-envelope.v2`,
+`validation-report.v2`) and optional Markdown reports.
+
+`estimate`, `scenario`, and `batch` evaluate the same fail-closed operational
+readiness gate regardless of output format. A computational result may still be
+written, but the process exits `10` unless every evidence category represented
+by that estimator gate is present and passes.
+Use `--engineering-only` only when you deliberately need computational
+feasibility without an operational `GO`; JSON still records the structured
+`operational_readiness` verdict.
+
+That verdict is a deterministic planning/preflight gate, not flight
+authorization or a complete safety case. It does not attest live NOTAM/traffic,
+Remote ID or U-space state, source-data freshness, aircraft qualification,
+held-out flight validation, SITL/HITL evidence, or regulatory acceptance.
 
 `estimate`, `scenario`, `sample`, and `propagate` support `--format summary` for a
 single-line terminal check:
@@ -233,10 +275,12 @@ route as map-ready layers: one LineString per leg, landing-zone points with reac
 markers, and geofence polygons with conflict flags. GeoJSON opens in QGroundControl and
 QGIS; KML opens in Google Earth.
 
-`estimate --format checklist` (and the same on `scenario`) renders a pre-flight go/no-go
-checklist with `✓`, `✗`, and `◌` icons per category (energy, geofence, landing zone,
-resource, link, warnings) and a final `Status: GO/NO-GO` line suitable for briefing notes
-or CI gates.
+`estimate --format checklist` (and the same on `scenario`) renders the shared
+pre-flight verdict with `✓`, `✗`, and `◌` icons per category and a final
+`Status: GO/NO-GO` line suitable for briefing notes or CI gates. `GO` requires
+every modeled readiness category to be present and pass; `N/A`, warnings, or a
+failed check produce `NO-GO`. The exit status is identical for JSON, Markdown,
+summary, checklist, profile, sensitivity, GeoJSON, and KML output.
 
 `estimate --format profile` (and the same on `scenario`) renders a per-leg altitude table
 with terrain elevation and clearance columns when a terrain provider is configured.
@@ -251,10 +295,11 @@ A spreadsheet applies one wind speed to a flat total distance and checks whether
 energy number stays positive. bvlos-sim applies a wind-triangle correction to every transit
 leg using a spatiotemporal forecast grid, resolves terrain elevation per leg from SRTM, and
 performs geometric intersection between your route and actual GeoJSON airspace polygons.
-The result: `reserve_at_landing_wh` with a p5/p95 envelope from seeded Monte Carlo draws, a
+The result: a conditional mission-end energy p5/p95 envelope from seeded diagnostic draws, a
 per-assertion scenario report showing whether your RTL policy leaves the aircraft with
 positive reserve after a Dubins-constrained divert, and a per-step reserve-violation
-probability from the particle propagator. Two YAML files, no Python.
+rate conditioned on modeled-pass particles. These uncertainty outputs are
+diagnostics, not operational probabilities. Two YAML files, no Python.
 
 ## Scope & limitations
 
@@ -301,6 +346,9 @@ work, and the [roadmap](./docs/ROADMAP.md) for known limitations.
 
 - [Versioning policy](./docs/VERSIONING_POLICY.md)
   Public contract surfaces, compatibility rules, and golden fixture expectations.
+
+- [Project knowledge graph](./docs/GRAPHIFY.md)
+  Graph-first architecture navigation, local setup, update checks, and artifact policy.
 
 - [SITL adapter contract](./docs/SITL_ADAPTER_CONTRACT.md)
   Evidence schema, CLI shape, and live-adapter dependency boundaries.

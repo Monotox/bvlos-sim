@@ -14,6 +14,7 @@ data into parameters. Parameters with no supporting samples are reported in
 from __future__ import annotations
 
 import math
+import json
 from dataclasses import dataclass
 from hashlib import sha256
 
@@ -93,7 +94,7 @@ def fit_calibration_profile(
             )
 
     trace_ids = sorted({item.trace.trace_id for item in inputs})
-    dataset_version = _dataset_version(trace_ids)
+    dataset_version = _dataset_version(inputs)
 
     notes: list[str] = []
     parameters: list[CalibratedParameter] = []
@@ -134,20 +135,23 @@ def _fit_cruise_speed(
     dataset_version: str,
     notes: list[str],
 ) -> CalibratedParameter | None:
-    speeds: list[float] = []
+    true_airspeeds: list[float] = []
     winds: list[float] = []
     for item in inputs:
         for record in _phase_records(item, _TRANSIT_PHASE):
-            if record.groundspeed_mps is not None:
-                speeds.append(record.groundspeed_mps)
+            true_airspeed = _true_airspeed(record)
+            if true_airspeed is None:
+                continue
+            true_airspeeds.append(true_airspeed)
             wind = _wind_speed(record)
             if wind is not None:
                 winds.append(wind)
 
-    stats = _SampleStats.of(speeds)
+    stats = _SampleStats.of(true_airspeeds)
     if stats is None:
         notes.append(
-            "cruise_speed_mps not fit: no groundspeed in transit-phase segments."
+            "cruise_speed_mps not fit: transit records require groundspeed, "
+            "ground course, and both east/north wind components to derive true airspeed."
         )
         return None
 
@@ -164,7 +168,10 @@ def _fit_cruise_speed(
         spread=stats.spread,
         calibration_dataset_version=dataset_version,
         applicable_conditions=conditions,
-        derivation="mean groundspeed over transit-phase trace records",
+        derivation=(
+            "mean wind-corrected true airspeed derived from ground-velocity "
+            "and wind vectors over transit-phase trace records"
+        ),
     )
 
 
@@ -348,13 +355,54 @@ def _wind_speed(record: FlightTraceRecord) -> float | None:
     return math.hypot(record.wind_east_mps, record.wind_north_mps)
 
 
+def _true_airspeed(record: FlightTraceRecord) -> float | None:
+    """Derive TAS magnitude from ground course/speed and the EN wind vector."""
+    if (
+        record.groundspeed_mps is None
+        or record.heading_deg is None
+        or record.wind_east_mps is None
+        or record.wind_north_mps is None
+    ):
+        return None
+    course_rad = math.radians(record.heading_deg)
+    ground_east_mps = record.groundspeed_mps * math.sin(course_rad)
+    ground_north_mps = record.groundspeed_mps * math.cos(course_rad)
+    air_east_mps = ground_east_mps - record.wind_east_mps
+    air_north_mps = ground_north_mps - record.wind_north_mps
+    return math.hypot(air_east_mps, air_north_mps)
+
+
 def _altitude_band(altitudes: list[float]) -> str:
     return f"AMSL band {min(altitudes):.1f} to {max(altitudes):.1f} m"
 
 
-def _dataset_version(trace_ids: list[str]) -> str:
-    digest = sha256("\n".join(trace_ids).encode("utf-8")).hexdigest()[:12]
-    return f"ds-{len(trace_ids)}-{digest}"
+def _dataset_version(inputs: list[CalibrationInput]) -> str:
+    """Hash complete trace and segmentation content, independent of input order."""
+    canonical_items = sorted(
+        json.dumps(
+            {
+                "trace": item.trace.model_dump(mode="json"),
+                "segmentation": item.segments.model_dump(mode="json"),
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+            allow_nan=False,
+        )
+        for item in inputs
+    )
+    payload = json.dumps(
+        {
+            "format": "calibration-dataset.v2",
+            "items": canonical_items,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+        allow_nan=False,
+    )
+    digest = sha256(payload.encode("utf-8")).hexdigest()
+    return f"ds-{len(inputs)}-{digest}"
 
 
 __all__ = [

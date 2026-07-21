@@ -12,7 +12,12 @@ from estimator import (
 )
 from estimator.core.scenario import ScenarioStatus
 from estimator.execution.scenario import run_scenario
-from schemas import LinkSystemConfig, ResourceSystemConfig, ScenarioPlan
+from schemas import (
+    AltitudeReference,
+    LinkSystemConfig,
+    ResourceSystemConfig,
+    ScenarioPlan,
+)
 from tests.helpers import (
     make_mission,
     make_mission_payload,
@@ -25,6 +30,15 @@ runner = CliRunner()
 
 def _write_yaml(path: Path, payload: dict) -> None:
     path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+
+
+def _one_way_mission():
+    mission = make_mission()
+    waypoint = mission.route[1]
+    waypoint.lat = mission.planned_home.lat
+    waypoint.lon = mission.planned_home.lon + 0.05
+    mission.route = [waypoint]
+    return mission
 
 
 def test_external_power_resource_can_replace_battery_capacity_feasibility() -> None:
@@ -50,6 +64,131 @@ def test_external_power_resource_can_replace_battery_capacity_feasibility() -> N
     assert result.resource is not None
     assert result.resource.is_feasible is True
     assert result.resource.selected_resource_id == "fiber-power"
+    assert result.rth_is_feasible is True
+
+
+def test_external_power_must_cover_rth_peak_power() -> None:
+    mission = _one_way_mission()
+    mission.route[0].altitude_reference = AltitudeReference.AMSL
+    mission.route[0].altitude_m = 0.0
+    vehicle = make_vehicle()
+    vehicle.energy.descent_power_w = 300.0
+    vehicle.resource_systems = [
+        ResourceSystemConfig.model_validate(
+            {
+                "resource_id": "weak-external",
+                "kind": "external_power",
+                "continuous_power_w": 350.0,
+            }
+        )
+    ]
+
+    result = try_estimate_mission_distance_time(mission, vehicle)
+
+    assert result.status == EstimateStatus.INFEASIBLE
+    assert result.failure is not None
+    assert result.failure.code == FailureCode.RESOURCE_FEASIBILITY_FAILED
+    assert result.resource is not None
+    system = result.resource.systems[0]
+    assert system.peak_power_w == 450.0
+    assert system.limiting_reason == "power_limit_exceeded"
+    assert result.rth_is_feasible is None
+
+
+def test_external_power_reports_rth_shortfall_when_gate_is_disabled() -> None:
+    mission = _one_way_mission()
+    mission.constraints.require_rth_reserve = False
+    mission.route[0].altitude_reference = AltitudeReference.AMSL
+    mission.route[0].altitude_m = 0.0
+    vehicle = make_vehicle()
+    vehicle.energy.descent_power_w = 300.0
+    vehicle.resource_systems = [
+        ResourceSystemConfig.model_validate(
+            {
+                "resource_id": "route-only-external",
+                "kind": "external_power",
+                "continuous_power_w": 400.0,
+            }
+        )
+    ]
+
+    result = try_estimate_mission_distance_time(mission, vehicle)
+
+    assert result.status == EstimateStatus.SUCCESS
+    assert result.resource is not None and result.resource.is_feasible is True
+    assert result.rth_is_feasible is False
+
+
+def test_selected_onboard_resource_replaces_base_battery_rth_margin() -> None:
+    mission = make_mission()
+    vehicle = make_vehicle()
+    vehicle.energy.battery_capacity_wh = 30.0
+    vehicle.resource_systems = [
+        ResourceSystemConfig.model_validate(
+            {
+                "resource_id": "large-pack",
+                "kind": "onboard_battery",
+                "battery_capacity_wh": 900.0,
+            }
+        )
+    ]
+
+    result = try_estimate_mission_distance_time(mission, vehicle)
+
+    assert result.status == EstimateStatus.SUCCESS
+    assert result.energy is not None and result.energy.is_feasible is False
+    assert result.resource is not None and result.resource.is_feasible is True
+    assert result.resource.selected_resource_id == "large-pack"
+    assert result.rth_is_feasible is True
+
+
+def test_onboard_resource_fails_when_only_rth_reserve_is_insufficient() -> None:
+    vehicle = make_vehicle()
+    vehicle.resource_systems = [
+        ResourceSystemConfig.model_validate(
+            {
+                "resource_id": "small-pack",
+                "kind": "onboard_battery",
+                "battery_capacity_wh": 120.0,
+            }
+        )
+    ]
+
+    result = try_estimate_mission_distance_time(_one_way_mission(), vehicle)
+
+    assert result.status == EstimateStatus.INFEASIBLE
+    assert result.failure is not None
+    assert result.failure.code == FailureCode.RESOURCE_FEASIBILITY_FAILED
+    assert result.resource is not None
+    system = result.resource.systems[0]
+    assert system.reserve_after_resource_wh >= system.reserve_threshold_wh
+    assert system.limiting_reason == "resource_rth_reserve_below_threshold"
+    assert result.rth_is_feasible is None
+
+
+def test_hybrid_resource_accounts_for_residual_rth_energy() -> None:
+    vehicle = make_vehicle()
+    vehicle.resource_systems = [
+        ResourceSystemConfig.model_validate(
+            {
+                "resource_id": "small-hybrid",
+                "kind": "hybrid",
+                "battery_capacity_wh": 80.0,
+                "continuous_power_w": 400.0,
+            }
+        )
+    ]
+
+    result = try_estimate_mission_distance_time(_one_way_mission(), vehicle)
+
+    assert result.status == EstimateStatus.INFEASIBLE
+    assert result.failure is not None
+    assert result.failure.code == FailureCode.RESOURCE_FEASIBILITY_FAILED
+    assert result.resource is not None
+    system = result.resource.systems[0]
+    assert system.reserve_after_resource_wh >= system.reserve_threshold_wh
+    assert system.limiting_reason == "resource_rth_reserve_below_threshold"
+    assert result.rth_is_feasible is None
 
 
 def test_resource_failure_has_full_mission_result_validity(tmp_path: Path) -> None:

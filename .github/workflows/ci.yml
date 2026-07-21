@@ -19,10 +19,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -30,13 +30,101 @@ jobs:
         run: uv python install ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --locked
 
       - name: Run ruff
-        run: uv run ruff check .
+        run: uv run --locked ruff check .
 
       - name: Run pytest
-        run: uv run pytest
+        run: uv run --locked pytest
 
       - name: Run CLI audit
-        run: uv run python scripts/cli_batch_audit.py
+        run: uv run --locked python scripts/cli_batch_audit.py
+
+      - name: Build distributions
+        if: matrix.python-version == '3.12'
+        run: uv build
+
+      - name: Smoke-test installed wheel
+        if: matrix.python-version == '3.12'
+        run: |
+          wheel_path="$(realpath dist/*.whl)"
+          wheel_venv="$RUNNER_TEMP/bvlos-wheel-venv"
+          extras_venv="$RUNNER_TEMP/bvlos-wheel-extras-venv"
+          uv venv "$wheel_venv" --python 3.12
+          uv pip install --python "$wheel_venv/bin/python" "$wheel_path"
+          cd "$RUNNER_TEMP"
+          "$wheel_venv/bin/bvlos-sim" --version
+          "$wheel_venv/bin/bvlos-sim" --help
+          for entrypoint in \
+            bvlos-fetch-all \
+            bvlos-fetch-geofences \
+            bvlos-fetch-landing-zones \
+            bvlos-fetch-obstacles \
+            bvlos-fetch-population \
+            bvlos-fetch-terrain \
+            bvlos-fetch-wind; do
+            "$wheel_venv/bin/$entrypoint" --help >/dev/null
+          done
+          if "$wheel_venv/bin/bvlos-sim" --help | grep -q 'bump'; then
+            echo 'developer-only bump command leaked into wheel' >&2
+            exit 1
+          fi
+          uv venv "$extras_venv" --python 3.12
+          uv pip install --python "$extras_venv/bin/python" \
+            "${wheel_path}[flight-logs,scripts,sitl]"
+          "$extras_venv/bin/python" -c \
+            'import pymavlink, pyulog, requests, srtm'
+
+  sitl-live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: uv sync --locked --extra sitl
+
+      - name: Install Podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman
+
+      - name: Build pinned ArduPilot SITL image
+        run: podman build -t bvlos-sitl sitl/
+
+      - name: Start SITL container
+        run: podman run --rm -d --name bvlos-sitl -p 5760:5760 -p 5770:5770 bvlos-sitl sleep infinity
+
+      - name: Execute live SITL tests
+        env:
+          BVLOS_SITL_HOST: 127.0.0.1
+          BVLOS_SITL_REQUIRED: '1'
+        run: uv run --locked pytest -m live_sitl tests/test_sitl_live.py
+
+  flight-logs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+        with:
+          python-version: '3.12'
+
+      - name: Install binary log readers
+        run: uv sync --locked --extra flight-logs
+
+      - name: Verify optional readers and ingestion tests
+        run: |
+          uv run --locked python -c "import pymavlink, pyulog"
+          uv run --locked pytest tests/test_binary_flight_log_ingestion.py tests/test_flight_log_ingestion.py

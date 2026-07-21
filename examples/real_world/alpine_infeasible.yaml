@@ -1,3 +1,4 @@
+schema_version: mission.v7
 mission_id: alpine_infeasible_001
 vehicle_profile: quadplane_small_battery
 

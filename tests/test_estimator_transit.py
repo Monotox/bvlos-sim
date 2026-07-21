@@ -129,9 +129,11 @@ def test_low_groundspeed_margin_warning_is_emitted_before_infeasible() -> None:
     mission.defaults.cruise_speed_mps = 20.0
     mission.constraints.max_wind_mps = None
 
+    vehicle = make_vehicle()
+    vehicle.performance.max_crab_angle_deg = 89.0
     result = estimate_mission_distance_time(
         mission,
-        make_vehicle(),
+        vehicle,
         options=EstimationOptions(
             wind_east_mps=-15.8,
             wind_north_mps=0.0,

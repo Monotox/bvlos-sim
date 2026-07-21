@@ -1,9 +1,9 @@
 # SITL Adapter Contract
 
 This document defines the SITL boundary introduced by Ticket 040. The current
-implementation supports contract-only evidence bundles, ArduPilot connect/upload
-and telemetry recording, and comparison reports through the CLI and adapter
-APIs.
+implementation supports contract-only evidence bundles, live ArduPilot mission
+upload and execution, telemetry recording, and comparison reports through the
+CLI and adapter APIs.
 
 ## Contract
 
@@ -17,8 +17,10 @@ The versioned evidence bundle is `sitl-evidence.v1`. It contains:
 - tool and adapter versions
 
 The no-op adapter emits `status: contract_only` and leaves observed artifact
-lists empty. Live adapters can emit `status: completed` with telemetry,
-command-log, simulator-log, and adapter-log artifact references.
+lists empty. The live adapter emits `status: completed` only after arming,
+entering AUTO, and observing explicit mission-completion evidence; selection of
+the final mission item alone is insufficient. Completed bundles include
+telemetry, command-log, simulator-log, and adapter-log artifact references.
 
 The versioned comparison report is `sitl-comparison.v1`. It compares a
 `sitl-evidence.v1` bundle against the embedded deterministic scenario report and
@@ -42,6 +44,12 @@ uv run bvlos-sim sitl \
 
 The command reuses existing scenario inputs. There is no parallel SITL scenario
 format.
+
+Schema/asset loading failures exit `11` (`INVALID_INPUT`). Once the live
+ArduPilot adapter is running, connect, mission-upload, execution, telemetry,
+completion-evidence, and timeout failures exit `13` (`INTERNAL_ERROR`); they
+are runtime failures, not invalid operator input. Failed live runs still flush
+any recorded artifacts before disconnecting so the failure can be diagnosed.
 
 ## Comparison Reports
 

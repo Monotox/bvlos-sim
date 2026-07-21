@@ -7,16 +7,18 @@ must not be treated as enforced behavior.
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from schemas.numeric import FiniteFloat
+
 
 class GpsModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    horizontal_accuracy_m: float = Field(
+    horizontal_accuracy_m: FiniteFloat = Field(
         default=2.5,
         gt=0,
         description="1-sigma CEP horizontal position noise in metres. Used by the EKF.",
     )
-    vertical_accuracy_m: float = Field(
+    vertical_accuracy_m: FiniteFloat = Field(
         default=4.0,
         gt=0,
         description=(
@@ -24,12 +26,12 @@ class GpsModel(BaseModel):
             "Non-operative in current EKF (horizontal-only); reserved for 3D observation modeling."
         ),
     )
-    fix_rate_hz: float = Field(
+    fix_rate_hz: FiniteFloat = Field(
         default=5.0,
         gt=0,
         description="Measurement arrival rate in Hz. Used by the EKF.",
     )
-    availability: float = Field(
+    availability: FiniteFloat = Field(
         default=1.0,
         ge=0.0,
         le=1.0,
@@ -40,12 +42,12 @@ class GpsModel(BaseModel):
 class BatteryMeterModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    current_sensor_noise_pct: float = Field(
+    current_sensor_noise_pct: FiniteFloat = Field(
         default=1.0,
         ge=0.0,
         description="1-sigma current measurement noise as % of reading. Used by the EKF.",
     )
-    voltage_noise_mv: float = Field(
+    voltage_noise_mv: FiniteFloat = Field(
         default=10.0,
         ge=0.0,
         description=(
@@ -53,7 +55,7 @@ class BatteryMeterModel(BaseModel):
             "Non-operative in current EKF (current-sensor path only); reserved for voltage-noise modeling."
         ),
     )
-    update_rate_hz: float = Field(default=10.0, gt=0)
+    update_rate_hz: FiniteFloat = Field(default=10.0, gt=0)
 
 
 class AirspeedModel(BaseModel):
@@ -66,16 +68,16 @@ class AirspeedModel(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    bias_mps: float = Field(
+    bias_mps: FiniteFloat = Field(
         default=0.0,
         description="Systematic offset added to every measurement. Non-operative in current EKF.",
     )
-    noise_std_mps: float = Field(
+    noise_std_mps: FiniteFloat = Field(
         default=0.3,
         ge=0.0,
         description="1-sigma measurement noise. Non-operative in current EKF.",
     )
-    update_rate_hz: float = Field(
+    update_rate_hz: FiniteFloat = Field(
         default=10.0,
         gt=0,
         description="Measurement arrival rate in Hz. Non-operative in current EKF.",

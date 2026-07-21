@@ -80,6 +80,34 @@ def test_empty_layers_raises_value_error() -> None:
         LayeredWindProvider([])
 
 
+def test_constant_wind_rejects_non_finite_components() -> None:
+    with pytest.raises(ValueError, match="wind_east_mps must be finite"):
+        ConstantWindProvider(float("nan"), 0.0)
+
+
+def test_layered_wind_rejects_non_finite_components() -> None:
+    with pytest.raises(ValueError, match=r"layers\[0\]\.wind_north_mps"):
+        LayeredWindProvider(
+            [
+                WindLayer(
+                    altitude_m=0.0,
+                    wind_east_mps=0.0,
+                    wind_north_mps=float("inf"),
+                )
+            ]
+        )
+
+
+def test_layered_wind_rejects_duplicate_altitudes() -> None:
+    with pytest.raises(ValueError, match="altitudes must be unique"):
+        LayeredWindProvider(
+            [
+                WindLayer(0.0, 1.0, 0.0),
+                WindLayer(0.0, 2.0, 0.0),
+            ]
+        )
+
+
 def test_provider_id_is_layered() -> None:
     p = LayeredWindProvider(
         [WindLayer(altitude_m=0.0, wind_east_mps=0.0, wind_north_mps=0.0)]
@@ -103,3 +131,19 @@ def test_time_varying_provider_switches_by_elapsed_time() -> None:
 
     assert (before.wind_east_mps, before.wind_north_mps) == (0.0, 0.0)
     assert (after.wind_east_mps, after.wind_north_mps) == (4.0, -1.0)
+
+
+@pytest.mark.parametrize("effective_time", [-1.0, float("nan"), float("inf")])
+def test_time_varying_provider_rejects_invalid_change_times(
+    effective_time: float,
+) -> None:
+    with pytest.raises(ValueError):
+        TimeVaryingWindProvider(
+            ConstantWindProvider(0.0, 0.0),
+            [
+                TimedWindChange(
+                    effective_elapsed_time_s=effective_time,
+                    provider=ConstantWindProvider(4.0, -1.0),
+                )
+            ],
+        )

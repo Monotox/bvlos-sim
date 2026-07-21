@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import hashlib
+import os
+import stat
 from bisect import bisect_right
 from dataclasses import dataclass
 from pathlib import Path
@@ -17,20 +19,40 @@ from schemas.flight_log import (
 )
 
 ARDUPILOT_DATAFLASH_TEXT_FORMAT = "ardupilot_dataflash_text"
+# The adapters intentionally snapshot the complete source before parsing so the
+# parser cannot be raced onto different bytes.  Text decoding and third-party
+# readers then materialize additional structures, so accepting hundreds of MiB
+# would permit multi-GiB process growth.  Keep the public override downward-only
+# and require large logs to be split before ingestion.
+MAX_FLIGHT_LOG_BYTES = 64 * 1024 * 1024
+DEFAULT_MAX_FLIGHT_LOG_BYTES = MAX_FLIGHT_LOG_BYTES
 
 # Fallback column indices used when no FMT line declares the message type.
 # Index 0 on data lines is the message type name; FMT-named columns start at 1.
 _GPS_FALLBACK_COLS: dict[str, int] = {
-    "TimeUS": 1, "Status": 2, "Lat": 7, "Lng": 8, "Alt": 9, "Spd": 10, "GCrs": 11,
+    "TimeUS": 1,
+    "Status": 2,
+    "Lat": 7,
+    "Lng": 8,
+    "Alt": 9,
+    "Spd": 10,
+    "GCrs": 11,
 }
 _BAT_FALLBACK_COLS: dict[str, int] = {
-    "TimeUS": 1, "Volt": 2, "Curr": 4, "RemPct": 6,
+    "TimeUS": 1,
+    "Volt": 2,
+    "Curr": 4,
+    "RemPct": 6,
 }
 _MODE_FALLBACK_COLS: dict[str, int] = {
-    "TimeUS": 1, "Mode": 2,
+    "TimeUS": 1,
+    "Mode": 2,
 }
 _NKF6_FALLBACK_COLS: dict[str, int] = {
-    "TimeUS": 1, "C": 2, "VWN": 3, "VWE": 4,
+    "TimeUS": 1,
+    "C": 2,
+    "VWN": 3,
+    "VWE": 4,
 }
 
 # Minimum ArduPilot GPS fix status (2 == 2D fix) for a record to carry a usable
@@ -56,7 +78,7 @@ _OPTIONAL_RECORD_FIELDS: tuple[str, ...] = (
     "wind_north_mps",
 )
 
-type _RawRow = dict[str, str]
+type _RawRow = dict[str, object]
 
 
 class FlightLogIngestionError(ValueError):
@@ -94,16 +116,64 @@ def ingest_dataflash_log(
     *,
     trace_id: str,
     mission_ref: FlightTraceMissionRef | None = None,
+    max_bytes: int = DEFAULT_MAX_FLIGHT_LOG_BYTES,
 ) -> NormalizedFlightTrace:
     """Ingest an ArduPilot DataFlash text log (.log) into a NormalizedFlightTrace.
 
     Raises FlightLogIngestionError if the file cannot be read or contains no GPS records.
     """
-    raw_bytes = _read_bytes(path)
+    raw_bytes = _read_bytes(path, max_bytes=max_bytes)
+    return _ingest_dataflash_bytes(
+        path,
+        raw_bytes=raw_bytes,
+        trace_id=trace_id,
+        mission_ref=mission_ref,
+    )
+
+
+def _ingest_dataflash_bytes(
+    path: Path,
+    *,
+    raw_bytes: bytes,
+    trace_id: str,
+    mission_ref: FlightTraceMissionRef | None,
+) -> NormalizedFlightTrace:
     lines = _decode_lines(raw_bytes, path)
     col_maps = _parse_fmt_lines(lines)
 
-    all_gps_rows = _by_timeus(_collect_rows(lines, "GPS", col_maps, _GPS_FALLBACK_COLS))
+    all_gps_rows = _collect_rows(lines, "GPS", col_maps, _GPS_FALLBACK_COLS)
+    return _build_dataflash_trace(
+        path=path,
+        raw_bytes=raw_bytes,
+        trace_id=trace_id,
+        mission_ref=mission_ref,
+        source_format=ARDUPILOT_DATAFLASH_TEXT_FORMAT,
+        gps_rows=all_gps_rows,
+        battery_rows=_collect_rows(lines, "BAT", col_maps, _BAT_FALLBACK_COLS),
+        mode_rows=_collect_rows(lines, "MODE", col_maps, _MODE_FALLBACK_COLS),
+        wind_rows=(
+            _collect_rows(lines, "NKF6", col_maps, _NKF6_FALLBACK_COLS)
+            or _collect_rows(lines, "XKF6", col_maps, _NKF6_FALLBACK_COLS)
+        ),
+    )
+
+
+def _build_dataflash_trace(
+    *,
+    path: Path,
+    raw_bytes: bytes,
+    trace_id: str,
+    mission_ref: FlightTraceMissionRef | None,
+    source_format: str,
+    gps_rows: list[_RawRow],
+    battery_rows: list[_RawRow],
+    mode_rows: list[_RawRow],
+    wind_rows: list[_RawRow],
+    source_assumptions: list[str] | None = None,
+) -> NormalizedFlightTrace:
+    """Normalize decoded DataFlash rows from either text or binary readers."""
+    gps_rows, selected_gps_instance = _select_gps_instance(gps_rows)
+    all_gps_rows = _by_timeus(gps_rows)
     gps_rows = [row for row in all_gps_rows if _has_valid_fix(row)]
     dropped_gps = len(all_gps_rows) - len(gps_rows)
     if not gps_rows:
@@ -113,18 +183,11 @@ def ingest_dataflash_log(
             reason="no_gps_records",
         )
 
-    bat = _Series.from_rows(_by_timeus(_collect_rows(lines, "BAT", col_maps, _BAT_FALLBACK_COLS)))
-    mode = _Series.from_rows(_by_timeus(_collect_rows(lines, "MODE", col_maps, _MODE_FALLBACK_COLS)))
+    bat = _Series.from_rows(_by_timeus(battery_rows))
+    mode = _Series.from_rows(_by_timeus(mode_rows))
     # Wind comes from the first EKF core only (C == 0); filter before carry-forward
     # so interleaved multi-core rows never mask the core-0 estimate.
-    nkf6 = _Series.from_rows(
-        _core0_only(
-            _by_timeus(
-                _collect_rows(lines, "NKF6", col_maps, _NKF6_FALLBACK_COLS)
-                or _collect_rows(lines, "XKF6", col_maps, _NKF6_FALLBACK_COLS)
-            )
-        )
-    )
+    nkf6 = _Series.from_rows(_core0_only(_by_timeus(wind_rows)))
 
     t0_us = _row_timeus(gps_rows[0])
     records = [
@@ -132,12 +195,21 @@ def ingest_dataflash_log(
         for gps_row in gps_rows
     ]
 
+    assumptions = _build_assumptions(
+        records,
+        dropped_gps,
+        source_assumptions=source_assumptions,
+    )
+    if selected_gps_instance is not None:
+        assumptions.append(
+            f"GPS receiver instance {selected_gps_instance} selected; other receivers ignored"
+        )
     provenance = FlightTraceProvenance(
-        source_format=ARDUPILOT_DATAFLASH_TEXT_FORMAT,
+        source_format=source_format,
         raw_log_sha256=hashlib.sha256(raw_bytes).hexdigest(),
         raw_log_filename=path.name,
         tool_version=tool_version(),
-        parsing_assumptions=_build_assumptions(records, dropped_gps),
+        parsing_assumptions=assumptions,
         missing_fields=_detect_missing_fields(records),
     )
 
@@ -155,15 +227,56 @@ def ingest_dataflash_log(
 # ---------------------------------------------------------------------------
 
 
-def _read_bytes(path: Path) -> bytes:
+def _read_bytes(
+    path: Path,
+    *,
+    max_bytes: int = DEFAULT_MAX_FLIGHT_LOG_BYTES,
+) -> bytes:
+    """Read one regular file through one descriptor with a strict byte cap."""
+    if max_bytes <= 0:
+        raise ValueError("max_bytes must be positive")
+    if max_bytes > MAX_FLIGHT_LOG_BYTES:
+        raise ValueError(
+            "max_bytes may not exceed the 64 MiB flight-log process-safety limit"
+        )
+    descriptor: int | None = None
     try:
-        return path.read_bytes()
+        flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NONBLOCK", 0)
+        descriptor = os.open(path, flags)
+        file_stat = os.fstat(descriptor)
+        if not stat.S_ISREG(file_stat.st_mode):
+            raise FlightLogIngestionError(
+                "Flight log must be a regular file.",
+                path=path,
+                reason="non_regular_file",
+            )
+        if file_stat.st_size > max_bytes:
+            raise FlightLogIngestionError(
+                f"Flight log is {file_stat.st_size} bytes; the configured limit is {max_bytes} bytes.",
+                path=path,
+                reason="file_too_large",
+            )
+        with os.fdopen(descriptor, "rb", closefd=True) as stream:
+            descriptor = None
+            raw_bytes = stream.read(max_bytes + 1)
+        if len(raw_bytes) > max_bytes:
+            raise FlightLogIngestionError(
+                f"Flight log exceeds the configured limit of {max_bytes} bytes.",
+                path=path,
+                reason="file_too_large",
+            )
+        return raw_bytes
+    except FlightLogIngestionError:
+        raise
     except OSError as exc:
         raise FlightLogIngestionError(
             f"Cannot read log file: {exc}",
             path=path,
             reason="read_error",
         ) from exc
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
 
 
 def _decode_lines(raw_bytes: bytes, path: Path) -> list[str]:
@@ -227,10 +340,23 @@ def _by_timeus(rows: list[_RawRow]) -> list[_RawRow]:
             continue
         try:
             timed.append((int(raw), row))
-        except ValueError:
+        except (TypeError, ValueError):
             continue
     timed.sort(key=lambda item: item[0])
     return [row for _, row in timed]
+
+
+def _select_gps_instance(rows: list[_RawRow]) -> tuple[list[_RawRow], int | None]:
+    """Use one GPS receiver so interleaved devices cannot create route jumps."""
+    instances: set[int] = set()
+    for row in rows:
+        instance = _int(row, "I")
+        if instance is not None:
+            instances.add(instance)
+    if not instances:
+        return rows, None
+    selected = 0 if 0 in instances else min(instances)
+    return [row for row in rows if _int(row, "I") == selected], selected
 
 
 def _core0_only(rows: list[_RawRow]) -> list[_RawRow]:
@@ -316,14 +442,23 @@ def _detect_missing_fields(records: list[FlightTraceRecord]) -> list[str]:
     ]
 
 
-def _build_assumptions(records: list[FlightTraceRecord], dropped_gps: int) -> list[str]:
-    assumptions = [
-        "timestamps derived from GPS.TimeUS relative to first GPS record",
-        "altitude from GPS.Alt (AMSL when GPS Status >= 2)",
-        "groundspeed from GPS.Spd",
-        "heading from GPS.GCrs (ground course, not magnetic heading)",
-    ]
-    if any(
+def _build_assumptions(
+    records: list[FlightTraceRecord],
+    dropped_gps: int,
+    *,
+    source_assumptions: list[str] | None = None,
+) -> list[str]:
+    assumptions = (
+        list(source_assumptions)
+        if source_assumptions is not None
+        else [
+            "timestamps derived from GPS.TimeUS relative to first GPS record",
+            "altitude from GPS.Alt (AMSL when GPS Status >= 2)",
+            "groundspeed from GPS.Spd",
+            "heading from GPS.GCrs (ground course, not magnetic heading)",
+        ]
+    )
+    if source_assumptions is None and any(
         record.wind_east_mps is not None or record.wind_north_mps is not None
         for record in records
     ):
@@ -349,7 +484,7 @@ def _float(row: _RawRow | None, key: str) -> float | None:
         return None
     try:
         return float(raw)
-    except ValueError:
+    except (TypeError, ValueError):
         return None
 
 
@@ -361,7 +496,7 @@ def _int(row: _RawRow | None, key: str) -> int | None:
         return None
     try:
         return int(raw)
-    except ValueError:
+    except (TypeError, ValueError):
         return None
 
 
@@ -369,11 +504,14 @@ def _str(row: _RawRow | None, key: str) -> str | None:
     if row is None:
         return None
     # Empty string from the log is treated as absent — mode name must be non-empty.
-    return row.get(key) or None
+    value = row.get(key)
+    return str(value) if value not in (None, "") else None
 
 
 __all__ = [
     "ARDUPILOT_DATAFLASH_TEXT_FORMAT",
+    "DEFAULT_MAX_FLIGHT_LOG_BYTES",
     "FlightLogIngestionError",
+    "MAX_FLIGHT_LOG_BYTES",
     "ingest_dataflash_log",
 ]

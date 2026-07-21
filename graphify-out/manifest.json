@@ -1,0 +1,2592 @@
+{
+  ".codex/hooks.json": {
+    "mtime": 1784644589.4241939,
+    "ast_hash": "05935c0919496bb0c417d1d59d36442d",
+    "semantic_hash": ""
+  },
+  "adapters/__init__.py": {
+    "mtime": 1784551164.5979414,
+    "ast_hash": "6214c1de4543fbeae0836e131438d85e",
+    "semantic_hash": "6214c1de4543fbeae0836e131438d85e"
+  },
+  "adapters/assets/__init__.py": {
+    "mtime": 1784551164.5990286,
+    "ast_hash": "d9ffe4f33607fd3c9e2583ba406320dc",
+    "semantic_hash": "d9ffe4f33607fd3c9e2583ba406320dc"
+  },
+  "adapters/assets/geofence_geojson.py": {
+    "mtime": 1784551164.5990846,
+    "ast_hash": "5f740d770e43259304bf077f428e8309",
+    "semantic_hash": "5f740d770e43259304bf077f428e8309"
+  },
+  "adapters/assets/geojson.py": {
+    "mtime": 1784551164.5990846,
+    "ast_hash": "a003125b18a3f869b4143bf48b496c03",
+    "semantic_hash": "a003125b18a3f869b4143bf48b496c03"
+  },
+  "adapters/assets/landing_zone_geojson.py": {
+    "mtime": 1784642735.256523,
+    "ast_hash": "29a31340cd9fff51af1aac8a69f959a5",
+    "semantic_hash": ""
+  },
+  "adapters/assets/obstacle_geojson.py": {
+    "mtime": 1784551164.5990846,
+    "ast_hash": "40fba7e0d4e6322fa8e1a9efe7eacc0d",
+    "semantic_hash": "40fba7e0d4e6322fa8e1a9efe7eacc0d"
+  },
+  "adapters/assets/population_grid.py": {
+    "mtime": 1784644624.3001878,
+    "ast_hash": "bb092de86d9ff066b4a0c73bfc992325",
+    "semantic_hash": ""
+  },
+  "adapters/assets/terrain_grid.py": {
+    "mtime": 1784551164.5990846,
+    "ast_hash": "6c9f4a3e8a329ecd988f0a2c5f8ca955",
+    "semantic_hash": "6c9f4a3e8a329ecd988f0a2c5f8ca955"
+  },
+  "adapters/assets/wind_grid.py": {
+    "mtime": 1784639585.9872835,
+    "ast_hash": "be88b498e886296e1c7b5c49aa7f9a4c",
+    "semantic_hash": ""
+  },
+  "adapters/atomic_write.py": {
+    "mtime": 1784636857.9157698,
+    "ast_hash": "745330b73c5e7b36bad01993972639eb",
+    "semantic_hash": ""
+  },
+  "adapters/batch_io.py": {
+    "mtime": 1784551164.5990846,
+    "ast_hash": "3158c5ad4befc9a5b8fc002e0e21cc86",
+    "semantic_hash": "3158c5ad4befc9a5b8fc002e0e21cc86"
+  },
+  "adapters/batch_support.py": {
+    "mtime": 1784636758.4317868,
+    "ast_hash": "bd548693c241ecceeaf8463cd589918c",
+    "semantic_hash": ""
+  },
+  "adapters/battery_sizer.py": {
+    "mtime": 1784642146.0508277,
+    "ast_hash": "74e47e3619fa754db721ed142ddfffa2",
+    "semantic_hash": ""
+  },
+  "adapters/battery_sizing_envelope.py": {
+    "mtime": 1784639799.1472464,
+    "ast_hash": "18999ff0ba58243fdc46e5e97f954c32",
+    "semantic_hash": ""
+  },
+  "adapters/calibration/__init__.py": {
+    "mtime": 1784551164.5990846,
+    "ast_hash": "3bc3214d521f825f5a825542fa48f3db",
+    "semantic_hash": "3bc3214d521f825f5a825542fa48f3db"
+  },
+  "adapters/calibration/apply.py": {
+    "mtime": 1784551164.6002178,
+    "ast_hash": "ea56c8e2c1c86e3e978cf9b21b1ac4ad",
+    "semantic_hash": "ea56c8e2c1c86e3e978cf9b21b1ac4ad"
+  },
+  "adapters/calibration/fitter.py": {
+    "mtime": 1784557249.0323925,
+    "ast_hash": "f644088df44d6ff6517cbfe857290d78",
+    "semantic_hash": ""
+  },
+  "adapters/calibration/io.py": {
+    "mtime": 1784551164.6002178,
+    "ast_hash": "1ad6e389812b20ee1aa6f9052d602128",
+    "semantic_hash": "1ad6e389812b20ee1aa6f9052d602128"
+  },
+  "adapters/calibration_markdown.py": {
+    "mtime": 1784551164.6002178,
+    "ast_hash": "ac886cd0b776954783148163c56a9b96",
+    "semantic_hash": "ac886cd0b776954783148163c56a9b96"
+  },
+  "adapters/canonical_json.py": {
+    "mtime": 1784556427.520606,
+    "ast_hash": "6eddcf35045f39698cae1b691800b01e",
+    "semantic_hash": ""
+  },
+  "adapters/checklist_markdown.py": {
+    "mtime": 1784638058.5755558,
+    "ast_hash": "72d0879d8ab218354f80053dc359c076",
+    "semantic_hash": ""
+  },
+  "adapters/cli.py": {
+    "mtime": 1784561207.1993735,
+    "ast_hash": "9dbc1e7629ad8c0f8c2122ee28f2aadf",
+    "semantic_hash": ""
+  },
+  "adapters/cli_batch_support.py": {
+    "mtime": 1784638058.5755558,
+    "ast_hash": "b83050a9fca9f62704dbcf7f498bf9b4",
+    "semantic_hash": ""
+  },
+  "adapters/cli_sitl_support.py": {
+    "mtime": 1784638916.7394032,
+    "ast_hash": "546dc115d5041a86e1192004e973548b",
+    "semantic_hash": ""
+  },
+  "adapters/cli_support.py": {
+    "mtime": 1784636858.0637696,
+    "ast_hash": "9e6ced3354fa88bcb898d00040d63476",
+    "semantic_hash": ""
+  },
+  "adapters/commands/__init__.py": {
+    "mtime": 1784551164.6002178,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "adapters/commands/batch.py": {
+    "mtime": 1784644624.3001878,
+    "ast_hash": "37251ef7935fb4e22f7fef21d96ad5d7",
+    "semantic_hash": ""
+  },
+  "adapters/commands/bump.py": {
+    "mtime": 1784551164.601241,
+    "ast_hash": "2be8d41b6d073bbc7740071ef51ac6df",
+    "semantic_hash": "2be8d41b6d073bbc7740071ef51ac6df"
+  },
+  "adapters/commands/calibrate.py": {
+    "mtime": 1784551164.601241,
+    "ast_hash": "9b3405a769f54cea1853cbd4c71959d6",
+    "semantic_hash": "9b3405a769f54cea1853cbd4c71959d6"
+  },
+  "adapters/commands/compare.py": {
+    "mtime": 1784551164.601241,
+    "ast_hash": "b1c62c85ab8c7765c8b3f8a88fe3d632",
+    "semantic_hash": "b1c62c85ab8c7765c8b3f8a88fe3d632"
+  },
+  "adapters/commands/convert.py": {
+    "mtime": 1784561978.0791738,
+    "ast_hash": "edb4738bbef4ff07ba8f081b69f48476",
+    "semantic_hash": ""
+  },
+  "adapters/commands/estimate.py": {
+    "mtime": 1784638058.5755558,
+    "ast_hash": "1a7717d232c65509f18add92c67c541f",
+    "semantic_hash": ""
+  },
+  "adapters/commands/export.py": {
+    "mtime": 1784561978.0791738,
+    "ast_hash": "f0f903b815679ee902c9dfa73332f786",
+    "semantic_hash": ""
+  },
+  "adapters/commands/propagate.py": {
+    "mtime": 1784642309.4867985,
+    "ast_hash": "0de7bf0ff691b995855eca817a821ffe",
+    "semantic_hash": ""
+  },
+  "adapters/commands/sample.py": {
+    "mtime": 1784643603.0963688,
+    "ast_hash": "e701d70b5250c4631dd92bc0f1836df2",
+    "semantic_hash": ""
+  },
+  "adapters/commands/scenario.py": {
+    "mtime": 1784636741.7077894,
+    "ast_hash": "f2ce2284d9ba11199a3736bff1bb9cc0",
+    "semantic_hash": ""
+  },
+  "adapters/commands/schema_versions.py": {
+    "mtime": 1784551164.601241,
+    "ast_hash": "7403c56f5b9921f918e33fc3bec65131",
+    "semantic_hash": "7403c56f5b9921f918e33fc3bec65131"
+  },
+  "adapters/commands/sitl.py": {
+    "mtime": 1784638916.867403,
+    "ast_hash": "88fb507580c1c6e927ed4882c9a95c3d",
+    "semantic_hash": ""
+  },
+  "adapters/commands/size_battery.py": {
+    "mtime": 1784642146.1908276,
+    "ast_hash": "a09033b66f04852e169646c8c7700341",
+    "semantic_hash": ""
+  },
+  "adapters/commands/sora.py": {
+    "mtime": 1784642114.9468334,
+    "ast_hash": "604c8ef015998269b4053135fb693d21",
+    "semantic_hash": ""
+  },
+  "adapters/commands/validate.py": {
+    "mtime": 1784561978.0791738,
+    "ast_hash": "1c57726b856267c5434864212d0d0515",
+    "semantic_hash": ""
+  },
+  "adapters/envelope.py": {
+    "mtime": 1784644624.3041878,
+    "ast_hash": "55a5e020ffc7600d8b06f5f110f97e81",
+    "semantic_hash": ""
+  },
+  "adapters/flight_log/__init__.py": {
+    "mtime": 1784638858.8754134,
+    "ast_hash": "bbdaeb76a9d1c39cd061040f338cc174",
+    "semantic_hash": ""
+  },
+  "adapters/flight_log/dataflash.py": {
+    "mtime": 1784638858.4674134,
+    "ast_hash": "a619bf836ef30d1aedfd20554b336483",
+    "semantic_hash": ""
+  },
+  "adapters/flight_log/io.py": {
+    "mtime": 1784551164.6026742,
+    "ast_hash": "a50b880af117c63188804d9f8c4329fb",
+    "semantic_hash": "a50b880af117c63188804d9f8c4329fb"
+  },
+  "adapters/geofence_geojson.py": {
+    "mtime": 1784551164.6026742,
+    "ast_hash": "834e209bca1d7ae4b57054d92b65d5a9",
+    "semantic_hash": "834e209bca1d7ae4b57054d92b65d5a9"
+  },
+  "adapters/geojson.py": {
+    "mtime": 1784551164.6026742,
+    "ast_hash": "4cbe11b3b55187a391f83a2d86f327f1",
+    "semantic_hash": "4cbe11b3b55187a391f83a2d86f327f1"
+  },
+  "adapters/geojson_export.py": {
+    "mtime": 1784551164.6026742,
+    "ast_hash": "cb102d904b4396d4613de3312f32abfc",
+    "semantic_hash": "cb102d904b4396d4613de3312f32abfc"
+  },
+  "adapters/ground_risk_markdown.py": {
+    "mtime": 1784551164.6026742,
+    "ast_hash": "945515ccc0e02baaa768c0d33a2f967d",
+    "semantic_hash": "945515ccc0e02baaa768c0d33a2f967d"
+  },
+  "adapters/io.py": {
+    "mtime": 1784637728.307614,
+    "ast_hash": "5ebffb9fda58459c2bb50b20fc6bcc69",
+    "semantic_hash": ""
+  },
+  "adapters/kml_export.py": {
+    "mtime": 1784551164.6026742,
+    "ast_hash": "304b6bac807e13b01390c13b66e5a374",
+    "semantic_hash": "304b6bac807e13b01390c13b66e5a374"
+  },
+  "adapters/landing_zone_geojson.py": {
+    "mtime": 1784551164.6026742,
+    "ast_hash": "26aa59d34fd0ee6feaaf4c3c917fa766",
+    "semantic_hash": "26aa59d34fd0ee6feaaf4c3c917fa766"
+  },
+  "adapters/markdown.py": {
+    "mtime": 1784551164.6026742,
+    "ast_hash": "7bf95f5ae328409059f1e7831065b2de",
+    "semantic_hash": "7bf95f5ae328409059f1e7831065b2de"
+  },
+  "adapters/phase_segmentation/__init__.py": {
+    "mtime": 1784551164.6026742,
+    "ast_hash": "fb84f53b67cf028c52fcdd0f45e80c38",
+    "semantic_hash": "fb84f53b67cf028c52fcdd0f45e80c38"
+  },
+  "adapters/phase_segmentation/io.py": {
+    "mtime": 1784551164.6035922,
+    "ast_hash": "60ffdbddae0efb58544609cab025eb02",
+    "semantic_hash": "60ffdbddae0efb58544609cab025eb02"
+  },
+  "adapters/phase_segmentation/segmenter.py": {
+    "mtime": 1784551164.6035922,
+    "ast_hash": "6b63b8f124302744d5497075011db347",
+    "semantic_hash": "6b63b8f124302744d5497075011db347"
+  },
+  "adapters/population_grid.py": {
+    "mtime": 1784551164.6035922,
+    "ast_hash": "40655a5c23ab9c578113e673143fd534",
+    "semantic_hash": "40655a5c23ab9c578113e673143fd534"
+  },
+  "adapters/preflight.py": {
+    "mtime": 1784551164.6035922,
+    "ast_hash": "680924f75a6cec613abf9247288487ca",
+    "semantic_hash": "680924f75a6cec613abf9247288487ca"
+  },
+  "adapters/preflight_envelope.py": {
+    "mtime": 1784551164.6035922,
+    "ast_hash": "65fac64f5920dc35722142eb2bb1f741",
+    "semantic_hash": "65fac64f5920dc35722142eb2bb1f741"
+  },
+  "adapters/profile_markdown.py": {
+    "mtime": 1784551164.6035922,
+    "ast_hash": "f1cf280c015bce23b60a12d849518fb8",
+    "semantic_hash": "f1cf280c015bce23b60a12d849518fb8"
+  },
+  "adapters/progress.py": {
+    "mtime": 1784644624.3001878,
+    "ast_hash": "63b36878a28be3d6686f60e634b070d8",
+    "semantic_hash": ""
+  },
+  "adapters/qgc_export.py": {
+    "mtime": 1784561216.979371,
+    "ast_hash": "aa78af7b62b3300fbec2181023e4d0ab",
+    "semantic_hash": ""
+  },
+  "adapters/qgc_plan.py": {
+    "mtime": 1784561216.9860146,
+    "ast_hash": "21a7c53fa06b0e50da918da02a7704e0",
+    "semantic_hash": ""
+  },
+  "adapters/release.py": {
+    "mtime": 1784556907.9684818,
+    "ast_hash": "f1e28528bacdb46581ea61ebd20de53c",
+    "semantic_hash": ""
+  },
+  "adapters/route_export_support.py": {
+    "mtime": 1784551164.6035922,
+    "ast_hash": "8cbb6ea193cae9b8363a882777694091",
+    "semantic_hash": "8cbb6ea193cae9b8363a882777694091"
+  },
+  "adapters/scenario_envelope.py": {
+    "mtime": 1784638942.5353987,
+    "ast_hash": "31d431a399f6479c69a19f9a4a78670e",
+    "semantic_hash": ""
+  },
+  "adapters/scenario_io.py": {
+    "mtime": 1784551164.6035922,
+    "ast_hash": "91448ec2d8e9c117e0d822dc3c20125f",
+    "semantic_hash": "91448ec2d8e9c117e0d822dc3c20125f"
+  },
+  "adapters/scenario_markdown.py": {
+    "mtime": 1784551164.6035922,
+    "ast_hash": "23e936150dc134f7a1d7f15b4a29e680",
+    "semantic_hash": "23e936150dc134f7a1d7f15b4a29e680"
+  },
+  "adapters/sensitivity.py": {
+    "mtime": 1784551164.6035922,
+    "ast_hash": "28ca7898a89b5ca1f9fdd946c3304013",
+    "semantic_hash": "28ca7898a89b5ca1f9fdd946c3304013"
+  },
+  "adapters/sitl/__init__.py": {
+    "mtime": 1784551164.6035922,
+    "ast_hash": "bf0f97af42ffd750981f25a970a9ee66",
+    "semantic_hash": "bf0f97af42ffd750981f25a970a9ee66"
+  },
+  "adapters/sitl/ardupilot.py": {
+    "mtime": 1784638865.0274122,
+    "ast_hash": "e285135d819424f1b9939fdb6a11f931",
+    "semantic_hash": ""
+  },
+  "adapters/sitl/ardupilot_mavlink.py": {
+    "mtime": 1784638864.8834124,
+    "ast_hash": "58f6f2570ee5604841fa0551e49c4fd9",
+    "semantic_hash": ""
+  },
+  "adapters/sitl/ardupilot_mission.py": {
+    "mtime": 1784551164.6047344,
+    "ast_hash": "72c2ebf7d1cbbba361d77590c1fa81c9",
+    "semantic_hash": "72c2ebf7d1cbbba361d77590c1fa81c9"
+  },
+  "adapters/sitl/ardupilot_types.py": {
+    "mtime": 1784551164.6047344,
+    "ast_hash": "0668da7fadcf3330f3d02cd3774f3bf9",
+    "semantic_hash": "0668da7fadcf3330f3d02cd3774f3bf9"
+  },
+  "adapters/sitl/ardupilot_upload.py": {
+    "mtime": 1784551164.6047344,
+    "ast_hash": "99a653c50d20a7b6557c51f60921d9a0",
+    "semantic_hash": "99a653c50d20a7b6557c51f60921d9a0"
+  },
+  "adapters/sitl/artifacts.py": {
+    "mtime": 1784638870.2634113,
+    "ast_hash": "f57e70d25ab2108fafc682fa8d910626",
+    "semantic_hash": ""
+  },
+  "adapters/sitl/comparison.py": {
+    "mtime": 1784551164.6047344,
+    "ast_hash": "19a82c04041faf407b3a65da958fdaaa",
+    "semantic_hash": "19a82c04041faf407b3a65da958fdaaa"
+  },
+  "adapters/sitl/comparison_artifacts.py": {
+    "mtime": 1784557927.544218,
+    "ast_hash": "598d19ce65e5d5f8225131ea86616131",
+    "semantic_hash": ""
+  },
+  "adapters/sitl/comparison_dimensions.py": {
+    "mtime": 1784551164.6047344,
+    "ast_hash": "e547e57e980e2a72c38b17786168bd39",
+    "semantic_hash": "e547e57e980e2a72c38b17786168bd39"
+  },
+  "adapters/sitl/comparison_expected.py": {
+    "mtime": 1784551164.6047344,
+    "ast_hash": "c01b13aa1d68609ce41ac9792b5a956c",
+    "semantic_hash": "c01b13aa1d68609ce41ac9792b5a956c"
+  },
+  "adapters/sitl/comparison_markdown.py": {
+    "mtime": 1784551164.6047344,
+    "ast_hash": "d2e7a4bfa844f8f8dfe95efb2b327479",
+    "semantic_hash": "d2e7a4bfa844f8f8dfe95efb2b327479"
+  },
+  "adapters/sitl/comparison_position.py": {
+    "mtime": 1784551164.6047344,
+    "ast_hash": "f5bc16a377be600a187b4d84e0f856d6",
+    "semantic_hash": "f5bc16a377be600a187b4d84e0f856d6"
+  },
+  "adapters/sitl/comparison_summary.py": {
+    "mtime": 1784551164.6047344,
+    "ast_hash": "3d26d544bfff59ba5ff425f54f935419",
+    "semantic_hash": "3d26d544bfff59ba5ff425f54f935419"
+  },
+  "adapters/sitl/comparison_telemetry.py": {
+    "mtime": 1784551164.6047344,
+    "ast_hash": "3cffbf3d724288649c6601fe1bb172dc",
+    "semantic_hash": "3cffbf3d724288649c6601fe1bb172dc"
+  },
+  "adapters/sitl/comparison_values.py": {
+    "mtime": 1784551164.6047344,
+    "ast_hash": "62cb5a909de551d682033483ff599d21",
+    "semantic_hash": "62cb5a909de551d682033483ff599d21"
+  },
+  "adapters/sitl/evidence.py": {
+    "mtime": 1784638902.9634056,
+    "ast_hash": "8aaadabb8470aa0476971c6776be3653",
+    "semantic_hash": ""
+  },
+  "adapters/sitl/evidence_io.py": {
+    "mtime": 1784639058.1393778,
+    "ast_hash": "49dfb06cadae5ded58d5a3e405953f5c",
+    "semantic_hash": ""
+  },
+  "adapters/sitl/evidence_markdown.py": {
+    "mtime": 1784551164.6047344,
+    "ast_hash": "d6aac38d56976c0c5e6bc793f2215229",
+    "semantic_hash": "d6aac38d56976c0c5e6bc793f2215229"
+  },
+  "adapters/sora_envelope.py": {
+    "mtime": 1784642892.3604956,
+    "ast_hash": "1b72a701b9ce1cd7dd9f4debcb8a655d",
+    "semantic_hash": ""
+  },
+  "adapters/sora_markdown.py": {
+    "mtime": 1784644624.3001878,
+    "ast_hash": "1d61413ed51ee0176492d51400c07793",
+    "semantic_hash": ""
+  },
+  "adapters/stochastic_envelope.py": {
+    "mtime": 1784642274.266805,
+    "ast_hash": "8030d15ac895921ff2c347e7ca7cd98e",
+    "semantic_hash": ""
+  },
+  "adapters/stochastic_io.py": {
+    "mtime": 1784642571.1507528,
+    "ast_hash": "baa6d80b5a41871ebfddf4cacdce0958",
+    "semantic_hash": ""
+  },
+  "adapters/stochastic_markdown.py": {
+    "mtime": 1784643097.6604588,
+    "ast_hash": "a470c3d05a399cc274a9aeaa32c1467c",
+    "semantic_hash": ""
+  },
+  "adapters/summary.py": {
+    "mtime": 1784643638.2283626,
+    "ast_hash": "0334ae7dc530dd516530144622252ef3",
+    "semantic_hash": ""
+  },
+  "adapters/terrain_grid.py": {
+    "mtime": 1784551164.6047344,
+    "ast_hash": "b5386877bedf961252aedd2d38398af0",
+    "semantic_hash": "b5386877bedf961252aedd2d38398af0"
+  },
+  "adapters/uncertainty_envelope.py": {
+    "mtime": 1784643602.7963688,
+    "ast_hash": "67658ffa9270824f5714e25b1cc1a8f6",
+    "semantic_hash": ""
+  },
+  "adapters/uncertainty_io.py": {
+    "mtime": 1784643602.9643688,
+    "ast_hash": "d8024c99af4b39e945e8b4a4500b94c2",
+    "semantic_hash": ""
+  },
+  "adapters/uncertainty_markdown.py": {
+    "mtime": 1784644624.3001878,
+    "ast_hash": "fb865bddc06445737e6279430c5ec474",
+    "semantic_hash": ""
+  },
+  "adapters/validation/__init__.py": {
+    "mtime": 1784551164.6047344,
+    "ast_hash": "3af53539e9fa711cf49de591ec2503a3",
+    "semantic_hash": "3af53539e9fa711cf49de591ec2503a3"
+  },
+  "adapters/validation/io.py": {
+    "mtime": 1784551164.606559,
+    "ast_hash": "713851508659dc9f47e0b4d41e1de8b8",
+    "semantic_hash": "713851508659dc9f47e0b4d41e1de8b8"
+  },
+  "adapters/validation/validator.py": {
+    "mtime": 1784557044.2044456,
+    "ast_hash": "a8708c47da63524040a28638235f5ed4",
+    "semantic_hash": ""
+  },
+  "adapters/validation_markdown.py": {
+    "mtime": 1784638058.5755558,
+    "ast_hash": "7be70b91f3b5f18972c4a6158adbd189",
+    "semantic_hash": ""
+  },
+  "adapters/version.py": {
+    "mtime": 1784551164.606559,
+    "ast_hash": "fcd3cd70e2eba8dbaee210e9a76ddc7b",
+    "semantic_hash": "fcd3cd70e2eba8dbaee210e9a76ddc7b"
+  },
+  "adapters/wind_grid.py": {
+    "mtime": 1784551164.606559,
+    "ast_hash": "20508f01a876a9a2686e6542a0bde140",
+    "semantic_hash": "20508f01a876a9a2686e6542a0bde140"
+  },
+  "conftest.py": {
+    "mtime": 1784551164.606559,
+    "ast_hash": "fc78bd082dabcdc0811cadb455ff614a",
+    "semantic_hash": "fc78bd082dabcdc0811cadb455ff614a"
+  },
+  "estimator/__init__.py": {
+    "mtime": 1784642712.4965258,
+    "ast_hash": "227d5946faee08172b159afdc88739b7",
+    "semantic_hash": ""
+  },
+  "estimator/core/__init__.py": {
+    "mtime": 1784551164.6151195,
+    "ast_hash": "a12950e60890bd77cc32dc6ba7b27e24",
+    "semantic_hash": "a12950e60890bd77cc32dc6ba7b27e24"
+  },
+  "estimator/core/constants.py": {
+    "mtime": 1784551164.6151707,
+    "ast_hash": "19af4fdec17a65ff614d3f97b239d589",
+    "semantic_hash": "19af4fdec17a65ff614d3f97b239d589"
+  },
+  "estimator/core/enums.py": {
+    "mtime": 1784559127.271909,
+    "ast_hash": "18c300751252ce89190c89b0dda64568",
+    "semantic_hash": ""
+  },
+  "estimator/core/errors.py": {
+    "mtime": 1784551164.6151707,
+    "ast_hash": "08d3bd2d86cee88cee1ce1b236a8c2e6",
+    "semantic_hash": "08d3bd2d86cee88cee1ce1b236a8c2e6"
+  },
+  "estimator/core/geofence.py": {
+    "mtime": 1784551164.6151707,
+    "ast_hash": "1816a4327c7e9a8ceb7c9a89d07323d7",
+    "semantic_hash": "1816a4327c7e9a8ceb7c9a89d07323d7"
+  },
+  "estimator/core/landing_zone.py": {
+    "mtime": 1784643389.1724074,
+    "ast_hash": "1202a230b3208b7a91ec3ccc250f98d7",
+    "semantic_hash": ""
+  },
+  "estimator/core/obstacle.py": {
+    "mtime": 1784551164.6151707,
+    "ast_hash": "8e8bbafa17b60a45bd98ce13eadd15dd",
+    "semantic_hash": "8e8bbafa17b60a45bd98ce13eadd15dd"
+  },
+  "estimator/core/options.py": {
+    "mtime": 1784557016.804453,
+    "ast_hash": "370e8d20e8bbf20719c96e409915c701",
+    "semantic_hash": ""
+  },
+  "estimator/core/results.py": {
+    "mtime": 1784642485.3427675,
+    "ast_hash": "5674748e5582fa64ee9a2c4290001868",
+    "semantic_hash": ""
+  },
+  "estimator/core/scenario.py": {
+    "mtime": 1784551164.6151707,
+    "ast_hash": "ad6fdc8eaa699a9aef5fd07f3bfbd7ac",
+    "semantic_hash": "ad6fdc8eaa699a9aef5fd07f3bfbd7ac"
+  },
+  "estimator/core/spatial.py": {
+    "mtime": 1784551164.6151707,
+    "ast_hash": "2ede4c877688272128103e32226e3d58",
+    "semantic_hash": "2ede4c877688272128103e32226e3d58"
+  },
+  "estimator/core/uncertainty.py": {
+    "mtime": 1784644624.3001878,
+    "ast_hash": "b98d98d20c3a627a62b4c0709e57b2dc",
+    "semantic_hash": ""
+  },
+  "estimator/environment/__init__.py": {
+    "mtime": 1784551164.6151707,
+    "ast_hash": "1dfcfc1924b6e6f36f7b731e3585bc4f",
+    "semantic_hash": "1dfcfc1924b6e6f36f7b731e3585bc4f"
+  },
+  "estimator/environment/obstacle.py": {
+    "mtime": 1784551164.6161382,
+    "ast_hash": "4c483320ccf8f6687be82d322fb2d709",
+    "semantic_hash": "4c483320ccf8f6687be82d322fb2d709"
+  },
+  "estimator/environment/population.py": {
+    "mtime": 1784642526.9427605,
+    "ast_hash": "52e647aee114f0578d71d041572705ff",
+    "semantic_hash": ""
+  },
+  "estimator/environment/terrain.py": {
+    "mtime": 1784644624.3001878,
+    "ast_hash": "cb75c81440139e9fdade3d183c619ee9",
+    "semantic_hash": ""
+  },
+  "estimator/environment/wind.py": {
+    "mtime": 1784641492.1469448,
+    "ast_hash": "6d4f0a7935b8e23ad40753483c6fcc83",
+    "semantic_hash": ""
+  },
+  "estimator/execution/__init__.py": {
+    "mtime": 1784551164.6161382,
+    "ast_hash": "c6e970297e4a944f0580b603656d1758",
+    "semantic_hash": "c6e970297e4a944f0580b603656d1758"
+  },
+  "estimator/execution/air_risk.py": {
+    "mtime": 1784641427.1789565,
+    "ast_hash": "b9db194cc070427e5a8612abc3f2da2d",
+    "semantic_hash": ""
+  },
+  "estimator/execution/altitude.py": {
+    "mtime": 1784551164.6167433,
+    "ast_hash": "32f49d261f62657bf2b8a6a6a4e5be45",
+    "semantic_hash": "32f49d261f62657bf2b8a6a6a4e5be45"
+  },
+  "estimator/execution/context_builder.py": {
+    "mtime": 1784559127.271909,
+    "ast_hash": "e9fb9ebe1e12bb1dc895af61536d855f",
+    "semantic_hash": ""
+  },
+  "estimator/execution/divert.py": {
+    "mtime": 1784551164.6167433,
+    "ast_hash": "192a782f514d2e379bdc8a2ae69cfe46",
+    "semantic_hash": "192a782f514d2e379bdc8a2ae69cfe46"
+  },
+  "estimator/execution/energy.py": {
+    "mtime": 1784642665.9965377,
+    "ast_hash": "d95f53c9f72e220a564a8ede6fca140c",
+    "semantic_hash": ""
+  },
+  "estimator/execution/engine.py": {
+    "mtime": 1784643186.924443,
+    "ast_hash": "3af566f18409a02d4b59886c204bd0e3",
+    "semantic_hash": ""
+  },
+  "estimator/execution/executors/__init__.py": {
+    "mtime": 1784551164.6167433,
+    "ast_hash": "1373f491c841ac205e38748bbfd4fb1c",
+    "semantic_hash": "1373f491c841ac205e38748bbfd4fb1c"
+  },
+  "estimator/execution/executors/base.py": {
+    "mtime": 1784551164.617579,
+    "ast_hash": "93e12b2b5e8520fa405777c6a617ef5d",
+    "semantic_hash": "93e12b2b5e8520fa405777c6a617ef5d"
+  },
+  "estimator/execution/executors/loiter_action.py": {
+    "mtime": 1784551164.617579,
+    "ast_hash": "2282eebcc54bbb8ca0ab6d5caff6afba",
+    "semantic_hash": "2282eebcc54bbb8ca0ab6d5caff6afba"
+  },
+  "estimator/execution/executors/registry.py": {
+    "mtime": 1784551164.617579,
+    "ast_hash": "7a835b6f3f4ac78bce794ff368ef1e98",
+    "semantic_hash": "7a835b6f3f4ac78bce794ff368ef1e98"
+  },
+  "estimator/execution/executors/rtl_action.py": {
+    "mtime": 1784551164.617579,
+    "ast_hash": "cb7bbc6686213ef54da8656fd90a3485",
+    "semantic_hash": "cb7bbc6686213ef54da8656fd90a3485"
+  },
+  "estimator/execution/executors/support.py": {
+    "mtime": 1784551164.617579,
+    "ast_hash": "5fcdc49a0383b94a803c6780bd6c207c",
+    "semantic_hash": "5fcdc49a0383b94a803c6780bd6c207c"
+  },
+  "estimator/execution/executors/transit_action.py": {
+    "mtime": 1784551164.617579,
+    "ast_hash": "92abfc3acfffd1b862fc2ade3969d94c",
+    "semantic_hash": "92abfc3acfffd1b862fc2ade3969d94c"
+  },
+  "estimator/execution/geofence.py": {
+    "mtime": 1784559127.271909,
+    "ast_hash": "ca603c49673be00f91920d3426601a2e",
+    "semantic_hash": ""
+  },
+  "estimator/execution/ground_risk.py": {
+    "mtime": 1784642485.4827673,
+    "ast_hash": "ccc39f71824930e568abacbffe3a85ab",
+    "semantic_hash": ""
+  },
+  "estimator/execution/landing_zone.py": {
+    "mtime": 1784643162.2044477,
+    "ast_hash": "23956a17d2c6f0aa688805873b23e454",
+    "semantic_hash": ""
+  },
+  "estimator/execution/loiter.py": {
+    "mtime": 1784642458.286772,
+    "ast_hash": "a070f91b76a6b49080faad0e72523b61",
+    "semantic_hash": ""
+  },
+  "estimator/execution/monte_carlo.py": {
+    "mtime": 1784644624.3041878,
+    "ast_hash": "cbcec6f966975220d32ca4800ed26376",
+    "semantic_hash": ""
+  },
+  "estimator/execution/obstacle.py": {
+    "mtime": 1784640145.4751842,
+    "ast_hash": "5a2ebea358aaa75660107828e1243ba9",
+    "semantic_hash": ""
+  },
+  "estimator/execution/propagation/__init__.py": {
+    "mtime": 1784551164.617579,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "estimator/execution/propagation/curves.py": {
+    "mtime": 1784642101.7108357,
+    "ast_hash": "1db36235320b2695403842e684f916dc",
+    "semantic_hash": ""
+  },
+  "estimator/execution/propagation/particles.py": {
+    "mtime": 1784642137.9988291,
+    "ast_hash": "0766700b5a5ec25ad2c0ba016952a700",
+    "semantic_hash": ""
+  },
+  "estimator/execution/propagation/sampling.py": {
+    "mtime": 1784642156.4188259,
+    "ast_hash": "2bf32f7bc25064cb862bc31adcfbcab4",
+    "semantic_hash": ""
+  },
+  "estimator/execution/propagation/stats.py": {
+    "mtime": 1784643165.9684472,
+    "ast_hash": "ba1df36fd3ca0da4684c4d37a2ce620e",
+    "semantic_hash": ""
+  },
+  "estimator/execution/propagation/timeline.py": {
+    "mtime": 1784643012.4284732,
+    "ast_hash": "4944b9a6bbc2d8f81664ea976a8ba8e3",
+    "semantic_hash": ""
+  },
+  "estimator/execution/propagator.py": {
+    "mtime": 1784643166.0964472,
+    "ast_hash": "f5a466e0f32e588a69b461a7a565cae9",
+    "semantic_hash": ""
+  },
+  "estimator/execution/propagator_ekf.py": {
+    "mtime": 1784551164.6189265,
+    "ast_hash": "7e70aa48fe73ebf2d62ccb2f45c17031",
+    "semantic_hash": "7e70aa48fe73ebf2d62ccb2f45c17031"
+  },
+  "estimator/execution/resource_link.py": {
+    "mtime": 1784561505.8192961,
+    "ast_hash": "9a8a2bdf24d68894eb139a77cdfbeeb2",
+    "semantic_hash": ""
+  },
+  "estimator/execution/rules.py": {
+    "mtime": 1784551164.6189265,
+    "ast_hash": "6615603f9aa882476e055c38699e6eb5",
+    "semantic_hash": "6615603f9aa882476e055c38699e6eb5"
+  },
+  "estimator/execution/runtime/__init__.py": {
+    "mtime": 1784551164.6189265,
+    "ast_hash": "9de8f57181b640c05820926f4c7118b8",
+    "semantic_hash": "9de8f57181b640c05820926f4c7118b8"
+  },
+  "estimator/execution/runtime/capabilities.py": {
+    "mtime": 1784551164.6198518,
+    "ast_hash": "3493091f7086b944e300114b55c0e466",
+    "semantic_hash": "3493091f7086b944e300114b55c0e466"
+  },
+  "estimator/execution/runtime/context.py": {
+    "mtime": 1784551164.6198518,
+    "ast_hash": "5614934751f50c54fb7ea57290fcc08d",
+    "semantic_hash": "5614934751f50c54fb7ea57290fcc08d"
+  },
+  "estimator/execution/runtime/failure_translation.py": {
+    "mtime": 1784551164.6198518,
+    "ast_hash": "7d853af6ee976d277d7f426f399dc737",
+    "semantic_hash": "7d853af6ee976d277d7f426f399dc737"
+  },
+  "estimator/execution/runtime/options.py": {
+    "mtime": 1784551164.6198518,
+    "ast_hash": "734ff6b8920d3a91ead9e6404738c4d6",
+    "semantic_hash": "734ff6b8920d3a91ead9e6404738c4d6"
+  },
+  "estimator/execution/runtime/state.py": {
+    "mtime": 1784551164.6198518,
+    "ast_hash": "e4cf87649422f1f0d232eac197686af0",
+    "semantic_hash": "e4cf87649422f1f0d232eac197686af0"
+  },
+  "estimator/execution/sail.py": {
+    "mtime": 1784642542.5667577,
+    "ast_hash": "ecaa10a5805fd27c78e6ef4d87ca5aba",
+    "semantic_hash": ""
+  },
+  "estimator/execution/scenario.py": {
+    "mtime": 1784551164.6198518,
+    "ast_hash": "e3d153694a50e2f7a5bc55ac079ede70",
+    "semantic_hash": "e3d153694a50e2f7a5bc55ac079ede70"
+  },
+  "estimator/execution/scenario_assertions.py": {
+    "mtime": 1784551164.6198518,
+    "ast_hash": "9a7a2a549f67038cb83dcb4185728a73",
+    "semantic_hash": "9a7a2a549f67038cb83dcb4185728a73"
+  },
+  "estimator/execution/scenario_wind_lz.py": {
+    "mtime": 1784551164.6198518,
+    "ast_hash": "02f53286ab217d479f4ca842f847b4c5",
+    "semantic_hash": "02f53286ab217d479f4ca842f847b4c5"
+  },
+  "estimator/execution/sensor_models.py": {
+    "mtime": 1784551164.6198518,
+    "ast_hash": "0fb3a1c33b6276d15ed642630868d531",
+    "semantic_hash": "0fb3a1c33b6276d15ed642630868d531"
+  },
+  "estimator/execution/sora.py": {
+    "mtime": 1784644624.3001878,
+    "ast_hash": "399d7dad40a5f496b63a51711953365f",
+    "semantic_hash": ""
+  },
+  "estimator/execution/spatial.py": {
+    "mtime": 1784551164.6198518,
+    "ast_hash": "70a49869b575bdda48aeaebe09c4e04f",
+    "semantic_hash": "70a49869b575bdda48aeaebe09c4e04f"
+  },
+  "estimator/execution/totals.py": {
+    "mtime": 1784551164.6198518,
+    "ast_hash": "f8b5e302d12722e1abfa0a7e1272b68f",
+    "semantic_hash": "f8b5e302d12722e1abfa0a7e1272b68f"
+  },
+  "estimator/execution/tracking_controller.py": {
+    "mtime": 1784644624.3001878,
+    "ast_hash": "6797836903592f48e3eede6c5935906d",
+    "semantic_hash": ""
+  },
+  "estimator/execution/transit.py": {
+    "mtime": 1784642015.4588509,
+    "ast_hash": "f3c43ce6ce4534de3a6d6cb0db66bc6c",
+    "semantic_hash": ""
+  },
+  "estimator/execution/vertical.py": {
+    "mtime": 1784551164.6198518,
+    "ast_hash": "8ed6a23cb1433e939652e03855557f13",
+    "semantic_hash": "8ed6a23cb1433e939652e03855557f13"
+  },
+  "estimator/execution/weather.py": {
+    "mtime": 1784642427.8587775,
+    "ast_hash": "dba0e590a03ba8179c07b4e47a8e4034",
+    "semantic_hash": ""
+  },
+  "estimator/math/__init__.py": {
+    "mtime": 1784551164.6198518,
+    "ast_hash": "990b231ccef2559c3210469b2f76e67e",
+    "semantic_hash": "990b231ccef2559c3210469b2f76e67e"
+  },
+  "estimator/math/atmosphere.py": {
+    "mtime": 1784551164.621067,
+    "ast_hash": "e1c1d482e0a551960f1dc7dc4935f7ef",
+    "semantic_hash": "e1c1d482e0a551960f1dc7dc4935f7ef"
+  },
+  "estimator/math/dubins.py": {
+    "mtime": 1784558258.2281322,
+    "ast_hash": "000362683cdca6e64dace5ab0e1beeee",
+    "semantic_hash": ""
+  },
+  "estimator/math/turn_arc.py": {
+    "mtime": 1784559127.271909,
+    "ast_hash": "21c38d2961f094697b87827df9406151",
+    "semantic_hash": ""
+  },
+  "estimator/math/wind_triangle.py": {
+    "mtime": 1784551164.621067,
+    "ast_hash": "2eacffe05737678700f90788168ef7f2",
+    "semantic_hash": "2eacffe05737678700f90788168ef7f2"
+  },
+  "examples/calibration/quadplane_v1_calibration.json": {
+    "mtime": 1784557963.8642106,
+    "ast_hash": "d4245fd13251c456c718cbc019352af0",
+    "semantic_hash": ""
+  },
+  "examples/flight_logs/pipeline_demo_001_trace.json": {
+    "mtime": 1784562006.2351665,
+    "ast_hash": "f3768d3a1bff95e217ae3c7408471d27",
+    "semantic_hash": ""
+  },
+  "examples/real_world/trace_pipeline_demo.json": {
+    "mtime": 1784551164.6249943,
+    "ast_hash": "1f7d64a34a4e7ac3f00e3321f30ba118",
+    "semantic_hash": "1f7d64a34a4e7ac3f00e3321f30ba118"
+  },
+  "main.py": {
+    "mtime": 1784551164.62881,
+    "ast_hash": "027186d559587d1825965003e0537cfd",
+    "semantic_hash": "027186d559587d1825965003e0537cfd"
+  },
+  "pyproject.toml": {
+    "mtime": 1784558631.8200376,
+    "ast_hash": "5f1b1832f9a70aa82aa133aab766d6e1",
+    "semantic_hash": ""
+  },
+  "schemas/__init__.py": {
+    "mtime": 1784642698.20453,
+    "ast_hash": "f86e0593c7a6e9ed5070854a307d60bd",
+    "semantic_hash": ""
+  },
+  "schemas/batch.py": {
+    "mtime": 1784551164.629325,
+    "ast_hash": "dc44a86cc4ca83e04406836881360d44",
+    "semantic_hash": "dc44a86cc4ca83e04406836881360d44"
+  },
+  "schemas/calibration.py": {
+    "mtime": 1784557249.3003926,
+    "ast_hash": "794b8a6a9f7ea90bac335a27c2f0cf76",
+    "semantic_hash": ""
+  },
+  "schemas/flight_log.py": {
+    "mtime": 1784557249.1683927,
+    "ast_hash": "e6ccbafa157a1f7016040f153769581e",
+    "semantic_hash": ""
+  },
+  "schemas/mission.py": {
+    "mtime": 1784644624.3041878,
+    "ast_hash": "b7103fb1a71bc9ca0879415d3e1f7508",
+    "semantic_hash": ""
+  },
+  "schemas/phase_segment.py": {
+    "mtime": 1784551164.629325,
+    "ast_hash": "570f138134f25b9cb1f3bb838b152d86",
+    "semantic_hash": "570f138134f25b9cb1f3bb838b152d86"
+  },
+  "schemas/preflight_validation.py": {
+    "mtime": 1784551164.629325,
+    "ast_hash": "dd683660631be0110a7b7cc54d1317b9",
+    "semantic_hash": "dd683660631be0110a7b7cc54d1317b9"
+  },
+  "schemas/resource_link.py": {
+    "mtime": 1784642174.0788229,
+    "ast_hash": "e0fab5161bd8398c79e9eb5503158d47",
+    "semantic_hash": ""
+  },
+  "schemas/scenario.py": {
+    "mtime": 1784551164.629325,
+    "ast_hash": "f6184842d614c91582ff7826eebea3cb",
+    "semantic_hash": "f6184842d614c91582ff7826eebea3cb"
+  },
+  "schemas/sitl.py": {
+    "mtime": 1784638902.8274057,
+    "ast_hash": "fa395be29c468b23106243554da3f569",
+    "semantic_hash": ""
+  },
+  "schemas/sitl_comparison.py": {
+    "mtime": 1784551164.629325,
+    "ast_hash": "8efb5320bdac4d4307bfae3c6e5cfeb1",
+    "semantic_hash": "8efb5320bdac4d4307bfae3c6e5cfeb1"
+  },
+  "schemas/sora.py": {
+    "mtime": 1784644624.3041878,
+    "ast_hash": "220e520473494ce7a14af7d68cc6e634",
+    "semantic_hash": ""
+  },
+  "schemas/stochastic.py": {
+    "mtime": 1784643219.1884387,
+    "ast_hash": "c2bcca7d4e554d204b31fabb2d371c49",
+    "semantic_hash": ""
+  },
+  "schemas/uncertainty.py": {
+    "mtime": 1784644624.3001878,
+    "ast_hash": "7a60fba1e6f285ea334268f1599aa792",
+    "semantic_hash": ""
+  },
+  "schemas/validation.py": {
+    "mtime": 1784558046.4321887,
+    "ast_hash": "7af4a4bf1e48dbeecae4df768c7d55ad",
+    "semantic_hash": ""
+  },
+  "schemas/vehicle.py": {
+    "mtime": 1784641725.3509037,
+    "ast_hash": "287434603e32de44f1696ae9160bf260",
+    "semantic_hash": ""
+  },
+  "schemas/vehicle_capabilities.py": {
+    "mtime": 1784551164.629325,
+    "ast_hash": "c033598384121f1037bdbd3f14442b23",
+    "semantic_hash": "c033598384121f1037bdbd3f14442b23"
+  },
+  "schemas/vehicle_controller.py": {
+    "mtime": 1784642174.2148228,
+    "ast_hash": "a31b46fc186e23a03b65a985eed2d153",
+    "semantic_hash": ""
+  },
+  "schemas/vehicle_energy.py": {
+    "mtime": 1784641725.8069038,
+    "ast_hash": "a3e12c59539462620271786fe0de9e1d",
+    "semantic_hash": ""
+  },
+  "schemas/vehicle_enums.py": {
+    "mtime": 1784551164.629325,
+    "ast_hash": "49a4e3a2e92fa841ad58465b13d887d1",
+    "semantic_hash": "49a4e3a2e92fa841ad58465b13d887d1"
+  },
+  "schemas/vehicle_mass.py": {
+    "mtime": 1784641725.6629038,
+    "ast_hash": "d7c65a65d2d8fa53c449a597a7bb0cd7",
+    "semantic_hash": ""
+  },
+  "schemas/vehicle_performance.py": {
+    "mtime": 1784641725.506904,
+    "ast_hash": "b9ae05c00717473abbc69168f1c26d3a",
+    "semantic_hash": ""
+  },
+  "schemas/vehicle_sensors.py": {
+    "mtime": 1784642174.3468227,
+    "ast_hash": "244936f5aebf2a7015f005c5958de175",
+    "semantic_hash": ""
+  },
+  "schemas/vehicle_sitl.py": {
+    "mtime": 1784551164.629325,
+    "ast_hash": "132274f95a24ef839002c46f5f1e01ed",
+    "semantic_hash": "132274f95a24ef839002c46f5f1e01ed"
+  },
+  "scripts/cli_batch_audit.py": {
+    "mtime": 1784643914.0723138,
+    "ast_hash": "4cf2f3d2cba50e239d9e9cc4fa38a8c8",
+    "semantic_hash": ""
+  },
+  "scripts/fetch_all.py": {
+    "mtime": 1784639944.3712204,
+    "ast_hash": "2693e7dc8d03d8b0c347c30533bd6fda",
+    "semantic_hash": ""
+  },
+  "scripts/fetch_geofences.py": {
+    "mtime": 1784639864.8392346,
+    "ast_hash": "a2697350a6e83530757ec28d3ea9494e",
+    "semantic_hash": ""
+  },
+  "scripts/fetch_landing_zones.py": {
+    "mtime": 1784639944.3712204,
+    "ast_hash": "fb80768adfefd18b2ae63c04b31d7746",
+    "semantic_hash": ""
+  },
+  "scripts/fetch_obstacles.py": {
+    "mtime": 1784639944.3712204,
+    "ast_hash": "accffb762c63bc1acace0704a6079996",
+    "semantic_hash": ""
+  },
+  "scripts/fetch_population.py": {
+    "mtime": 1784642033.8028479,
+    "ast_hash": "9226b7e418b138a804a01ec41441d44f",
+    "semantic_hash": ""
+  },
+  "scripts/fetch_terrain.py": {
+    "mtime": 1784639865.5152345,
+    "ast_hash": "919e9df1baad46966edbd7ed9562c1ad",
+    "semantic_hash": ""
+  },
+  "scripts/fetch_wind.py": {
+    "mtime": 1784639865.2392344,
+    "ast_hash": "ceff7cf29dd494263342c95974652bf0",
+    "semantic_hash": ""
+  },
+  "sitl/launch.sh": {
+    "mtime": 1784560401.615582,
+    "ast_hash": "24ea79bbadaef0fa3e8ff5d69d2be2f3",
+    "semantic_hash": ""
+  },
+  "tests/fixtures/golden/battery_sizing/envelope.json": {
+    "mtime": 1784644422.0781176,
+    "ast_hash": "25beb2f0f7d356ff524cacf20c208fff",
+    "semantic_hash": ""
+  },
+  "tests/fixtures/golden/infeasible/envelope.json": {
+    "mtime": 1784644421.776593,
+    "ast_hash": "86a676641cf2dfff1238984e3e301234",
+    "semantic_hash": ""
+  },
+  "tests/fixtures/golden/partial/envelope.json": {
+    "mtime": 1784644422.3249943,
+    "ast_hash": "0188d4356c534a250c751bd68b955d7d",
+    "semantic_hash": ""
+  },
+  "tests/fixtures/golden/scenarios/failed/envelope.json": {
+    "mtime": 1784644422.100223,
+    "ast_hash": "529a340bc178d91a3434db33c5990e40",
+    "semantic_hash": ""
+  },
+  "tests/fixtures/golden/scenarios/passed/envelope.json": {
+    "mtime": 1784644421.9438632,
+    "ast_hash": "ab94905f436c52e07d8020bda7081672",
+    "semantic_hash": ""
+  },
+  "tests/fixtures/golden/spatiotemporal_wind/envelope.json": {
+    "mtime": 1784644422.7466843,
+    "ast_hash": "123ef7b99af974c636b0e8d2f320d02e",
+    "semantic_hash": ""
+  },
+  "tests/fixtures/golden/stochastic/envelope.json": {
+    "mtime": 1784643381.760226,
+    "ast_hash": "b4aed44628dcace102602ad8bb16c470",
+    "semantic_hash": ""
+  },
+  "tests/fixtures/golden/success/envelope.json": {
+    "mtime": 1784644422.3432643,
+    "ast_hash": "90a259d51796d70a8ef69f04c77ae144",
+    "semantic_hash": ""
+  },
+  "tests/fixtures/golden/terrain/envelope.json": {
+    "mtime": 1784644421.8039992,
+    "ast_hash": "df98b0271acf7161cedfbd99d396043a",
+    "semantic_hash": ""
+  },
+  "tests/helpers.py": {
+    "mtime": 1784637728.443614,
+    "ast_hash": "dc373dd009b1c3eb68ce298e3e1bec2f",
+    "semantic_hash": ""
+  },
+  "tests/test_air_risk.py": {
+    "mtime": 1784642189.68682,
+    "ast_hash": "ea82c9ea630c567d9e030f7630361c84",
+    "semantic_hash": ""
+  },
+  "tests/test_ardupilot_sitl.py": {
+    "mtime": 1784638958.9473956,
+    "ast_hash": "3de521126cd47caaea75db2762c877f5",
+    "semantic_hash": ""
+  },
+  "tests/test_atomic_write.py": {
+    "mtime": 1784636858.2077696,
+    "ast_hash": "1cb58c7438726f6f3cad0c27707385be",
+    "semantic_hash": ""
+  },
+  "tests/test_batch.py": {
+    "mtime": 1784638922.643402,
+    "ast_hash": "5da8cfb5f112bc7c4ae9c09ac3aa8161",
+    "semantic_hash": ""
+  },
+  "tests/test_battery_sizer.py": {
+    "mtime": 1784642797.7765136,
+    "ast_hash": "5c4a3a669f186dfa2857259cbf59a957",
+    "semantic_hash": ""
+  },
+  "tests/test_bump_version.py": {
+    "mtime": 1784557265.9643884,
+    "ast_hash": "e0054d61a59a07bd4eadbf0f52dae029",
+    "semantic_hash": ""
+  },
+  "tests/test_calibration.py": {
+    "mtime": 1784638058.5795557,
+    "ast_hash": "192bffd22226398a6dfb3d87c0a44ed0",
+    "semantic_hash": ""
+  },
+  "tests/test_checklist_markdown.py": {
+    "mtime": 1784644624.3041878,
+    "ast_hash": "bfadd631663a8f6eb1e18823a7f55afd",
+    "semantic_hash": ""
+  },
+  "tests/test_cli.py": {
+    "mtime": 1784643300.7284238,
+    "ast_hash": "bf656a1ae6d4273f2ce346114892488d",
+    "semantic_hash": ""
+  },
+  "tests/test_contract_golden.py": {
+    "mtime": 1784638942.6673987,
+    "ast_hash": "e77d42ddf7f7c6b0ebfd2e8edafeb896",
+    "semantic_hash": ""
+  },
+  "tests/test_divert_routing.py": {
+    "mtime": 1784643186.924443,
+    "ast_hash": "12cfde9dc91c1120d044f83c62700848",
+    "semantic_hash": ""
+  },
+  "tests/test_dubins.py": {
+    "mtime": 1784643162.6004477,
+    "ast_hash": "e7599d6825cb14a58315340065c3ef95",
+    "semantic_hash": ""
+  },
+  "tests/test_dynamic_landing_zone.py": {
+    "mtime": 1784643162.3364477,
+    "ast_hash": "9b4f9e081c008773c9d9c73bcc853e00",
+    "semantic_hash": ""
+  },
+  "tests/test_engine_warnings.py": {
+    "mtime": 1784643186.924443,
+    "ast_hash": "f517cb520745217226d44d2b9c3df954",
+    "semantic_hash": ""
+  },
+  "tests/test_estimator_determinism.py": {
+    "mtime": 1784551164.6374867,
+    "ast_hash": "53c26ae074b401677ac4e3b55c262ce3",
+    "semantic_hash": "53c26ae074b401677ac4e3b55c262ce3"
+  },
+  "tests/test_estimator_energy.py": {
+    "mtime": 1784643163.4084475,
+    "ast_hash": "40af6de8fae7ffc43cbf8dce62d10de1",
+    "semantic_hash": ""
+  },
+  "tests/test_estimator_errors.py": {
+    "mtime": 1784551164.6374867,
+    "ast_hash": "82f33e665e2783041e031f5295c4f251",
+    "semantic_hash": "82f33e665e2783041e031f5295c4f251"
+  },
+  "tests/test_estimator_fidelity_v2.py": {
+    "mtime": 1784642510.794763,
+    "ast_hash": "05272d542a3b100de171cafc65be3e68",
+    "semantic_hash": ""
+  },
+  "tests/test_estimator_loiter.py": {
+    "mtime": 1784551164.6374867,
+    "ast_hash": "8f4c2e2bbf87844aafeff9996c48d2b5",
+    "semantic_hash": "8f4c2e2bbf87844aafeff9996c48d2b5"
+  },
+  "tests/test_estimator_result_shape.py": {
+    "mtime": 1784559365.4838483,
+    "ast_hash": "0e878fdef6eb2f0220a0176603250d98",
+    "semantic_hash": ""
+  },
+  "tests/test_estimator_subsegment.py": {
+    "mtime": 1784641894.722873,
+    "ast_hash": "711368d543853fd02a8e975eb06a9796",
+    "semantic_hash": ""
+  },
+  "tests/test_estimator_transit.py": {
+    "mtime": 1784558688.2080228,
+    "ast_hash": "9cf9e93f0954f329c14a81ac5808da3e",
+    "semantic_hash": ""
+  },
+  "tests/test_exit_codes_contract.py": {
+    "mtime": 1784557527.5723236,
+    "ast_hash": "b4bfeabf5fbf9b982d0aa3daeea7f7b7",
+    "semantic_hash": ""
+  },
+  "tests/test_flight_log_ingestion.py": {
+    "mtime": 1784558109.5081723,
+    "ast_hash": "2060563756549c102a58e96fd450a85e",
+    "semantic_hash": ""
+  },
+  "tests/test_geofence.py": {
+    "mtime": 1784559127.271909,
+    "ast_hash": "09c1ded6e2472f792883e63f74d2d48b",
+    "semantic_hash": ""
+  },
+  "tests/test_geojson_export.py": {
+    "mtime": 1784551164.6379654,
+    "ast_hash": "c1395207a8983c8e76a8ed95df1f8863",
+    "semantic_hash": "c1395207a8983c8e76a8ed95df1f8863"
+  },
+  "tests/test_ground_risk.py": {
+    "mtime": 1784642485.7467673,
+    "ast_hash": "baa2708f38a8b0a17dd97007d1601cd0",
+    "semantic_hash": ""
+  },
+  "tests/test_landing_zone.py": {
+    "mtime": 1784643389.3044074,
+    "ast_hash": "a1f608cf663f41fdfa57785f7fc2ceb7",
+    "semantic_hash": ""
+  },
+  "tests/test_markdown_report.py": {
+    "mtime": 1784551164.6379654,
+    "ast_hash": "9db756b3612fb80554c8709b9a96000b",
+    "semantic_hash": "9db756b3612fb80554c8709b9a96000b"
+  },
+  "tests/test_monte_carlo.py": {
+    "mtime": 1784644624.3041878,
+    "ast_hash": "d6ff0915675c05c291292a822d5c11dc",
+    "semantic_hash": ""
+  },
+  "tests/test_observation_model.py": {
+    "mtime": 1784642938.5644894,
+    "ast_hash": "bce866e5d14d25a9f4cb3fff6a9cfb2d",
+    "semantic_hash": ""
+  },
+  "tests/test_obstacle_clearance.py": {
+    "mtime": 1784640151.1751833,
+    "ast_hash": "053d699e167cba2ec9aab2988d67861a",
+    "semantic_hash": ""
+  },
+  "tests/test_path_planning_gaps.py": {
+    "mtime": 1784643162.8724477,
+    "ast_hash": "dbac5239a4790b765cd8c0d89a9a4f49",
+    "semantic_hash": ""
+  },
+  "tests/test_phase_segmentation.py": {
+    "mtime": 1784551164.6379654,
+    "ast_hash": "91e6d9f9b94c8cc32774202006779b02",
+    "semantic_hash": "91e6d9f9b94c8cc32774202006779b02"
+  },
+  "tests/test_preflight_validation.py": {
+    "mtime": 1784551164.6379654,
+    "ast_hash": "3894513ebfc982535598045e04fc218d",
+    "semantic_hash": "3894513ebfc982535598045e04fc218d"
+  },
+  "tests/test_profile_markdown.py": {
+    "mtime": 1784638058.5755558,
+    "ast_hash": "c20d44810e6126baae8b9bc3c86593eb",
+    "semantic_hash": ""
+  },
+  "tests/test_propagation_units.py": {
+    "mtime": 1784643219.1884387,
+    "ast_hash": "31b36fd40adcd7e9c254ea61d3685388",
+    "semantic_hash": ""
+  },
+  "tests/test_qgc_convert.py": {
+    "mtime": 1784551164.6379654,
+    "ast_hash": "0106a4e5026225b283825164615740e9",
+    "semantic_hash": "0106a4e5026225b283825164615740e9"
+  },
+  "tests/test_qgc_export.py": {
+    "mtime": 1784551164.6379654,
+    "ast_hash": "44d3548aa90c9b9898f561478ab29ea4",
+    "semantic_hash": "44d3548aa90c9b9898f561478ab29ea4"
+  },
+  "tests/test_resource_link.py": {
+    "mtime": 1784561559.1752825,
+    "ast_hash": "943c91d496d530cfe762b9d209e6f133",
+    "semantic_hash": ""
+  },
+  "tests/test_run_progress.py": {
+    "mtime": 1784638701.7554414,
+    "ast_hash": "28fa2cdef4b40e090ecee14b34233fd6",
+    "semantic_hash": ""
+  },
+  "tests/test_sail.py": {
+    "mtime": 1784642542.7067578,
+    "ast_hash": "efd7f286c068ef66a26cdaba99d75297",
+    "semantic_hash": ""
+  },
+  "tests/test_scenario_cli.py": {
+    "mtime": 1784637366.8916795,
+    "ast_hash": "6651ef8cfcfd1422e69c328e5eee55dd",
+    "semantic_hash": ""
+  },
+  "tests/test_scenario_envelope.py": {
+    "mtime": 1784638942.7953985,
+    "ast_hash": "6de26a39540dad6489358a3e8cae1200",
+    "semantic_hash": ""
+  },
+  "tests/test_scenario_per_event_policy.py": {
+    "mtime": 1784643162.7404478,
+    "ast_hash": "ce0fd67f3a37ecdc7a01be138b38ccd5",
+    "semantic_hash": ""
+  },
+  "tests/test_scenario_runner.py": {
+    "mtime": 1784643186.924443,
+    "ast_hash": "f8d0096d21b75653f555943e73ec45a5",
+    "semantic_hash": ""
+  },
+  "tests/test_scenario_schemas.py": {
+    "mtime": 1784551164.6379654,
+    "ast_hash": "309a7de24bc5165982ec4d8b5638846d",
+    "semantic_hash": "309a7de24bc5165982ec4d8b5638846d"
+  },
+  "tests/test_schema_versions.py": {
+    "mtime": 1784551164.6379654,
+    "ast_hash": "d484875ae3bb09257c4c45d8bf836bcd",
+    "semantic_hash": "d484875ae3bb09257c4c45d8bf836bcd"
+  },
+  "tests/test_schemas.py": {
+    "mtime": 1784551164.6379654,
+    "ast_hash": "0e65ffa45ef6a0509006e071305dac0b",
+    "semantic_hash": "0e65ffa45ef6a0509006e071305dac0b"
+  },
+  "tests/test_sensitivity.py": {
+    "mtime": 1784638013.039564,
+    "ast_hash": "3f3e07e67598f56ff8e52de48e855666",
+    "semantic_hash": ""
+  },
+  "tests/test_sitl_artifacts.py": {
+    "mtime": 1784639058.1433778,
+    "ast_hash": "fab47a37e808bac465c6791c4c3f4388",
+    "semantic_hash": ""
+  },
+  "tests/test_sitl_comparison.py": {
+    "mtime": 1784557965.68021,
+    "ast_hash": "3a59646f137fb8c74ea2a419e53bad7f",
+    "semantic_hash": ""
+  },
+  "tests/test_sitl_evidence.py": {
+    "mtime": 1784639058.1433778,
+    "ast_hash": "22a520428fbeb53134c77990c22fdd45",
+    "semantic_hash": ""
+  },
+  "tests/test_sitl_live.py": {
+    "mtime": 1784561037.147417,
+    "ast_hash": "1ba06b087e021a29e095165ae53b560e",
+    "semantic_hash": ""
+  },
+  "tests/test_sora_cli.py": {
+    "mtime": 1784644624.3041878,
+    "ast_hash": "39cbb0e7659649a0c4ad0d42e2f5db01",
+    "semantic_hash": ""
+  },
+  "tests/test_sora_mitigations.py": {
+    "mtime": 1784642287.7708025,
+    "ast_hash": "845c93ed9cef80e588a1eb29acd1e401",
+    "semantic_hash": ""
+  },
+  "tests/test_stochastic_cli.py": {
+    "mtime": 1784643049.3444672,
+    "ast_hash": "e3dc32b3b2fbc3a3c4d31b651779559b",
+    "semantic_hash": ""
+  },
+  "tests/test_stochastic_propagator.py": {
+    "mtime": 1784643163.0084476,
+    "ast_hash": "d46cd51411acf8371f7de669a552b6ea",
+    "semantic_hash": ""
+  },
+  "tests/test_summary_format.py": {
+    "mtime": 1784644204.688263,
+    "ast_hash": "62b13e72ecb34e1675327220a7224d74",
+    "semantic_hash": ""
+  },
+  "tests/test_terrain_altitude.py": {
+    "mtime": 1784551164.6379654,
+    "ast_hash": "1704d22720202318851d5f49aef5c232",
+    "semantic_hash": "1704d22720202318851d5f49aef5c232"
+  },
+  "tests/test_time_varying_geofence.py": {
+    "mtime": 1784559700.8797615,
+    "ast_hash": "22833544505ad34b991ab4ede2d4fc2e",
+    "semantic_hash": ""
+  },
+  "tests/test_tracking_controller.py": {
+    "mtime": 1784642986.6644778,
+    "ast_hash": "288405b66fcc5a1f2b78238896ce702f",
+    "semantic_hash": ""
+  },
+  "tests/test_uncertainty_cli.py": {
+    "mtime": 1784643752.3963428,
+    "ast_hash": "17fbeaa280d997514b194a2f7bc2c75c",
+    "semantic_hash": ""
+  },
+  "tests/test_validation_metrics.py": {
+    "mtime": 1784558072.308182,
+    "ast_hash": "6550b05eef15b02bc8480eb355a305b8",
+    "semantic_hash": ""
+  },
+  "tests/test_weather_limits.py": {
+    "mtime": 1784642493.202766,
+    "ast_hash": "6d9f97c8f5ceef71a9168a6dde432596",
+    "semantic_hash": ""
+  },
+  "tests/test_wind_layered.py": {
+    "mtime": 1784639567.1152866,
+    "ast_hash": "5a4f93b006affef1ca399c8e4dba367a",
+    "semantic_hash": ""
+  },
+  "tests/test_wind_spatiotemporal.py": {
+    "mtime": 1784639596.1432817,
+    "ast_hash": "1de2be371dbef1a04ca316873ce0a1d6",
+    "semantic_hash": ""
+  },
+  "tests/test_wind_triangle.py": {
+    "mtime": 1784551164.6419654,
+    "ast_hash": "5b4a3eabe3c8bdc739ec21abf8e385cf",
+    "semantic_hash": "5b4a3eabe3c8bdc739ec21abf8e385cf"
+  },
+  "tests/test_yaml_config_features.py": {
+    "mtime": 1784551164.6419654,
+    "ast_hash": "a90513eee6abefc5e34a09962a7cceba",
+    "semantic_hash": "a90513eee6abefc5e34a09962a7cceba"
+  },
+  ".codex/skills/graphify/SKILL.md": {
+    "mtime": 1784552199.6293573,
+    "ast_hash": "8e69c0111411fc9d5560ad5fe5ba3476",
+    "semantic_hash": "8e69c0111411fc9d5560ad5fe5ba3476"
+  },
+  ".codex/skills/graphify/references/add-watch.md": {
+    "mtime": 1784546535.603156,
+    "ast_hash": "d59d027fe449f06aa03905a01184e779",
+    "semantic_hash": "d59d027fe449f06aa03905a01184e779"
+  },
+  ".codex/skills/graphify/references/exports.md": {
+    "mtime": 1784546535.603156,
+    "ast_hash": "9da2a2152e60a22f07f05fed5158f287",
+    "semantic_hash": "9da2a2152e60a22f07f05fed5158f287"
+  },
+  ".codex/skills/graphify/references/extraction-spec.md": {
+    "mtime": 1784546535.603156,
+    "ast_hash": "bf895ec4d4e40f5f66f7d31c2a9bd4a7",
+    "semantic_hash": "bf895ec4d4e40f5f66f7d31c2a9bd4a7"
+  },
+  ".codex/skills/graphify/references/github-and-merge.md": {
+    "mtime": 1784546535.603156,
+    "ast_hash": "cde13df085e4c492aeb7ba298a996d0d",
+    "semantic_hash": "cde13df085e4c492aeb7ba298a996d0d"
+  },
+  ".codex/skills/graphify/references/hooks.md": {
+    "mtime": 1784546535.603156,
+    "ast_hash": "3f545db6ce646650bb9de588f5512a27",
+    "semantic_hash": "3f545db6ce646650bb9de588f5512a27"
+  },
+  ".codex/skills/graphify/references/query.md": {
+    "mtime": 1784546535.607156,
+    "ast_hash": "3c46f8ad006874260614ed8657d02307",
+    "semantic_hash": "3c46f8ad006874260614ed8657d02307"
+  },
+  ".codex/skills/graphify/references/transcribe.md": {
+    "mtime": 1784546535.607156,
+    "ast_hash": "67b6a5fa6c0974e18f60db9f8932fbd8",
+    "semantic_hash": "67b6a5fa6c0974e18f60db9f8932fbd8"
+  },
+  ".codex/skills/graphify/references/update.md": {
+    "mtime": 1784546535.607156,
+    "ast_hash": "c698309979460d0f02ba616417844399",
+    "semantic_hash": "c698309979460d0f02ba616417844399"
+  },
+  ".github/ISSUE_TEMPLATE/bug_report.md": {
+    "mtime": 1784551164.5973907,
+    "ast_hash": "72a1030a67656eeba27414ff1d24171a",
+    "semantic_hash": "72a1030a67656eeba27414ff1d24171a"
+  },
+  ".github/ISSUE_TEMPLATE/feature_request.md": {
+    "mtime": 1784551164.5974543,
+    "ast_hash": "cff4e1788ef63ca0e5a742644d937826",
+    "semantic_hash": "cff4e1788ef63ca0e5a742644d937826"
+  },
+  ".github/pull_request_template.md": {
+    "mtime": 1784551164.5974543,
+    "ast_hash": "b7080f30cbf5fb1abcbeffa62f770752",
+    "semantic_hash": "b7080f30cbf5fb1abcbeffa62f770752"
+  },
+  ".github/workflows/ci.yml": {
+    "mtime": 1784640314.9671538,
+    "ast_hash": "4fe03a6b256a93690f8d9773ed9409be",
+    "semantic_hash": ""
+  },
+  ".github/workflows/docs.yml": {
+    "mtime": 1784640315.1151538,
+    "ast_hash": "d1ebfbdc177998740979ca318db2a482",
+    "semantic_hash": ""
+  },
+  "AGENTS.md": {
+    "mtime": 1784636588.795818,
+    "ast_hash": "3c1b5312911b7883caf8ae9dad6e32a6",
+    "semantic_hash": ""
+  },
+  "CHANGELOG.md": {
+    "mtime": 1784551164.5979414,
+    "ast_hash": "59d5f45b2d1de469406820e079a95c19",
+    "semantic_hash": "59d5f45b2d1de469406820e079a95c19"
+  },
+  "CODE_OF_CONDUCT.md": {
+    "mtime": 1784551164.5979414,
+    "ast_hash": "07803a1dceaf55499c5ccb970995afe0",
+    "semantic_hash": "07803a1dceaf55499c5ccb970995afe0"
+  },
+  "CONTRIBUTING.md": {
+    "mtime": 1784644589.8641937,
+    "ast_hash": "0d2629fa7140c9897b0acc2acfbb5e70",
+    "semantic_hash": ""
+  },
+  "README.md": {
+    "mtime": 1784644590.0081937,
+    "ast_hash": "1009e1ede393e9086b3508febf41f2d9",
+    "semantic_hash": ""
+  },
+  "SECURITY.md": {
+    "mtime": 1784551164.5979414,
+    "ast_hash": "8e3b6adc75c7418b4a492b990d6fb95c",
+    "semantic_hash": "8e3b6adc75c7418b4a492b990d6fb95c"
+  },
+  "data/README.md": {
+    "mtime": 1784551164.606559,
+    "ast_hash": "f858e323e379ea4789bebdb99420fac9",
+    "semantic_hash": "f858e323e379ea4789bebdb99420fac9"
+  },
+  "docs/BVLOS_MISSION_SIMULATOR_BRIEF.md": {
+    "mtime": 1784644034.7722912,
+    "ast_hash": "7cbab7f92d573d6aeede1321174ab5e5",
+    "semantic_hash": ""
+  },
+  "docs/CLI_EXIT_CODES.md": {
+    "mtime": 1784638119.3755448,
+    "ast_hash": "304cbce41bbb4ca2d17089ada15cc19b",
+    "semantic_hash": ""
+  },
+  "docs/CODE_STYLE.md": {
+    "mtime": 1784644034.6362913,
+    "ast_hash": "4097975fdde991323e2fe18c0af755c0",
+    "semantic_hash": ""
+  },
+  "docs/ESTIMATOR_V1_FIELD_SEMANTICS.md": {
+    "mtime": 1784644068.1962876,
+    "ast_hash": "babdd17eb9438f8ea3d1373f796b9205",
+    "semantic_hash": ""
+  },
+  "docs/ROADMAP.md": {
+    "mtime": 1784644034.9042912,
+    "ast_hash": "241226bbb77493520efcbebc52e2bfd5",
+    "semantic_hash": ""
+  },
+  "docs/SITL_ADAPTER_CONTRACT.md": {
+    "mtime": 1784638129.083543,
+    "ast_hash": "9baccbad7769728ac2b9bcaf4130930f",
+    "semantic_hash": ""
+  },
+  "docs/SITL_LOCAL_SETUP.md": {
+    "mtime": 1784638129.2195432,
+    "ast_hash": "fc28d0d818ff03ebc544c98b199c5fe4",
+    "semantic_hash": ""
+  },
+  "docs/USAGE.md": {
+    "mtime": 1784644068.0562878,
+    "ast_hash": "e7cc095205218a57a1ecefa4c632f0bd",
+    "semantic_hash": ""
+  },
+  "docs/VERSIONING_POLICY.md": {
+    "mtime": 1784644034.5042913,
+    "ast_hash": "6ff7e92994ed936b0e32e49006dda768",
+    "semantic_hash": ""
+  },
+  "docs/index.md": {
+    "mtime": 1784551164.6084332,
+    "ast_hash": "effc0a8dbfa055bc8fef5219eb49bfa5",
+    "semantic_hash": "effc0a8dbfa055bc8fef5219eb49bfa5"
+  },
+  "docs/tickets/001-estimator-cli-and-envelope.md": {
+    "mtime": 1784551164.6084332,
+    "ast_hash": "1a1e8d718ce6f024ce39584dbd47de5d",
+    "semantic_hash": "1a1e8d718ce6f024ce39584dbd47de5d"
+  },
+  "docs/tickets/002-versioning-and-golden-fixtures.md": {
+    "mtime": 1784551164.609841,
+    "ast_hash": "a351b7acf902cf87aa89375cba422e2c",
+    "semantic_hash": "a351b7acf902cf87aa89375cba422e2c"
+  },
+  "docs/tickets/003-technical-debt-hardening.md": {
+    "mtime": 1784551164.609841,
+    "ast_hash": "6464737795cba766709d136c991725ac",
+    "semantic_hash": "6464737795cba766709d136c991725ac"
+  },
+  "docs/tickets/010-deterministic-energy-feasibility.md": {
+    "mtime": 1784551164.609841,
+    "ast_hash": "fc78dbe7f8710cc3adc11339475f869b",
+    "semantic_hash": "fc78dbe7f8710cc3adc11339475f869b"
+  },
+  "docs/tickets/011-static-geofence-feasibility.md": {
+    "mtime": 1784551164.609841,
+    "ast_hash": "fce2b3be268e623deb59a93c030fabe1",
+    "semantic_hash": "fce2b3be268e623deb59a93c030fabe1"
+  },
+  "docs/tickets/012-static-landing-zone-reachability.md": {
+    "mtime": 1784551164.609841,
+    "ast_hash": "e92c57f8ad0f07134d63f1380f2b3eb2",
+    "semantic_hash": "e92c57f8ad0f07134d63f1380f2b3eb2"
+  },
+  "docs/tickets/020-scenario-runner-core.md": {
+    "mtime": 1784551164.609841,
+    "ast_hash": "89573fa1b047c299ff97bd80e8338b8a",
+    "semantic_hash": "89573fa1b047c299ff97bd80e8338b8a"
+  },
+  "docs/tickets/021-comms-link-and-contingency-policies.md": {
+    "mtime": 1784551164.609841,
+    "ast_hash": "4051a6112d52680cd492f8cb2b740084",
+    "semantic_hash": "4051a6112d52680cd492f8cb2b740084"
+  },
+  "docs/tickets/030-fidelity-v2-layered-wind-and-subsegments.md": {
+    "mtime": 1784638312.339509,
+    "ast_hash": "a843a45e3c7730ea4b482f59f6a4d34e",
+    "semantic_hash": ""
+  },
+  "docs/tickets/031-fidelity-v2-turns-and-fixed-wing-loiter.md": {
+    "mtime": 1784551164.609841,
+    "ast_hash": "4ee4c4be866a96e3fa15c1f5773522dd",
+    "semantic_hash": "4ee4c4be866a96e3fa15c1f5773522dd"
+  },
+  "docs/tickets/032-terrain-referenced-altitude-execution.md": {
+    "mtime": 1784551164.609841,
+    "ast_hash": "41fe18ca08868ec1fd4ca35c0b144951",
+    "semantic_hash": "41fe18ca08868ec1fd4ca35c0b144951"
+  },
+  "docs/tickets/033-continuous-spatiotemporal-wind-grid.md": {
+    "mtime": 1784551164.609841,
+    "ast_hash": "8aee9ea415d38fe44488b346ffe241e5",
+    "semantic_hash": "8aee9ea415d38fe44488b346ffe241e5"
+  },
+  "docs/tickets/034-resource-and-link-feasibility-abstractions.md": {
+    "mtime": 1784551164.609841,
+    "ast_hash": "43491c5c9583a9cc14f0461745e113ec",
+    "semantic_hash": "43491c5c9583a9cc14f0461745e113ec"
+  },
+  "docs/tickets/035-dynamic-landing-zone-availability.md": {
+    "mtime": 1784551164.609841,
+    "ast_hash": "5fb32fb4bec903795bd568ed9ade18a9",
+    "semantic_hash": "5fb32fb4bec903795bd568ed9ade18a9"
+  },
+  "docs/tickets/036-computed-divert-routing.md": {
+    "mtime": 1784551164.609841,
+    "ast_hash": "187106b8fa961fc19513f290ddc28d4a",
+    "semantic_hash": "187106b8fa961fc19513f290ddc28d4a"
+  },
+  "docs/tickets/037-monte-carlo-uncertainty-modeling.md": {
+    "mtime": 1784551164.609841,
+    "ast_hash": "9122fa40234ab0e0444bb685822e137f",
+    "semantic_hash": "9122fa40234ab0e0444bb685822e137f"
+  },
+  "docs/tickets/038-bank-angle-and-dubins-path-optimization.md": {
+    "mtime": 1784551164.609841,
+    "ast_hash": "0dc897c46d8bf61c60e9bdcf906f6b86",
+    "semantic_hash": "0dc897c46d8bf61c60e9bdcf906f6b86"
+  },
+  "docs/tickets/039-path-planning-model-gaps.md": {
+    "mtime": 1784638343.4675062,
+    "ast_hash": "9e20f9becf615426aef59e0d8e5483e5",
+    "semantic_hash": ""
+  },
+  "docs/tickets/040-sitl-adapter-contract-and-evidence-schema.md": {
+    "mtime": 1784551164.609841,
+    "ast_hash": "d6e582f4cba4a62a3d51e47b13f8d3cb",
+    "semantic_hash": "d6e582f4cba4a62a3d51e47b13f8d3cb"
+  },
+  "docs/tickets/041-ardupilot-sitl-launch-and-mission-upload.md": {
+    "mtime": 1784638615.6794562,
+    "ast_hash": "43b0358d54f6989e12829e4d4154e957",
+    "semantic_hash": ""
+  },
+  "docs/tickets/042-sitl-telemetry-recorder-and-evidence-bundle.md": {
+    "mtime": 1784644099.9842827,
+    "ast_hash": "38a9eee64a89f2641eb22cb11219bd26",
+    "semantic_hash": ""
+  },
+  "docs/tickets/043-sitl-scenario-comparison-report.md": {
+    "mtime": 1784551164.609841,
+    "ast_hash": "5bb343faeb338eb88b738b728c58cd86",
+    "semantic_hash": "5bb343faeb338eb88b738b728c58cd86"
+  },
+  "docs/tickets/044-geodesic-dubins-divert.md": {
+    "mtime": 1784551164.609841,
+    "ast_hash": "3be7622cb7d8992ed8e44b1d434d5279",
+    "semantic_hash": "3be7622cb7d8992ed8e44b1d434d5279"
+  },
+  "docs/tickets/045-px4-sitl-launch-and-mission-upload.md": {
+    "mtime": 1784551164.609841,
+    "ast_hash": "91c6f737454e8c55cbac5b51f9022084",
+    "semantic_hash": "91c6f737454e8c55cbac5b51f9022084"
+  },
+  "docs/tickets/046-px4-sitl-telemetry-recorder-and-evidence-bundle.md": {
+    "mtime": 1784551164.609841,
+    "ast_hash": "7a422285d8a97ada2851554683552573",
+    "semantic_hash": "7a422285d8a97ada2851554683552573"
+  },
+  "docs/tickets/047-stochastic-state-propagation.md": {
+    "mtime": 1784642781.4845178,
+    "ast_hash": "473e15c4d012579f76a08fe567ae8033",
+    "semantic_hash": ""
+  },
+  "docs/tickets/048-observation-model-and-twin-state.md": {
+    "mtime": 1784642781.6205177,
+    "ast_hash": "8637ac347ccfe634da4d69b593b1f1d7",
+    "semantic_hash": ""
+  },
+  "docs/tickets/049-stochastic-closed-loop-control.md": {
+    "mtime": 1784642781.7805178,
+    "ast_hash": "9ab291bd320aa612e1f7f18e35c40f31",
+    "semantic_hash": ""
+  },
+  "docs/tickets/050-user-interfaces-and-service-adapters.md": {
+    "mtime": 1784551164.6099656,
+    "ast_hash": "b96bda95ae59e9ee331d1d54aeee5c24",
+    "semantic_hash": "b96bda95ae59e9ee331d1d54aeee5c24"
+  },
+  "docs/tickets/052-real-world-data-fetch-scripts.md": {
+    "mtime": 1784551164.6099656,
+    "ast_hash": "1ea97ff5f1d23e3dfd55b307cafbf45d",
+    "semantic_hash": "1ea97ff5f1d23e3dfd55b307cafbf45d"
+  },
+  "docs/tickets/053-airspace-geofence-fetch-script.md": {
+    "mtime": 1784551164.6099656,
+    "ast_hash": "29fea78090086fdd7fea1d18f9cd7fa0",
+    "semantic_hash": "29fea78090086fdd7fea1d18f9cd7fa0"
+  },
+  "docs/tickets/054-reference-inputs-for-calibration-and-import.md": {
+    "mtime": 1784551164.6099656,
+    "ast_hash": "330ba6cc1b4429ffbc9fe20fc4b5e16e",
+    "semantic_hash": "330ba6cc1b4429ffbc9fe20fc4b5e16e"
+  },
+  "docs/tickets/055-geojson-kml-route-export.md": {
+    "mtime": 1784551164.6099656,
+    "ast_hash": "88042d52eff90327ce33b317c3a54009",
+    "semantic_hash": "88042d52eff90327ce33b317c3a54009"
+  },
+  "docs/tickets/056-community-vehicle-profiles.md": {
+    "mtime": 1784551164.6099656,
+    "ast_hash": "7592caa0a9254d9f0c26be99d06cae07",
+    "semantic_hash": "7592caa0a9254d9f0c26be99d06cae07"
+  },
+  "docs/tickets/057-summary-output-format.md": {
+    "mtime": 1784551164.6099656,
+    "ast_hash": "531f87a77c612a99a798e4299fed0d97",
+    "semantic_hash": "531f87a77c612a99a798e4299fed0d97"
+  },
+  "docs/tickets/058-notam-live-airspace-integration.md": {
+    "mtime": 1784551164.6099656,
+    "ast_hash": "18b789bc29aa772f8e4c718f6fc4efd7",
+    "semantic_hash": "18b789bc29aa772f8e4c718f6fc4efd7"
+  },
+  "docs/tickets/059-infeasible-demo-mission.md": {
+    "mtime": 1784551164.6099656,
+    "ast_hash": "64b4cba35a8be25e6e7d5d33de4d4012",
+    "semantic_hash": "64b4cba35a8be25e6e7d5d33de4d4012"
+  },
+  "docs/tickets/060-import-export-and-batch-workflows.md": {
+    "mtime": 1784551164.6099656,
+    "ast_hash": "0a6ad6928cd47e8362dee26529550ff4",
+    "semantic_hash": "0a6ad6928cd47e8362dee26529550ff4"
+  },
+  "docs/tickets/061-3d-geofence-altitude-bounds.md": {
+    "mtime": 1784551164.6099656,
+    "ast_hash": "9f9454f7950201aadcac69e6bb1f2e33",
+    "semantic_hash": "9f9454f7950201aadcac69e6bb1f2e33"
+  },
+  "docs/tickets/062-wind-corrected-divert-energy.md": {
+    "mtime": 1784643289.5884254,
+    "ast_hash": "8ee1882e8c504568d224598c8216d5b6",
+    "semantic_hash": ""
+  },
+  "docs/tickets/063-rth-reserve-check.md": {
+    "mtime": 1784551164.6099656,
+    "ast_hash": "b87d9e8de289f73edde546ceff21081a",
+    "semantic_hash": "b87d9e8de289f73edde546ceff21081a"
+  },
+  "docs/tickets/064-batch-scenario-and-propagate.md": {
+    "mtime": 1784642796.556514,
+    "ast_hash": "b995ee5780911a47a95ca8490d462683",
+    "semantic_hash": ""
+  },
+  "docs/tickets/065-geofence-and-lz-in-stochastic.md": {
+    "mtime": 1784644100.2642827,
+    "ast_hash": "69b7c0e81d622b7b364958c564445f2f",
+    "semantic_hash": ""
+  },
+  "docs/tickets/066-stochastic-geojson-export.md": {
+    "mtime": 1784642782.0685177,
+    "ast_hash": "946497f9683875cf6bebdcc9ae4b55bb",
+    "semantic_hash": ""
+  },
+  "docs/tickets/067-propagation-progress-feedback.md": {
+    "mtime": 1784551164.6099656,
+    "ast_hash": "193d78b2c1afb7c3a7b544a14623a25c",
+    "semantic_hash": "193d78b2c1afb7c3a7b544a14623a25c"
+  },
+  "docs/tickets/068-divert-route-geojson-layer.md": {
+    "mtime": 1784551164.6099656,
+    "ast_hash": "9eda6b75eae266441dc36b196deb818d",
+    "semantic_hash": "9eda6b75eae266441dc36b196deb818d"
+  },
+  "docs/tickets/069-per-event-lost-link-policy-override.md": {
+    "mtime": 1784551164.6099656,
+    "ast_hash": "c9aed60fe9ae79ecdc3e539710605b5a",
+    "semantic_hash": "c9aed60fe9ae79ecdc3e539710605b5a"
+  },
+  "docs/tickets/070-operational-integration-seams.md": {
+    "mtime": 1784551164.6099656,
+    "ast_hash": "addfa53062d7441a887795b551485557",
+    "semantic_hash": "addfa53062d7441a887795b551485557"
+  },
+  "docs/tickets/071-live-comms-remote-id-and-traffic-integrations.md": {
+    "mtime": 1784551164.6099656,
+    "ast_hash": "d1eb2634f954684415a8bdf630985bd7",
+    "semantic_hash": "d1eb2634f954684415a8bdf630985bd7"
+  },
+  "docs/tickets/072-route-altitude-profile-report.md": {
+    "mtime": 1784551164.6099656,
+    "ast_hash": "a4e83a046a1a49e021c9eef94c11723c",
+    "semantic_hash": "a4e83a046a1a49e021c9eef94c11723c"
+  },
+  "docs/tickets/073-preflight-checklist-output.md": {
+    "mtime": 1784638378.0995004,
+    "ast_hash": "61556596ba7be33bc773e65e4bdb28f9",
+    "semantic_hash": ""
+  },
+  "docs/tickets/074-energy-reserve-sensitivity.md": {
+    "mtime": 1784644100.1282828,
+    "ast_hash": "ce23ca66f92198127e93efd77e779264",
+    "semantic_hash": ""
+  },
+  "docs/tickets/075-minimum-battery-sizing.md": {
+    "mtime": 1784640005.9992092,
+    "ast_hash": "8eb919068541202bcee379663a8cecb3",
+    "semantic_hash": ""
+  },
+  "docs/tickets/076-departure-window-finder.md": {
+    "mtime": 1784551164.6099656,
+    "ast_hash": "d1a115c1ae1fd2964572a46e0c0a743e",
+    "semantic_hash": "d1a115c1ae1fd2964572a46e0c0a743e"
+  },
+  "docs/tickets/077-mission-comparison-report.md": {
+    "mtime": 1784551164.6099656,
+    "ast_hash": "f7c39c00a973b63fb216a9662996137d",
+    "semantic_hash": "f7c39c00a973b63fb216a9662996137d"
+  },
+  "docs/tickets/080-flight-log-ingestion-and-trace-normalization.md": {
+    "mtime": 1784551164.6099656,
+    "ast_hash": "fa392c9dbde2a8d6a4c0a6d6a6f86a9d",
+    "semantic_hash": "fa392c9dbde2a8d6a4c0a6d6a6f86a9d"
+  },
+  "docs/tickets/081-flight-phase-segmentation.md": {
+    "mtime": 1784551164.6099656,
+    "ast_hash": "07c764ed3e048f6b9d83d8f4dac18fe3",
+    "semantic_hash": "07c764ed3e048f6b9d83d8f4dac18fe3"
+  },
+  "docs/tickets/082-predicted-vs-observed-validation-metrics.md": {
+    "mtime": 1784558047.1321886,
+    "ast_hash": "8bb602c24e21f00efbac212a75070e53",
+    "semantic_hash": ""
+  },
+  "docs/tickets/083-calibration-profile-data-and-fitting.md": {
+    "mtime": 1784551164.6099656,
+    "ast_hash": "572868d1a14909906e976a04511c2f06",
+    "semantic_hash": "572868d1a14909906e976a04511c2f06"
+  },
+  "docs/tickets/084-holdout-validation-reports.md": {
+    "mtime": 1784551164.6099656,
+    "ast_hash": "b5c3d7a6c17dc49195f06b987fe36c54",
+    "semantic_hash": "b5c3d7a6c17dc49195f06b987fe36c54"
+  },
+  "docs/tickets/085-qgc-convert-vehicle-profile.md": {
+    "mtime": 1784551164.6099656,
+    "ast_hash": "acc49adb8621a3243467c824be11564d",
+    "semantic_hash": "acc49adb8621a3243467c824be11564d"
+  },
+  "docs/tickets/086-stochastic-propagator-module-split.md": {
+    "mtime": 1784551164.6099656,
+    "ast_hash": "36dceef197a9029b206c333d86fa794d",
+    "semantic_hash": "36dceef197a9029b206c333d86fa794d"
+  },
+  "docs/tickets/087-hardware-in-the-loop-hitl-adapter.md": {
+    "mtime": 1784551164.6099656,
+    "ast_hash": "32a60cb0a74e5cc3afc41e08f4ffa779",
+    "semantic_hash": "32a60cb0a74e5cc3afc41e08f4ffa779"
+  },
+  "docs/tickets/088-performance-benchmarking-and-regression-gates.md": {
+    "mtime": 1784551164.6099656,
+    "ast_hash": "6dcd84c6c6284a123c588689a3d08c64",
+    "semantic_hash": "6dcd84c6c6284a123c588689a3d08c64"
+  },
+  "docs/tickets/089-preflight-report-command.md": {
+    "mtime": 1784643357.4204137,
+    "ast_hash": "c7a4db1f6b5d58d4496b9c9102bc6f52",
+    "semantic_hash": ""
+  },
+  "docs/tickets/090-schema-version-migration-tooling.md": {
+    "mtime": 1784638428.4514897,
+    "ast_hash": "e45428c3e17ab97fc5fb12edaaef62e6",
+    "semantic_hash": ""
+  },
+  "docs/tickets/091-qgc-mission-export.md": {
+    "mtime": 1784551164.6099656,
+    "ast_hash": "ae39ad86c9db6425e2b5001d8cef7716",
+    "semantic_hash": "ae39ad86c9db6425e2b5001d8cef7716"
+  },
+  "docs/tickets/092-weather-minimums-and-go-nogo.md": {
+    "mtime": 1784551164.6099656,
+    "ast_hash": "7c82d3a97e4ec11cb389086e53fd294e",
+    "semantic_hash": "7c82d3a97e4ec11cb389086e53fd294e"
+  },
+  "docs/tickets/093-time-varying-geofence-activation.md": {
+    "mtime": 1784551164.6099656,
+    "ast_hash": "4e4e439575a82c003d6e7a34dd5f62a9",
+    "semantic_hash": "4e4e439575a82c003d6e7a34dd5f62a9"
+  },
+  "docs/tickets/094-sora-ground-risk-class.md": {
+    "mtime": 1784643254.7324302,
+    "ast_hash": "ec87a16678840543ee54c4fc24e7a860",
+    "semantic_hash": ""
+  },
+  "docs/tickets/095-sora-air-risk-and-sail.md": {
+    "mtime": 1784643023.4164708,
+    "ast_hash": "49e0358a72bd5d7ab9a98e1a0206acb6",
+    "semantic_hash": ""
+  },
+  "docs/tickets/096-docs-github-pages.md": {
+    "mtime": 1784551164.6099656,
+    "ast_hash": "3833677f7e6eb0b80f0dcc8fcdaa5783",
+    "semantic_hash": "3833677f7e6eb0b80f0dcc8fcdaa5783"
+  },
+  "docs/tickets/097-rth-reserve-feasibility-gate.md": {
+    "mtime": 1784638378.2355003,
+    "ast_hash": "27e98ae580a062f68634fa6296dc191f",
+    "semantic_hash": ""
+  },
+  "docs/tickets/098-version-bump-and-release-tooling.md": {
+    "mtime": 1784551164.6099656,
+    "ast_hash": "2ec83542bd1f402dc3ebf767604a8027",
+    "semantic_hash": "2ec83542bd1f402dc3ebf767604a8027"
+  },
+  "docs/tickets/099-energy-model-fidelity.md": {
+    "mtime": 1784551164.6099656,
+    "ast_hash": "fe779a4b2151bae6ca7ec96309c2d8c1",
+    "semantic_hash": "fe779a4b2151bae6ca7ec96309c2d8c1"
+  },
+  "docs/tickets/100-obstacle-database-and-clearance.md": {
+    "mtime": 1784551164.6099656,
+    "ast_hash": "e814cca2b36cfb5cff24cb1dc9dd009e",
+    "semantic_hash": "e814cca2b36cfb5cff24cb1dc9dd009e"
+  },
+  "docs/tickets/101-sora-mitigation-depth.md": {
+    "mtime": 1784639341.1033273,
+    "ast_hash": "d647af46c1d931fbbc91a03d3c93a9f6",
+    "semantic_hash": ""
+  },
+  "docs/tickets/102-binary-flight-log-ingestion.md": {
+    "mtime": 1784638859.2834132,
+    "ast_hash": "9a89154237c81799f20c502be3b8046b",
+    "semantic_hash": ""
+  },
+  "docs/tickets/103-backend-cli-exit-code-contract.md": {
+    "mtime": 1784551164.6099656,
+    "ast_hash": "2b4b354016a50a4ed4031b282d383842",
+    "semantic_hash": "2b4b354016a50a4ed4031b282d383842"
+  },
+  "docs/tickets/104-atomic-output-writes-and-cancellation.md": {
+    "mtime": 1784557645.8322916,
+    "ast_hash": "dbfd89f1f1f7bc62ea4b14398a928670",
+    "semantic_hash": ""
+  },
+  "docs/tickets/105-contract-version-discovery-command.md": {
+    "mtime": 1784644035.1762912,
+    "ast_hash": "6dab612c55c8a875b30a546371627f41",
+    "semantic_hash": ""
+  },
+  "docs/tickets/106-machine-readable-run-progress.md": {
+    "mtime": 1784551164.6099656,
+    "ast_hash": "db06987335dc799d45082e512f2ca71e",
+    "semantic_hash": "db06987335dc799d45082e512f2ca71e"
+  },
+  "docs/tickets/107-machine-readable-preflight-report.md": {
+    "mtime": 1784551164.6099656,
+    "ast_hash": "3a96b4845ec1253e5f86cf43f2fcb62f",
+    "semantic_hash": "3a96b4845ec1253e5f86cf43f2fcb62f"
+  },
+  "docs/tickets/README.md": {
+    "mtime": 1784644035.040291,
+    "ast_hash": "b068761bff885796621293227cad72a9",
+    "semantic_hash": ""
+  },
+  "examples/batch/README.md": {
+    "mtime": 1784551164.6217885,
+    "ast_hash": "63e47eb3e40f1c5622d45b7631371605",
+    "semantic_hash": "63e47eb3e40f1c5622d45b7631371605"
+  },
+  "examples/batch/demo_batch.yaml": {
+    "mtime": 1784551164.6218708,
+    "ast_hash": "c54ee4011305e188847ca2b31a774e1a",
+    "semantic_hash": "c54ee4011305e188847ca2b31a774e1a"
+  },
+  "examples/calibration/README.md": {
+    "mtime": 1784551164.6218708,
+    "ast_hash": "b0522aa15b5a3ca90bfb7568518bc6a3",
+    "semantic_hash": "b0522aa15b5a3ca90bfb7568518bc6a3"
+  },
+  "examples/missions/README.md": {
+    "mtime": 1784638404.635494,
+    "ast_hash": "41a3fca6bd46006897f98d6517b4ad48",
+    "semantic_hash": ""
+  },
+  "examples/missions/assets/pipeline_population_grid.yaml": {
+    "mtime": 1784642379.174786,
+    "ast_hash": "791b94aedc55fef2b4a979bf780124cb",
+    "semantic_hash": ""
+  },
+  "examples/missions/community/autel_evo_max_4t_demo.yaml": {
+    "mtime": 1784561948.4271815,
+    "ast_hash": "4fd0a0c1f4e4cc367338afdad3edf6d8",
+    "semantic_hash": ""
+  },
+  "examples/missions/community/dji_matrice_300_rtk_demo.yaml": {
+    "mtime": 1784561948.5631814,
+    "ast_hash": "0e25779efa12b51baecd9f409646fb06",
+    "semantic_hash": ""
+  },
+  "examples/missions/community/generic_survey_hexacopter_demo.yaml": {
+    "mtime": 1784561948.6911814,
+    "ast_hash": "ac9782f739f85e8f7704d25dc93188f6",
+    "semantic_hash": ""
+  },
+  "examples/missions/community/qs_trinity_f90_plus_demo.yaml": {
+    "mtime": 1784561948.8271813,
+    "ast_hash": "c9bd042a7447a8f21ddda9cce234c847",
+    "semantic_hash": ""
+  },
+  "examples/missions/community/wingtra_one_gen2_demo.yaml": {
+    "mtime": 1784561948.9551814,
+    "ast_hash": "72d14573e73402fddb0ab7365ea88a57",
+    "semantic_hash": ""
+  },
+  "examples/missions/pipeline_demo_001.yaml": {
+    "mtime": 1784561949.0871813,
+    "ast_hash": "f1a1fb141406f8d9e9aa0e21ad8e96c1",
+    "semantic_hash": ""
+  },
+  "examples/missions/pipeline_demo_001_ekf.yaml": {
+    "mtime": 1784561949.2231812,
+    "ast_hash": "ed4345fb955a1cccd2438e59ea60f2df",
+    "semantic_hash": ""
+  },
+  "examples/missions/pipeline_demo_001_ground_risk.yaml": {
+    "mtime": 1784642379.0387862,
+    "ast_hash": "3fe3fe3f68431d6241362ee1ca7b60d6",
+    "semantic_hash": ""
+  },
+  "examples/missions/pipeline_demo_001_integrated.yaml": {
+    "mtime": 1784561949.4831812,
+    "ast_hash": "7ed19bfba6bcc9978cd30b93b27c4d2b",
+    "semantic_hash": ""
+  },
+  "examples/missions/pipeline_demo_001_resource_link.yaml": {
+    "mtime": 1784561949.6151812,
+    "ast_hash": "30183d7671353d2727f3f83d868e584c",
+    "semantic_hash": ""
+  },
+  "examples/real_world/README.md": {
+    "mtime": 1784638596.8274596,
+    "ast_hash": "8c7a4e512e24563d1d32180f208f4d69",
+    "semantic_hash": ""
+  },
+  "examples/real_world/alpine_infeasible.yaml": {
+    "mtime": 1784561949.7471812,
+    "ast_hash": "1b39af6f55d976cdd27e0f5c144e55f2",
+    "semantic_hash": ""
+  },
+  "examples/real_world/alpine_mission.yaml": {
+    "mtime": 1784561949.8791811,
+    "ast_hash": "fd4f996048e4727bee083705e10f444a",
+    "semantic_hash": ""
+  },
+  "examples/real_world/assets/terrain.yaml": {
+    "mtime": 1784551164.6249943,
+    "ast_hash": "0d20fc55b91be489ffa08209e85b7710",
+    "semantic_hash": "0d20fc55b91be489ffa08209e85b7710"
+  },
+  "examples/real_world/assets/wind_grid.yaml": {
+    "mtime": 1784551164.6249943,
+    "ast_hash": "3eed9233f89002c1c03b34fe4e4f314f",
+    "semantic_hash": "3eed9233f89002c1c03b34fe4e4f314f"
+  },
+  "examples/real_world/quadplane_small_battery.yaml": {
+    "mtime": 1784557963.4522107,
+    "ast_hash": "a4dcc824ae501baf60a047f91e55f4fd",
+    "semantic_hash": "a4dcc824ae501baf60a047f91e55f4fd"
+  },
+  "examples/real_world/quadplane_v1.yaml": {
+    "mtime": 1784551164.6249943,
+    "ast_hash": "757707c10dcd2db98404b496cdf8c3dd",
+    "semantic_hash": "757707c10dcd2db98404b496cdf8c3dd"
+  },
+  "examples/scenarios/README.md": {
+    "mtime": 1784638404.9074938,
+    "ast_hash": "53a2fa95a2bbe7b3143540238606ef1c",
+    "semantic_hash": ""
+  },
+  "examples/scenarios/pipeline_demo_001_divert_routing_scenario.yaml": {
+    "mtime": 1784551164.6256006,
+    "ast_hash": "706b51ad612da34dbc79e83f31a66d1b",
+    "semantic_hash": "706b51ad612da34dbc79e83f31a66d1b"
+  },
+  "examples/scenarios/pipeline_demo_001_integrated_scenario.yaml": {
+    "mtime": 1784551164.6256006,
+    "ast_hash": "a06acdcd0a35642efbf34b4251746be1",
+    "semantic_hash": "a06acdcd0a35642efbf34b4251746be1"
+  },
+  "examples/scenarios/pipeline_demo_001_lz_availability_scenario.yaml": {
+    "mtime": 1784551164.6256006,
+    "ast_hash": "8efff927cc97077fce77ad24e7f54f21",
+    "semantic_hash": "8efff927cc97077fce77ad24e7f54f21"
+  },
+  "examples/scenarios/pipeline_demo_001_resource_link_scenario.yaml": {
+    "mtime": 1784551164.6256006,
+    "ast_hash": "54444a07639355d5ec308290a084e3d3",
+    "semantic_hash": "54444a07639355d5ec308290a084e3d3"
+  },
+  "examples/scenarios/pipeline_demo_001_scenario.yaml": {
+    "mtime": 1784551164.6256006,
+    "ast_hash": "2365879687b002d9b9c1bae718b4c74b",
+    "semantic_hash": "2365879687b002d9b9c1bae718b4c74b"
+  },
+  "examples/scenarios/pipeline_demo_001_v2_scenario.yaml": {
+    "mtime": 1784551164.6256006,
+    "ast_hash": "50f8645db6cfd209cbc9c9e088f92c39",
+    "semantic_hash": "50f8645db6cfd209cbc9c9e088f92c39"
+  },
+  "examples/scenarios/pipeline_demo_001_waypoint_policy_scenario.yaml": {
+    "mtime": 1784551164.6256006,
+    "ast_hash": "b1038511aa526c5e5b87714e20913f66",
+    "semantic_hash": "b1038511aa526c5e5b87714e20913f66"
+  },
+  "examples/stochastic/README.md": {
+    "mtime": 1784551164.6256006,
+    "ast_hash": "2e81256ae7831762a1e69bb9b8b9f817",
+    "semantic_hash": "2e81256ae7831762a1e69bb9b8b9f817"
+  },
+  "examples/stochastic/pipeline_demo_001_stochastic.yaml": {
+    "mtime": 1784642346.6627917,
+    "ast_hash": "a01cc738ebfb8aadbd54633b1e559755",
+    "semantic_hash": ""
+  },
+  "examples/stochastic/pipeline_demo_001_stochastic_ekf.yaml": {
+    "mtime": 1784642346.798792,
+    "ast_hash": "0012b594711d6a42c7a6222afa9b99e0",
+    "semantic_hash": ""
+  },
+  "examples/terrain/README.md": {
+    "mtime": 1784551164.626309,
+    "ast_hash": "f1a93b5499a8809657fd47b6789a6c1e",
+    "semantic_hash": "f1a93b5499a8809657fd47b6789a6c1e"
+  },
+  "examples/terrain/flat_polder.yaml": {
+    "mtime": 1784551164.626744,
+    "ast_hash": "254fe41f448d5866b6554bd12c5032eb",
+    "semantic_hash": "254fe41f448d5866b6554bd12c5032eb"
+  },
+  "examples/uncertainty/README.md": {
+    "mtime": 1784551164.626744,
+    "ast_hash": "2216346a86703680ed8d7868cf7096f7",
+    "semantic_hash": "2216346a86703680ed8d7868cf7096f7"
+  },
+  "examples/uncertainty/pipeline_demo_001_speed_uncertainty.yaml": {
+    "mtime": 1784643644.0963619,
+    "ast_hash": "eccb40ae5477ec55c021a3f6c18147bb",
+    "semantic_hash": ""
+  },
+  "examples/uncertainty/pipeline_demo_001_wind_uncertainty.yaml": {
+    "mtime": 1784643937.4803097,
+    "ast_hash": "a62b5bf422ac506055391a67308a3783",
+    "semantic_hash": ""
+  },
+  "examples/vehicles/README.md": {
+    "mtime": 1784551164.62715,
+    "ast_hash": "9407f717ca6a372ba5177ad252eb396b",
+    "semantic_hash": "9407f717ca6a372ba5177ad252eb396b"
+  },
+  "examples/vehicles/community/README.md": {
+    "mtime": 1784551164.6278634,
+    "ast_hash": "4b83f54b4df1e539a4322fd72a2f654b",
+    "semantic_hash": "4b83f54b4df1e539a4322fd72a2f654b"
+  },
+  "examples/vehicles/community/autel_evo_max_4t.yaml": {
+    "mtime": 1784551164.6279762,
+    "ast_hash": "18fd7053b422a5759ab09776a3f7075f",
+    "semantic_hash": "18fd7053b422a5759ab09776a3f7075f"
+  },
+  "examples/vehicles/community/dji_matrice_300_rtk.yaml": {
+    "mtime": 1784551164.6279762,
+    "ast_hash": "af7ac68189871f1302cd681775b8333f",
+    "semantic_hash": "af7ac68189871f1302cd681775b8333f"
+  },
+  "examples/vehicles/community/generic_survey_hexacopter.yaml": {
+    "mtime": 1784551164.6279762,
+    "ast_hash": "16390eadd7ca073ad4c8b213edd9eb44",
+    "semantic_hash": "16390eadd7ca073ad4c8b213edd9eb44"
+  },
+  "examples/vehicles/community/qs_trinity_f90_plus.yaml": {
+    "mtime": 1784551164.6279762,
+    "ast_hash": "2c33814d1aacf36f0549605f7147d03c",
+    "semantic_hash": "2c33814d1aacf36f0549605f7147d03c"
+  },
+  "examples/vehicles/community/wingtra_one_gen2.yaml": {
+    "mtime": 1784551164.6279762,
+    "ast_hash": "7bf25e03d93e9b3d0f3a12880c08172d",
+    "semantic_hash": "7bf25e03d93e9b3d0f3a12880c08172d"
+  },
+  "examples/vehicles/quadplane_resource_link.yaml": {
+    "mtime": 1784551164.6279762,
+    "ast_hash": "ab7775d8340d09e503e558814712fdcf",
+    "semantic_hash": "ab7775d8340d09e503e558814712fdcf"
+  },
+  "examples/vehicles/quadplane_v1.yaml": {
+    "mtime": 1784557963.3162107,
+    "ast_hash": "757707c10dcd2db98404b496cdf8c3dd",
+    "semantic_hash": "757707c10dcd2db98404b496cdf8c3dd"
+  },
+  "examples/vehicles/quadplane_v1_ekf.yaml": {
+    "mtime": 1784551164.6279762,
+    "ast_hash": "faf8965ceef788ca66ccbb4f1b4a62fa",
+    "semantic_hash": "faf8965ceef788ca66ccbb4f1b4a62fa"
+  },
+  "examples/vehicles/quadplane_v1_ground_risk.yaml": {
+    "mtime": 1784551164.6279762,
+    "ast_hash": "84fee9b9f8ee59dd9284104996dd5653",
+    "semantic_hash": "84fee9b9f8ee59dd9284104996dd5653"
+  },
+  "examples/wind/README.md": {
+    "mtime": 1784551164.6279762,
+    "ast_hash": "4ceb8a5e55278b057e4b8bbd2183c7d5",
+    "semantic_hash": "4ceb8a5e55278b057e4b8bbd2183c7d5"
+  },
+  "examples/wind/pipeline_wind_grid.yaml": {
+    "mtime": 1784551164.62881,
+    "ast_hash": "0307f5d0433f02dc01bd351f0f7f0a7c",
+    "semantic_hash": "0307f5d0433f02dc01bd351f0f7f0a7c"
+  },
+  "mkdocs.yml": {
+    "mtime": 1784644590.1521935,
+    "ast_hash": "a72821458224cd79665974f7a7b00ec2",
+    "semantic_hash": ""
+  },
+  "tests/fixtures/golden/infeasible/mission.yaml": {
+    "mtime": 1784561950.015181,
+    "ast_hash": "3673a872067ecbfdbd0319f24bae89d4",
+    "semantic_hash": ""
+  },
+  "tests/fixtures/golden/infeasible/report.md": {
+    "mtime": 1784644422.704065,
+    "ast_hash": "9a1dea196a637601e4f1acf06822e880",
+    "semantic_hash": ""
+  },
+  "tests/fixtures/golden/infeasible/vehicle.yaml": {
+    "mtime": 1784551164.6336455,
+    "ast_hash": "453c7a61e8524c76e909eef09abf4a41",
+    "semantic_hash": "453c7a61e8524c76e909eef09abf4a41"
+  },
+  "tests/fixtures/golden/partial/mission.yaml": {
+    "mtime": 1784561950.147181,
+    "ast_hash": "437b1d9e7c629246edda0cf05b97a6e1",
+    "semantic_hash": ""
+  },
+  "tests/fixtures/golden/partial/report.md": {
+    "mtime": 1784644422.4190586,
+    "ast_hash": "cba55e4b3f9df4269dc0fd1d46ea266a",
+    "semantic_hash": ""
+  },
+  "tests/fixtures/golden/partial/vehicle.yaml": {
+    "mtime": 1784551164.6341865,
+    "ast_hash": "453c7a61e8524c76e909eef09abf4a41",
+    "semantic_hash": "453c7a61e8524c76e909eef09abf4a41"
+  },
+  "tests/fixtures/golden/scenarios/failed/report.md": {
+    "mtime": 1784644422.2598004,
+    "ast_hash": "be58d32bf11d9e022b8569a09305287c",
+    "semantic_hash": ""
+  },
+  "tests/fixtures/golden/scenarios/failed/scenario.yaml": {
+    "mtime": 1784551164.635018,
+    "ast_hash": "249be52c25143851151b707888b3fbc2",
+    "semantic_hash": "249be52c25143851151b707888b3fbc2"
+  },
+  "tests/fixtures/golden/scenarios/passed/report.md": {
+    "mtime": 1784644422.1532474,
+    "ast_hash": "c87acd25cf626f3d457575475305979b",
+    "semantic_hash": ""
+  },
+  "tests/fixtures/golden/scenarios/passed/scenario.yaml": {
+    "mtime": 1784551164.6355,
+    "ast_hash": "b57175f64d1b183f372fda5287fb25ed",
+    "semantic_hash": "b57175f64d1b183f372fda5287fb25ed"
+  },
+  "tests/fixtures/golden/spatiotemporal_wind/mission.yaml": {
+    "mtime": 1784561950.275181,
+    "ast_hash": "475328037e98fe9ee8078be8c3b19deb",
+    "semantic_hash": ""
+  },
+  "tests/fixtures/golden/spatiotemporal_wind/report.md": {
+    "mtime": 1784644422.5718167,
+    "ast_hash": "df9f163fdb2bf54b94d00b31661c129f",
+    "semantic_hash": ""
+  },
+  "tests/fixtures/golden/spatiotemporal_wind/vehicle.yaml": {
+    "mtime": 1784551164.6359313,
+    "ast_hash": "453c7a61e8524c76e909eef09abf4a41",
+    "semantic_hash": "453c7a61e8524c76e909eef09abf4a41"
+  },
+  "tests/fixtures/golden/spatiotemporal_wind/wind_grid.yaml": {
+    "mtime": 1784551164.6359313,
+    "ast_hash": "3ae8f5c4b8e032496e3d2ebbd6c776de",
+    "semantic_hash": "3ae8f5c4b8e032496e3d2ebbd6c776de"
+  },
+  "tests/fixtures/golden/stochastic/mission.yaml": {
+    "mtime": 1784561950.415181,
+    "ast_hash": "2700f7083da95352108a9d61dce02db9",
+    "semantic_hash": ""
+  },
+  "tests/fixtures/golden/stochastic/stochastic.yaml": {
+    "mtime": 1784642346.9387918,
+    "ast_hash": "766d3e35e96bbf94561c009d9f8b6d5b",
+    "semantic_hash": ""
+  },
+  "tests/fixtures/golden/stochastic/vehicle.yaml": {
+    "mtime": 1784551164.6365333,
+    "ast_hash": "453c7a61e8524c76e909eef09abf4a41",
+    "semantic_hash": "453c7a61e8524c76e909eef09abf4a41"
+  },
+  "tests/fixtures/golden/success/mission.yaml": {
+    "mtime": 1784561950.547181,
+    "ast_hash": "2700f7083da95352108a9d61dce02db9",
+    "semantic_hash": ""
+  },
+  "tests/fixtures/golden/success/report.md": {
+    "mtime": 1784644422.5387752,
+    "ast_hash": "70d12cee15e99245676c8ee9c69de109",
+    "semantic_hash": ""
+  },
+  "tests/fixtures/golden/success/vehicle.yaml": {
+    "mtime": 1784557963.5882106,
+    "ast_hash": "453c7a61e8524c76e909eef09abf4a41",
+    "semantic_hash": "453c7a61e8524c76e909eef09abf4a41"
+  },
+  "tests/fixtures/golden/terrain/mission.yaml": {
+    "mtime": 1784561950.6791809,
+    "ast_hash": "da15071b857deec7bcde2b5ed9fbfd94",
+    "semantic_hash": ""
+  },
+  "tests/fixtures/golden/terrain/report.md": {
+    "mtime": 1784644422.5409942,
+    "ast_hash": "57e4e102fbf25522a51d4986b3cfbc6b",
+    "semantic_hash": ""
+  },
+  "tests/fixtures/golden/terrain/terrain.yaml": {
+    "mtime": 1784551164.6374867,
+    "ast_hash": "361b029e2009019ccd46a3d69aeb4e3c",
+    "semantic_hash": "361b029e2009019ccd46a3d69aeb4e3c"
+  },
+  "tests/fixtures/golden/terrain/vehicle.yaml": {
+    "mtime": 1784551164.6374867,
+    "ast_hash": "453c7a61e8524c76e909eef09abf4a41",
+    "semantic_hash": "453c7a61e8524c76e909eef09abf4a41"
+  },
+  "tests/fixtures/population_grid_12.yaml": {
+    "mtime": 1784551164.6374867,
+    "ast_hash": "fd246017231ed18d56b0aaf4bccaa2c9",
+    "semantic_hash": "fd246017231ed18d56b0aaf4bccaa2c9"
+  },
+  "adapters/commands/ingest_log.py": {
+    "mtime": 1784638859.0114133,
+    "ast_hash": "396da0e242ec333e909ef41c65d1684c",
+    "semantic_hash": ""
+  },
+  "adapters/flight_log/dataflash_binary.py": {
+    "mtime": 1784638858.6034133,
+    "ast_hash": "942e1958066c74bca129325fff164c8a",
+    "semantic_hash": ""
+  },
+  "adapters/flight_log/dispatch.py": {
+    "mtime": 1784638858.7394133,
+    "ast_hash": "1f366792c122d86600973beb3a01b24c",
+    "semantic_hash": ""
+  },
+  "adapters/flight_log/ulog.py": {
+    "mtime": 1784636930.8237565,
+    "ast_hash": "b8960b07285e1096826d7f73f09ff6af",
+    "semantic_hash": ""
+  },
+  "estimator/execution/propagation/wind.py": {
+    "mtime": 1784558194.5241485,
+    "ast_hash": "4fa40b678d3fda2f934e45a6d917dea3",
+    "semantic_hash": ""
+  },
+  "estimator/execution/spatial_sampling.py": {
+    "mtime": 1784641750.7708993,
+    "ast_hash": "a2e30559aca7256c08625706bb2e9a14",
+    "semantic_hash": ""
+  },
+  "scripts/__init__.py": {
+    "mtime": 1784556788.1925142,
+    "ast_hash": "5559a5f8a9895ad2ed727f54c30a7f98",
+    "semantic_hash": ""
+  },
+  "tests/test_binary_flight_log_ingestion.py": {
+    "mtime": 1784638886.6074085,
+    "ast_hash": "815ee4f771cfc1e357221bb83f8d385f",
+    "semantic_hash": ""
+  },
+  "tests/test_environment_grid_safety.py": {
+    "mtime": 1784561978.0791738,
+    "ast_hash": "8097ff062c7a352b397101ad6416111f",
+    "semantic_hash": ""
+  },
+  "tests/test_fetch_scripts.py": {
+    "mtime": 1784639936.9272215,
+    "ast_hash": "358f88aee6c98e53e277b24cbf6d7cec",
+    "semantic_hash": ""
+  },
+  "examples/real_world/quadplane_small_battery_sizing.yaml": {
+    "mtime": 1784557964.4162104,
+    "ast_hash": "5766f58d3e62ad792ffb19f50596fe05",
+    "semantic_hash": ""
+  },
+  "graphify-out/memory/query_20260720_140128_now_write_project_and_find_gaps__issues__bad_math.md": {
+    "mtime": 1784556088.19092,
+    "ast_hash": "e4253c9948df6168acc3361cb05ae3f7",
+    "semantic_hash": ""
+  },
+  "tests/fixtures/golden/battery_sizing/vehicle.yaml": {
+    "mtime": 1784557964.2802105,
+    "ast_hash": "f680aa66ae257d4e80d13c81b9f90027",
+    "semantic_hash": ""
+  },
+  "graphify-out/memory/query_20260720_151610_one_production_regression_remains__explicit_feasib.md": {
+    "mtime": 1784560570.2935505,
+    "ast_hash": "614ea8dcb4354bc8bdc07b7255981cd2",
+    "semantic_hash": ""
+  },
+  "adapters/commands/migrate.py": {
+    "mtime": 1784639842.4952385,
+    "ast_hash": "a77030fcde7f73a59b39864f9fa13526",
+    "semantic_hash": ""
+  },
+  "adapters/migration/__init__.py": {
+    "mtime": 1784561145.7593894,
+    "ast_hash": "4a1c96ea913422b41b17c72773f38c7b",
+    "semantic_hash": ""
+  },
+  "adapters/migration/mission.py": {
+    "mtime": 1784642056.7548442,
+    "ast_hash": "64caeeba7567cc829c841857ba39a38c",
+    "semantic_hash": ""
+  },
+  "adapters/migration/registry.py": {
+    "mtime": 1784561216.979371,
+    "ast_hash": "530caa2947c560e520124367cc274177",
+    "semantic_hash": ""
+  },
+  "adapters/operational_readiness.py": {
+    "mtime": 1784644624.3001878,
+    "ast_hash": "85520ca74e68e186ef16c51b9ccae4d1",
+    "semantic_hash": ""
+  },
+  "tests/test_migrations.py": {
+    "mtime": 1784644624.3041878,
+    "ast_hash": "04464dfa824e06f9ce1428a97d2202e4",
+    "semantic_hash": ""
+  },
+  ".codex/skills/caveman/SKILL.md": {
+    "mtime": 1784636671.4398024,
+    "ast_hash": "b6f3dba3960256f556a64f1fddb08af3",
+    "semantic_hash": ""
+  },
+  "RTK.md": {
+    "mtime": 1784636588.795818,
+    "ast_hash": "d507d243a3bc89b87be7743b2e3b8bc3",
+    "semantic_hash": ""
+  },
+  "graphify-out/memory/query_20260720_154013_review_the_current_uncommitted_root_owned_integrat.md": {
+    "mtime": 1784562013.8982227,
+    "ast_hash": "214a6076fb0c8df20f5d767521c43399",
+    "semantic_hash": ""
+  },
+  "estimator/execution/containment.py": {
+    "mtime": 1784644624.3001878,
+    "ast_hash": "9297ff26a2c6a37974f4e63176d3bf9b",
+    "semantic_hash": ""
+  },
+  "schemas/numeric.py": {
+    "mtime": 1784641725.2029037,
+    "ast_hash": "880ad1a3c8f3b411c0c8548bc297ee3d",
+    "semantic_hash": ""
+  },
+  "tests/test_spatial_sampling_timing.py": {
+    "mtime": 1784642030.8228483,
+    "ast_hash": "2fa141e35456d824932ee129d53510d8",
+    "semantic_hash": ""
+  },
+  "graphify-out/memory/query_20260721_132458_audit_and_fix_battery_sizing_s_monotonic_search_as.md": {
+    "mtime": 1784640298.2345357,
+    "ast_hash": "7734d02df7b842538255927cd3b20f9a",
+    "semantic_hash": ""
+  },
+  "graphify-out/memory/query_20260721_132622_review_the_newly_changed_sora_2_5_implementation_a.md": {
+    "mtime": 1784640382.9663315,
+    "ast_hash": "5b05eb6611ecf7a6e664b5848d99ce6a",
+    "semantic_hash": ""
+  },
+  "tests/test_containment.py": {
+    "mtime": 1784644624.3001878,
+    "ast_hash": "0a41cff8f989cd604dc8eb857a0ded70",
+    "semantic_hash": ""
+  },
+  "tests/test_numeric_input_safety.py": {
+    "mtime": 1784644624.3001878,
+    "ast_hash": "3a215fdb44e8f0f0bf2c4e1a22522da3",
+    "semantic_hash": ""
+  },
+  "docs/GRAPHIFY.md": {
+    "mtime": 1784644852.4521472,
+    "ast_hash": "de5f6632ac1a9b95c3cc1a72d4baa85c",
+    "semantic_hash": ""
+  },
+  "examples/missions/assets/pipeline_terrain_grid.yaml": {
+    "mtime": 1784642379.302786,
+    "ast_hash": "b2d46b0619e8b51d4d100563f9ddfafe",
+    "semantic_hash": ""
+  }
+}

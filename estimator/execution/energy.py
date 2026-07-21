@@ -2,6 +2,7 @@
 
 from collections.abc import Callable
 from dataclasses import dataclass
+import math
 
 from estimator.core.enums import (
     EnergyPowerSource,
@@ -19,8 +20,15 @@ from estimator.core.results import (
     LegEstimate,
     RthReserveTimelinePoint,
 )
+from estimator.environment.wind import TimeVaryingWindProvider, WindProvider
 from estimator.execution.runtime import EstimationContext
 from estimator.math.atmosphere import isa_air_density_kgm3
+from estimator.math.dubins import (
+    DubinsPathSegment,
+    dubins_path_to_point,
+    sample_dubins_path,
+)
+from estimator.math.wind_triangle import solve_wind_triangle
 from schemas.vehicle import VehicleProfile
 from schemas.vehicle_energy import EnergyModel
 
@@ -38,6 +46,7 @@ _INDUCED_POWER_SOURCES = frozenset(
     {
         EnergyPowerSource.HOVER_POWER,
         EnergyPowerSource.CLIMB_POWER,
+        EnergyPowerSource.DESCENT_POWER,
     }
 )
 _CRUISE_MASS_EXPONENT = 0.5
@@ -57,10 +66,24 @@ class EnergyEvaluation:
     failure: EstimatorFailure | None
 
 
+@dataclass(frozen=True)
+class EmergencyPathEstimate:
+    distance_m: float
+    horizontal_time_s: float
+    vertical_time_s: float
+    horizontal_energy_wh: float
+    vertical_energy_wh: float
+
+    @property
+    def total_energy_wh(self) -> float:
+        return self.horizontal_energy_wh + self.vertical_energy_wh
+
+
 def evaluate_energy_feasibility(
     context: EstimationContext,
     *,
     enforce_battery_capacity: bool = True,
+    enforce_rth_reserve: bool = True,
 ) -> EnergyEvaluation:
     """Evaluate energy after kinematic route expansion is complete."""
 
@@ -131,10 +154,8 @@ def evaluate_energy_feasibility(
         return EnergyEvaluation(energy=None, failure=energy_failure)
     if energy is None:
         raise ValueError("Energy estimate construction failed without a failure.")
-    failure = (
-        _build_feasibility_failure(energy) if enforce_battery_capacity else None
-    )
-    if failure is None:
+    failure = _build_feasibility_failure(energy) if enforce_battery_capacity else None
+    if failure is None and enforce_rth_reserve:
         failure = _build_rth_reserve_failure(context, energy)
     return EnergyEvaluation(energy=energy, failure=failure)
 
@@ -260,6 +281,26 @@ def _resolve_vertical_takeoff_power(
     return _resolve_cruise_power(energy_model, leg)
 
 
+def _resolve_climb_power(
+    energy_model: EnergyModel,
+    leg: LegEstimate,
+) -> tuple[EnergyPower, EstimatorFailure | None]:
+    power_w = energy_model.climb_power_w
+    if power_w is not None:
+        return _validate_leg_power(power_w, EnergyPowerSource.CLIMB_POWER, leg)
+    return _resolve_cruise_power(energy_model, leg)
+
+
+def _resolve_descent_power(
+    energy_model: EnergyModel,
+    leg: LegEstimate,
+) -> tuple[EnergyPower, EstimatorFailure | None]:
+    power_w = energy_model.descent_power_w
+    if power_w is not None:
+        return _validate_leg_power(power_w, EnergyPowerSource.DESCENT_POWER, leg)
+    return _resolve_cruise_power(energy_model, leg)
+
+
 def _resolve_hover_loiter_power(
     energy_model: EnergyModel,
     leg: LegEstimate,
@@ -280,9 +321,8 @@ def _resolve_landing_transit_power(
     energy_model: EnergyModel,
     leg: LegEstimate,
 ) -> tuple[EnergyPower, EstimatorFailure | None]:
-    power_w = energy_model.descent_power_w
-    if leg.vertical_delta_m < 0 and power_w is not None:
-        return _validate_leg_power(power_w, EnergyPowerSource.DESCENT_POWER, leg)
+    if leg.vertical_delta_m < 0:
+        return _resolve_descent_power(energy_model, leg)
     return _resolve_cruise_power(energy_model, leg)
 
 
@@ -319,6 +359,14 @@ def _resolve_leg_power(
 ) -> tuple[EnergyPower, EstimatorFailure | None]:
     if leg.phase == LegPhase.LOITER_DWELL:
         return _HOVER_LOITER_POWER_RESOLVERS[hover_capable](energy_model, leg)
+
+    # Route actions may combine horizontal and vertical motion in one leg. The
+    # result model carries one conservative phase power, so prefer the
+    # configured climb/descent calibration whenever vertical work is present.
+    if leg.vertical_delta_m > 0.0:
+        return _resolve_climb_power(energy_model, leg)
+    if leg.vertical_delta_m < 0.0:
+        return _resolve_descent_power(energy_model, leg)
 
     resolver = _LEG_POWER_RESOLVERS.get(leg.phase)
     if resolver is not None:
@@ -372,7 +420,11 @@ def _adjust_power_for_reference_conditions(
     altitude_amsl_m: float,
 ) -> EnergyPower:
     mass_multiplier = _mass_power_multiplier(vehicle, source)
-    density_multiplier = _density_power_multiplier(vehicle, altitude_amsl_m)
+    density_multiplier = _density_power_multiplier(
+        vehicle,
+        source,
+        altitude_amsl_m,
+    )
     if mass_multiplier is None and density_multiplier is None:
         return EnergyPower(power_w=base_power_w, source=source)
 
@@ -407,6 +459,7 @@ def _mass_power_multiplier(
 
 def _density_power_multiplier(
     vehicle: VehicleProfile,
+    source: EnergyPowerSource,
     altitude_amsl_m: float,
 ) -> float | None:
     reference_density_kgm3 = vehicle.energy.reference_density_kgm3
@@ -414,7 +467,14 @@ def _density_power_multiplier(
         return None
 
     actual_density_kgm3 = isa_air_density_kgm3(altitude_amsl_m)
-    return reference_density_kgm3 / actual_density_kgm3
+    density_ratio = reference_density_kgm3 / actual_density_kgm3
+    if source in _INDUCED_POWER_SOURCES:
+        # Momentum theory: induced rotor power varies with 1/sqrt(rho).
+        return density_ratio**0.5
+    # The single calibrated fixed-wing cruise number cannot separate parasite
+    # (proportional to rho) and induced (inverse-rho) power. Never reduce it
+    # away from the reference condition: use the larger directional factor.
+    return max(density_ratio, 1.0 / density_ratio)
 
 
 def _unsupported_phase_energy_failure(
@@ -555,9 +615,10 @@ def _usable_capacity_fraction_at_soc(
             if span <= 0.0:
                 return upper.usable_fraction
             fraction = (soc - lower.soc) / span
-            return lower.usable_fraction + (
-                upper.usable_fraction - lower.usable_fraction
-            ) * fraction
+            return (
+                lower.usable_fraction
+                + (upper.usable_fraction - lower.usable_fraction) * fraction
+            )
     return curve[-1].usable_fraction
 
 
@@ -578,24 +639,29 @@ def _build_rth_reserve_timeline(
 
     energy_used_by_leg = _energy_used_by_leg(legs)
     timeline: list[RthReserveTimelinePoint] = []
+    elapsed_time_s = 0.0
     for leg in context.route_legs:
-        _, _, rth_distance_m = context.geod.inv(
-            leg.end_lon,
-            leg.end_lat,
-            home.lon,
-            home.lat,
-        )
-        rth_energy_wh = cruise_energy_wh(
-            distance_m=rth_distance_m,
+        elapsed_time_s += leg.time_s
+        rth, rth_failure = estimate_emergency_path(
+            context,
+            leg,
+            start_lat=leg.end_lat,
+            start_lon=leg.end_lon,
+            start_altitude_amsl_m=leg.end_alt_amsl_m,
+            start_heading_deg=leg.ground_track_deg,
+            target_lat=home.lat,
+            target_lon=home.lon,
+            target_altitude_amsl_m=home.altitude_amsl_m,
             tas_mps=tas_mps,
-            cruise_power_w=adjusted_cruise_power_w(
-                context,
-                altitude_amsl_m=leg.end_alt_amsl_m,
-            ),
+            elapsed_time_s=elapsed_time_s,
         )
-        energy_remaining_wh = (
-            energy_model.battery_capacity_wh
-            - energy_used_by_leg.get(leg.leg_index, 0.0)
+        if rth_failure is not None:
+            return None, rth_failure
+        if rth is None:
+            raise ValueError("RTH kinematics failed without a structured failure.")
+        rth_energy_wh = rth.total_energy_wh
+        energy_remaining_wh = energy_model.battery_capacity_wh - energy_used_by_leg.get(
+            leg.leg_index, 0.0
         )
         reserve_after_rth_wh = energy_remaining_wh - rth_energy_wh
         reserve_margin_wh = reserve_after_rth_wh - reserve_threshold_wh
@@ -604,7 +670,7 @@ def _build_rth_reserve_timeline(
                 leg_index=leg.leg_index,
                 route_item_index=leg.route_item_index,
                 route_item_id=leg.route_item_id,
-                rth_distance_m=rth_distance_m,
+                rth_distance_m=rth.distance_m,
                 rth_energy_wh=rth_energy_wh,
                 energy_remaining_before_rth_wh=energy_remaining_wh,
                 reserve_after_rth_wh=reserve_after_rth_wh,
@@ -613,6 +679,387 @@ def _build_rth_reserve_timeline(
             )
         )
     return timeline, None
+
+
+def _active_emergency_wind_provider(
+    provider: WindProvider,
+    *,
+    elapsed_time_s: float,
+) -> tuple[WindProvider, float | None]:
+    next_change_s: float | None = None
+    active = provider
+    while isinstance(active, TimeVaryingWindProvider):
+        candidate = active.next_change_after(elapsed_time_s)
+        if candidate is not None and (
+            next_change_s is None or candidate < next_change_s
+        ):
+            next_change_s = candidate
+        active = active.provider_for_elapsed_time(elapsed_time_s)
+    return active, next_change_s
+
+
+def _emergency_wind_solution_failure(
+    context: EstimationContext,
+    leg: LegEstimate,
+    *,
+    solution,
+    failure_context: dict[str, EstimatorContextValue],
+    path_label: str,
+) -> EstimatorFailure | None:
+    if solution is None:
+        return _leg_energy_failure(
+            kind=FailureKind.INFEASIBLE,
+            code=FailureCode.WIND_TRIANGLE_NO_SOLUTION,
+            message=f"No wind-triangle solution exists along {path_label}.",
+            leg=leg,
+            context=failure_context,
+        )
+    if abs(solution.crab_angle_deg) > context.max_crab_angle_deg:
+        return _leg_energy_failure(
+            kind=FailureKind.INFEASIBLE,
+            code=FailureCode.CRAB_ANGLE_LIMIT_EXCEEDED,
+            message=f"{path_label.capitalize()} crab angle exceeds max_crab_angle_deg.",
+            leg=leg,
+            context=failure_context
+            | {
+                "crab_angle_deg": solution.crab_angle_deg,
+                "max_crab_angle_deg": context.max_crab_angle_deg,
+            },
+        )
+    if solution.groundspeed_mps <= 0.0:
+        return _leg_energy_failure(
+            kind=FailureKind.INFEASIBLE,
+            code=FailureCode.GROUNDSPEED_NON_POSITIVE,
+            message=f"{path_label.capitalize()} groundspeed is non-positive.",
+            leg=leg,
+            context=failure_context | {"groundspeed_mps": solution.groundspeed_mps},
+        )
+    if solution.groundspeed_mps < context.resolved_options.min_groundspeed_mps:
+        return _leg_energy_failure(
+            kind=FailureKind.INFEASIBLE,
+            code=FailureCode.GROUNDSPEED_BELOW_MIN,
+            message=(
+                f"{path_label.capitalize()} groundspeed is below min_groundspeed_mps."
+            ),
+            leg=leg,
+            context=failure_context
+            | {
+                "groundspeed_mps": solution.groundspeed_mps,
+                "min_groundspeed_mps": context.resolved_options.min_groundspeed_mps,
+            },
+        )
+    return None
+
+
+def _integrate_emergency_segment_time(
+    context: EstimationContext,
+    leg: LegEstimate,
+    *,
+    segment: DubinsPathSegment,
+    segment_index: int,
+    n_segments: int,
+    midpoint_lat: float,
+    midpoint_lon: float,
+    altitude_amsl_m: float,
+    tas_mps: float,
+    start_elapsed_time_s: float,
+    total_path_distance_m: float,
+    path_label: str,
+) -> tuple[float | None, EstimatorFailure | None]:
+    remaining_distance_m = segment.length_m
+    segment_time_s = 0.0
+    while remaining_distance_m > 1e-9:
+        elapsed_time_s = start_elapsed_time_s + segment_time_s
+        provider, next_change_s = _active_emergency_wind_provider(
+            context.wind_provider,
+            elapsed_time_s=elapsed_time_s,
+        )
+        wind = provider.wind_at(
+            lat=midpoint_lat,
+            lon=midpoint_lon,
+            altitude_amsl_m=altitude_amsl_m,
+            elapsed_time_s=elapsed_time_s,
+        )
+        solution = solve_wind_triangle(
+            track_deg=segment.track_deg,
+            tas_mps=tas_mps,
+            wind_east_mps=wind.wind_east_mps,
+            wind_north_mps=wind.wind_north_mps,
+        )
+        failure_context: dict[str, EstimatorContextValue] = {
+            "track_azimuth_deg": segment.track_deg,
+            "segment_index": segment_index,
+            "n_segments": n_segments,
+            "wind_east_mps": wind.wind_east_mps,
+            "wind_north_mps": wind.wind_north_mps,
+            "tas_mps": tas_mps,
+            "path_distance_m": total_path_distance_m,
+            "elapsed_time_s": elapsed_time_s,
+        }
+        failure = _emergency_wind_solution_failure(
+            context,
+            leg,
+            solution=solution,
+            failure_context=failure_context,
+            path_label=path_label,
+        )
+        if failure is not None:
+            return None, failure
+        assert solution is not None
+        completion_time_s = remaining_distance_m / solution.groundspeed_mps
+        if next_change_s is None or elapsed_time_s + completion_time_s <= next_change_s:
+            segment_time_s += completion_time_s
+            remaining_distance_m = 0.0
+            continue
+        time_to_change_s = next_change_s - elapsed_time_s
+        distance_to_change_m = solution.groundspeed_mps * time_to_change_s
+        if (
+            time_to_change_s <= 0.0
+            or not 0.0 < distance_to_change_m < remaining_distance_m
+        ):
+            return None, _leg_energy_failure(
+                kind=FailureKind.INVALID_INPUT,
+                code=FailureCode.INVALID_GEOMETRY,
+                message=f"{path_label.capitalize()} wind-event integration did not advance.",
+                leg=leg,
+                context=failure_context
+                | {
+                    "next_change_s": next_change_s,
+                    "distance_to_change_m": distance_to_change_m,
+                },
+            )
+        remaining_distance_m -= distance_to_change_m
+        segment_time_s += time_to_change_s
+    return segment_time_s, None
+
+
+def _emergency_path_segments(
+    context: EstimationContext,
+    leg: LegEstimate,
+    *,
+    start_lat: float,
+    start_lon: float,
+    start_heading_deg: float | None,
+    target_lat: float,
+    target_lon: float,
+) -> tuple[tuple[DubinsPathSegment, ...] | None, float, EstimatorFailure | None]:
+    track_deg, _, geodesic_distance_m = context.geod.inv(
+        start_lon,
+        start_lat,
+        target_lon,
+        target_lat,
+    )
+    if geodesic_distance_m <= 0.0:
+        return (), 0.0, None
+
+    track_rad = math.radians(track_deg)
+    target_east_m = geodesic_distance_m * math.sin(track_rad)
+    target_north_m = geodesic_distance_m * math.cos(track_rad)
+    sample_length_m = context.resolved_options.max_segment_length_m or 100.0
+    turn_radius_m = context.vehicle.performance.turn_radius_m
+    if start_heading_deg is not None and turn_radius_m is not None:
+        path = dubins_path_to_point(
+            0.0,
+            0.0,
+            math.radians(start_heading_deg),
+            target_east_m,
+            target_north_m,
+            turn_radius_m,
+        )
+        if path is None:
+            return (
+                None,
+                0.0,
+                _leg_energy_failure(
+                    kind=FailureKind.INFEASIBLE,
+                    code=FailureCode.INVALID_GEOMETRY,
+                    message="No materializable Dubins emergency path exists.",
+                    leg=leg,
+                    context={
+                        "entry_heading_deg": start_heading_deg,
+                        "turn_radius_m": turn_radius_m,
+                        "geodesic_distance_m": geodesic_distance_m,
+                    },
+                ),
+            )
+        return (
+            sample_dubins_path(path, max_segment_length_m=sample_length_m),
+            path.total_length_m,
+            None,
+        )
+
+    segment_count = max(1, math.ceil(geodesic_distance_m / sample_length_m))
+    return (
+        tuple(
+            DubinsPathSegment(
+                midpoint_x=target_east_m * ((index + 0.5) / segment_count),
+                midpoint_y=target_north_m * ((index + 0.5) / segment_count),
+                track_deg=track_deg,
+                length_m=geodesic_distance_m / segment_count,
+            )
+            for index in range(segment_count)
+        ),
+        geodesic_distance_m,
+        None,
+    )
+
+
+def _emergency_vertical_energy(
+    context: EstimationContext,
+    leg: LegEstimate,
+    *,
+    start_altitude_amsl_m: float,
+    target_altitude_amsl_m: float,
+) -> tuple[float, float, EstimatorFailure | None]:
+    vertical_delta_m = target_altitude_amsl_m - start_altitude_amsl_m
+    if math.isclose(vertical_delta_m, 0.0):
+        return 0.0, 0.0, None
+
+    climbing = vertical_delta_m > 0.0
+    rate_name = "climb_rate_mps" if climbing else "descent_rate_mps"
+    rate_mps = getattr(context.vehicle.performance, rate_name)
+    if rate_mps is None or not math.isfinite(rate_mps) or rate_mps <= 0.0:
+        return (
+            0.0,
+            0.0,
+            _leg_energy_failure(
+                kind=FailureKind.INVALID_INPUT,
+                code=(
+                    FailureCode.MISSING_REQUIRED_SPEED_PROFILE
+                    if rate_mps is None
+                    else FailureCode.INVALID_SPEED_PROFILE
+                ),
+                message=f"{rate_name} must be configured and positive for emergency landing.",
+                leg=leg,
+                context={rate_name: rate_mps},
+            ),
+        )
+
+    energy_model = context.vehicle.energy
+    source = (
+        EnergyPowerSource.CLIMB_POWER if climbing else EnergyPowerSource.DESCENT_POWER
+    )
+    configured_power_w = (
+        energy_model.climb_power_w if climbing else energy_model.descent_power_w
+    )
+    base_power_w = (
+        energy_model.cruise_power_w
+        if configured_power_w is None
+        else configured_power_w
+    )
+    if not math.isfinite(base_power_w) or base_power_w <= 0.0:
+        return (
+            0.0,
+            0.0,
+            _leg_energy_failure(
+                kind=FailureKind.INVALID_INPUT,
+                code=FailureCode.INVALID_ENERGY_MODEL,
+                message="Emergency vertical-phase power must be finite and positive.",
+                leg=leg,
+                context={"power_source": source.value, "power_w": base_power_w},
+            ),
+        )
+    vertical_time_s = abs(vertical_delta_m) / rate_mps
+    adjusted_power = _adjust_power_for_reference_conditions(
+        vehicle=context.vehicle,
+        source=source,
+        base_power_w=base_power_w,
+        altitude_amsl_m=(start_altitude_amsl_m + target_altitude_amsl_m) * 0.5,
+    )
+    return (
+        vertical_time_s,
+        adjusted_power.power_w * vertical_time_s / SECONDS_PER_HOUR,
+        None,
+    )
+
+
+def estimate_emergency_path(
+    context: EstimationContext,
+    leg: LegEstimate,
+    *,
+    start_lat: float,
+    start_lon: float,
+    start_altitude_amsl_m: float,
+    start_heading_deg: float | None,
+    target_lat: float,
+    target_lon: float,
+    target_altitude_amsl_m: float,
+    tas_mps: float,
+    elapsed_time_s: float,
+    path_label: str = "return-to-home",
+) -> tuple[EmergencyPathEstimate | None, EstimatorFailure | None]:
+    """Estimate a wind-aware horizontal emergency path plus terminal vertical phase."""
+
+    segments, path_distance_m, failure = _emergency_path_segments(
+        context,
+        leg,
+        start_lat=start_lat,
+        start_lon=start_lon,
+        start_heading_deg=start_heading_deg,
+        target_lat=target_lat,
+        target_lon=target_lon,
+    )
+    if failure is not None:
+        return None, failure
+    assert segments is not None
+
+    horizontal_time_s = 0.0
+    for segment_index, segment in enumerate(segments):
+        midpoint_distance_m = math.hypot(segment.midpoint_x, segment.midpoint_y)
+        midpoint_bearing_deg = math.degrees(
+            math.atan2(segment.midpoint_x, segment.midpoint_y)
+        )
+        midpoint_lon, midpoint_lat, _ = context.geod.fwd(
+            start_lon,
+            start_lat,
+            midpoint_bearing_deg,
+            midpoint_distance_m,
+        )
+        segment_time_s, failure = _integrate_emergency_segment_time(
+            context,
+            leg,
+            segment=segment,
+            segment_index=segment_index,
+            n_segments=len(segments),
+            midpoint_lat=midpoint_lat,
+            midpoint_lon=midpoint_lon,
+            altitude_amsl_m=start_altitude_amsl_m,
+            tas_mps=tas_mps,
+            start_elapsed_time_s=elapsed_time_s + horizontal_time_s,
+            total_path_distance_m=path_distance_m,
+            path_label=path_label,
+        )
+        if failure is not None:
+            return None, failure
+        assert segment_time_s is not None
+        horizontal_time_s += segment_time_s
+
+    vertical_time_s, vertical_energy_wh, failure = _emergency_vertical_energy(
+        context,
+        leg,
+        start_altitude_amsl_m=start_altitude_amsl_m,
+        target_altitude_amsl_m=target_altitude_amsl_m,
+    )
+    if failure is not None:
+        return None, failure
+    horizontal_energy_wh = (
+        adjusted_cruise_power_w(
+            context,
+            altitude_amsl_m=start_altitude_amsl_m,
+        )
+        * horizontal_time_s
+        / SECONDS_PER_HOUR
+    )
+    return (
+        EmergencyPathEstimate(
+            distance_m=path_distance_m,
+            horizontal_time_s=horizontal_time_s,
+            vertical_time_s=vertical_time_s,
+            horizontal_energy_wh=horizontal_energy_wh,
+            vertical_energy_wh=vertical_energy_wh,
+        ),
+        None,
+    )
 
 
 def _energy_used_by_leg(legs: list[EnergyLegEstimate]) -> dict[int, float]:
@@ -691,7 +1138,8 @@ def _build_feasibility_failure(energy: EnergyEstimate) -> EstimatorFailure | Non
         )
 
     if (
-        energy.usable_energy_wh < energy.battery_capacity_wh - energy.reserve_threshold_wh
+        energy.usable_energy_wh
+        < energy.battery_capacity_wh - energy.reserve_threshold_wh
         and energy.total_energy_wh > energy.usable_energy_wh
     ):
         return _mission_energy_failure(
@@ -722,9 +1170,7 @@ def _build_rth_reserve_failure(
     return EstimatorFailure(
         kind=FailureKind.INFEASIBLE,
         code=FailureCode.RTH_RESERVE_BELOW_THRESHOLD,
-        message=(
-            "Return-to-home reserve is below the required reserve threshold."
-        ),
+        message=("Return-to-home reserve is below the required reserve threshold."),
         leg_index=failed_point.leg_index,
         route_item_index=failed_point.route_item_index,
         route_item_id=failed_point.route_item_id,

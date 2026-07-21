@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from adapters.flight_log import (
     ARDUPILOT_DATAFLASH_TEXT_FORMAT,
@@ -18,6 +19,7 @@ from adapters.flight_log import (
 from schemas.flight_log import (
     FLIGHT_TRACE_SCHEMA_VERSION,
     FlightTraceMissionRef,
+    FlightTraceRecord,
     NormalizedFlightTrace,
 )
 
@@ -179,7 +181,9 @@ def test_dataflash_ingest_uses_trace_id_and_mission_ref() -> None:
         mission_file="examples/missions/pipeline_demo_001.yaml",
         vehicle_file="examples/vehicles/quadplane_v1.yaml",
     )
-    trace = ingest_dataflash_log(SYNTHETIC_LOG, trace_id="my-trace-001", mission_ref=ref)
+    trace = ingest_dataflash_log(
+        SYNTHETIC_LOG, trace_id="my-trace-001", mission_ref=ref
+    )
 
     assert trace.trace_id == "my-trace-001"
     assert trace.mission_ref is not None
@@ -204,6 +208,60 @@ def test_dataflash_ingest_records_are_chronological() -> None:
     timestamps = [r.timestamp_s for r in trace.records]
     assert timestamps == sorted(timestamps)
     assert timestamps[0] == pytest.approx(0.0)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("timestamp_s", float("nan")),
+        ("alt_amsl_m", float("inf")),
+        ("wind_east_mps", float("-inf")),
+    ],
+)
+def test_flight_trace_record_rejects_non_finite_values(
+    field: str, value: float
+) -> None:
+    payload = {"timestamp_s": 0.0, "lat_deg": 47.0, "lon_deg": 9.0}
+    payload[field] = value
+    with pytest.raises(ValidationError):
+        FlightTraceRecord.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("lat_deg", -90.1),
+        ("lat_deg", 90.1),
+        ("lon_deg", -180.1),
+        ("lon_deg", 180.1),
+    ],
+)
+def test_flight_trace_record_rejects_invalid_coordinates(
+    field: str, value: float
+) -> None:
+    payload = {"timestamp_s": 0.0, "lat_deg": 47.0, "lon_deg": 9.0}
+    payload[field] = value
+    with pytest.raises(ValidationError):
+        FlightTraceRecord.model_validate(payload)
+
+
+@pytest.mark.parametrize("timestamps", [[1.0, 0.5], [1.0, 1.0]])
+def test_normalized_trace_rejects_non_increasing_timestamps(
+    timestamps: list[float],
+) -> None:
+    trace = _ingest()
+    payload = trace.model_dump(mode="json")
+    payload["records"] = [
+        {
+            "timestamp_s": timestamp,
+            "lat_deg": 47.0,
+            "lon_deg": 9.0,
+        }
+        for timestamp in timestamps
+    ]
+
+    with pytest.raises(ValidationError, match="strictly increasing"):
+        NormalizedFlightTrace.model_validate(payload)
 
 
 # ---------------------------------------------------------------------------
@@ -324,7 +382,9 @@ def test_dataflash_ingest_all_records_without_fix_raises(tmp_path: Path) -> None
     assert exc_info.value.reason == "no_gps_records"
 
 
-def test_dataflash_ingest_reports_absent_gps_columns_without_fmt(tmp_path: Path) -> None:
+def test_dataflash_ingest_reports_absent_gps_columns_without_fmt(
+    tmp_path: Path,
+) -> None:
     # No FMT lines and a GPS line truncated before Alt/Spd/GCrs: those fields are
     # genuinely absent and must be reported despite the fallback column map naming them.
     log = tmp_path / "short_gps.log"

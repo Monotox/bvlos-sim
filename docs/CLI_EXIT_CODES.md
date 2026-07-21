@@ -13,12 +13,12 @@ divergences below are intentional and are called out explicitly.
 
 | Code | Name             | Meaning                                                              |
 | ---- | ---------------- | ------------------------------------------------------------------- |
-| `0`  | `SUCCESS`        | The command completed. A feasibility verdict, if any, is in the body. |
+| `0`  | `SUCCESS`        | The command completed successfully; operational commands reached GO unless `--engineering-only` was requested. |
 | `10` | `INFEASIBLE`     | A feasibility-class NO-GO outcome (e.g. estimate reports infeasible). |
 | `11` | `INVALID_INPUT`  | Input files, arguments, or referenced assets failed to load or validate. |
 | `12` | `UNSUPPORTED`    | The requested computation is not supported for these inputs.        |
 | `13` | `INTERNAL_ERROR` | An output could not be written, or an unexpected error occurred.    |
-| `14` | `CANCELLED`      | The run received `SIGTERM`/`SIGINT` and aborted; no output was written. |
+| `14` | `CANCELLED`      | The run received `SIGTERM`/`SIGINT`; any output present is a complete atomic artifact. |
 
 Every command returns `13` rather than a bare traceback (shell status `1`) when
 an unexpected exception escapes. A shell status `2` comes from the argument
@@ -34,8 +34,10 @@ enforcing a timeout). When it does:
   `SIGTERM`, `130` for `SIGINT`), so a caller can branch on a defined code.
 - No `--output` file is left in a partial state. All on-disk writes go through an
   atomic temp-file-then-`os.replace`, so an interrupted run leaves the
-  destination either at its prior content or absent — never truncated. A consumer
-  can therefore trust that any file that exists is complete.
+  destination at its prior content, absent, or (if cancellation arrives after
+  the commit point) at the new complete content — never truncated. A consumer
+  can therefore trust that any file that exists is complete, but must use the
+  process exit code to decide whether the overall command completed.
 
 The `CANCELLED` code is only installed by the console-script entrypoint
 (`main:main`); importing the Typer app in-process (as the test runner does) keeps
@@ -45,19 +47,20 @@ Python's default `KeyboardInterrupt` behaviour.
 
 | Command        | `0` | `10` | `11` | `12` | `13` | Notes                                                       |
 | -------------- | :-: | :--: | :--: | :--: | :--: | ----------------------------------------------------------- |
-| `estimate`     |  ✓  |  ✓   |  ✓   |  ✓   |  ✓   | Full feasibility surface. `11` can also be a *computed* `FailureKind.INVALID_INPUT` (see divergences). |
-| `scenario`     |  ✓  |  ✓   |  ✓   |      |  ✓   | No `12`: every non-`PASSED` outcome collapses to `10` (divergence). |
+| `estimate`     |  ✓  |  ✓   |  ✓   |  ✓   |  ✓   | Every format uses operational readiness by default; `--engineering-only` opts out. `11` can also be a *computed* `FailureKind.INVALID_INPUT` (see divergences). |
+| `scenario`     |  ✓  |  ✓   |  ✓   |      |  ✓   | Every format uses operational readiness by default; `--engineering-only` opts out. No `12`. |
 | `sample`       |  ✓  |      |  ✓   |      |  ✓   | Never `10`: an infeasible Monte Carlo result is in the body, exit is `0` (divergence). |
 | `propagate`    |  ✓  |      |  ✓   |      |  ✓   | Never `10`: an infeasible stochastic result is in the body, exit is `0` (divergence). |
 | `size-battery` |  ✓  |      |  ✓   |      |  ✓   | A NO answer (no feasible capacity) is in the body, not via `10`. |
 | `sora`         |  ✓  |      |  ✓   |      |  ✓   | SAIL / risk verdict is in the body, not via `10`.           |
-| `validate`     |  ✓  |      |  ✓   |      |  ✓   | Comparison metrics are in the body; a poor match is not `10`. |
+| `validate`     |  ✓  |  ✓   |  ✓   |      |  ✓   | `10` when one or more configured acceptance thresholds fail. |
 | `calibrate`    |  ✓  |      |  ✓   |      |  ✓   | Fitted profile is in the body.                              |
 | `compare`      |  ✓  |  ✓   |  ✓   |  ✓   |  ✓   | SITL drift/fail maps to `10`; unsupported comparison maps to `12`. |
-| `batch`        |  ✓  |  ✓   |  ✓   |      |  ✓   | `10` if any run is infeasible; `11` if any run failed to load. No `12`. |
+| `batch`        |  ✓  |  ✓   |  ✓   |      |  ✓   | `10` if any run is infeasible or operational NO-GO; `--engineering-only` opts out. `11` if any run failed to load. No `12`. |
 | `export`       |  ✓  |      |  ✓   |      |  ✓   | Mission load / exportability failures are `11`.             |
 | `convert`      |  ✓  |      |  ✓   |      |  ✓   | A missing/blank `--vehicle-profile` and parse errors are `11`. |
-| `sitl`         |  ✓  |      |  ✓   |      |  ✓   | Adapter and asset-load errors are `11`.                     |
+| `ingest-log`   |  ✓  |      |  ✓   |      |  ✓   | Unknown/oversized logs, missing readers, and incomplete mission/vehicle pairing are `11`. |
+| `sitl`         |  ✓  |      |  ✓   |      |  ✓   | Input/asset failures are `11`; live adapter connect, upload, execution, telemetry, and timeout failures are `13`. |
 | `bump`         |  ✓  |      |  ✓   |      |      | Developer-only release tool. `11` on drift or a missing version part. |
 | `schema-versions` |  ✓  |      |      |      |      | Read-only contract discovery (alias `contracts`). Loads no input; always `0`. |
 
@@ -78,6 +81,11 @@ misread a result:
    when the input *files* are valid. So `11` from `estimate` means "invalid
    input *or* an input-class feasibility failure"; inspect the body to tell them
    apart.
+4. **Output rendering never changes operational readiness.** `estimate`,
+   `scenario`, and `batch` exit `10` when required evidence is absent, a warning
+   remains, or a readiness check fails, regardless of output format. Use
+   `--engineering-only` only to make a computationally feasible/pass result
+   exit `0`; structured JSON still reports the operational NO-GO.
 
 ## Notes for programmatic callers
 
@@ -89,7 +97,7 @@ misread a result:
   overrides the version embedded in every envelope and is meant only for the
   test suite (it pins fixtures to a placeholder). In production the version must
   reflect the installed package.
-- **Treat any code outside `{0, 10, 11, 12, 13}` as a harness fault.** Shell
+- **Treat any code outside `{0, 10, 11, 12, 13, 14}` as a harness fault.** Shell
   status `1` (an uncaught traceback) and `2` (argument-parser error) are not
   part of this contract; if you see `1`, file it as a bug.
 - **`--progress-format jsonl` / `--progress-file` add no exit codes.** On

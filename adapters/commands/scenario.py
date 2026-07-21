@@ -8,6 +8,7 @@ import typer
 
 import adapters.cli as cli
 from adapters.calibration import load_and_apply_calibration, load_calibration_profile
+from adapters.checklist_markdown import checklist_is_go
 from adapters.cli_support import (
     MissionAssetBundle,
     OutputWriteError,
@@ -40,7 +41,13 @@ from adapters.scenario_envelope import (
     build_scenario_invalid_input_envelope,
 )
 from adapters.scenario_io import load_scenario
-from estimator import GeofenceZone, LandingZone, MissionEstimate, ScenarioResult, ScenarioStatus
+from estimator import (
+    GeofenceZone,
+    LandingZone,
+    MissionEstimate,
+    ScenarioResult,
+    ScenarioStatus,
+)
 
 
 class RouteExportBuilder(Protocol):
@@ -51,7 +58,6 @@ class RouteExportBuilder(Protocol):
         geofence_zones: list[GeofenceZone] | None = None,
         landing_zones: list[LandingZone] | None = None,
     ) -> str: ...
-
 
 
 ScenarioOutputRenderer = Callable[
@@ -117,6 +123,7 @@ _SCENARIO_OUTPUT_RENDERERS: dict[OutputFormat, ScenarioOutputRenderer] = {
     OutputFormat.KML: _render_scenario_kml_output,
 }
 
+
 def _render_scenario_command_output(
     output_format: OutputFormat,
     envelope: ScenarioResultEnvelope,
@@ -155,8 +162,16 @@ def _emit_scenario_internal_error(
     _write_output(_render_scenario_error_output(output_format, internal_envelope), None)
 
 
-def _scenario_exit_code_for_result(result: ScenarioResult) -> cli.ScenarioExitCode:
+def _scenario_exit_code_for_result(
+    result: ScenarioResult,
+    *,
+    engineering_only: bool = False,
+) -> cli.ScenarioExitCode:
     if result.status == ScenarioStatus.PASSED:
+        if not engineering_only and (
+            result.estimate is None or not checklist_is_go(result.estimate)
+        ):
+            return cli.ScenarioExitCode.FAILED
         return cli.ScenarioExitCode.PASSED
     return cli.ScenarioExitCode.FAILED
 
@@ -220,7 +235,10 @@ def _run_scenario_preflight(
 
 def scenario(
     scenario_file: Path = typer.Argument(
-        ..., exists=True, readable=True, resolve_path=True,
+        ...,
+        exists=True,
+        readable=True,
+        resolve_path=True,
         help="Path to scenario.v1 YAML file.",
     ),
     format: OutputFormat = typer.Option(
@@ -228,7 +246,18 @@ def scenario(
         "--format",
         help="Output format. Use summary for a one-line result, checklist for pre-flight go/no-go.",
     ),
-    output: Path | None = typer.Option(None, "--output", "-o", help="Write output to file instead of stdout."),
+    output: Path | None = typer.Option(
+        None, "--output", "-o", help="Write output to file instead of stdout."
+    ),
+    engineering_only: bool = typer.Option(
+        False,
+        "--engineering-only",
+        help=(
+            "Return success for a computationally passing scenario even when "
+            "operational evidence is missing. Default behavior is fail-closed "
+            "GO/NO-GO evaluation for every output format."
+        ),
+    ),
     calibration: Path | None = typer.Option(
         None,
         "--calibration",
@@ -313,7 +342,14 @@ def scenario(
             _render_scenario_command_output(format, envelope, result, mission_assets),
             output,
         )
-        raise typer.Exit(code=int(_scenario_exit_code_for_result(result)))
+        raise typer.Exit(
+            code=int(
+                _scenario_exit_code_for_result(
+                    result,
+                    engineering_only=engineering_only,
+                )
+            )
+        )
     except InputLoadError as exc:
         envelope = build_scenario_invalid_input_envelope(
             scenario_id=scenario_id,
@@ -333,7 +369,9 @@ def scenario(
                 mission_document=mission_document,
                 vehicle_document=vehicle_document,
             )
-            raise typer.Exit(code=int(cli.ScenarioExitCode.INTERNAL_ERROR)) from write_exc
+            raise typer.Exit(
+                code=int(cli.ScenarioExitCode.INTERNAL_ERROR)
+            ) from write_exc
         raise typer.Exit(code=int(cli.ScenarioExitCode.INVALID_INPUT)) from exc
     except (GeofenceLoadError, LandingZoneLoadError, ObstacleLoadError) as exc:
         envelope = build_scenario_invalid_input_envelope(
@@ -354,7 +392,9 @@ def scenario(
                 mission_document=mission_document,
                 vehicle_document=vehicle_document,
             )
-            raise typer.Exit(code=int(cli.ScenarioExitCode.INTERNAL_ERROR)) from write_exc
+            raise typer.Exit(
+                code=int(cli.ScenarioExitCode.INTERNAL_ERROR)
+            ) from write_exc
         raise typer.Exit(code=int(cli.ScenarioExitCode.INVALID_INPUT)) from exc
     except typer.Exit:
         raise

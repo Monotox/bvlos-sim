@@ -1,11 +1,14 @@
-"""SORA intrinsic Ground Risk Class computation and mitigation credits."""
+"""JARUS SORA 2.5 intrinsic Ground Risk Class with fail-closed mitigations."""
 
 from dataclasses import dataclass, field
+import math
+from typing import NoReturn
 
 from pyproj import Geod
 
-from estimator.core.enums import WarningCode
+from estimator.core.enums import FailureCode, FailureKind, WarningCode
 from estimator.core.results import (
+    EstimatorFailure,
     EstimatorWarning,
     GroundRiskEstimate,
     GroundRiskLegEstimate,
@@ -13,44 +16,45 @@ from estimator.core.results import (
     MissionEstimate,
 )
 from estimator.environment.population import GridPopulationProvider
-from estimator.execution.transit import sub_segment_midpoint_fractions
+from estimator.execution.runtime.failure_translation import error_from_failure
+from estimator.execution.spatial_sampling import (
+    SpatialSample,
+    SpatialSamplingError,
+    route_leg_samples,
+)
 from schemas.sora import (
+    DEFAULT_SORA_VERSION,
     GrcMitigationCredit,
-    GroundRiskMitigation,
     GroundRiskMitigations,
-    MitigationRobustness,
     SoraAdvisory,
-    SoraAdvisoryCode,
 )
 
-_R = MitigationRobustness
-
-# Minimum final GRC reachable after applying mitigation credits. SORA never
-# lowers the final GRC below 1.
-_FINAL_GRC_FLOOR = 1
-
-# (mitigation id, declaration attribute, human title) in the SORA ladder order.
-_GRC_MITIGATION_SPECS: tuple[tuple[str, str, str], ...] = (
-    ("M1", "m1_strategic", "Strategic mitigations for ground risk"),
-    ("M2", "m2_impact_reduction", "Effects of ground impact reduced"),
-    ("M3", "m3_erp", "Emergency Response Plan (ERP)"),
+# JARUS SORA 2.5 Main Body, Table 2.  The left-most column satisfying both
+# maximum characteristic dimension and maximum speed must be selected.
+_MAX_DIMENSIONS_M = (1.0, 3.0, 8.0, 20.0, 40.0)
+_MAX_SPEEDS_MPS = (25.0, 35.0, 75.0, 120.0, 200.0)
+_CONTROLLED_GROUND_AREA_ROW = 0
+_IGRC_TABLE: tuple[tuple[int | None, ...], ...] = (
+    (1, 1, 2, 3, 3),
+    (2, 3, 4, 5, 6),
+    (3, 4, 5, 6, 7),
+    (4, 5, 6, 7, 8),
+    (5, 6, 7, 8, 9),
+    (6, 7, 8, 9, 10),
+    (7, 8, None, None, None),
 )
 
-# Signed GRC credit per mitigation and robustness, keyed by SORA version.
-# Negative lowers the final GRC; positive (an insufficient ERP) raises it.
-# Source: JARUS SORA 2.0 main body, final-GRC mitigation table.
-_GRC_MITIGATION_CREDITS: dict[str, dict[str, dict[MitigationRobustness, int]]] = {
-    "2.0": {
-        "M1": {_R.NONE: 0, _R.LOW: 0, _R.MEDIUM: -1, _R.HIGH: -2},
-        "M2": {_R.NONE: 0, _R.LOW: 0, _R.MEDIUM: -1, _R.HIGH: -2},
-        "M3": {_R.NONE: 0, _R.LOW: 1, _R.MEDIUM: 0, _R.HIGH: -1},
-    },
-}
+_GROUND_MITIGATION_FIELDS: tuple[tuple[str, str], ...] = (
+    ("M1(A)", "m1a_sheltering"),
+    ("M1(B)", "m1b_operational_restrictions"),
+    ("M1(C)", "m1c_ground_observation"),
+    ("M2", "m2_impact_reduction"),
+)
 
 
 @dataclass(frozen=True, slots=True)
 class GrcMitigationResult:
-    """Outcome of applying the GRC mitigation ladder to the intrinsic GRC."""
+    """Unmitigated GRC result; applied declarations are currently rejected."""
 
     final_grc: int
     credits: list[GrcMitigationCredit] = field(default_factory=list)
@@ -58,8 +62,7 @@ class GrcMitigationResult:
 
 
 def supported_sora_versions() -> tuple[str, ...]:
-    """Return the SORA revisions whose mitigation tables are encoded."""
-    return tuple(_GRC_MITIGATION_CREDITS)
+    return (DEFAULT_SORA_VERSION,)
 
 
 def apply_grc_mitigations(
@@ -67,75 +70,70 @@ def apply_grc_mitigations(
     mitigations: GroundRiskMitigations | None,
     *,
     sora_version: str,
+    controlled_ground_floor: int | None = None,
 ) -> GrcMitigationResult:
-    """Step the intrinsic GRC down by the declared M1/M2/M3 credits.
+    """Return intrinsic GRC, rejecting mitigation credit until criteria exist.
 
-    With no declared mitigations (or an unsupported SORA version) the final GRC
-    equals the intrinsic GRC, so the assessment is unchanged.
+    A robustness label and free-text evidence reference do not demonstrate the
+    integrity and assurance criteria in Annex B. Crediting any applied M1/M2
+    declaration would therefore be unsafe until a criteria evaluator is part of
+    the operational workflow.
     """
-    table = _GRC_MITIGATION_CREDITS.get(sora_version)
+
+    if sora_version != DEFAULT_SORA_VERSION:
+        supported = ", ".join(supported_sora_versions())
+        raise ValueError(
+            f"unsupported SORA version {sora_version!r}; supported versions: {supported}"
+        )
     if mitigations is None:
         return GrcMitigationResult(final_grc=intrinsic_grc)
-    if table is None:
-        return GrcMitigationResult(
-            final_grc=intrinsic_grc,
-            advisories=[_unsupported_version_advisory(sora_version)],
+
+    applied = [
+        mitigation_id
+        for mitigation_id, field_name in _GROUND_MITIGATION_FIELDS
+        if getattr(mitigations, field_name).applied
+    ]
+    if applied:
+        raise ValueError(
+            "applied SORA 2.5 ground-risk mitigations are not supported until an "
+            "Annex B integrity-and-assurance criteria evaluator is implemented; "
+            "a robustness label and free-text evidence reference cannot earn GRC "
+            f"credit ({', '.join(applied)} declared)"
         )
-
-    credits: list[GrcMitigationCredit] = []
-    running_grc = intrinsic_grc
-    for mitigation_id, attr, title in _GRC_MITIGATION_SPECS:
-        declaration: GroundRiskMitigation = getattr(mitigations, attr)
-        if not declaration.applied:
-            continue
-        credit = table[mitigation_id][declaration.robustness]
-        credits.append(
-            GrcMitigationCredit(
-                mitigation_id=mitigation_id,
-                title=title,
-                robustness=declaration.robustness,
-                grc_credit=credit,
-            )
-        )
-        running_grc += credit
-
-    final_grc = max(running_grc, _FINAL_GRC_FLOOR)
-    return GrcMitigationResult(final_grc=final_grc, credits=credits)
+    del controlled_ground_floor
+    return GrcMitigationResult(final_grc=intrinsic_grc)
 
 
-def _unsupported_version_advisory(sora_version: str) -> SoraAdvisory:
-    supported = ", ".join(supported_sora_versions())
-    return SoraAdvisory(
-        code=SoraAdvisoryCode.MITIGATION_VERSION_UNSUPPORTED,
-        message=(
-            f"SORA version {sora_version!r} has no encoded mitigation table; "
-            f"declared mitigations were not applied. Supported versions: {supported}."
-        ),
+def _aircraft_column(
+    *,
+    characteristic_dimension_m: float,
+    max_speed_mps: float,
+) -> int:
+    if characteristic_dimension_m <= 0.0 or max_speed_mps <= 0.0:
+        raise ValueError("SORA aircraft dimension and maximum speed must be positive")
+    for column, (dimension_limit, speed_limit) in enumerate(
+        zip(_MAX_DIMENSIONS_M, _MAX_SPEEDS_MPS, strict=True)
+    ):
+        if (
+            characteristic_dimension_m <= dimension_limit
+            and max_speed_mps <= speed_limit
+        ):
+            return column
+    raise ValueError(
+        "aircraft characteristic dimension / maximum speed combination is not "
+        "supported by the SORA 2.5 iGRC table"
     )
-
-_CONTROLLED_GROUND_AREA_ROW = 0
-_IGRC_TABLE: tuple[tuple[int, int, int, int], ...] = (
-    (1, 2, 3, 4),
-    (2, 3, 4, 5),
-    (3, 4, 5, 6),
-    (4, 5, 6, 7),
-    (5, 6, 7, 8),
-    (6, 7, 8, 9),
-    (7, 8, 9, 10),
-)
-
-
-def _dimension_column(dimension_m: float) -> int:
-    if dimension_m <= 1.0:
-        return 0
-    if dimension_m <= 3.0:
-        return 1
-    if dimension_m <= 8.0:
-        return 2
-    return 3
 
 
 def _density_row(density_ppl_km2: float) -> int:
+    """Select the conservative population band at every displayed boundary.
+
+    In particular, exactly 50,000 people/km² is conservatively assigned to the
+    highest displayed density row (the row labelled ``>50k``), instead of the
+    less-conservative preceding row.
+    """
+    if density_ppl_km2 < 0.0:
+        raise ValueError("population density must be non-negative")
     if density_ppl_km2 < 5.0:
         return 1
     if density_ppl_km2 < 50.0:
@@ -151,18 +149,44 @@ def _density_row(density_ppl_km2: float) -> int:
 
 def intrinsic_ground_risk_class(
     *,
-    characteristic_dimension_m: float,
+    characteristic_dimension_m: float | None,
+    max_speed_mps: float,
     density_ppl_km2: float,
+    aircraft_mass_kg: float | None = None,
 ) -> int:
-    return _IGRC_TABLE[_density_row(density_ppl_km2)][
-        _dimension_column(characteristic_dimension_m)
-    ]
+    if aircraft_mass_kg is not None and aircraft_mass_kg <= 0.0:
+        raise ValueError("SORA aircraft mass must be positive")
+    if (
+        aircraft_mass_kg is not None
+        and aircraft_mass_kg <= 0.250
+        and max_speed_mps <= 25.0
+    ):
+        return 1
+    if characteristic_dimension_m is None:
+        raise ValueError("SORA aircraft characteristic dimension is required")
+    column = _aircraft_column(
+        characteristic_dimension_m=characteristic_dimension_m,
+        max_speed_mps=max_speed_mps,
+    )
+    value = _IGRC_TABLE[_density_row(density_ppl_km2)][column]
+    if value is None:
+        raise ValueError(
+            "population density / aircraft combination is outside the SORA 2.5 table"
+        )
+    return value
 
 
-def controlled_ground_area_igrc(characteristic_dimension_m: float) -> int:
-    return _IGRC_TABLE[_CONTROLLED_GROUND_AREA_ROW][
-        _dimension_column(characteristic_dimension_m)
-    ]
+def controlled_ground_area_igrc(
+    characteristic_dimension_m: float,
+    max_speed_mps: float,
+) -> int:
+    column = _aircraft_column(
+        characteristic_dimension_m=characteristic_dimension_m,
+        max_speed_mps=max_speed_mps,
+    )
+    value = _IGRC_TABLE[_CONTROLLED_GROUND_AREA_ROW][column]
+    assert value is not None
+    return value
 
 
 def compute_ground_risk(
@@ -170,12 +194,22 @@ def compute_ground_risk(
     *,
     population_provider: GridPopulationProvider | None,
     characteristic_dimension_m: float | None,
+    max_speed_mps: float | None = None,
+    aircraft_mass_kg: float | None = None,
+    sora_version: str = DEFAULT_SORA_VERSION,
     geod: Geod,
     max_segment_length_m: float | None,
+    population_assessment_buffer_m: float = 0.0,
 ) -> tuple[GroundRiskEstimate | None, list[EstimatorWarning]]:
     if population_provider is None:
         return None, []
-    if characteristic_dimension_m is None:
+    lightweight_exception = (
+        aircraft_mass_kg is not None
+        and aircraft_mass_kg <= 0.250
+        and max_speed_mps is not None
+        and max_speed_mps <= 25.0
+    )
+    if characteristic_dimension_m is None and not lightweight_exception:
         return None, [
             EstimatorWarning(
                 code=WarningCode.POPULATION_DENSITY_DIMENSION_MISSING,
@@ -189,21 +223,96 @@ def compute_ground_risk(
                 route_item_id=None,
             )
         ]
+    if max_speed_mps is None:
+        _raise_ground_risk_failure(
+            estimate,
+            code=FailureCode.SORA_INPUT_UNSUPPORTED,
+            message="vehicle.performance.max_speed_mps is required for SORA 2.5 iGRC",
+            kind=FailureKind.INVALID_INPUT,
+        )
+    if sora_version not in supported_sora_versions():
+        _raise_ground_risk_failure(
+            estimate,
+            code=FailureCode.SORA_INPUT_UNSUPPORTED,
+            message=f"SORA version {sora_version!r} is unsupported",
+            kind=FailureKind.UNSUPPORTED,
+        )
+    if (
+        not math.isfinite(population_assessment_buffer_m)
+        or population_assessment_buffer_m < 0.0
+    ):
+        _raise_ground_risk_failure(
+            estimate,
+            code=FailureCode.SORA_INPUT_UNSUPPORTED,
+            message="population assessment buffer must be finite and non-negative",
+            kind=FailureKind.INVALID_INPUT,
+        )
 
-    legs = [
-        _ground_risk_for_leg(
-            leg,
-            population_provider=population_provider,
-            characteristic_dimension_m=characteristic_dimension_m,
+    assert max_speed_mps is not None
+    try:
+        column = (
+            None
+            if lightweight_exception
+            else _aircraft_column(
+                characteristic_dimension_m=characteristic_dimension_m,
+                max_speed_mps=max_speed_mps,
+            )
+        )
+        controlled_floor = (
+            1
+            if lightweight_exception
+            else controlled_ground_area_igrc(
+                characteristic_dimension_m,
+                max_speed_mps,
+            )
+        )
+        samples_by_leg = route_leg_samples(
+            estimate.legs,
             geod=geod,
             max_segment_length_m=max_segment_length_m,
+            resolution_providers=(population_provider,),
         )
-        for leg in estimate.legs
+    except (ValueError, SpatialSamplingError) as exc:
+        leg = exc.leg if isinstance(exc, SpatialSamplingError) else None
+        _raise_ground_risk_failure(
+            estimate,
+            code=(
+                FailureCode.INVALID_GEOMETRY
+                if isinstance(exc, SpatialSamplingError)
+                else FailureCode.SORA_INPUT_UNSUPPORTED
+            ),
+            message=str(exc),
+            kind=FailureKind.INVALID_INPUT,
+            leg=leg,
+        )
+
+    leg_results = [
+        _ground_risk_for_leg(
+            leg,
+            samples=samples,
+            population_provider=population_provider,
+            characteristic_dimension_m=characteristic_dimension_m,
+            max_speed_mps=max_speed_mps,
+            aircraft_mass_kg=aircraft_mass_kg,
+            estimate=estimate,
+            population_assessment_buffer_m=population_assessment_buffer_m,
+            geod=geod,
+        )
+        for leg, samples in zip(estimate.legs, samples_by_leg, strict=True)
     ]
+    legs = [result[0] for result in leg_results]
+    numerical_dilation_m = max((result[1] for result in leg_results), default=0.0)
     mission_igrc = max((leg.igrc for leg in legs), default=0)
     return (
         GroundRiskEstimate(
             characteristic_dimension_m=characteristic_dimension_m,
+            aircraft_mass_kg=aircraft_mass_kg,
+            max_speed_mps=max_speed_mps,
+            sora_version=sora_version,
+            aircraft_column=None if column is None else column + 1,
+            controlled_ground_area_reference_igrc=controlled_floor,
+            population_assessment_buffer_m=population_assessment_buffer_m,
+            population_numerical_dilation_m=numerical_dilation_m,
             mission_igrc=mission_igrc,
             legs=legs,
         ),
@@ -214,67 +323,131 @@ def compute_ground_risk(
 def _ground_risk_for_leg(
     leg: LegEstimate,
     *,
+    samples: list[SpatialSample],
     population_provider: GridPopulationProvider,
-    characteristic_dimension_m: float,
+    characteristic_dimension_m: float | None,
+    max_speed_mps: float,
+    aircraft_mass_kg: float | None,
+    estimate: MissionEstimate,
+    population_assessment_buffer_m: float,
     geod: Geod,
-    max_segment_length_m: float | None,
-) -> GroundRiskLegEstimate:
-    densities = [
-        density
-        for lat, lon in _leg_sample_points(
-            leg, geod=geod, max_segment_length_m=max_segment_length_m
+) -> tuple[GroundRiskLegEstimate, float]:
+    densities: list[float] = []
+    max_numerical_dilation_m = 0.0
+    for index, sample in enumerate(samples):
+        half_gap_m = 0.5 * _maximum_adjacent_sample_gap_m(
+            samples,
+            index=index,
+            geod=geod,
         )
-        if (density := population_provider.density_at(lat, lon)) is not None
-    ]
+        # Triangle inequality gives a path-shape-independent bound: every point
+        # within the declared footprint of any unsampled route point is within
+        # buffer + half-gap of a neighbouring sample. A Pythagorean radius is
+        # insufficient on curved paths where the two offsets are not orthogonal.
+        coverage_radius_m = population_assessment_buffer_m + half_gap_m
+        max_numerical_dilation_m = max(
+            max_numerical_dilation_m,
+            coverage_radius_m - population_assessment_buffer_m,
+        )
+        density = population_provider.conservative_max_density_in_radius(
+            sample.lat,
+            sample.lon,
+            coverage_radius_m,
+            geod=geod,
+        )
+        if density is None:
+            _raise_ground_risk_failure(
+                estimate,
+                code=FailureCode.POPULATION_COVERAGE_MISSING,
+                message=(
+                    "Population coverage is missing for the assessed route footprint."
+                    if population_assessment_buffer_m > 0.0
+                    else "Population coverage is missing at a sampled route position."
+                ),
+                kind=FailureKind.INVALID_INPUT,
+                leg=leg,
+                context={"sample_lat": sample.lat, "sample_lon": sample.lon},
+            )
+        assert density is not None
+        densities.append(density)
+
     max_density = max(densities, default=0.0)
-    return GroundRiskLegEstimate(
-        leg_index=leg.leg_index,
-        route_item_id=leg.route_item_id,
-        max_density_ppl_km2=max_density,
-        igrc=intrinsic_ground_risk_class(
+    try:
+        igrc = intrinsic_ground_risk_class(
             characteristic_dimension_m=characteristic_dimension_m,
+            max_speed_mps=max_speed_mps,
             density_ppl_km2=max_density,
+            aircraft_mass_kg=aircraft_mass_kg,
+        )
+    except ValueError as exc:
+        _raise_ground_risk_failure(
+            estimate,
+            code=FailureCode.SORA_INPUT_UNSUPPORTED,
+            message=str(exc),
+            kind=FailureKind.UNSUPPORTED,
+            leg=leg,
+            context={"max_density_ppl_km2": max_density},
+        )
+    return (
+        GroundRiskLegEstimate(
+            leg_index=leg.leg_index,
+            route_item_id=leg.route_item_id,
+            max_density_ppl_km2=max_density,
+            igrc=igrc,
         ),
+        max_numerical_dilation_m,
     )
 
 
-def _leg_sample_points(
-    leg: LegEstimate,
+def _maximum_adjacent_sample_gap_m(
+    samples: list[SpatialSample],
     *,
+    index: int,
     geod: Geod,
-    max_segment_length_m: float | None,
-) -> list[tuple[float, float]]:
-    if leg.horizontal_distance_m <= 0.0:
-        return [(leg.start_lat, leg.start_lon)]
-
-    track_deg = leg.ground_track_deg
-    if track_deg is None:
-        track_deg, _, _ = geod.inv(
-            leg.start_lon, leg.start_lat, leg.end_lon, leg.end_lat
-        )
-
-    return [
-        _point_at_fraction(leg, geod=geod, track_deg=track_deg, fraction=fraction)
-        for fraction in sub_segment_midpoint_fractions(
-            leg.horizontal_distance_m, max_segment_length_m
-        )
-    ]
+) -> float:
+    sample = samples[index]
+    distances: list[float] = []
+    for other_index in (index - 1, index + 1):
+        if not 0 <= other_index < len(samples):
+            continue
+        other = samples[other_index]
+        _, _, distance_m = geod.inv(sample.lon, sample.lat, other.lon, other.lat)
+        distances.append(abs(float(distance_m)))
+    return max(distances, default=0.0)
 
 
-def _point_at_fraction(
-    leg: LegEstimate,
+def _raise_ground_risk_failure(
+    estimate: MissionEstimate,
     *,
-    geod: Geod,
-    track_deg: float,
-    fraction: float,
-) -> tuple[float, float]:
-    lon, lat, _ = geod.fwd(
-        leg.start_lon,
-        leg.start_lat,
-        track_deg,
-        leg.horizontal_distance_m * fraction,
+    code: FailureCode,
+    message: str,
+    kind: FailureKind,
+    leg: LegEstimate | None = None,
+    context: dict[str, str | int | float | bool | None] | None = None,
+) -> NoReturn:
+    failure = EstimatorFailure(
+        kind=kind,
+        code=code,
+        message=message,
+        leg_index=leg.leg_index if leg is not None else None,
+        route_item_index=leg.route_item_index if leg is not None else None,
+        route_item_id=leg.route_item_id if leg is not None else None,
+        context=context or {},
     )
-    return lat, lon
+    raise error_from_failure(
+        failure,
+        partial_legs=estimate.legs,
+        energy=estimate.energy,
+        resource=estimate.resource,
+        link=estimate.link,
+        geofence=estimate.geofence,
+        landing_zone=estimate.landing_zone,
+        obstacle=estimate.obstacle,
+        weather=estimate.weather,
+        totals_are_partial=False,
+        warnings=estimate.warnings,
+        metadata=estimate.metadata,
+    )
 
 
 __all__ = [

@@ -26,7 +26,11 @@ PointTuple = tuple[float, float]
 
 def _point_zone(zone_id: str, *, lat: float, lon: float) -> LandingZone:
     return LandingZone.model_validate(
-        {"id": zone_id, "geometry": {"points": [{"lat": lat, "lon": lon}]}}
+        {
+            "id": zone_id,
+            "altitude_amsl_m": 12.0,
+            "geometry": {"points": [{"lat": lat, "lon": lon}]},
+        }
     )
 
 
@@ -34,6 +38,7 @@ def _polygon_zone(zone_id: str, points: list[tuple[float, float]]) -> LandingZon
     return LandingZone.model_validate(
         {
             "id": zone_id,
+            "altitude_amsl_m": 12.0,
             "geometry": {
                 "polygons": [
                     {

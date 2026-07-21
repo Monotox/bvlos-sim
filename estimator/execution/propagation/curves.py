@@ -3,7 +3,11 @@
 import math
 from dataclasses import dataclass
 
+from pyproj import Geod
+
 from estimator.core.results import EnergyLegEstimate, LegEstimate, MissionEstimate
+
+_GEOD = Geod(ellps="WGS84")
 
 
 @dataclass(frozen=True, slots=True)
@@ -89,15 +93,6 @@ def timeline_steps(t_max: float, dt_s: float) -> list[float]:
     return steps
 
 
-def best_position_legs(
-    current_position_legs: list[LegEstimate],
-    result: MissionEstimate,
-) -> list[LegEstimate]:
-    if current_position_legs:
-        return current_position_legs
-    return result.legs
-
-
 def _energy_by_leg_index(energy_legs: list[EnergyLegEstimate]) -> dict[int, float]:
     return {e.leg_index: e.energy_wh for e in energy_legs}
 
@@ -126,10 +121,19 @@ def _interpolate_leg_position(
     if leg.time_s <= 0.0:
         return leg.end_lat, leg.end_lon
     fraction = _clamp_unit((elapsed_time_s - leg_start_s) / leg.time_s)
-    return (
-        leg.start_lat + ((leg.end_lat - leg.start_lat) * fraction),
-        leg.start_lon + ((leg.end_lon - leg.start_lon) * fraction),
+    forward_azimuth_deg, _back_azimuth_deg, distance_m = _GEOD.inv(
+        leg.start_lon,
+        leg.start_lat,
+        leg.end_lon,
+        leg.end_lat,
     )
+    lon, lat, _back_azimuth_deg = _GEOD.fwd(
+        leg.start_lon,
+        leg.start_lat,
+        forward_azimuth_deg,
+        distance_m * fraction,
+    )
+    return lat, lon
 
 
 def _clamp_unit(value: float) -> float:

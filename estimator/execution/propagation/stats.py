@@ -1,5 +1,6 @@
 """Sample statistics, distribution sampling, and feasibility rate helpers."""
 
+import math
 import random
 import statistics as _stats_module
 
@@ -19,7 +20,10 @@ def sample_optional(
 ) -> float | None:
     if dist is None:
         return None
-    return sample_dist(rng, dist)
+    sampled = sample_dist(rng, dist)
+    if not math.isfinite(sampled):
+        raise ValueError("sampled uncertainty value must be finite")
+    return sampled
 
 
 def sample_positive_optional(
@@ -29,53 +33,97 @@ def sample_positive_optional(
     sampled = sample_optional(rng, dist)
     if sampled is None:
         return None
-    return max(0.1, sampled)
+    if sampled <= 0.0:
+        raise ValueError("sampled physical parameter must be greater than 0")
+    return sampled
 
 
 def compute_stats(values: list[float]) -> SampledOutputStats | None:
     n = len(values)
     if n == 0:
         return None
+    if not all(math.isfinite(value) for value in values):
+        raise ValueError("sample statistics require finite values")
     if n == 1:
         v = values[0]
         return SampledOutputStats(
             count=1, mean=v, std=0.0, min=v, p5=v, p50=v, p95=v, max=v
         )
-    quantiles = _stats_module.quantiles(values, n=20)
     return SampledOutputStats(
         count=n,
         mean=_stats_module.mean(values),
         std=_stats_module.stdev(values),
         min=min(values),
-        p5=quantiles[0],
-        p50=_stats_module.median(values),
-        p95=quantiles[18],
+        p5=_empirical_quantile(values, 0.05),
+        p50=_empirical_quantile(values, 0.50),
+        p95=_empirical_quantile(values, 0.95),
         max=max(values),
     )
 
 
-def reserve_violation_rate(
+def _empirical_quantile(values: list[float], probability: float) -> float:
+    """Return a linearly interpolated sample quantile bounded by observations."""
+    ordered = sorted(values)
+    position = (len(ordered) - 1) * probability
+    lower_index = int(position)
+    upper_index = min(lower_index + 1, len(ordered) - 1)
+    fraction = position - lower_index
+    return ordered[lower_index] + (
+        (ordered[upper_index] - ordered[lower_index]) * fraction
+    )
+
+
+def conditional_reserve_violation_rate(
     values: list[float],
     *,
-    reserve_threshold_wh: float | None,
+    reserve_threshold_wh: float | None = None,
+    reserve_thresholds_wh: list[float | None] | None = None,
 ) -> float:
     n = len(values)
-    if reserve_threshold_wh is None or n == 0:
+    if n == 0:
         return 0.0
-    violation_count = sum(value < reserve_threshold_wh for value in values)
+    thresholds = _resolve_thresholds(
+        values,
+        reserve_threshold_wh=reserve_threshold_wh,
+        reserve_thresholds_wh=reserve_thresholds_wh,
+    )
+    if thresholds is None:
+        return 0.0
+    violation_count = sum(
+        threshold is not None and value < threshold
+        for value, threshold in zip(values, thresholds, strict=True)
+    )
     return violation_count / n
 
 
-def feasibility_rate(
+def modeled_constraint_pass_rate(
+    passed_sample_count: int,
+    *,
+    infeasible_sample_count: int = 0,
+) -> float | None:
+    """Return the pass fraction among evaluated deterministic samples.
+
+    ``infeasible_sample_count`` already includes its spatial subset. Failed
+    samples are intentionally absent because they were not evaluated.
+    """
+    if passed_sample_count < 0 or infeasible_sample_count < 0:
+        raise ValueError("sample outcome counts must be non-negative")
+    total = passed_sample_count + infeasible_sample_count
+    if total == 0:
+        return None
+    return passed_sample_count / total
+
+
+def _resolve_thresholds(
     values: list[float],
     *,
     reserve_threshold_wh: float | None,
-    spatial_infeasible_count: int = 0,
-) -> float:
-    total = len(values) + spatial_infeasible_count
-    if total == 0:
-        return 0.0
+    reserve_thresholds_wh: list[float | None] | None,
+) -> list[float | None] | None:
+    if reserve_thresholds_wh is not None:
+        if len(reserve_thresholds_wh) != len(values):
+            raise ValueError("reserve thresholds must match the number of values")
+        return reserve_thresholds_wh
     if reserve_threshold_wh is None:
-        return 0.0
-    feasible_count = sum(value >= reserve_threshold_wh for value in values)
-    return feasible_count / total
+        return None
+    return [reserve_threshold_wh] * len(values)

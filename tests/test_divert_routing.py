@@ -21,6 +21,7 @@ def _point_zone(zone_id: str, *, lat: float, lon: float) -> LandingZone:
     return LandingZone.model_validate(
         {
             "id": zone_id,
+            "altitude_amsl_m": 12.0,
             "geometry": {"points": [{"lat": lat, "lon": lon}]},
         }
     )
@@ -653,7 +654,11 @@ def test_divert_estimate_wind_corrected_via_scenario_runner() -> None:
                 }
             },
             "events": [
-                {"event_id": "link-lost", "kind": "lost_link", "trigger": "at_mission_start"}
+                {
+                    "event_id": "link-lost",
+                    "kind": "lost_link",
+                    "trigger": "at_mission_start",
+                }
             ],
             "assertions": [],
         }
@@ -661,9 +666,15 @@ def test_divert_estimate_wind_corrected_via_scenario_runner() -> None:
     # Same scenario with a constant wind provider
     wind_provider = ConstantWindProvider(0.0, 0.0)
 
-    result_no_wind = run_scenario(scenario_no_wind, mission, vehicle, landing_zones=[zone])
+    result_no_wind = run_scenario(
+        scenario_no_wind, mission, vehicle, landing_zones=[zone]
+    )
     result_with_wind = run_scenario(
-        scenario_no_wind, mission, vehicle, landing_zones=[zone], wind_provider=wind_provider
+        scenario_no_wind,
+        mission,
+        vehicle,
+        landing_zones=[zone],
+        wind_provider=wind_provider,
     )
 
     divert_no_wind = result_no_wind.event_outcomes[0].policy_outcome.divert_estimate

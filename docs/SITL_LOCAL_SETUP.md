@@ -69,7 +69,9 @@ Launch ArduPlane in the verified quadplane frame:
 podman exec -it bvlos-sitl /opt/ardupilot/sitl/launch.sh plane
 ```
 
-The launcher runs SITL in the foreground. Stop it with `Ctrl-C`, or stop the
+Both launch modes start at `52.0, 4.0, 12 m AMSL`, matching the bundled pipeline
+mission, and run at 5x simulation speed for repeatable integration tests. The
+launcher runs SITL in the foreground. Stop it with `Ctrl-C`, or stop the
 container:
 
 ```bash
@@ -139,6 +141,11 @@ Artifact directories are caller-managed local files. Keep them with the
 corresponding mission, vehicle, and scenario inputs when preserving validation
 evidence, or remove them after short-lived smoke tests. The project does not
 upload, rotate, or prune SITL artifacts automatically.
+
+The CLI distinguishes configuration from runtime failure: invalid scenario,
+mission, vehicle, or asset data exits `11`; a live adapter connection, upload,
+execution, telemetry, completion, or timeout error exits `13`. The adapter
+attempts to close and write already-recorded artifacts on a failed run.
 
 ## Comparison reports
 

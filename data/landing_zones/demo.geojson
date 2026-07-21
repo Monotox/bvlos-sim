@@ -5,6 +5,7 @@
       "type": "Feature",
       "id": "demo_landing_zone_wp1",
       "properties": {
+        "altitude_amsl_m": 12.0,
         "surface": "grass"
       },
       "geometry": {

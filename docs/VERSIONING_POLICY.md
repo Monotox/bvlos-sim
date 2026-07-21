@@ -8,24 +8,30 @@ a published version.
 Current public contracts:
 
 - package-root `estimator` imports
-- mission input schema: `mission.v6`
+- mission input schema: `mission.v7` (the root `schema_version` is mandatory;
+  unversioned and `mission.v6` files have a supported `migrate` path)
 - vehicle input schema: `vehicle.v4`
 - scenario input schema: `scenario.v1`
-- uncertainty input schema: `uncertainty.v1`
-- stochastic propagation input schema: `stochastic.v1`
+- uncertainty input schema: `uncertainty.v2`
+- stochastic propagation input schema: `stochastic.v2`
 - batch manifest input schema: `batch.v1`
 - geofence input schema: `geofence-geojson.v1`
 - landing-zone input schema: `landing-zone-geojson.v1`
-- population-density input schema: `population-grid.v1`
-- estimator JSON envelope: `estimator-envelope.v7`
-- scenario JSON envelope: `scenario-report.v2`
-- uncertainty JSON envelope: `uncertainty-report.v1`
-- stochastic propagation envelope: `stochastic-envelope.v1`
+- diagnostic population-density input: unversioned legacy/`population-grid.v1`
+- SORA population-evidence input schema: `population-grid.v2`
+- estimator JSON envelope: `estimator-envelope.v9`
+- scenario JSON envelope: `scenario-report.v3`
+- uncertainty JSON envelope: `uncertainty-report.v2`
+- stochastic propagation envelope: `stochastic-envelope.v2`
+- SORA pre-assessment result schema: `sora-assessment.v3`
+- SORA JSON envelope: `sora-envelope.v3`
+- battery sizing report: `battery-sizing-report.v2`
 - SITL evidence bundle: `sitl-evidence.v1`
 - SITL comparison report: `sitl-comparison.v1`
 - CLI exit-code semantics (enumerated per command in
   [`CLI_EXIT_CODES.md`](CLI_EXIT_CODES.md)), including the `14` (`CANCELLED`)
-  signal-abort code and the atomic-output-write guarantee
+  signal-abort code, the atomic-output-write guarantee, and renderer-independent
+  operational readiness for `estimate`, `scenario`, and `batch`
 - supported Markdown report shape covered by golden fixtures
 
 Internal module layout is not a public contract. Refactors are allowed when the
@@ -40,6 +46,7 @@ Within a published schema or envelope version, do not accidentally:
 - change enum values
 - change status meanings
 - change CLI exit-code meanings
+- make operational readiness depend on the selected renderer
 - change partial-result semantics
 - change canonical JSON rendering behavior
 - expose raw dependency exception text in machine-facing outputs

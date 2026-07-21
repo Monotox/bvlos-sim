@@ -21,11 +21,18 @@ from schemas.validation import (
     MetricComparison,
     MissionValidationMetrics,
     PhaseValidation,
+    ValidationAcceptance,
     ValidationReport,
 )
 
 # Same WGS-84 geodesic model the estimator uses for route distances.
 _GEOD = Geod(ellps="WGS84")
+DEFAULT_ACCEPTANCE_THRESHOLDS_PCT: dict[str, float] = {
+    "time_s": 20.0,
+    "horizontal_distance_m": 10.0,
+    "mean_groundspeed_mps": 15.0,
+    "reserve_percent": 10.0,
+}
 
 
 def build_validation_report(
@@ -35,6 +42,7 @@ def build_validation_report(
     segments: PhaseSegmentResult,
     validation_id: str,
     tool_version: str,
+    acceptance_thresholds_pct: dict[str, float] | None = None,
 ) -> ValidationReport:
     """Compare a predicted mission estimate against an observed flight trace.
 
@@ -51,6 +59,10 @@ def build_validation_report(
 
     mission_metrics = _mission_metrics(estimate, records, notes)
     phase_validations = _phase_validations(estimate, records, segments, notes)
+    acceptance = _validation_acceptance(
+        mission_metrics,
+        acceptance_thresholds_pct or DEFAULT_ACCEPTANCE_THRESHOLDS_PCT,
+    )
 
     return ValidationReport(
         schema_version=VALIDATION_REPORT_SCHEMA_VERSION,
@@ -61,7 +73,36 @@ def build_validation_report(
         observed_record_count=len(records),
         mission_metrics=mission_metrics,
         phase_validations=phase_validations,
+        acceptance=acceptance,
         notes=notes,
+    )
+
+
+def _validation_acceptance(
+    metrics: MissionValidationMetrics,
+    thresholds_pct: dict[str, float],
+) -> ValidationAcceptance:
+    comparisons = {
+        "time_s": metrics.time_s,
+        "horizontal_distance_m": metrics.horizontal_distance_m,
+        "mean_groundspeed_mps": metrics.mean_groundspeed_mps,
+        "reserve_percent": metrics.reserve_percent,
+    }
+    errors = {name: comparison.pct_error for name, comparison in comparisons.items()}
+    failures: list[str] = []
+    for name, limit in thresholds_pct.items():
+        if limit < 0.0:
+            raise ValueError(f"validation threshold for {name} must be non-negative")
+        error = errors.get(name)
+        if error is None:
+            failures.append(f"{name}: error unavailable")
+        elif error > limit:
+            failures.append(f"{name}: {error:.3f}% exceeds {limit:.3f}%")
+    return ValidationAcceptance(
+        thresholds_pct=dict(thresholds_pct),
+        errors_pct=errors,
+        passed=not failures,
+        failures=failures,
     )
 
 
@@ -248,4 +289,4 @@ def _mean(values: list[float]) -> float | None:
     return sum(values) / len(values) if values else None
 
 
-__all__ = ["build_validation_report"]
+__all__ = ["DEFAULT_ACCEPTANCE_THRESHOLDS_PCT", "build_validation_report"]

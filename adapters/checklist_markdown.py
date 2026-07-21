@@ -2,7 +2,7 @@
 
 from adapters.envelope import EstimatorResultEnvelope
 from adapters.scenario_envelope import ScenarioResultEnvelope
-from estimator.core.enums import FailureCode
+from adapters.operational_readiness import evaluate_operational_readiness
 from estimator.core.results import (
     EnergyEstimate,
     GeofenceEstimate,
@@ -15,9 +15,9 @@ from estimator.core.results import (
     WeatherEstimate,
 )
 
-_PASS = "✓"   # ✓
-_FAIL = "✗"   # ✗
-_NA = "◌"     # ◌
+_PASS = "✓"  # ✓
+_FAIL = "✗"  # ✗
+_NA = "◌"  # ◌
 _CAT_WIDTH = 25
 
 
@@ -71,9 +71,7 @@ def _landing_zone_row(landing_zone: LandingZoneEstimate | None) -> str:
             f"checked state(s)"
         )
         return _row(_PASS, "Landing-zone coverage", "PASS", detail)
-    reachable = sum(
-        1 for s in landing_zone.states if s.reachable_zone_id is not None
-    )
+    reachable = sum(1 for s in landing_zone.states if s.reachable_zone_id is not None)
     total = landing_zone.checked_state_count
     detail = f"reachable zone missing at {total - reachable}/{total} state(s)"
     return _row(_FAIL, "Landing-zone coverage", "FAIL", detail)
@@ -83,16 +81,41 @@ def _resource_row(resource: ResourceEstimate | None) -> str:
     if resource is None:
         return _row(_NA, "Resource availability", "N/A", "not evaluated")
     if resource.is_feasible:
-        return _row(_PASS, "Resource availability", "PASS", f"system {resource.selected_resource_id!r} sufficient")
-    return _row(_FAIL, "Resource availability", "FAIL", f"system {resource.selected_resource_id!r} insufficient")
+        return _row(
+            _PASS,
+            "Resource availability",
+            "PASS",
+            f"system {resource.selected_resource_id!r} sufficient",
+        )
+    return _row(
+        _FAIL,
+        "Resource availability",
+        "FAIL",
+        f"system {resource.selected_resource_id!r} insufficient",
+    )
 
 
 def _link_row(link: LinkEstimate | None) -> str:
     if link is None:
         return _row(_NA, "Link availability", "N/A", "not evaluated")
-    if link.is_feasible:
-        return _row(_PASS, "Link availability", "PASS", f"link {link.selected_link_id!r} available")
-    return _row(_FAIL, "Link availability", "FAIL", f"link {link.selected_link_id!r} unavailable")
+    if link.is_feasible and link.selected_link_id is not None:
+        return _row(
+            _PASS,
+            "Link availability",
+            "PASS",
+            f"link {link.selected_link_id!r} available",
+        )
+    detail = (
+        "no configured link is available"
+        if link.selected_link_id is None
+        else f"link {link.selected_link_id!r} unavailable"
+    )
+    return _row(
+        _FAIL,
+        "Link availability",
+        "FAIL",
+        detail,
+    )
 
 
 def _weather_row(weather: WeatherEstimate | None) -> str:
@@ -100,12 +123,13 @@ def _weather_row(weather: WeatherEstimate | None) -> str:
         return _row(_NA, "Weather limits", "N/A", "not evaluated")
     worst = weather.worst_wind_speed_mps
     where = (
-        f" at leg {weather.worst_leg_index}"
-        f" ({weather.worst_route_item_id})"
+        f" at leg {weather.worst_leg_index} ({weather.worst_route_item_id})"
         if weather.worst_leg_index is not None
         else ""
     )
-    worst_text = f"worst wind {_fmt(worst)} m/s{where}" if worst is not None else "no wind data"
+    worst_text = (
+        f"worst wind {_fmt(worst)} m/s{where}" if worst is not None else "no wind data"
+    )
     if weather.is_feasible:
         return _row(_PASS, "Weather limits", "PASS", worst_text)
     violation = weather.violations[0]
@@ -138,35 +162,48 @@ def _obstacle_row(obstacle: ObstacleEstimate | None) -> str:
     return _row(_FAIL, "Obstacle clearance", "FAIL", detail)
 
 
-def _requires_rth_reserve(result: MissionEstimate) -> bool:
-    if result.metadata.get("require_rth_reserve") is True:
-        return True
-    return (
-        result.failure is not None
-        and result.failure.code == FailureCode.RTH_RESERVE_BELOW_THRESHOLD
-    )
-
-
 def _rth_reserve_row(result: MissionEstimate) -> str | None:
     if result.rth_is_feasible is None:
         return None
+    if (
+        result.rth_is_feasible
+        and result.resource is not None
+        and result.resource.selected_resource_id is not None
+    ):
+        selected = next(
+            (
+                item
+                for item in result.resource.systems
+                if item.resource_id == result.resource.selected_resource_id
+            ),
+            None,
+        )
+        if selected is not None and selected.kind == "external_power":
+            return _row(
+                _PASS,
+                "RTH feasibility",
+                "PASS",
+                "selected external resource covers RTH peak power",
+            )
     timeline = result.energy.rth_reserve_timeline if result.energy is not None else None
     leg_count = len(timeline) if timeline is not None else 0
-    required = _requires_rth_reserve(result)
     if result.rth_is_feasible:
         detail = f"reserve intact for RTH from all {leg_count} leg(s)"
-        if required:
-            return _row(_PASS, "RTH reserve", "PASS", detail)
-        return _row(" ", "RTH reserve (advisory)", "INFO", detail)
+        return _row(_PASS, "RTH reserve", "PASS", detail)
     infeasible = [point for point in timeline or [] if not point.is_feasible]
+    if not infeasible:
+        return _row(
+            _FAIL,
+            "RTH reserve",
+            "FAIL",
+            "RTH feasibility failed; reserve timeline details unavailable",
+        )
     first = infeasible[0]
     detail = (
         f"RTH below reserve from {len(infeasible)}/{leg_count} leg(s); "
         f"first at leg {first.leg_index} (margin {_fmt(first.reserve_margin_wh)} Wh)"
     )
-    if required:
-        return _row(_FAIL, "RTH reserve", "FAIL", detail)
-    return _row(" ", "RTH reserve (advisory)", "INFO", detail)
+    return _row(_FAIL, "RTH reserve", "FAIL", detail)
 
 
 def _ground_risk_row(ground_risk: GroundRiskEstimate | None) -> str:
@@ -194,19 +231,9 @@ def _departure_time_row(result: MissionEstimate) -> str | None:
     return _row(" ", "Departure time", "INFO", departure_time)
 
 
-def _is_go(result: MissionEstimate) -> bool:
-    checks = [
-        result.energy,
-        result.geofence,
-        result.landing_zone,
-        result.resource,
-        result.link,
-        result.obstacle,
-        result.weather,
-    ]
-    return all(c is None or c.is_feasible for c in checks) and (
-        not _requires_rth_reserve(result) or result.rth_is_feasible is not False
-    )
+def checklist_is_go(result: MissionEstimate) -> bool:
+    """Return the fail-closed operational verdict rendered by the checklist."""
+    return evaluate_operational_readiness(result).is_go
 
 
 def _render_checklist(result: MissionEstimate | None, mission_id: str) -> str:
@@ -232,7 +259,7 @@ def _render_checklist(result: MissionEstimate | None, mission_id: str) -> str:
         lines.append(departure_row)
     lines.append(_warnings_row(result))
     lines.append("")
-    status = "GO" if _is_go(result) else "NO-GO"
+    status = "GO" if checklist_is_go(result) else "NO-GO"
     lines.append(f"Status: {status}")
     lines.append("")
     return "\n".join(lines)
@@ -253,6 +280,7 @@ def render_checklist_markdown_from_scenario(envelope: ScenarioResultEnvelope) ->
 
 
 __all__ = [
+    "checklist_is_go",
     "render_checklist_markdown",
     "render_checklist_markdown_from_scenario",
 ]
