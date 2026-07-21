@@ -102,6 +102,7 @@ def _vehicle_payload() -> dict[str, Any]:
 
 def _mission_payload() -> dict[str, Any]:
     return {
+        "schema_version": "mission.v7",
         "mission_id": "pipeline_demo_001",
         "vehicle_profile": "quadplane_v1",
         "planned_home": {
@@ -212,8 +213,11 @@ def _json_stdout(result: CommandResult) -> dict[str, Any]:
 def _expect_json_field(path: str, expected: Any) -> CaseCheck:
     def check(result: CommandResult) -> None:
         value: Any = _json_stdout(result)
-        for part in path.split("."):
-            value = value[int(part)] if isinstance(value, list) else value[part]
+        try:
+            for part in path.split("."):
+                value = value[int(part)] if isinstance(value, list) else value[part]
+        except (IndexError, KeyError, TypeError, ValueError) as exc:
+            raise AssertionError(f"JSON field {path!r} is missing") from exc
         if value != expected:
             raise AssertionError(f"{path}: expected {expected!r}, got {value!r}")
 
@@ -256,10 +260,31 @@ def _expect_output_file(
 def _expect_json_has(path: str) -> CaseCheck:
     def check(result: CommandResult) -> None:
         value: Any = _json_stdout(result)
-        for part in path.split("."):
-            value = value[int(part)] if isinstance(value, list) else value[part]
+        try:
+            for part in path.split("."):
+                value = value[int(part)] if isinstance(value, list) else value[part]
+        except (IndexError, KeyError, TypeError, ValueError) as exc:
+            raise AssertionError(f"JSON field {path!r} is missing") from exc
         if value is None:
             raise AssertionError(f"{path} should not be None")
+
+    return check
+
+
+def _expect_diagnostic_code(expected: str) -> CaseCheck:
+    def check(result: CommandResult) -> None:
+        diagnostics = _json_stdout(result).get("diagnostics")
+        if not isinstance(diagnostics, list):
+            raise AssertionError("JSON diagnostics list is missing")
+        codes = {
+            item.get("code")
+            for item in diagnostics
+            if isinstance(item, dict) and isinstance(item.get("code"), str)
+        }
+        if expected not in codes:
+            raise AssertionError(
+                f"expected diagnostic code {expected!r}; got {sorted(codes)!r}"
+            )
 
     return check
 
@@ -346,7 +371,7 @@ def _landing_zone_feature(lon: float = 4.002, lat: float = 52.001) -> dict[str, 
     return {
         "type": "Feature",
         "id": "audit_lz",
-        "properties": {},
+        "properties": {"altitude_amsl_m": 12.0},
         "geometry": {"type": "Point", "coordinates": [lon, lat]},
     }
 
@@ -385,9 +410,7 @@ def _build_cases(root: Path) -> list[Case]:
         root / "vehicle-ground-risk.yaml", ground_risk_vehicle
     )
     mission_ground_risk = _payload_copy(_mission_payload())
-    mission_ground_risk["assets"] = {
-        "population_grid_file": population_grid_path.name
-    }
+    mission_ground_risk["assets"] = {"population_grid_file": population_grid_path.name}
     mission_ground_risk_path = _write_yaml(
         root / "mission-ground-risk.yaml", mission_ground_risk
     )
@@ -411,7 +434,7 @@ def _build_cases(root: Path) -> list[Case]:
     )
 
     low_energy_vehicle = _payload_copy(_vehicle_payload())
-    low_energy_vehicle["energy"]["battery_capacity_wh"] = 45.0
+    low_energy_vehicle["energy"]["battery_capacity_wh"] = 55.0
     low_energy_vehicle_path = _write_yaml(
         root / "vehicle-low-energy.yaml", low_energy_vehicle
     )
@@ -637,6 +660,18 @@ def _build_cases(root: Path) -> list[Case]:
         Case("scenario help", ["scenario", "--help"], SUCCESS),
         Case("estimate no args usage error", ["estimate"], USAGE_ERROR),
         Case("scenario no args usage error", ["scenario"], USAGE_ERROR),
+        Case(
+            "estimate missing operational evidence exits no-go",
+            ["estimate", str(paths["mission"]), str(paths["vehicle"])],
+            INFEASIBLE,
+            _expect_json_field("operational_readiness.is_go", False),
+        ),
+        Case(
+            "scenario missing operational evidence exits no-go",
+            ["scenario", str(paths["scenario"])],
+            INFEASIBLE,
+            _expect_json_field("operational_readiness.is_go", False),
+        ),
         Case(
             "estimate example yaml json stdout",
             ["estimate", str(paths["mission"]), str(paths["vehicle"])],
@@ -910,7 +945,7 @@ def _build_cases(root: Path) -> list[Case]:
             "estimate geofence conflict",
             ["estimate", str(mission_geofence_path), str(paths["vehicle"])],
             INFEASIBLE,
-            _expect_json_field("diagnostics.1.code", "ROUTE_ENTERS_FORBIDDEN_ZONE"),
+            _expect_diagnostic_code("ROUTE_ENTERS_FORBIDDEN_ZONE"),
         ),
         Case(
             "estimate geofence unsupported geometry",
@@ -934,7 +969,7 @@ def _build_cases(root: Path) -> list[Case]:
             "estimate no reachable landing zone",
             ["estimate", str(mission_no_lz_path), str(paths["vehicle"])],
             INFEASIBLE,
-            _expect_json_field("diagnostics.1.code", "NO_REACHABLE_LANDING_ZONE"),
+            _expect_diagnostic_code("NO_REACHABLE_LANDING_ZONE"),
         ),
         Case(
             "scenario baseline passes",
@@ -1126,11 +1161,11 @@ def _build_cases(root: Path) -> list[Case]:
                 "size-battery",
                 str(
                     Path(__file__).resolve().parents[1]
-                    / "examples/missions/pipeline_demo_001.yaml"
+                    / "examples/real_world/alpine_infeasible.yaml"
                 ),
                 str(
                     Path(__file__).resolve().parents[1]
-                    / "examples/vehicles/quadplane_v1.yaml"
+                    / "examples/real_world/quadplane_small_battery_sizing.yaml"
                 ),
                 "--format",
                 "summary",
@@ -1190,7 +1225,31 @@ def _build_cases(root: Path) -> list[Case]:
             INVALID_INPUT,
         ),
     ]
-    return cases
+    # Most success-path cases exercise engineering computations with deliberately
+    # minimal synthetic fixtures. Keep the default fail-closed behavior covered
+    # explicitly above, then opt these scoped smoke cases into engineering mode
+    # so missing operational evidence cannot mask the command behavior at issue.
+    normalized_cases: list[Case] = []
+    for case in cases:
+        engineering_success = (
+            case.expected_exit == SUCCESS
+            and bool(case.args)
+            and case.args[0] in {"estimate", "scenario"}
+            and "--help" not in case.args
+        )
+        normalized_cases.append(
+            Case(
+                name=case.name,
+                args=(
+                    [*case.args, "--engineering-only"]
+                    if engineering_success
+                    else case.args
+                ),
+                expected_exit=case.expected_exit,
+                check=case.check,
+            )
+        )
+    return normalized_cases
 
 
 def _run_case(command: list[str], case: Case, *, env: dict[str, str]) -> CommandResult:
@@ -1260,9 +1319,13 @@ def main() -> int:
     env.setdefault("PYTHONUTF8", "1")
 
     failures: list[str] = []
-    temp_dir = tempfile.TemporaryDirectory(prefix="bvlos-cli-audit-")
-    try:
+    temp_dir: tempfile.TemporaryDirectory[str] | None = None
+    if args.keep_temp:
+        root = Path(tempfile.mkdtemp(prefix="bvlos-cli-audit-"))
+    else:
+        temp_dir = tempfile.TemporaryDirectory(prefix="bvlos-cli-audit-")
         root = Path(temp_dir.name)
+    try:
         cases = _build_cases(root)
         print(f"CLI batch audit: {len(cases)} cases")
         print(f"command prefix: {' '.join(args.command)}")
@@ -1296,8 +1359,9 @@ def main() -> int:
         return 0
     finally:
         if args.keep_temp:
-            print(f"kept temp dir: {temp_dir.name}")
+            print(f"kept temp dir: {root}")
         else:
+            assert temp_dir is not None
             temp_dir.cleanup()
 
 

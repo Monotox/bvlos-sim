@@ -29,7 +29,6 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "mavsdk>=3.15.3",
     "pydantic>=2.13.4",
     "pyproj>=3.7.2",
     "pyyaml>=6.0.3",
@@ -45,6 +44,13 @@ Documentation = "https://github.com/Monotox/bvlos-sim/tree/main/docs"
 
 [project.scripts]
 bvlos-sim = "main:main"
+bvlos-fetch-all = "scripts.fetch_all:main"
+bvlos-fetch-geofences = "scripts.fetch_geofences:main"
+bvlos-fetch-landing-zones = "scripts.fetch_landing_zones:main"
+bvlos-fetch-obstacles = "scripts.fetch_obstacles:main"
+bvlos-fetch-population = "scripts.fetch_population:main"
+bvlos-fetch-terrain = "scripts.fetch_terrain:main"
+bvlos-fetch-wind = "scripts.fetch_wind:main"
 
 [build-system]
 requires = ["setuptools>=77"]
@@ -52,7 +58,15 @@ build-backend = "setuptools.build_meta"
 
 [project.optional-dependencies]
 scripts = [
+    "requests>=2.32.0",
     "srtm.py>=0.3.4",
+]
+flight-logs = [
+    "pymavlink==2.4.49",
+    "pyulog>=1.2.2",
+]
+sitl = [
+    "pymavlink==2.4.49",
 ]
 
 [dependency-groups]
@@ -71,7 +85,7 @@ docs = [
 py-modules = ["main"]
 
 [tool.setuptools.packages.find]
-include = ["adapters*", "estimator*", "schemas*"]
+include = ["adapters*", "estimator*", "schemas*", "scripts*"]
 
 [tool.ruff]
 include = ["adapters/**/*.py", "estimator/**/*.py", "schemas/**/*.py", "tests/**/*.py", "scripts/**/*.py"]

@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from schemas.flight_log import FlightTraceMissionRef
 
-VALIDATION_REPORT_SCHEMA_VERSION = "validation-report.v1"
+VALIDATION_REPORT_SCHEMA_VERSION = "validation-report.v2"
 
 
 class MetricComparison(BaseModel):
@@ -90,6 +90,26 @@ class PhaseValidation(BaseModel):
     )
 
 
+class ValidationAcceptance(BaseModel):
+    """Explicit release-gate thresholds and their evaluated outcome."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    thresholds_pct: dict[str, float] = Field(
+        description="Maximum accepted absolute percentage error by metric."
+    )
+    errors_pct: dict[str, float | None] = Field(
+        description="Observed absolute percentage error by gated metric."
+    )
+    passed: bool = Field(
+        description="True only when every gated metric is available and within threshold."
+    )
+    failures: list[str] = Field(
+        default_factory=list,
+        description="Unavailable or out-of-threshold metric diagnostics.",
+    )
+
+
 class ValidationReport(BaseModel):
     """Versioned predicted-vs-observed validation report.
 
@@ -99,7 +119,7 @@ class ValidationReport(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: Literal["validation-report.v1"] = Field(
+    schema_version: Literal["validation-report.v2"] = Field(
         description="Validation report schema version."
     )
     validation_id: str = Field(
@@ -130,6 +150,9 @@ class ValidationReport(BaseModel):
         default_factory=list,
         description="Per-estimator-phase comparisons, sorted by phase name.",
     )
+    acceptance: ValidationAcceptance = Field(
+        description="Explicit validation acceptance gate and thresholds."
+    )
     notes: list[str] = Field(
         default_factory=list,
         description="Data-availability caveats and observed phases with no estimator counterpart.",
@@ -141,5 +164,6 @@ __all__ = [
     "MetricComparison",
     "MissionValidationMetrics",
     "PhaseValidation",
+    "ValidationAcceptance",
     "ValidationReport",
 ]

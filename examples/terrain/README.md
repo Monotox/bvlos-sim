@@ -22,8 +22,9 @@ elevations_m:
 Use `scripts/fetch_terrain.py` to download SRTM tiles for any bounding box:
 
 ```bash
-uv run --group scripts python scripts/fetch_terrain.py \
-  --lat-min 51.9 --lat-max 52.1 --lon-min 3.9 --lon-max 4.1 \
+uv sync --extra scripts   # installs srtm.py (once)
+
+uv run python scripts/fetch_terrain.py 51.9 52.1 3.9 4.1 0.001 \
   --output examples/terrain/my_area.yaml
 ```
 

@@ -17,7 +17,12 @@ from adapters.battery_sizing_envelope import (
     build_battery_sizing_envelope,
     render_battery_sizing_envelope_json,
 )
-from adapters.cli_support import MissionAssetBundle, OutputWriteError, _populate_mission_assets, _write_output
+from adapters.cli_support import (
+    MissionAssetBundle,
+    OutputWriteError,
+    _populate_mission_assets,
+    _write_output,
+)
 from adapters.assets.geofence_geojson import GeofenceLoadError
 from adapters.io import InputDocument, InputLoadError, load_mission, load_vehicle
 from adapters.assets.landing_zone_geojson import LandingZoneLoadError
@@ -101,9 +106,7 @@ def _render_battery_sizing_command_output(
     return renderer(envelope, result, mission_id, safety_margins)
 
 
-def _run_size_battery_preflight(
-    *, mission: Path, vehicle: Path, as_json: bool
-) -> None:
+def _run_size_battery_preflight(*, mission: Path, vehicle: Path, as_json: bool) -> None:
     """Validate mission, vehicle, and referenced assets without sizing."""
     files = []
     text_lines = []
@@ -131,14 +134,28 @@ def _run_size_battery_preflight(
 
 
 def size_battery(
-    mission: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True, help="Path to mission.v6 YAML file."),
-    vehicle: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True, help="Path to vehicle profile YAML file."),
+    mission: Path = typer.Argument(
+        ...,
+        exists=True,
+        readable=True,
+        resolve_path=True,
+        help="Path to mission.v7 YAML file.",
+    ),
+    vehicle: Path = typer.Argument(
+        ...,
+        exists=True,
+        readable=True,
+        resolve_path=True,
+        help="Path to vehicle profile YAML file.",
+    ),
     format: cli.BatterySizingOutputFormat = typer.Option(
         cli.BatterySizingOutputFormat.MARKDOWN,
         "--format",
         help="Output format. Defaults to markdown for a human-readable sizing report.",
     ),
-    output: Path | None = typer.Option(None, "--output", "-o", help="Write output to file instead of stdout."),
+    output: Path | None = typer.Option(
+        None, "--output", "-o", help="Write output to file instead of stdout."
+    ),
     margin: list[int] | None = typer.Option(
         None,
         "--margin",
@@ -188,6 +205,8 @@ def size_battery(
             vehicle_model,
             wind_provider=mission_assets.wind_provider,
             terrain_provider=mission_assets.terrain_provider,
+            population_provider=mission_assets.population_provider,
+            obstacle_provider=mission_assets.obstacle_provider,
             geofences=mission_assets.geofences,
             landing_zones=mission_assets.landing_zones,
         )
@@ -196,6 +215,7 @@ def size_battery(
             result=result,
             mission_id=mission_id,
             inputs=envelope_inputs,
+            safety_margins=safety_margins,
         )
         rendered = _render_battery_sizing_command_output(
             format,

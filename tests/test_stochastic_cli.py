@@ -9,9 +9,7 @@ from adapters.cli import CliExitCode, app
 from adapters.stochastic_envelope import STOCHASTIC_ENVELOPE_SCHEMA_VERSION
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-EXAMPLE_STOCHASTIC = (
-    REPO_ROOT / "examples/stochastic/pipeline_demo_001_stochastic.yaml"
-)
+EXAMPLE_STOCHASTIC = REPO_ROOT / "examples/stochastic/pipeline_demo_001_stochastic.yaml"
 GOLDEN_STOCHASTIC = REPO_ROOT / "tests/fixtures/golden/stochastic/stochastic.yaml"
 
 runner = CliRunner()
@@ -50,8 +48,9 @@ def test_propagate_command_result_has_expected_keys() -> None:
     assert "sample_count" in r
     assert "failed_sample_count" in r
     assert "timeline" in r
-    assert "feasibility_rate" in r
-    assert "reserve_at_landing_wh" in r
+    assert "modeled_constraint_pass_rate" in r
+    assert r["operational_feasibility_assessed"] is False
+    assert "reserve_at_mission_end_wh" in r
     assert "baseline" in r
     assert "seed" in r
     assert "dt_s" in r
@@ -89,13 +88,14 @@ def test_propagate_command_is_reproducible() -> None:
 def test_propagate_command_markdown_format() -> None:
     result = _run(["propagate", str(EXAMPLE_STOCHASTIC), "--format", "markdown"])
     assert result.exit_code == int(CliExitCode.SUCCESS)
-    assert "# Stochastic Propagation Report" in result.output
+    assert "# Diagnostic Stochastic Parameter Sweep" in result.output
+    assert "Operational Feasibility Assessed:** No" in result.output
 
 
 def test_propagate_command_markdown_includes_reserve_distribution() -> None:
     result = _run(["propagate", str(EXAMPLE_STOCHASTIC), "--format", "markdown"])
     assert result.exit_code == int(CliExitCode.SUCCESS)
-    assert "Reserve at Landing Distribution" in result.output
+    assert "Conditional Reserve at Mission End" in result.output
     assert "p50" in result.output
     assert "p5" in result.output
     assert "p95" in result.output
@@ -104,8 +104,9 @@ def test_propagate_command_markdown_includes_reserve_distribution() -> None:
 def test_propagate_command_summary_format() -> None:
     result = _run(["propagate", str(EXAMPLE_STOCHASTIC), "--format", "summary"])
     assert result.exit_code == int(CliExitCode.SUCCESS)
-    assert "feasible" in result.output
-    assert "reserve" in result.output
+    assert "DIAGNOSTIC" in result.output
+    assert "modeled_pass" in result.output
+    assert "conditional_reserve" in result.output
     assert "n=" in result.output
 
 
@@ -128,7 +129,7 @@ def test_propagate_command_invalid_file_exits_invalid_input(tmp_path: Path) -> N
     bad_file.write_text(
         "\n".join(
             [
-                "schema_version: stochastic.v1",
+                "schema_version: stochastic.v2",
                 "propagation_id: x",
                 "mission_file: m.yaml",
                 "vehicle_file: v.yaml",
@@ -148,7 +149,7 @@ def test_propagate_command_schema_error_includes_details(tmp_path: Path) -> None
     bad_file.write_text(
         "\n".join(
             [
-                "schema_version: stochastic.v1",
+                "schema_version: stochastic.v2",
                 "propagation_id: x",
                 "mission_file: m.yaml",
                 "vehicle_file: v.yaml",
@@ -178,6 +179,7 @@ def test_propagate_infeasible_baseline_exits_invalid_input(tmp_path: Path) -> No
 
     # Write a vehicle without an energy model
     import yaml as yaml_mod
+
     with open(VEHICLE_PATH, encoding="utf-8") as f:
         vehicle_data = yaml_mod.safe_load(f)
     vehicle_data.pop("energy", None)
@@ -188,7 +190,7 @@ def test_propagate_infeasible_baseline_exits_invalid_input(tmp_path: Path) -> No
     stochastic.write_text(
         yaml_mod.dump(
             {
-                "schema_version": "stochastic.v1",
+                "schema_version": "stochastic.v2",
                 "propagation_id": "test",
                 "mission_file": str(MISSION_PATH),
                 "vehicle_file": str(no_energy_vehicle),
@@ -233,16 +235,21 @@ EXAMPLE_STOCHASTIC_EKF = (
 )
 
 
-def test_propagate_ekf_example_exits_zero() -> None:
+def test_propagate_controller_example_fails_closed() -> None:
     result = _run(["propagate", str(EXAMPLE_STOCHASTIC_EKF)])
-    assert result.exit_code == int(CliExitCode.SUCCESS)
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+    assert "does not support closed-loop controller" in result.output
 
 
-def test_propagate_ekf_example_contains_estimation_error_timeline() -> None:
-    result = _run(["propagate", str(EXAMPLE_STOCHASTIC_EKF)])
-    payload = json.loads(result.output)
-    assert "estimation_error_timeline" in payload["result"]
-    assert len(payload["result"]["estimation_error_timeline"]) > 0
+def test_legacy_stochastic_v1_is_rejected() -> None:
+    payload = EXAMPLE_STOCHASTIC.read_text(encoding="utf-8").replace(
+        "stochastic.v2", "stochastic.v1", 1
+    )
+    with runner.isolated_filesystem():
+        path = Path("legacy.yaml")
+        path.write_text(payload, encoding="utf-8")
+        result = _run(["propagate", str(path.resolve())])
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
 
 
 # ---------------------------------------------------------------------------

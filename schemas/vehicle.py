@@ -10,6 +10,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from schemas.resource_link import ResourceSystemConfig
+from schemas.numeric import FiniteFloat
 from schemas.vehicle_capabilities import VehicleCapabilities
 from schemas.vehicle_energy import EnergyModel, FailsafeProfile
 from schemas.vehicle_enums import AutopilotStack, VehicleClass
@@ -53,7 +54,7 @@ _CLASS_REQUIREMENTS = (
 class VehicleProfile(BaseModel):
     """Top-level vehicle profile used by mission validation and simulation."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
     vehicle_id: str = Field(
         min_length=1,
@@ -67,10 +68,14 @@ class VehicleProfile(BaseModel):
     vehicle_class: VehicleClass = Field(
         description="Vehicle class used to select route and energy assumptions.",
     )
-    characteristic_dimension_m: float | None = Field(
+    characteristic_dimension_m: FiniteFloat | None = Field(
         default=None,
         gt=0,
-        description="Maximum span or rotor-tip diameter in metres. Required to compute SORA Ground Risk Class.",
+        description=(
+            "Maximum characteristic dimension in metres: wingspan for fixed-wing, "
+            "blade diameter for a rotorcraft, or maximum distance between blade "
+            "tips for a multicopter. Required for SORA Ground Risk Class."
+        ),
     )
     mav_type: str = Field(
         min_length=1,

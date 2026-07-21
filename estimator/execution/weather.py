@@ -1,29 +1,111 @@
-"""Deterministic weather-minimums feasibility evaluation.
+"""Deterministic, fail-closed weather-minimums feasibility evaluation.
 
-Enforces operator-defined wind limits against the per-leg wind already sampled
-during route execution. Sustained wind and crosswind are enforced as
-feasibility gates; gust enforcement requires gust data the per-leg wind model
-does not carry, so it emits a non-blocking advisory.
+Enforces sustained-wind and crosswind limits against the worst samples retained
+for each route leg. A configured gust, visibility, or precipitation limit is
+infeasible when the active providers cannot supply the required observation.
 """
 
 from dataclasses import dataclass
+import math
 
-from estimator.core.enums import FailureCode, FailureKind, WarningCode
+from estimator.core.enums import FailureCode, FailureKind
 from estimator.core.results import (
     EstimatorFailure,
-    EstimatorWarning,
     LegEstimate,
     WeatherEstimate,
     WeatherViolation,
+    WindVector,
 )
-from estimator.environment.wind import ConstantWindProvider, WindProvider
+from estimator.environment.wind import (
+    ConstantWindProvider,
+    TimeVaryingWindProvider,
+    WindProvider,
+)
 from estimator.execution.runtime import EstimationContext
+
+_MAX_WEATHER_SAMPLE_INTERVAL_S = 60.0
 
 
 @dataclass(frozen=True)
 class WeatherEvaluation:
     weather: WeatherEstimate | None
     failure: EstimatorFailure | None
+
+
+@dataclass(frozen=True)
+class TimedWindSample:
+    elapsed_time_s: float
+    wind: WindVector
+
+
+def _active_provider_next_change(
+    provider: WindProvider,
+    *,
+    elapsed_time_s: float,
+) -> tuple[WindProvider, float | None]:
+    next_change_s: float | None = None
+    active = provider
+    while isinstance(active, TimeVaryingWindProvider):
+        candidate = active.next_change_after(elapsed_time_s)
+        if candidate is not None and (
+            next_change_s is None or candidate < next_change_s
+        ):
+            next_change_s = candidate
+        active = active.provider_for_elapsed_time(elapsed_time_s)
+    return active, next_change_s
+
+
+def sample_wind_interval(
+    provider: WindProvider,
+    *,
+    lat: float,
+    lon: float,
+    start_altitude_amsl_m: float,
+    end_altitude_amsl_m: float,
+    start_elapsed_time_s: float,
+    duration_s: float,
+) -> tuple[TimedWindSample, ...]:
+    """Sample endpoints, scheduled changes, and at most 60-second intervals."""
+
+    interval_count = max(1, math.ceil(duration_s / _MAX_WEATHER_SAMPLE_INTERVAL_S))
+    times = {
+        start_elapsed_time_s + duration_s * index / interval_count
+        for index in range(interval_count + 1)
+    }
+    end_elapsed_time_s = start_elapsed_time_s + duration_s
+    cursor_s = start_elapsed_time_s
+    while cursor_s < end_elapsed_time_s:
+        _, next_change_s = _active_provider_next_change(
+            provider,
+            elapsed_time_s=cursor_s,
+        )
+        if next_change_s is None or next_change_s > end_elapsed_time_s:
+            break
+        times.add(next_change_s)
+        cursor_s = next_change_s
+
+    samples: list[TimedWindSample] = []
+    for elapsed_time_s in sorted(times):
+        altitude_fraction = (
+            1.0
+            if duration_s <= 0.0
+            else (elapsed_time_s - start_elapsed_time_s) / duration_s
+        )
+        altitude_amsl_m = start_altitude_amsl_m + altitude_fraction * (
+            end_altitude_amsl_m - start_altitude_amsl_m
+        )
+        samples.append(
+            TimedWindSample(
+                elapsed_time_s=elapsed_time_s,
+                wind=provider.wind_at(
+                    lat=lat,
+                    lon=lon,
+                    altitude_amsl_m=altitude_amsl_m,
+                    elapsed_time_s=elapsed_time_s,
+                ),
+            )
+        )
+    return tuple(samples)
 
 
 def _wind_configured(provider: WindProvider | None) -> bool:
@@ -74,24 +156,68 @@ def _failure_from_violation(violation: WeatherViolation) -> EstimatorFailure:
     )
 
 
+def _legs_with_weather_observations(
+    context: EstimationContext,
+) -> list[LegEstimate]:
+    observed: list[LegEstimate] = []
+    elapsed_time_s = 0.0
+    for leg in context.route_legs:
+        if leg.wind_speed_mps is not None:
+            observed.append(leg)
+        else:
+            samples = sample_wind_interval(
+                context.wind_provider,
+                lat=(leg.start_lat + leg.end_lat) * 0.5,
+                lon=(leg.start_lon + leg.end_lon) * 0.5,
+                start_altitude_amsl_m=leg.start_alt_amsl_m,
+                end_altitude_amsl_m=leg.end_alt_amsl_m,
+                start_elapsed_time_s=elapsed_time_s,
+                duration_s=leg.time_s,
+            )
+            worst = max(samples, key=lambda sample: context.wind_speed(sample.wind))
+            observed.append(
+                leg.model_copy(
+                    update={
+                        "wind_east_mps": worst.wind.wind_east_mps,
+                        "wind_north_mps": worst.wind.wind_north_mps,
+                        "wind_speed_mps": context.wind_speed(worst.wind),
+                    }
+                )
+            )
+        elapsed_time_s += leg.time_s
+    return observed
+
+
 def evaluate_weather_feasibility(context: EstimationContext) -> WeatherEvaluation:
     """Evaluate wind/crosswind limits after kinematic route expansion."""
     constraints = context.mission.constraints
     max_wind = constraints.max_wind_mps
     max_crosswind = constraints.max_crosswind_mps
 
-    if constraints.max_gust_mps is not None:
-        context.warnings.append(
-            EstimatorWarning(
-                code=WarningCode.GUST_DATA_UNAVAILABLE,
+    unavailable_fields = [
+        field_name
+        for field_name, value in (
+            ("constraints.max_gust_mps", constraints.max_gust_mps),
+            ("constraints.min_visibility_m", constraints.min_visibility_m),
+            (
+                "constraints.max_precipitation_mm_h",
+                constraints.max_precipitation_mm_h,
+            ),
+        )
+        if value is not None
+    ]
+    if unavailable_fields:
+        return WeatherEvaluation(
+            weather=None,
+            failure=EstimatorFailure(
+                kind=FailureKind.INFEASIBLE,
+                code=FailureCode.WEATHER_DATA_UNAVAILABLE,
                 message=(
-                    "constraints.max_gust_mps is set but the wind model carries no "
-                    "gust data; the gust limit was not enforced."
+                    "Configured weather minimums require observations that are "
+                    "not available from the active weather provider."
                 ),
-                leg_index=None,
-                route_item_index=None,
-                route_item_id=None,
-            )
+                context={"unavailable_fields": ",".join(unavailable_fields)},
+            ),
         )
 
     if max_wind is None and max_crosswind is None:
@@ -99,7 +225,7 @@ def evaluate_weather_feasibility(context: EstimationContext) -> WeatherEvaluatio
     if not _wind_configured(context.wind_provider):
         return WeatherEvaluation(weather=None, failure=None)
 
-    legs = [leg for leg in context.route_legs if leg.wind_speed_mps is not None]
+    legs = _legs_with_weather_observations(context)
     if not legs:
         return WeatherEvaluation(weather=None, failure=None)
 

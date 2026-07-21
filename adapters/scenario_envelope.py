@@ -1,11 +1,17 @@
 """Canonical result envelope for scenario runner CLI outputs."""
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict
 
 from adapters.canonical_json import render_canonical_json
 from adapters.envelope import DeterminismMetadata, ProvenanceInput
 from adapters.version import tool_version
 from adapters.io import InputDocument, InputLoadError
+from adapters.operational_readiness import (
+    OperationalReadiness,
+    evaluate_operational_readiness,
+)
 from estimator.core.results import MissionEstimate
 from estimator.core.scenario import (
     ScenarioAssertionResult,
@@ -15,7 +21,7 @@ from estimator.core.scenario import (
     TimelinePoint,
 )
 
-SCENARIO_REPORT_SCHEMA_VERSION = "scenario-report.v2"
+SCENARIO_REPORT_SCHEMA_VERSION = "scenario-report.v3"
 SCENARIO_INPUT_SCHEMA_VERSION = "scenario.v1"
 
 
@@ -39,9 +45,9 @@ class ScenarioProvenance(BaseModel):
 class ScenarioResultEnvelope(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: str
+    schema_version: Literal["scenario-report.v3"]
     tool_version: str
-    scenario_schema_version: str
+    scenario_schema_version: Literal["scenario.v1"]
     scenario_id: str
     status: ScenarioStatus
     determinism_metadata: DeterminismMetadata
@@ -49,6 +55,7 @@ class ScenarioResultEnvelope(BaseModel):
     timeline: list[TimelinePoint]
     event_outcomes: list[ScenarioEventOutcome]
     assertion_results: list[ScenarioAssertionResult]
+    operational_readiness: OperationalReadiness
     estimate: MissionEstimate | None = None
 
 
@@ -142,6 +149,12 @@ def _base_envelope(
         timeline=result.timeline if result is not None else [],
         event_outcomes=result.event_outcomes if result is not None else [],
         assertion_results=result.assertion_results if result is not None else [],
+        operational_readiness=evaluate_operational_readiness(
+            result.estimate if result is not None else None,
+            additional_failed_checks=("scenario",)
+            if status != ScenarioStatus.PASSED
+            else (),
+        ),
         estimate=result.estimate if result is not None else None,
     )
 

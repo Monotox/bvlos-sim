@@ -15,6 +15,7 @@ from adapters.validation import (
 )
 from estimator.core.enums import EstimateStatus, LegPhase
 from estimator.core.results import EnergyEstimate, LegEstimate, MissionEstimate
+from schemas import ValidationAcceptance as PublicValidationAcceptance
 from schemas.flight_log import (
     FlightTraceProvenance,
     FlightTraceRecord,
@@ -27,7 +28,11 @@ from schemas.phase_segment import (
     SegmentationMetadata,
     TracePhase,
 )
-from schemas.validation import VALIDATION_REPORT_SCHEMA_VERSION, MetricComparison
+from schemas.validation import (
+    VALIDATION_REPORT_SCHEMA_VERSION,
+    MetricComparison,
+    ValidationAcceptance,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 EXAMPLE_LOG = REPO_ROOT / "examples" / "flight_logs" / "pipeline_demo_001.log"
@@ -137,6 +142,10 @@ def _estimate(
 # ---------------------------------------------------------------------------
 # MetricComparison
 # ---------------------------------------------------------------------------
+
+
+def test_validation_acceptance_is_public_schema_export() -> None:
+    assert PublicValidationAcceptance is ValidationAcceptance
 
 
 def test_metric_comparison_both_present() -> None:
@@ -371,6 +380,7 @@ def test_validation_report_write_read_roundtrip(tmp_path: Path) -> None:
     assert loaded.schema_version == VALIDATION_REPORT_SCHEMA_VERSION
     assert loaded.validation_id == "roundtrip-1"
     assert loaded.mission_metrics.time_s.observed == pytest.approx(100.0)
+    assert loaded.acceptance.thresholds_pct
     assert document.format == "json"
 
 
@@ -400,6 +410,7 @@ def test_full_path_from_example_log() -> None:
     assert report.observed_record_count == len(trace.records)
     assert report.mission_metrics.horizontal_distance_m.observed is not None
     assert any(p.phase == "transit" for p in report.phase_validations)
+    assert isinstance(report.acceptance.passed, bool)
 
 
 __all__: list[str] = []

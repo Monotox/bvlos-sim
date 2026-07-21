@@ -38,16 +38,13 @@ theme:
 
 nav:
   - Home: index.md
-  - Usage: USAGE.md
-  - Project Brief: BVLOS_MISSION_SIMULATOR_BRIEF.md
-  - Roadmap: ROADMAP.md
-  - Field Semantics: ESTIMATOR_V1_FIELD_SEMANTICS.md
-  - Versioning Policy: VERSIONING_POLICY.md
-  - SITL:
-      - Adapter Contract: SITL_ADAPTER_CONTRACT.md
-      - Local Setup: SITL_LOCAL_SETUP.md
-  - Contributing: CODE_STYLE.md
-  - Ticket Backlog: tickets/README.md
+  - Getting started: getting-started.md
+  - CLI reference: cli.md
+  - Missions and vehicles: missions.md
+  - SITL: sitl.md
+  - Design: design.md
+  - Roadmap: roadmap.md
+  - Ticket backlog: tickets/README.md
 
 # The numbered ticket files are reachable from the Ticket Backlog page but are
 # intentionally not individual nav entries; declare that so --strict does not

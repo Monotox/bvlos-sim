@@ -20,6 +20,14 @@ SITL_TELEMETRY_SCHEMA_VERSION = "sitl-telemetry.v1"
 SITL_COMMAND_LOG_SCHEMA_VERSION = "sitl-command-log.v1"
 SITL_SIMULATOR_LOG_SCHEMA_VERSION = "sitl-simulator-log.v1"
 SITL_ADAPTER_LOG_SCHEMA_VERSION = "sitl-adapter-log.v1"
+SITL_ARTIFACT_FILENAMES = frozenset(
+    {
+        "telemetry.json",
+        "command_log.json",
+        "simulator_log.json",
+        "adapter_log.json",
+    }
+)
 
 
 class SitlArtifactError(RuntimeError):
@@ -282,6 +290,10 @@ def _write_artifact_reference(
     description: str,
 ) -> SitlArtifactReference | None:
     if not payload:
+        # Artifact directories may be reused between runs.  An empty payload
+        # must remove the previous run's file so stale evidence cannot be
+        # mistaken for evidence from the current run.
+        path.unlink(missing_ok=True)
         return None
     _write_artifact(path, schema_version, payload_key, payload)
     return _reference(
@@ -315,6 +327,7 @@ def _sha256(path: Path) -> str:
 
 __all__ = [
     "SITL_ADAPTER_LOG_SCHEMA_VERSION",
+    "SITL_ARTIFACT_FILENAMES",
     "SITL_COMMAND_LOG_SCHEMA_VERSION",
     "SITL_SIMULATOR_LOG_SCHEMA_VERSION",
     "SITL_TELEMETRY_SCHEMA_VERSION",

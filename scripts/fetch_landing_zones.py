@@ -8,7 +8,11 @@ from pathlib import Path
 try:
     import requests
 except ImportError:
-    sys.exit("Error: 'requests' package not installed. Run: uv sync")
+    requests = None  # type: ignore[assignment]
+
+_MISSING_REQUESTS = (
+    "'requests' package not installed; run: pip install 'bvlos-sim[scripts]'"
+)
 
 _OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 
@@ -19,7 +23,11 @@ def _object_dict(value: object) -> dict[str, object]:
     return {str(key): item for key, item in value.items()}
 
 
-def _query(lat_min: float, lat_max: float, lon_min: float, lon_max: float) -> list[dict[str, object]]:
+def _query(
+    lat_min: float, lat_max: float, lon_min: float, lon_max: float
+) -> list[dict[str, object]]:
+    if requests is None:
+        raise RuntimeError(_MISSING_REQUESTS)
     bbox = f"{lat_min},{lon_min},{lat_max},{lon_max}"
     query = (
         "[out:json];\n"
@@ -30,7 +38,9 @@ def _query(lat_min: float, lat_max: float, lon_min: float, lon_max: float) -> li
         ");\n"
         "out center;\n"
     )
-    headers = {"User-Agent": "bvlos-sim/fetch_landing_zones (github.com/Monotox/bvlos-sim)"}
+    headers = {
+        "User-Agent": "bvlos-sim/fetch_landing_zones (github.com/Monotox/bvlos-sim)"
+    }
     resp = requests.post(
         _OVERPASS_URL, data={"data": query}, headers=headers, timeout=60
     )
@@ -70,6 +80,9 @@ def main() -> None:
     parser.add_argument("lon_max", type=float)
     parser.add_argument("--output", default="landing_zones.geojson", metavar="PATH")
     args = parser.parse_args()
+
+    if requests is None:
+        sys.exit(f"Error: {_MISSING_REQUESTS}")
 
     if args.lat_min >= args.lat_max:
         sys.exit("Error: lat_min must be less than lat_max")

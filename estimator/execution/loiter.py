@@ -1,5 +1,7 @@
 """Loiter dwell estimation: station-keep (hover) and circular orbit (fixed-wing)."""
 
+import math
+
 from estimator.core.enums import (
     FailureCode,
     FailureKind,
@@ -7,12 +9,13 @@ from estimator.core.enums import (
     SpeedSource,
     WarningCode,
 )
-from estimator.core.results import LegEstimate
+from estimator.core.results import LegEstimate, LegTimingProfile
 from estimator.execution.rules import (
     resolve_station_keep_authority,
     resolve_transit_tas,
 )
 from estimator.execution.runtime import EstimationContext
+from estimator.execution.weather import sample_wind_interval
 from schemas.mission import RouteItem
 
 
@@ -69,14 +72,25 @@ def estimate_loiter_dwell_leg(
             context={"station_keep_authority_mps": authority},
         )
 
-    dwell_wind = context.wind_provider.wind_at(
+    wind_samples = sample_wind_interval(
+        context.wind_provider,
         lat=context.state.lat,
         lon=context.state.lon,
-        altitude_amsl_m=context.state.alt_amsl_m,
-        elapsed_time_s=context.state.elapsed_time_s,
+        start_altitude_amsl_m=context.state.alt_amsl_m,
+        end_altitude_amsl_m=context.state.alt_amsl_m,
+        start_elapsed_time_s=context.state.elapsed_time_s,
+        duration_s=loiter_time_s,
     )
-    dwell_wind_speed = context.wind_speed(dwell_wind)
-    if dwell_wind_speed > authority:
+    violating_sample = next(
+        (
+            sample
+            for sample in wind_samples
+            if context.wind_speed(sample.wind) > authority
+        ),
+        None,
+    )
+    if violating_sample is not None:
+        violating_wind_speed = context.wind_speed(violating_sample.wind)
         context.fail(
             kind=FailureKind.INFEASIBLE,
             code=FailureCode.STATION_KEEP_INFEASIBLE_WIND,
@@ -84,10 +98,17 @@ def estimate_loiter_dwell_leg(
             route_item_index=route_item_index,
             route_item_id=item.id,
             context={
-                "wind_speed_mps": dwell_wind_speed,
+                "wind_speed_mps": violating_wind_speed,
                 "station_keep_authority_mps": authority,
+                "elapsed_time_s": violating_sample.elapsed_time_s,
             },
         )
+    worst_wind_sample = max(
+        wind_samples,
+        key=lambda sample: context.wind_speed(sample.wind),
+    )
+    dwell_wind = worst_wind_sample.wind
+    dwell_wind_speed = context.wind_speed(dwell_wind)
 
     if item.loiter_radius_m is not None:
         context.add_warning(
@@ -106,7 +127,7 @@ def estimate_loiter_dwell_leg(
     )
     leg_warning_codes.append(WarningCode.LOITER_ASSUMED_ZERO_GROUND_DISTANCE)
 
-    return LegEstimate(
+    leg = LegEstimate(
         leg_index=context.current_leg_index,
         route_item_index=route_item_index,
         route_item_id=item.id,
@@ -129,6 +150,13 @@ def estimate_loiter_dwell_leg(
         speed_source=SpeedSource.STATION_KEEP_AUTHORITY,
         warnings=leg_warning_codes,
     )
+    leg._set_timing_profile(
+        LegTimingProfile(
+            distance_time_points=((0.0, 0.0), (1.0, loiter_time_s)),
+            vertical_time_s=0.0,
+        )
+    )
+    return leg
 
 
 def estimate_fw_circular_loiter_dwell_leg(
@@ -161,14 +189,76 @@ def estimate_fw_circular_loiter_dwell_leg(
     )
     path_distance_m = tas_mps * loiter_time_s
 
-    loiter_wind = context.wind_provider.wind_at(
+    wind_samples = sample_wind_interval(
+        context.wind_provider,
         lat=context.state.lat,
         lon=context.state.lon,
-        altitude_amsl_m=context.state.alt_amsl_m,
-        elapsed_time_s=context.state.elapsed_time_s,
+        start_altitude_amsl_m=context.state.alt_amsl_m,
+        end_altitude_amsl_m=context.state.alt_amsl_m,
+        start_elapsed_time_s=context.state.elapsed_time_s,
+        duration_s=loiter_time_s,
     )
+    worst_wind_sample = max(
+        wind_samples,
+        key=lambda sample: context.wind_speed(sample.wind),
+    )
+    loiter_wind = worst_wind_sample.wind
+    loiter_wind_speed = context.wind_speed(loiter_wind)
+    for sample in wind_samples:
+        wind_speed_mps = context.wind_speed(sample.wind)
+        failure_context = {
+            "wind_speed_mps": wind_speed_mps,
+            "tas_mps": tas_mps,
+            "elapsed_time_s": sample.elapsed_time_s,
+        }
+        if wind_speed_mps >= tas_mps:
+            context.fail(
+                kind=FailureKind.INFEASIBLE,
+                code=FailureCode.WIND_TRIANGLE_NO_SOLUTION,
+                message=(
+                    "Fixed-wing circular loiter cannot sustain every orbit "
+                    "track because wind equals or exceeds TAS."
+                ),
+                route_item_index=route_item_index,
+                route_item_id=item.id,
+                context=failure_context,
+            )
+        minimum_orbit_groundspeed_mps = tas_mps - wind_speed_mps
+        if minimum_orbit_groundspeed_mps < context.resolved_options.min_groundspeed_mps:
+            context.fail(
+                kind=FailureKind.INFEASIBLE,
+                code=FailureCode.GROUNDSPEED_BELOW_MIN,
+                message=(
+                    "Fixed-wing circular loiter upwind groundspeed is below "
+                    "min_groundspeed_mps."
+                ),
+                route_item_index=route_item_index,
+                route_item_id=item.id,
+                context=failure_context
+                | {
+                    "groundspeed_mps": minimum_orbit_groundspeed_mps,
+                    "min_groundspeed_mps": context.resolved_options.min_groundspeed_mps,
+                },
+            )
+        maximum_crab_angle_deg = math.degrees(math.asin(wind_speed_mps / tas_mps))
+        if maximum_crab_angle_deg > context.max_crab_angle_deg:
+            context.fail(
+                kind=FailureKind.INFEASIBLE,
+                code=FailureCode.CRAB_ANGLE_LIMIT_EXCEEDED,
+                message=(
+                    "Fixed-wing circular loiter requires a crab angle above "
+                    "max_crab_angle_deg on part of the orbit."
+                ),
+                route_item_index=route_item_index,
+                route_item_id=item.id,
+                context=failure_context
+                | {
+                    "crab_angle_deg": maximum_crab_angle_deg,
+                    "max_crab_angle_deg": context.max_crab_angle_deg,
+                },
+            )
 
-    return LegEstimate(
+    leg = LegEstimate(
         leg_index=context.current_leg_index,
         route_item_index=route_item_index,
         route_item_id=item.id,
@@ -188,6 +278,14 @@ def estimate_fw_circular_loiter_dwell_leg(
         tas_mps=tas_mps,
         wind_east_mps=loiter_wind.wind_east_mps,
         wind_north_mps=loiter_wind.wind_north_mps,
-        wind_speed_mps=context.wind_speed(loiter_wind),
+        wind_speed_mps=loiter_wind_speed,
+        wind_cross_track_mps=loiter_wind_speed,
         speed_source=speed_source,
     )
+    leg._set_timing_profile(
+        LegTimingProfile(
+            distance_time_points=((0.0, 0.0), (1.0, loiter_time_s)),
+            vertical_time_s=0.0,
+        )
+    )
+    return leg

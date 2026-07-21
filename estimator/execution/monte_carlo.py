@@ -1,7 +1,7 @@
 """Seeded Monte Carlo uncertainty execution wrapping the deterministic estimator."""
 
+import math
 import random
-import statistics as stats_module
 from collections.abc import Callable, Sequence
 
 from estimator.core.enums import EstimateStatus
@@ -11,8 +11,12 @@ from estimator.core.uncertainty import MonteCarloResult, SampledOutputStats
 from estimator.environment.obstacle import ObstacleProvider
 from estimator.environment.population import GridPopulationProvider
 from estimator.environment.terrain import TerrainProvider
-from estimator.environment.wind import ConstantWindProvider, WindProvider
+from estimator.environment.wind import WindProvider
 from estimator.execution.engine import try_estimate_mission_distance_time
+from estimator.execution.propagation.stats import compute_stats
+from estimator.execution.propagation.wind import (
+    build_component_override_wind_provider,
+)
 from schemas.mission import MissionPlan
 from schemas.uncertainty import (
     NormalDistribution,
@@ -23,31 +27,18 @@ from schemas.vehicle import VehicleProfile
 
 
 def _sample(rng: random.Random, dist: UncertaintyDistribution) -> float:
-    if isinstance(dist, NormalDistribution):
-        return rng.gauss(dist.mean, dist.std)
-    return rng.uniform(dist.low, dist.high)
+    sampled = (
+        rng.gauss(dist.mean, dist.std)
+        if isinstance(dist, NormalDistribution)
+        else rng.uniform(dist.low, dist.high)
+    )
+    if not math.isfinite(sampled):
+        raise ValueError("sampled uncertainty value must be finite")
+    return sampled
 
 
 def _stats(values: list[float]) -> SampledOutputStats | None:
-    n = len(values)
-    if n == 0:
-        return None
-    if n == 1:
-        v = values[0]
-        return SampledOutputStats(
-            count=1, mean=v, std=0.0, min=v, p5=v, p50=v, p95=v, max=v
-        )
-    quantiles = stats_module.quantiles(values, n=20)
-    return SampledOutputStats(
-        count=n,
-        mean=stats_module.mean(values),
-        std=stats_module.stdev(values),
-        min=min(values),
-        p5=quantiles[0],
-        p50=stats_module.median(values),
-        p95=quantiles[18],
-        max=max(values),
-    )
+    return compute_stats(values)
 
 
 def run_monte_carlo(
@@ -63,15 +54,15 @@ def run_monte_carlo(
     landing_zones: Sequence[LandingZone] | None = None,
     progress: Callable[[int, int], None] | None = None,
 ) -> MonteCarloResult:
-    """Run a seeded Monte Carlo uncertainty analysis and return aggregated results.
+    """Run a seeded diagnostic parameter sweep and return conditional results.
 
     The deterministic baseline is computed first with unmodified inputs.
     Then ``plan.samples`` samples are drawn using ``plan.seed`` and each is
     run through the deterministic estimator with the sampled parameters applied.
 
-    Wind sampling creates a ConstantWindProvider per sample, overriding any
-    wind-grid or layered wind provider for that sample. All other deterministic
-    inputs (terrain, geofences, landing zones) are used unchanged.
+    A sampled wind component overrides only that component of the deterministic
+    provider; any unsampled component remains provider-driven. All other
+    deterministic inputs are used unchanged.
     """
     params = plan.parameters
 
@@ -101,8 +92,8 @@ def run_monte_carlo(
     times: list[float] = []
     reserves_wh: list[float] = []
     reserves_pct: list[float] = []
-    feasible_count = 0
-    energy_sample_count = 0
+    modeled_pass_count = 0
+    infeasible_count = 0
     failed = 0
 
     for sample_index in range(plan.samples):
@@ -113,17 +104,13 @@ def run_monte_carlo(
             _sample(rng, params.wind_north_mps) if params.wind_north_mps else None
         )
         sampled_cruise_speed = (
-            max(0.1, _sample(rng, params.cruise_speed_mps))
-            if params.cruise_speed_mps
-            else None
+            _sample(rng, params.cruise_speed_mps) if params.cruise_speed_mps else None
         )
         sampled_cruise_power = (
-            max(0.1, _sample(rng, params.cruise_power_w))
-            if params.cruise_power_w
-            else None
+            _sample(rng, params.cruise_power_w) if params.cruise_power_w else None
         )
         sampled_battery_cap = (
-            max(0.1, _sample(rng, params.battery_capacity_wh))
+            _sample(rng, params.battery_capacity_wh)
             if params.battery_capacity_wh
             else None
         )
@@ -146,35 +133,43 @@ def run_monte_carlo(
             geofences=geofences,
             landing_zones=landing_zones,
         )
-        if result.status == EstimateStatus.ERROR:
+        if result.status == EstimateStatus.INFEASIBLE:
+            infeasible_count += 1
+        elif result.status == EstimateStatus.ERROR:
             failed += 1
-        else:
+        elif (
+            result.status == EstimateStatus.SUCCESS
+            and result.energy is not None
+            and result.energy.is_feasible
+        ):
+            modeled_pass_count += 1
             times.append(result.total_time_s)
-            if result.energy is not None:
-                energy_sample_count += 1
-                reserves_wh.append(result.energy.reserve_at_landing_wh)
-                reserves_pct.append(result.energy.reserve_at_landing_percent)
-                if result.energy.is_feasible:
-                    feasible_count += 1
+            reserves_wh.append(result.energy.reserve_at_landing_wh)
+            reserves_pct.append(result.energy.reserve_at_landing_percent)
+        else:
+            # A nominal SUCCESS without its required energy result is not a
+            # complete modeled-constraint evaluation.
+            failed += 1
 
         if progress is not None:
             progress(sample_index + 1, plan.samples)
 
-    completed = plan.samples - failed
-    feasibility_rate = (
-        feasible_count / energy_sample_count if energy_sample_count > 0 else None
+    evaluated_count = modeled_pass_count + infeasible_count
+    modeled_pass_rate = (
+        modeled_pass_count / evaluated_count if evaluated_count > 0 else None
     )
 
     return MonteCarloResult(
         uncertainty_id=plan.uncertainty_id,
         seed=plan.seed,
         sample_count=plan.samples,
-        completed_sample_count=completed,
+        modeled_pass_sample_count=modeled_pass_count,
+        infeasible_sample_count=infeasible_count,
         failed_sample_count=failed,
-        feasibility_rate=feasibility_rate,
+        modeled_constraint_pass_rate=modeled_pass_rate,
         total_time_s=_stats(times),
-        reserve_at_landing_wh=_stats(reserves_wh),
-        reserve_at_landing_percent=_stats(reserves_pct),
+        reserve_at_mission_end_wh=_stats(reserves_wh),
+        reserve_at_mission_end_percent=_stats(reserves_pct),
         baseline=baseline,
     )
 
@@ -184,11 +179,7 @@ def _build_sample_wind_provider(
     north: float | None,
     base_provider: WindProvider | None,
 ) -> WindProvider | None:
-    if east is None and north is None:
-        return base_provider
-    east_val = east if east is not None else 0.0
-    north_val = north if north is not None else 0.0
-    return ConstantWindProvider(wind_east_mps=east_val, wind_north_mps=north_val)
+    return build_component_override_wind_provider(east, north, base_provider)
 
 
 def _apply_mission_overrides(

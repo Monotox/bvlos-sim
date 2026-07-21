@@ -12,12 +12,13 @@ from estimator.execution.propagation.curves import (
 )
 from estimator.execution.propagation.stats import (
     compute_stats,
-    feasibility_rate,
-    reserve_violation_rate,
+    conditional_reserve_violation_rate,
+    modeled_constraint_pass_rate,
     sample_dist,
     sample_optional,
     sample_positive_optional,
 )
+from estimator.execution.propagation.timeline import _geographic_mean
 from schemas.uncertainty import NormalDistribution, UniformDistribution
 
 
@@ -50,39 +51,77 @@ def test_compute_stats_multiple_values() -> None:
     assert s.p5 < s.p50 < s.p95
 
 
+def test_compute_stats_small_sample_quantiles_stay_within_observations() -> None:
+    s = compute_stats([0.0, 10.0])
+    assert s is not None
+    assert s.p5 == pytest.approx(0.5)
+    assert s.p50 == pytest.approx(5.0)
+    assert s.p95 == pytest.approx(9.5)
+    assert s.min <= s.p5 <= s.p95 <= s.max
+
+
+def test_compute_stats_rejects_nonfinite_values() -> None:
+    with pytest.raises(ValueError, match="finite"):
+        compute_stats([1.0, float("nan")])
+
+
 def test_reserve_violation_rate_none_threshold_returns_zero() -> None:
-    assert reserve_violation_rate([1.0, 2.0, 3.0], reserve_threshold_wh=None) == 0.0
+    assert (
+        conditional_reserve_violation_rate([1.0, 2.0, 3.0], reserve_threshold_wh=None)
+        == 0.0
+    )
 
 
 def test_reserve_violation_rate_empty_returns_zero() -> None:
-    assert reserve_violation_rate([], reserve_threshold_wh=100.0) == 0.0
+    assert conditional_reserve_violation_rate([], reserve_threshold_wh=100.0) == 0.0
 
 
 def test_reserve_violation_rate_all_below() -> None:
-    assert reserve_violation_rate([1.0, 2.0, 3.0], reserve_threshold_wh=10.0) == 1.0
+    assert (
+        conditional_reserve_violation_rate([1.0, 2.0, 3.0], reserve_threshold_wh=10.0)
+        == 1.0
+    )
 
 
 def test_reserve_violation_rate_partial() -> None:
-    rate = reserve_violation_rate([5.0, 15.0, 25.0], reserve_threshold_wh=10.0)
+    rate = conditional_reserve_violation_rate(
+        [5.0, 15.0, 25.0], reserve_threshold_wh=10.0
+    )
     assert abs(rate - 1 / 3) < 1e-9
 
 
-def test_feasibility_rate_empty_returns_zero() -> None:
-    assert feasibility_rate([], reserve_threshold_wh=100.0) == 0.0
+def test_reserve_violation_rate_uses_per_particle_thresholds() -> None:
+    rate = conditional_reserve_violation_rate(
+        [30.0, 30.0],
+        reserve_thresholds_wh=[20.0, 40.0],
+    )
+    assert rate == pytest.approx(0.5)
 
 
-def test_feasibility_rate_none_threshold_returns_zero() -> None:
-    assert feasibility_rate([100.0, 200.0], reserve_threshold_wh=None) == 0.0
+def test_modeled_pass_rate_empty_returns_none() -> None:
+    assert modeled_constraint_pass_rate(0) is None
 
 
-def test_feasibility_rate_all_feasible() -> None:
-    assert feasibility_rate([50.0, 60.0, 70.0], reserve_threshold_wh=10.0) == 1.0
+def test_modeled_pass_rate_all_pass() -> None:
+    assert modeled_constraint_pass_rate(3) == 1.0
 
 
-def test_feasibility_rate_with_spatial_infeasible() -> None:
-    # 2 feasible, 0 failed energy, 2 spatial infeasible → 2/4 = 0.5
-    rate = feasibility_rate([50.0, 60.0], reserve_threshold_wh=10.0, spatial_infeasible_count=2)
-    assert abs(rate - 0.5) < 1e-9
+def test_modeled_pass_rate_counts_infeasible_samples_once() -> None:
+    rate = modeled_constraint_pass_rate(
+        2,
+        infeasible_sample_count=2,
+    )
+    assert rate == pytest.approx(0.5)
+
+
+def test_modeled_pass_rate_rejects_negative_counts() -> None:
+    with pytest.raises(ValueError, match="non-negative"):
+        modeled_constraint_pass_rate(-1)
+
+
+def test_per_particle_threshold_count_must_match_values() -> None:
+    with pytest.raises(ValueError, match="must match"):
+        conditional_reserve_violation_rate([30.0], reserve_thresholds_wh=[20.0, 40.0])
 
 
 def test_sample_dist_normal_seeded() -> None:
@@ -104,12 +143,11 @@ def test_sample_optional_none_dist_returns_none() -> None:
     assert sample_optional(rng, None) is None
 
 
-def test_sample_positive_optional_clamps_to_minimum() -> None:
-    # A normal distribution that could go very negative — should be clamped to 0.1
+def test_sample_positive_optional_rejects_nonpositive_draw() -> None:
     rng = random.Random(0)
     dist = NormalDistribution(kind="normal", mean=-1000.0, std=0.001)
-    result = sample_positive_optional(rng, dist)
-    assert result == 0.1
+    with pytest.raises(ValueError, match="greater than 0"):
+        sample_positive_optional(rng, dist)
 
 
 # ---------------------------------------------------------------------------
@@ -155,9 +193,7 @@ def test_energy_drain_curve_past_end_clamps() -> None:
 
 
 def test_energy_drain_curve_zero_duration_leg_returns_full_energy() -> None:
-    curve = EnergyDrainCurve(
-        legs=(EnergyLegDrain(duration_s=0.0, energy_wh=5.0),)
-    )
+    curve = EnergyDrainCurve(legs=(EnergyLegDrain(duration_s=0.0, energy_wh=5.0),))
     assert curve.energy_consumed_at(0.0) == 5.0
 
 
@@ -171,6 +207,7 @@ def _make_leg(
 ) -> object:
     from estimator.core.results import LegEstimate
     from estimator.core.enums import LegPhase
+
     return LegEstimate(
         leg_index=0,
         route_item_index=0,
@@ -209,8 +246,8 @@ def test_position_interpolator_at_midpoint() -> None:
     leg = _make_leg(52.0, 4.0, 52.2, 4.2, time_s=100.0)
     pos = PositionInterpolator(legs=[leg], fallback_lat=0.0, fallback_lon=0.0)
     lat, lon = pos.at(50.0)
-    assert abs(lat - 52.1) < 1e-9
-    assert abs(lon - 4.1) < 1e-9
+    assert lat == pytest.approx(52.1000433, abs=1e-6)
+    assert lon == pytest.approx(4.0997769, abs=1e-6)
 
 
 def test_position_interpolator_past_end_returns_last_position() -> None:
@@ -219,6 +256,23 @@ def test_position_interpolator_past_end_returns_last_position() -> None:
     lat, lon = pos.at(999.0)
     assert abs(lat - 52.2) < 1e-9
     assert abs(lon - 4.2) < 1e-9
+
+
+def test_position_interpolator_crosses_antimeridian_geodesically() -> None:
+    leg = _make_leg(0.0, 179.0, 0.0, -179.0, time_s=100.0)
+    pos = PositionInterpolator(legs=[leg], fallback_lat=0.0, fallback_lon=0.0)
+
+    lat, lon = pos.at(50.0)
+
+    assert lat == pytest.approx(0.0, abs=1e-9)
+    assert abs(lon) == pytest.approx(180.0, abs=1e-9)
+
+
+def test_geographic_mean_handles_antimeridian() -> None:
+    lat, lon = _geographic_mean([(10.0, 179.0), (10.0, -179.0)])
+
+    assert lat == pytest.approx(10.0014925, abs=1e-6)
+    assert abs(lon) == pytest.approx(180.0, abs=1e-9)
 
 
 # ---------------------------------------------------------------------------

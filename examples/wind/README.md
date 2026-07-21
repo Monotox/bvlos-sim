@@ -26,8 +26,9 @@ Values are quadrilinearly interpolated in time, altitude, latitude, and longitud
 Use `scripts/fetch_wind.py` to download an Open-Meteo forecast:
 
 ```bash
-uv run python scripts/fetch_wind.py \
-  --lat 52.0 --lon 4.0 \
+uv sync --extra scripts   # installs requests (once)
+
+uv run python scripts/fetch_wind.py 52.0 4.0 \
   --output examples/wind/forecast.yaml
 ```
 

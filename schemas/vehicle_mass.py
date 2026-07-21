@@ -2,25 +2,27 @@
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from schemas.numeric import FiniteFloat
+
 
 class MassProfile(BaseModel):
     """Mass properties normally sourced from manufacturer specs."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
-    empty_kg: float = Field(
+    empty_kg: FiniteFloat = Field(
         gt=0,
         description="Vehicle mass without payload. Source: manufacturer/spec sheet.",
     )
-    max_payload_kg: float = Field(
+    max_payload_kg: FiniteFloat = Field(
         ge=0,
         description="Maximum payload mass. Source: manufacturer/spec sheet.",
     )
-    max_takeoff_kg: float = Field(
+    max_takeoff_kg: FiniteFloat = Field(
         gt=0,
         description="Maximum takeoff mass. Source: manufacturer/spec sheet.",
     )
-    operating_mass_kg: float | None = Field(
+    operating_mass_kg: FiniteFloat | None = Field(
         default=None,
         gt=0,
         description="All-up mission mass including payload and battery.",

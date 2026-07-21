@@ -14,7 +14,11 @@ from pathlib import Path
 try:
     import requests
 except ImportError:
-    sys.exit("Error: 'requests' package not installed. Run: uv sync")
+    requests = None  # type: ignore[assignment]
+
+_MISSING_REQUESTS = (
+    "'requests' package not installed; run: pip install 'bvlos-sim[scripts]'"
+)
 
 _OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 _HEIGHT_RE = re.compile(r"-?\d+(?:\.\d+)?")
@@ -45,7 +49,9 @@ def _parse_float(value: object) -> float | None:
     return float(match.group(0))
 
 
-def _height_amsl(tags: dict[str, object], default_height_m: float, base_altitude_amsl_m: float) -> float:
+def _height_amsl(
+    tags: dict[str, object], default_height_m: float, base_altitude_amsl_m: float
+) -> float:
     height_agl_m = _parse_float(tags.get("height")) or default_height_m
     ele_m = _parse_float(tags.get("ele"))
     return (ele_m if ele_m is not None else base_altitude_amsl_m) + height_agl_m
@@ -58,6 +64,8 @@ def _query_overpass(
     lon_min: float,
     lon_max: float,
 ) -> list[dict[str, object]]:
+    if requests is None:
+        raise RuntimeError(_MISSING_REQUESTS)
     bbox = f"{lat_min},{lon_min},{lat_max},{lon_max}"
     query = (
         "[out:json][timeout:60];\n"
@@ -231,6 +239,9 @@ def main() -> None:
     parser.add_argument("--base-altitude-amsl-m", type=float, default=0.0)
     args = parser.parse_args()
 
+    if requests is None:
+        sys.exit(f"Error: {_MISSING_REQUESTS}")
+
     if args.lat_min >= args.lat_max:
         sys.exit("Error: lat_min must be less than lat_max")
     if args.lon_min >= args.lon_max:
@@ -257,7 +268,9 @@ def main() -> None:
         ),
     }
     output = Path(args.output)
-    output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    output.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     print(f"Wrote {len(payload['features'])} obstacle features to {output}")
 
 

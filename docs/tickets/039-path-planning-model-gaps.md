@@ -2,7 +2,9 @@
 
 ## Status
 
-Implemented.
+Implemented. The original offset-subtraction proposal below was superseded by
+connected circular fillets: each transit ends at a tangent point, the arc has
+non-zero displacement, and geometry that cannot fit fails instead of clamping.
 
 ## Goal
 
@@ -10,7 +12,7 @@ Address the remaining path-planning model gaps left after Ticket 038: tangent-po
 offsets for fidelity v2 turn arcs, 3D slant path distance for vertical legs, and
 the planar-approximation limitation of the Dubins divert solver for very long routes.
 
-## Current Gap
+## Gap at the Time
 
 Three related gaps remain after the Ticket 038 Dubins implementation:
 
@@ -29,7 +31,7 @@ Three related gaps remain after the Ticket 038 Dubins implementation:
   shorter than ~50 km the error is negligible, but the approximation is not
   documented as a numeric limit.
 
-## Scope
+## Historical Scope
 
 - Fidelity v2 transit legs: subtract `turn_radius_m * tan(|Δθ| / 2)` from
   `path_distance_m` of each transit leg adjacent to a turn arc so that
@@ -51,10 +53,12 @@ Three related gaps remain after the Ticket 038 Dubins implementation:
 - Changes must compose with existing terrain, wind, geofence, resource, link, and
   scenario behavior.
 
-## Acceptance Criteria
+## Current Acceptance Criteria
 
-- Fidelity v2 total path distance equals the sum of (transit leg distances after
-  tangent offset subtraction) plus (turn arc lengths).
+- Fidelity v2 total path distance equals the geodesically recomputed transit
+  portions between tangent points plus the connected circular fillet lengths.
+- A corner whose tangent geometry does not fit both adjacent legs returns
+  `INVALID_GEOMETRY`; tangent offsets are never silently clamped.
 - `takeoff` and `land` legs report the correct 3D slant path distance in
   `path_distance_m` when horizontal displacement is non-zero.
 - A diagnostic warning is emitted when Dubins divert distance exceeds the planar

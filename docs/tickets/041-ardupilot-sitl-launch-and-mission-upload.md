@@ -10,11 +10,11 @@ Implement the first concrete ArduPilot SITL adapter that can connect to a
 running SITL instance, upload a mission derived from existing bvlos-sim YAML,
 and start a controlled simulator run.
 
-## Current Gap
+## Resolved Gap
 
-Ticket 040 defines the adapter and evidence contract. Ticket 041 adds the first
-concrete ArduPilot adapter, MAVLink connection lifecycle, mission upload flow,
-and deterministic fake-tested adapter behavior.
+Ticket 040 defined the adapter and evidence contract. This ticket added the
+concrete ArduPilot adapter, MAVLink connection lifecycle, mission upload and
+execution flow, and deterministic fake-tested adapter behavior.
 
 ## Scope
 
@@ -42,6 +42,8 @@ and deterministic fake-tested adapter behavior.
 ## Acceptance Criteria
 
 - A supported mission can be uploaded to ArduPilot SITL through the adapter.
+- A live run arms, enters AUTO, and reaches an explicit MAVLink mission-complete
+  state before its evidence bundle can be marked completed.
 - Adapter lifecycle behavior is covered by deterministic fake/mocked tests.
 - Default test runs do not require ArduPilot, MAVLink network access, or a live
   simulator process.
@@ -49,19 +51,22 @@ and deterministic fake-tested adapter behavior.
 
 ## Implementation Notes
 
-- `adapters.ardupilot_sitl` defines the connect-mode ArduPilot adapter.
+- `adapters.sitl.ardupilot` defines the ArduPilot execution adapter.
 - `ArduPilotSitlAdapter` satisfies the Ticket 040 `SitlAdapter` evidence
   boundary while keeping all MAVLink imports lazy and adapter-local.
 - Supported mission route items map to `MISSION_ITEM_INT` uploads using the
   pinned MAVLink command and altitude-frame IDs.
 - The optional `sitl` dependency group contains `pymavlink`; core dependencies
   and default tests remain independent of live simulator tooling.
-- Ticket 041 records simulator metadata and leaves observed telemetry artifacts
-  empty for Ticket 042.
+- The adapter records mission-progress and position telemetry plus command,
+  simulator, and adapter logs for the evidence bundle.
+- The CLI maps live adapter connection, upload, execution, telemetry, and
+  timeout failures to exit `13` (`INTERNAL_ERROR`); only input/schema/asset
+  failures use `11` (`INVALID_INPUT`).
 
 ## Out of Scope
 
-- Telemetry normalization beyond minimal run-state monitoring.
+- Controller-log normalization beyond the SITL evidence message contract.
 - Launching a local ArduPilot subprocess from the Python adapter.
 - Scenario policy command execution.
 - Expected-vs-observed comparison reports.

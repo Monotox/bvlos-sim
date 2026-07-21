@@ -13,6 +13,8 @@ from datetime import date
 from enum import StrEnum
 from pathlib import Path
 
+from adapters.atomic_write import atomic_write_text
+
 _SEMVER_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
 _PYPROJECT_VERSION_RE = re.compile(r'^version = "(\d+\.\d+\.\d+)"$', re.MULTILINE)
 _UNRELEASED_HEADING = "## [Unreleased]"
@@ -191,8 +193,27 @@ def apply_bump(
         changelog_path=changelog_path,
         today=today,
     )
-    pyproject_path.write_text(new_pyproject, encoding="utf-8")
-    changelog_path.write_text(new_changelog, encoding="utf-8")
+    original_pyproject = pyproject_path.read_text(encoding="utf-8")
+    original_changelog = changelog_path.read_text(encoding="utf-8")
+    try:
+        atomic_write_text(pyproject_path, new_pyproject)
+        atomic_write_text(changelog_path, new_changelog)
+    except BaseException as exc:
+        rollback_errors: list[str] = []
+        for path, original in (
+            (pyproject_path, original_pyproject),
+            (changelog_path, original_changelog),
+        ):
+            try:
+                atomic_write_text(path, original)
+            except OSError as rollback_exc:
+                rollback_errors.append(f"{path}: {rollback_exc}")
+        if rollback_errors:
+            raise ReleaseError(
+                "Release update failed and rollback was incomplete: "
+                + "; ".join(rollback_errors)
+            ) from exc
+        raise
     return current, nxt
 
 

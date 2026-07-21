@@ -1,5 +1,6 @@
 """Artifact-record loading for SITL comparison reports."""
 
+import hashlib
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -29,9 +30,23 @@ class _SitlArtifactLogReader:
                 [],
                 f"No {payload_key} artifact reference was present.",
             )
+        reference = references[0]
         try:
-            payload = json.loads(Path(references[0].path).read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
+            raw_bytes = Path(reference.path).read_bytes()
+        except OSError as exc:
+            return _ArtifactRecords([], f"Could not read {payload_key} artifact: {exc}")
+
+        if reference.sha256 is not None:
+            observed_sha256 = hashlib.sha256(raw_bytes).hexdigest()
+            if observed_sha256.lower() != reference.sha256.lower():
+                return _ArtifactRecords(
+                    [],
+                    f"Could not verify {payload_key} artifact: SHA-256 mismatch.",
+                )
+
+        try:
+            payload = json.loads(raw_bytes)
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
             return _ArtifactRecords([], f"Could not read {payload_key} artifact: {exc}")
 
         value = payload.get(payload_key)

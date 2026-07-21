@@ -6,7 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from adapters.atomic_write import atomic_write_text
+import adapters.atomic_write as atomic_write_module
+from adapters.atomic_write import AtomicWriteDurabilityError, atomic_write_text
 from adapters.cli import (
     CliExitCode,
     _handle_cancellation_signal,
@@ -28,6 +29,16 @@ def test_atomic_write_overwrites_existing(tmp_path: Path) -> None:
     target.write_text("old", encoding="utf-8")
     atomic_write_text(target, "new")
     assert target.read_text(encoding="utf-8") == "new"
+
+
+def test_atomic_write_preserves_existing_permissions(tmp_path: Path) -> None:
+    target = tmp_path / "out.json"
+    target.write_text("old", encoding="utf-8")
+    target.chmod(0o640)
+
+    atomic_write_text(target, "new")
+
+    assert target.stat().st_mode & 0o777 == 0o640
 
 
 def test_atomic_write_leaves_no_temp_files(tmp_path: Path) -> None:
@@ -59,6 +70,29 @@ def test_missing_parent_directory_raises_oserror(tmp_path: Path) -> None:
     target = tmp_path / "missing" / "out.json"
     with pytest.raises(OSError):
         atomic_write_text(target, "content")
+
+
+def test_directory_fsync_failure_reports_already_committed_write(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    target = tmp_path / "out.json"
+    target.write_text("prior", encoding="utf-8")
+
+    def _fail_directory_fsync(_directory: Path) -> None:
+        raise OSError("directory fsync failed")
+
+    monkeypatch.setattr(
+        atomic_write_module,
+        "_fsync_directory",
+        _fail_directory_fsync,
+    )
+
+    with pytest.raises(AtomicWriteDurabilityError) as exc_info:
+        atomic_write_text(target, "new")
+
+    assert exc_info.value.committed is True
+    assert target.read_text(encoding="utf-8") == "new"
 
 
 # --- cancellation signal handling -----------------------------------------

@@ -17,6 +17,7 @@ from estimator.core.results import (
     EstimatorWarning,
     GeofenceEstimate,
     LandingZoneEstimate,
+    LegEstimate,
     LinkEstimate,
     MissionEstimate,
     ObstacleEstimate,
@@ -37,6 +38,7 @@ from estimator.execution.obstacle import evaluate_obstacle_clearance
 from estimator.execution.resource_link import (
     evaluate_link_feasibility,
     evaluate_resource_feasibility,
+    selected_resource_rth_is_feasible,
 )
 from estimator.execution.rules import validate_global_constraints
 from estimator.execution.runtime import EstimationContext
@@ -77,7 +79,20 @@ def _raise_feasibility_failure(
     )
 
 
-def _rth_is_feasible(energy: EnergyEstimate | None) -> bool | None:
+def _rth_is_feasible(
+    energy: EnergyEstimate | None,
+    resource: ResourceEstimate | None,
+    *,
+    vehicle: VehicleProfile,
+    route_legs: list[LegEstimate],
+) -> bool | None:
+    if resource is not None:
+        return selected_resource_rth_is_feasible(
+            vehicle,
+            route_legs,
+            energy,
+            resource,
+        )
     if energy is None or energy.rth_reserve_timeline is None:
         return None
     return all(point.is_feasible for point in energy.rth_reserve_timeline)
@@ -106,6 +121,7 @@ def run_estimation(
     energy_evaluation = evaluate_energy_feasibility(
         context,
         enforce_battery_capacity=not explicit_resource_systems,
+        enforce_rth_reserve=not explicit_resource_systems,
     )
     _raise_feasibility_failure(
         energy_evaluation.failure,
@@ -157,19 +173,6 @@ def run_estimation(
         geofence=geofence_evaluation.geofence,
     )
 
-    if context.landing_zones:
-        context.warnings.append(
-            EstimatorWarning(
-                code=WarningCode.DIVERT_ENERGY_TAS_ONLY,
-                message=(
-                    "Landing-zone reachability uses TAS-based cruise energy without wind "
-                    "correction. In a headwind a zone declared reachable may not be in practice."
-                ),
-                leg_index=None,
-                route_item_index=None,
-                route_item_id=None,
-            )
-        )
     landing_zone_evaluation = evaluate_landing_zone_reachability(
         context,
         energy_evaluation.energy,
@@ -220,7 +223,12 @@ def run_estimation(
         totals_are_partial=False,
         legs=context.route_legs,
         energy=energy_evaluation.energy,
-        rth_is_feasible=_rth_is_feasible(energy_evaluation.energy),
+        rth_is_feasible=_rth_is_feasible(
+            energy_evaluation.energy,
+            resource_evaluation.resource,
+            vehicle=context.vehicle,
+            route_legs=context.route_legs,
+        ),
         resource=resource_evaluation.resource,
         link=link_evaluation.link,
         geofence=geofence_evaluation.geofence,
@@ -236,8 +244,20 @@ def run_estimation(
         result,
         population_provider=context.population_provider,
         characteristic_dimension_m=context.vehicle.characteristic_dimension_m,
+        max_speed_mps=context.vehicle.performance.max_speed_mps,
+        aircraft_mass_kg=(
+            context.vehicle.mass.operating_mass_kg
+            if context.vehicle.mass.operating_mass_kg is not None
+            else context.vehicle.mass.max_takeoff_kg
+        ),
         geod=context.geod,
         max_segment_length_m=context.resolved_options.max_segment_length_m,
+        population_assessment_buffer_m=(
+            context.mission.sora.ground_risk_footprint.total_buffer_m
+            if context.mission.sora is not None
+            and context.mission.sora.ground_risk_footprint is not None
+            else 0.0
+        ),
     )
     context.warnings.extend(ground_risk_warnings)
     return result.model_copy(
@@ -416,7 +436,12 @@ def try_estimate_mission_distance_time(
             totals_are_partial=exc.totals_are_partial,
             legs=exc.partial_legs,
             energy=exc.energy,
-            rth_is_feasible=_rth_is_feasible(exc.energy),
+            rth_is_feasible=_rth_is_feasible(
+                exc.energy,
+                exc.resource,
+                vehicle=vehicle,
+                route_legs=exc.partial_legs,
+            ),
             resource=exc.resource,
             link=exc.link,
             geofence=exc.geofence,

@@ -94,19 +94,37 @@ def resolve_option_source_values(
     mission: MissionPlan,
     options: EstimationOptions | None,
 ) -> OptionSourceValues:
+    mission_estimation = mission.estimation
+    mission_wind_east_mps = (
+        mission_estimation.wind_east_mps if mission_estimation is not None else 0.0
+    )
+    mission_wind_north_mps = (
+        mission_estimation.wind_north_mps if mission_estimation is not None else 0.0
+    )
     if options is not None:
         return OptionSourceValues(
             source=OptionSource.RUNTIME_OPTIONS,
-            wind_east_mps=options.wind_east_mps,
-            wind_north_mps=options.wind_north_mps,
-            min_groundspeed_mps=options.min_groundspeed_mps,
+            wind_east_mps=(
+                mission_wind_east_mps
+                if options.wind_east_mps is None
+                else options.wind_east_mps
+            ),
+            wind_north_mps=(
+                mission_wind_north_mps
+                if options.wind_north_mps is None
+                else options.wind_north_mps
+            ),
+            min_groundspeed_mps=(
+                mission_estimation.min_groundspeed_mps
+                if options.min_groundspeed_mps is None
+                and mission_estimation is not None
+                else options.min_groundspeed_mps
+            ),
             max_segment_length_m=(
-                options.max_segment_length_m
-                or (
-                    mission.estimation.max_segment_length_m
-                    if mission.estimation is not None
-                    else None
-                )
+                mission_estimation.max_segment_length_m
+                if options.max_segment_length_m is None
+                and mission_estimation is not None
+                else options.max_segment_length_m
             ),
             fidelity=options.fidelity or _mission_fidelity(mission),
         )
@@ -209,21 +227,15 @@ def build_estimation_context(
     capabilities = derive_capabilities(vehicle)
     metadata["capabilities_source"] = capabilities.source
 
-    mission_wind_layers_ignored = (
-        mission.estimation is not None
-        and mission.estimation.wind_layers is not None
-        and resolved_options.options_source == OptionSource.RUNTIME_OPTIONS
-        and wind_provider is None
+    runtime_wind_override = options is not None and (
+        options.wind_east_mps is not None or options.wind_north_mps is not None
     )
-    if mission_wind_layers_ignored:
-        metadata["mission_wind_layers_ignored"] = True
-        metadata["mission_wind_layers_ignored_reason"] = "runtime_options"
 
     if wind_provider is None:
         if (
             mission.estimation is not None
             and mission.estimation.wind_layers is not None
-            and resolved_options.options_source != OptionSource.RUNTIME_OPTIONS
+            and not runtime_wind_override
         ):
             wind_provider = LayeredWindProvider(
                 [
@@ -245,9 +257,7 @@ def build_estimation_context(
     if terrain_provider is not None:
         metadata["terrain_provider_id"] = terrain_provider_id(terrain_provider)
     if population_provider is not None:
-        metadata["population_provider_id"] = population_provider_id(
-            population_provider
-        )
+        metadata["population_provider_id"] = population_provider_id(population_provider)
     if obstacle_provider is not None:
         metadata["obstacle_provider_id"] = obstacle_provider_id(obstacle_provider)
 

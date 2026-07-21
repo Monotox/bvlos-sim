@@ -17,7 +17,7 @@ and `tool_version` is sourced reliably from `pyproject.toml`
 (`adapters/version.py:26-36`), so a captured simulator version is trustworthy.
 But `--version` prints only the tool version (`adapters/cli.py:83-86`), and the
 schema-version constants are emitted exclusively from job-output builders. A
-backend that wants to pin `estimator-envelope.v7` / `mission.v6` / `vehicle.v4`
+backend that wants to pin `estimator-envelope.v9` / `mission.v7` / `vehicle.v4`
 has to run a real estimate to discover them, which is wasteful and couples
 version discovery to a successful run.
 
@@ -29,16 +29,16 @@ version discovery to a successful run.
   without loading a mission.
 - Source the map from the existing module constants so it cannot drift from the
   real envelopes:
-  - outputs: `adapters/envelope.py:16` (`estimator-envelope.v7`),
-    `adapters/scenario_envelope.py:18` (`scenario-report.v2`),
-    `adapters/uncertainty_envelope.py:11` (`uncertainty-report.v1`),
-    `adapters/stochastic_envelope.py:11` (`stochastic-envelope.v1`),
-    `adapters/sora_envelope.py:11` (`sora-envelope.v1`),
-    `adapters/battery_sizing_envelope.py:12` (`battery-sizing-report.v1`),
+  - outputs: `adapters/envelope.py` (`estimator-envelope.v9`),
+    `adapters/scenario_envelope.py` (`scenario-report.v3`),
+    `adapters/uncertainty_envelope.py:11` (`uncertainty-report.v2`),
+    `adapters/stochastic_envelope.py:11` (`stochastic-envelope.v2`),
+    `adapters/sora_envelope.py` (`sora-envelope.v3`),
+    `adapters/battery_sizing_envelope.py:15` (`battery-sizing-report.v2`),
     `adapters/sitl/evidence.py:37` (`sitl-evidence.v1`), and the
     `sitl-comparison.v1` constant.
-  - inputs: `adapters/envelope.py:17-23` plus `scenario.v1`, `uncertainty.v1`,
-    `stochastic.v1`, and `batch.v1`.
+  - inputs: `adapters/envelope.py:17-23` plus `scenario.v1`, `uncertainty.v2`,
+    `stochastic.v2`, and `batch.v1`.
 
 ## Acceptance Criteria
 
@@ -112,11 +112,11 @@ printed value equals each imported constant.
 The spec listed eight core output/envelope contracts. Five more report/artifact
 contracts have been added to the repo since this ticket was written; they are
 included for completeness, each sourced from its own constant:
-`VALIDATION_REPORT_SCHEMA_VERSION` (`validation-report.v1`),
+`VALIDATION_REPORT_SCHEMA_VERSION` (`validation-report.v2`),
 `CALIBRATION_PROFILE_SCHEMA_VERSION` (`calibration-profile.v1`),
 `FLIGHT_TRACE_SCHEMA_VERSION` (`flight-trace.v1`),
 `PHASE_SEGMENT_SCHEMA_VERSION` (`phase-segments.v1`), and
-`SORA_ASSESSMENT_SCHEMA_VERSION` (`sora-assessment.v1`). Including them does not
+`SORA_ASSESSMENT_SCHEMA_VERSION` (`sora-assessment.v3`). Including them does not
 complicate the drift test (each is just another `imported == printed` assertion),
 and it makes the discovery output a complete picture of the published contracts.
 

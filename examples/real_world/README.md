@@ -12,8 +12,14 @@ with no network calls.
 ```bash
 uv run bvlos-sim estimate \
   examples/real_world/alpine_mission.yaml \
-  examples/real_world/quadplane_v1.yaml
+  examples/real_world/quadplane_v1.yaml \
+  --engineering-only
 ```
+
+This is an engineering data demo, not an operational GO case. The mission omits
+some mandatory readiness evidence, so the default command still writes its
+result but exits `10`; `--engineering-only` makes computational feasibility the
+shell-success criterion.
 
 The output includes `terrain_provider_id: uniform_grid` and
 `wind_provider_id: spatiotemporal_grid` in result metadata, confirming that
@@ -29,19 +35,21 @@ This variant uses a smaller battery and fails the reserve check.
 uv run bvlos-sim estimate \
   examples/real_world/alpine_infeasible.yaml \
   examples/real_world/quadplane_small_battery.yaml \
-  --format summary
+  --format summary \
+  --engineering-only
 ```
 
 Output:
 
 ```text
-INFEASIBLE   reserve −25.7 %   flight 7m 55s   [RESERVE_BELOW_THRESHOLD]
+INFEASIBLE   reserve −179.7 %   flight 7m 55s   RTH infeasible   [INSUFFICIENT_ENERGY]
 ```
 
-The mission consumes 69.21872104 Wh, leaving 15.78127896 Wh at landing with
-the 85 Wh battery. The required 25 % reserve threshold is 21.25 Wh, so the
-landing reserve is below the minimum. Increase `battery_capacity_wh` to at
-least 93 Wh, or reduce the route energy demand, to make this mission pass.
+The mission consumes 101.94677145 Wh, leaving -16.94677145 Wh at landing with
+the 85 Wh battery. The required 25 % reserve threshold is 21.25 Wh, and the
+hard RTH reserve check also fails. Running `size-battery` with
+`quadplane_small_battery_sizing.yaml` reports a minimum 183.2 Wh for the
+current route and RTH model; reducing route demand is the alternative.
 
 ## Re-fetch the assets yourself
 
@@ -129,7 +137,7 @@ The committed `geofences.geojson` was produced via the Overpass fallback.
 |---|---|---|
 | `terrain.yaml` | SRTM via `srtm.py` | lat 46.9–47.2, lon 8.1–8.4, 31×31 grid |
 | `wind_grid.yaml` | Open-Meteo archive (2025-06-15 14:00 UTC) | 4 altitude bands, 4 hourly slices |
-| `landing_zones.geojson` | OpenStreetMap via Overpass | 12 helipads/aerodromes/runways |
+| `landing_zones.geojson` | OpenStreetMap via Overpass | 13 helipads/aerodromes/runways |
 | `geofences.geojson` | OpenStreetMap via Overpass | way-based aeronautical boundaries |
 
 The area covers the Lucerne basin and surrounding pre-Alps, including the

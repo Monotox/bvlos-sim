@@ -23,6 +23,7 @@ from adapters.phase_segmentation import segment_trace
 from adapters.validation import build_validation_report
 from adapters.validation_markdown import render_validation_markdown
 from adapters.version import tool_version
+from schemas.flight_log import FlightTraceMissionRef
 
 
 def validate(
@@ -31,7 +32,7 @@ def validate(
         exists=True,
         readable=True,
         resolve_path=True,
-        help="Path to mission.v6 YAML file.",
+        help="Path to mission.v7 YAML file.",
     ),
     vehicle: Path = typer.Argument(
         ...,
@@ -67,10 +68,22 @@ def validate(
     format: cli.DocumentOutputFormat = typer.Option(
         cli.DocumentOutputFormat.MARKDOWN,
         "--format",
-        help="Output format: markdown for the report, json for the validation-report.v1 envelope.",
+        help="Output format: markdown for the report, json for the validation-report.v2 envelope.",
     ),
     output: Path | None = typer.Option(
         None, "--output", "-o", help="Write output to file instead of stdout."
+    ),
+    max_time_error_percent: float = typer.Option(
+        20.0, "--max-time-error-percent", min=0.0
+    ),
+    max_distance_error_percent: float = typer.Option(
+        10.0, "--max-distance-error-percent", min=0.0
+    ),
+    max_speed_error_percent: float = typer.Option(
+        15.0, "--max-speed-error-percent", min=0.0
+    ),
+    max_reserve_error_percent: float = typer.Option(
+        10.0, "--max-reserve-error-percent", min=0.0
     ),
 ) -> None:
     """Compare a deterministic mission estimate against an observed flight trace."""
@@ -79,10 +92,15 @@ def validate(
     mission_assets = MissionAssetBundle()
     try:
         mission_model, mission_document = load_mission(mission)
-        vehicle_model, _vehicle_document = load_vehicle(vehicle)
+        vehicle_model, vehicle_document = load_vehicle(vehicle)
         if calibration is not None:
             vehicle_model = load_and_apply_calibration(vehicle_model, calibration)
         normalized_trace, _trace_document = load_flight_trace(trace)
+        _validate_trace_references(
+            normalized_trace.mission_ref,
+            mission_document=mission_document,
+            vehicle_document=vehicle_document,
+        )
 
         _populate_mission_assets(
             mission_assets,
@@ -106,6 +124,12 @@ def validate(
             segments=segments,
             validation_id=validation_id or f"{normalized_trace.trace_id}-validation",
             tool_version=tool_version(),
+            acceptance_thresholds_pct={
+                "time_s": max_time_error_percent,
+                "horizontal_distance_m": max_distance_error_percent,
+                "mean_groundspeed_mps": max_speed_error_percent,
+                "reserve_percent": max_reserve_error_percent,
+            },
         )
 
         if format == cli.DocumentOutputFormat.JSON:
@@ -113,7 +137,12 @@ def validate(
         else:
             rendered = render_validation_markdown(report)
         _write_output(rendered, output)
-        raise typer.Exit(code=int(cli.CliExitCode.SUCCESS))
+        exit_code = (
+            cli.CliExitCode.SUCCESS
+            if report.acceptance.passed
+            else cli.CliExitCode.INFEASIBLE
+        )
+        raise typer.Exit(code=int(exit_code))
     except InputLoadError as exc:
         cli._exit_with_cli_error(
             str(exc),
@@ -134,6 +163,12 @@ def validate(
             command="validate",
             code=cli.CliExitCode.INVALID_INPUT,
         )
+    except ValueError as exc:
+        cli._exit_with_cli_error(
+            str(exc),
+            command="validate",
+            code=cli.CliExitCode.INVALID_INPUT,
+        )
     except OutputWriteError:
         cli._exit_with_cli_error(
             "Failed to write validation output.",
@@ -147,4 +182,28 @@ def validate(
             str(exc),
             command="validate",
             code=cli.CliExitCode.INTERNAL_ERROR,
+        )
+
+
+def _validate_trace_references(
+    mission_ref: FlightTraceMissionRef | None,
+    *,
+    mission_document: InputDocument,
+    vehicle_document: InputDocument,
+) -> None:
+    if mission_ref is None:
+        raise ValueError(
+            "Flight trace has no mission_ref; validation requires content-linked mission and vehicle inputs"
+        )
+    if mission_ref.mission_sha256 is None or mission_ref.vehicle_sha256 is None:
+        raise ValueError(
+            "Flight trace mission_ref must include mission_sha256 and vehicle_sha256"
+        )
+    if mission_ref.mission_sha256.lower() != mission_document.sha256.lower():
+        raise ValueError(
+            "Flight trace mission_sha256 does not match the supplied mission"
+        )
+    if mission_ref.vehicle_sha256.lower() != vehicle_document.sha256.lower():
+        raise ValueError(
+            "Flight trace vehicle_sha256 does not match the supplied vehicle"
         )

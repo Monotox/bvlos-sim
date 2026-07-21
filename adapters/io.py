@@ -12,6 +12,7 @@ from pydantic import ValidationError
 
 from estimator.core.results import EstimatorContextValue
 from schemas import MissionPlan, VehicleProfile
+from schemas.mission import MISSION_SCHEMA_VERSION
 
 
 @dataclass(frozen=True)
@@ -148,6 +149,20 @@ def validate_mapping_root(value: Any, *, input_name: str, path: Path) -> dict[st
 def load_mission(path: Path) -> tuple[MissionPlan, InputDocument]:
     parsed, document = read_and_parse_document(path, input_name="mission")
     payload = validate_mapping_root(parsed, input_name="mission", path=path)
+    if "schema_version" not in payload:
+        raise InputLoadError(
+            "Mission file must declare schema_version; run 'bvlos-sim migrate' "
+            "for legacy mission inputs.",
+            input_name="mission",
+            path=path,
+            stage=InputLoadStage.SCHEMA_VALIDATION,
+            details={
+                "expected_schema_version": MISSION_SCHEMA_VERSION,
+                "first_error_path": "schema_version",
+                "first_error_type": "missing",
+            },
+            document=document,
+        )
     try:
         return MissionPlan.model_validate(payload), document
     except ValidationError as exc:

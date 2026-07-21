@@ -1,11 +1,12 @@
 # Ticket 062 — Wind-Corrected Divert and Landing-Zone Energy
 
-## Status: Implemented (divert estimate; landing-zone energy remains TAS-only)
+## Status: Implemented
 
 ## Problem
 
-Both the landing-zone reachability check (`estimator/execution/landing_zone.py`)
-and the divert route estimate (`estimator/execution/divert.py`) compute
+Historically, both the landing-zone reachability check
+(`estimator/execution/landing_zone.py`) and the divert route estimate
+(`estimator/execution/divert.py`) computed
 energy cost as `cruise_power_w × (distance_m / tas_mps)` without wind
 correction. In a 10 m/s headwind the actual ground speed can be half the
 TAS, doubling the flight time and energy. This silently under-estimates
@@ -20,9 +21,10 @@ there is no warning emitted and no machine-readable flag in the output.
 1. `compute_divert_estimate` accepts the current wind vector at the
    action point and applies a wind-triangle correction to compute
    ground speed and energy.
-2. `_divert_energy_wh` in `landing_zone.py` applies the same correction.
-3. When no wind provider is available the behaviour is unchanged
-   (TAS-only, no regression).
+2. Landing-zone reachability integrates the divert path through the active wind
+   provider and includes terminal vertical energy to the landing surface.
+3. Direct scenario divert routing preserves its explicit TAS-only compatibility
+   path and warning when wind correction is not requested.
 4. The divert energy field in `DivertRouteEstimate` is correctly higher
    in a headwind scenario and correctly lower in a tailwind scenario.
 5. At least 4 new tests verify headwind, tailwind, crosswind, and

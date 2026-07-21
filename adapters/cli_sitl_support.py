@@ -3,10 +3,12 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+import sys
 
 import typer
 
 from adapters.sitl.ardupilot_types import ArduPilotSitlConfig
+from adapters.sitl.ardupilot_types import ArduPilotAdapterError, RunState
 from adapters.cli_support import (
     MissionAssetBundle,
     SitlScenarioContext,
@@ -47,6 +49,7 @@ class SitlLiveOptions:
     artifact_dir: Path
     telemetry_samples: int
     telemetry_timeout_s: float
+    mission_timeout_s: float
 
 
 _SITL_COMPARISON_RENDERERS: dict[OutputFormat, ComparisonRenderer] = {
@@ -92,6 +95,7 @@ def _resolve_sitl_live_options(
     artifact_dir: Path | None,
     telemetry_samples: int,
     telemetry_timeout_s: float,
+    mission_timeout_s: float,
 ) -> SitlLiveOptions | None:
     if not live or artifact_dir is None:
         return None
@@ -101,6 +105,7 @@ def _resolve_sitl_live_options(
         artifact_dir=artifact_dir,
         telemetry_samples=telemetry_samples,
         telemetry_timeout_s=telemetry_timeout_s,
+        mission_timeout_s=mission_timeout_s,
     )
 
 
@@ -162,6 +167,16 @@ def _record_live_sitl_artifacts(
         adapter.connect()
         _emit_sitl_progress(f"Uploading mission ({len(mission_model.route)} items)...")
         adapter.upload_mission(mission_model)
+        _emit_sitl_progress("Arming and starting mission in AUTO mode...")
+        adapter.arm_and_start()
+        _emit_sitl_progress("Waiting for mission completion...")
+        run_state = adapter.wait_for_mission_complete(
+            timeout_s=options.mission_timeout_s
+        )
+        if run_state is not RunState.COMPLETE:
+            raise ArduPilotAdapterError(
+                f"SITL mission did not complete successfully: {run_state.value}"
+            )
         _emit_sitl_progress(
             f"Recording telemetry ({options.telemetry_samples} samples)..."
         )
@@ -170,10 +185,12 @@ def _record_live_sitl_artifacts(
             timeout_s=options.telemetry_timeout_s,
         )
     finally:
+        operation_failed = sys.exc_info()[0] is not None
         try:
             adapter.disconnect()
         except Exception:
-            pass
+            if not operation_failed:
+                raise
     return adapter
 
 
@@ -191,6 +208,7 @@ def _build_sitl_evidence_from_context(
     *,
     adapter: SitlAdapter | None,
     live_options: SitlLiveOptions | None,
+    reference_base_dir: Path | None = None,
 ) -> SitlEvidenceBundle:
     suffix = "contract" if live_options is None else "live"
     evidence_id = f"{context.scenario_plan.scenario_id}-sitl-{suffix}"
@@ -204,8 +222,11 @@ def _build_sitl_evidence_from_context(
         geofence_document=context.mission_assets.geofence_document,
         landing_zone_document=context.mission_assets.landing_zone_document,
         terrain_document=context.mission_assets.terrain_document,
+        population_document=context.mission_assets.population_document,
+        obstacle_document=context.mission_assets.obstacle_document,
         wind_grid_document=context.mission_assets.wind_grid_document,
         adapter=adapter,
+        reference_base_dir=reference_base_dir,
     )
 
 

@@ -17,12 +17,16 @@ Scenario YAML files that inject events and assert outcomes against the pipeline 
 ```bash
 # Run a scenario and see the one-line result
 uv run bvlos-sim scenario examples/scenarios/pipeline_demo_001_scenario.yaml \
-  --format summary
+  --format summary --engineering-only
 
 # Full JSON report
 uv run bvlos-sim scenario examples/scenarios/pipeline_demo_001_scenario.yaml \
-  --format json
+  --format json --engineering-only
 ```
+
+These are computational scenario examples. They omit parts of the operational
+evidence set, so `--engineering-only` prevents the default fail-closed readiness
+verdict from turning an otherwise passing demo into exit `10`.
 
 Each scenario YAML references its mission and vehicle files by relative path — run
 commands from the repository root.

@@ -12,4 +12,4 @@
 ## Contract Impact
 
 - [ ] No public contract surfaces changed
-- [ ] Public contract changes are intentional and versioned per `docs/VERSIONING_POLICY.md`
+- [ ] Public contract changes are intentional and versioned per `CONTRIBUTING.md` (Public contracts)

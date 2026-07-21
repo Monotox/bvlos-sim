@@ -3,7 +3,7 @@
 - Scenario: `pipeline-failed-v1`
 - Status: `failed`
 - Assertions: 2 passed, 1 failed, 0 skipped, 1 unsupported
-- Envelope schema: `scenario-report.v2`
+- Envelope schema: `scenario-report.v3`
 - Tool version: `0.0.0-test`
 
 ## Assertion Results
@@ -37,7 +37,7 @@
 
 - Scenario runner API: `scenario_runner.run_scenario`
 - scenario: `yaml` sha256 `ad795e8222b72a5146777901cddeb35582a8dfcaf34e5aa187347abcfb858222`
-- mission: `yaml` sha256 `7bab3b2b9b996564f04f80c9cbb92051e2e187f2d4198b355e0939e9eec4473c`
+- mission: `yaml` sha256 `f51ebfee7ac0a53d5f1f010d15fbc838d171388865d762f3732fdb113963b445`
 - vehicle: `yaml` sha256 `4067f6697bba308915271afc95bf273ae7dc7637f3d921c71ac30b15a26453e5`
 
 ## Estimate Summary
@@ -51,13 +51,13 @@
 ## Energy Feasibility
 
 - Feasible: `true`
-- Total energy Wh: `41.51`
+- Total energy Wh: `45.39`
 - Battery capacity Wh: `900.00`
 - Usable energy Wh: `675.00`
 - Reserve threshold percent: `25.00`
 - Reserve threshold Wh: `225.00`
-- Reserve at landing Wh: `858.49`
-- Reserve at landing percent: `95.39`
+- Reserve at landing Wh: `854.61`
+- Reserve at landing percent: `94.96`
 - Energy legs: `5`
 
 ## Warnings

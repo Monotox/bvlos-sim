@@ -1,5 +1,9 @@
 # Ticket 047: Stochastic State Propagation for Path-Dependent Risk
 
+> Safety status: superseded by `stochastic.v2` / `stochastic-envelope.v2`.
+> The v1 process-wind model and feasibility wording below are historical and
+> must not be used. V2 is an open-loop diagnostic with conditional statistics.
+
 ## Goal
 
 Add a time-stepped stochastic propagator that carries a belief state forward

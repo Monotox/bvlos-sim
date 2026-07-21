@@ -8,7 +8,11 @@ from pydantic import ValidationError
 from typer.testing import CliRunner
 
 from adapters.cli import CliExitCode, app
-from adapters.io import load_mission, load_vehicle
+from adapters.cli_sitl_support import (
+    _build_sitl_evidence_from_context,
+    _load_sitl_scenario_context,
+)
+from adapters.io import InputDocument, load_mission, load_vehicle
 from adapters.scenario_envelope import build_scenario_envelope
 from adapters.scenario_io import load_scenario, resolve_scenario_asset_path
 from adapters.sitl.evidence import (
@@ -207,7 +211,7 @@ def test_sitl_cli_emits_contract_only_evidence_bundle() -> None:
     assert payload["schema_version"] == SITL_EVIDENCE_SCHEMA_VERSION
     assert payload["status"] == "contract_only"
     assert (
-        payload["expected"]["scenario_report"]["schema_version"] == "scenario-report.v2"
+        payload["expected"]["scenario_report"]["schema_version"] == "scenario-report.v3"
     )
     assert payload["simulator"]["metadata"]["live_simulator_started"] is False
 
@@ -229,8 +233,28 @@ def test_sitl_cli_references_mission_vehicle_scenario_and_assets() -> None:
     }
 
 
+def test_sitl_context_includes_population_and_obstacle_references() -> None:
+    context = _load_sitl_scenario_context(INTEGRATED_SCENARIO)
+    context.mission_assets.population_document = InputDocument(
+        path=Path("population.yaml"), format="yaml", sha256="0" * 64
+    )
+    context.mission_assets.obstacle_document = InputDocument(
+        path=Path("obstacles.geojson"), format="json", sha256="1" * 64
+    )
+
+    bundle = _build_sitl_evidence_from_context(
+        context,
+        adapter=None,
+        live_options=None,
+    )
+
+    roles = {reference.role for reference in bundle.inputs}
+    assert {SitlArtifactRole.POPULATION, SitlArtifactRole.OBSTACLES} <= roles
+
+
 def test_sitl_cli_writes_output_file(tmp_path: Path) -> None:
-    output_path = tmp_path / "evidence.json"
+    output_path = tmp_path / "bundle" / "evidence.json"
+    output_path.parent.mkdir()
 
     result = runner.invoke(
         app,
@@ -241,6 +265,65 @@ def test_sitl_cli_writes_output_file(tmp_path: Path) -> None:
     assert result.output == ""
     payload = json.loads(output_path.read_text(encoding="utf-8"))
     assert payload["schema_version"] == SITL_EVIDENCE_SCHEMA_VERSION
+    assert all(
+        not Path(reference["path"]).is_absolute() for reference in payload["inputs"]
+    )
+
+
+def test_compare_resolves_relative_artifacts_from_evidence_directory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    bundle_dir = tmp_path / "portable-bundle"
+    bundle_dir.mkdir()
+    bundle = _build_drifted_bundle(bundle_dir)
+    payload = bundle.model_dump(mode="json")
+    for references in payload["observed"].values():
+        for reference in references:
+            reference["path"] = Path(reference["path"]).name
+    evidence_path = bundle_dir / "evidence.json"
+    evidence_path.write_text(json.dumps(payload), encoding="utf-8")
+    unrelated_dir = tmp_path / "elsewhere"
+    unrelated_dir.mkdir()
+    monkeypatch.chdir(unrelated_dir)
+
+    result = runner.invoke(app, ["compare", str(evidence_path)])
+
+    assert result.exit_code == int(CliExitCode.INFEASIBLE)
+    comparison = json.loads(result.output)
+    assert comparison["summary"] == SitlComparisonSummary.DRIFTED.value
+    assert all(
+        "Could not read" not in (item["notes"] or "") for item in comparison["items"]
+    )
+
+
+@pytest.mark.parametrize(
+    "filename",
+    ["telemetry.json", "command_log.json", "simulator_log.json", "adapter_log.json"],
+)
+def test_sitl_cli_rejects_output_collision_with_live_artifacts(
+    tmp_path: Path,
+    filename: str,
+) -> None:
+    artifact_dir = tmp_path / "artifacts"
+    output = artifact_dir / filename
+
+    result = runner.invoke(
+        app,
+        [
+            "sitl",
+            str(FIXTURE_ROOT / "scenario.yaml"),
+            "--live",
+            "--artifact-dir",
+            str(artifact_dir),
+            "--output",
+            str(output),
+        ],
+    )
+
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+    assert "reserved SITL artifact" in result.output
+    assert not output.exists()
 
 
 def test_sitl_cli_invalid_scenario_exits_invalid_input(tmp_path: Path) -> None:

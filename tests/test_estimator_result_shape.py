@@ -2,13 +2,22 @@ import math
 
 from estimator import (
     EstimationOptions,
+    EstimateStatus,
+    FailureCode,
     FidelityMode,
     LegPhase,
     WindVector,
     estimate_mission_distance_time,
+    try_estimate_mission_distance_time,
 )
+from estimator.core.results import LegEstimate
 from schemas import AltitudeReference, MissionEstimation
 from tests.helpers import make_mission, make_vehicle
+
+
+def test_internal_leg_path_geometry_is_not_part_of_the_public_contract() -> None:
+    assert "path_coordinates" not in LegEstimate.model_fields
+    assert "path_coordinates" not in LegEstimate.model_json_schema()["properties"]
 
 
 def test_leg_provenance_tracks_expanded_route_items() -> None:
@@ -71,7 +80,7 @@ def test_runtime_options_override_mission_estimation_values() -> None:
     assert overridden.total_time_s < mission_only.total_time_s
 
 
-def test_runtime_options_record_ignored_mission_wind_layers() -> None:
+def test_partial_runtime_options_preserve_mission_wind_layers() -> None:
     mission = make_mission()
     mission.estimation = MissionEstimation.model_validate(
         {
@@ -88,8 +97,36 @@ def test_runtime_options_record_ignored_mission_wind_layers() -> None:
     )
 
     assert result.metadata["options_source"] == "runtime_options"
-    assert result.metadata["mission_wind_layers_ignored"] is True
-    assert result.metadata["mission_wind_layers_ignored_reason"] == "runtime_options"
+    assert result.metadata["wind_provider_id"] == "layered"
+    assert any(leg.wind_east_mps == 5.0 for leg in result.legs)
+    assert "mission_wind_layers_ignored" not in result.metadata
+
+
+def test_fidelity_only_runtime_option_cannot_erase_infeasible_mission_wind() -> None:
+    mission = make_mission()
+    waypoint = mission.route[1]
+    waypoint.lat = mission.planned_home.lat
+    waypoint.lon = mission.planned_home.lon + 0.01
+    waypoint.altitude_reference = AltitudeReference.AMSL
+    waypoint.altitude_m = mission.planned_home.altitude_amsl_m
+    mission.route = [waypoint]
+    mission.estimation = MissionEstimation.model_validate(
+        {
+            "wind_layers": [
+                {"altitude_m": 0.0, "wind_east_mps": 0.0, "wind_north_mps": 30.0}
+            ]
+        }
+    )
+
+    result = try_estimate_mission_distance_time(
+        mission,
+        make_vehicle(),
+        options=EstimationOptions(fidelity=FidelityMode.V2),
+    )
+
+    assert result.status == EstimateStatus.INFEASIBLE
+    assert result.failure is not None
+    assert result.failure.code == FailureCode.WIND_TRIANGLE_NO_SOLUTION
 
 
 def test_capabilities_are_derived_from_vehicle_class_when_omitted() -> None:

@@ -15,9 +15,10 @@ the hot loop pays nothing beyond a single ``is not None`` check.
 from __future__ import annotations
 
 import json
+import os
 import sys
 import time
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import TextIO
@@ -83,6 +84,7 @@ def progress_reporter(
     *,
     enabled: bool,
     progress_file: Path | None,
+    protected_paths: Iterable[Path | None] = (),
 ) -> Iterator[ProgressReporter | None]:
     """Yield a ProgressReporter when progress is enabled, else ``None``.
 
@@ -95,8 +97,36 @@ def progress_reporter(
         yield None
         return
     if progress_file is not None:
-        with progress_file.open("w", encoding="utf-8") as handle:
-            yield ProgressReporter(handle, command)
+        progress_target = progress_file.resolve(strict=False)
+        protected_identities: set[tuple[int, int]] = set()
+        for protected_path in protected_paths:
+            if protected_path is None:
+                continue
+            if progress_target == protected_path.resolve(strict=False):
+                raise ValueError(
+                    f"Progress file {progress_file} would overwrite an input or output file"
+                )
+            try:
+                protected_stat = protected_path.stat()
+            except FileNotFoundError:
+                continue
+            protected_identities.add((protected_stat.st_dev, protected_stat.st_ino))
+        flags = os.O_WRONLY | os.O_CREAT | getattr(os, "O_CLOEXEC", 0)
+        flags |= getattr(os, "O_NOFOLLOW", 0)
+        descriptor = os.open(progress_file, flags, 0o666)
+        try:
+            target_stat = os.fstat(descriptor)
+            if (target_stat.st_dev, target_stat.st_ino) in protected_identities:
+                raise ValueError(
+                    f"Progress file {progress_file} would overwrite an input or output file"
+                )
+            os.ftruncate(descriptor, 0)
+            with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+                descriptor = -1
+                yield ProgressReporter(handle, command)
+        finally:
+            if descriptor >= 0:
+                os.close(descriptor)
         return
     yield ProgressReporter(sys.stderr, command)
 

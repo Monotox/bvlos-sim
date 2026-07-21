@@ -38,6 +38,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 _VEHICLE_PATH = _REPO_ROOT / "examples" / "vehicles" / "quadplane_v1.yaml"
 _PODMAN_ENV_VAR = "BVLOS_PODMAN"
 _UV_ENV_VAR = "BVLOS_UV"
+_REQUIRED_ENV_VAR = "BVLOS_SITL_REQUIRED"
 
 
 def _podman_executable() -> str | None:
@@ -213,6 +214,30 @@ def _launch_sitl_background(vehicle: str) -> None:
         return
 
 
+def _restart_sitl(vehicle: str) -> None:
+    """Boot a fresh SITL for this vehicle; a prior mission leaves it airborne."""
+
+    port = COPTER_PORT if vehicle == "copter" else PLANE_PORT
+    for pattern in ("ArduPlane", "arduplane") if vehicle != "copter" else (
+        "ArduCopter",
+        "arducopter",
+    ):
+        try:
+            subprocess.run(
+                _podman_command("exec", CONTAINER_NAME, "pkill", "-f", pattern),
+                capture_output=True,
+                timeout=10,
+            )
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            return
+    deadline = time.monotonic() + 15
+    while time.monotonic() < deadline and _port_open_in_container(
+        port, timeout_s=1.0
+    ):
+        time.sleep(1)
+    _launch_sitl_background(vehicle)
+
+
 def _host_for_port(port: int) -> str | None:
     return (
         os.environ.get("BVLOS_SITL_HOST")
@@ -224,10 +249,14 @@ def _host_for_port(port: int) -> str | None:
 def _require_host_port(port: int) -> str:
     host = _host_for_port(port)
     if host is None:
+        if _LIVE_SITL_REQUIRED:
+            pytest.fail("required live SITL has no container IP or mapped host port")
         pytest.skip(
             "live SITL adapter tests require a container IP or mapped host port"
         )
     if not _port_reachable_from_host(host, port):
+        if _LIVE_SITL_REQUIRED:
+            pytest.fail(f"required live SITL port {port} is unreachable at {host}")
         pytest.skip(f"live SITL port {port} is not reachable from host {host}")
     return host
 
@@ -274,9 +303,20 @@ def _sitl_mission() -> MissionPlan:
     )
 
 
+_LIVE_SITL_REQUIRED = os.environ.get(_REQUIRED_ENV_VAR) == "1"
 _PODMAN_OK = _podman_available()
 _CONTAINER_OK = _PODMAN_OK and _container_running()
 _CONTAINER_IP = _container_ip() if _CONTAINER_OK else None
+_COPTER_BINARY_OK = _CONTAINER_OK and _sitl_binary_present("copter")
+_PLANE_BINARY_OK = _CONTAINER_OK and _sitl_binary_present("plane")
+
+if _LIVE_SITL_REQUIRED and not (
+    _CONTAINER_OK and _COPTER_BINARY_OK and _PLANE_BINARY_OK
+):
+    raise RuntimeError(
+        "BVLOS_SITL_REQUIRED=1 but the running container or required "
+        "ArduCopter/ArduPlane SITL binaries are unavailable"
+    )
 
 requires_live_sitl = pytest.mark.skipif(
     not _CONTAINER_OK,
@@ -287,12 +327,12 @@ requires_live_sitl = pytest.mark.skipif(
 )
 
 requires_copter_binary = pytest.mark.skipif(
-    not (_CONTAINER_OK and _sitl_binary_present("copter")),
+    not _COPTER_BINARY_OK,
     reason="ArduCopter SITL binary not found in container",
 )
 
 requires_plane_binary = pytest.mark.skipif(
-    not (_CONTAINER_OK and _sitl_binary_present("plane")),
+    not _PLANE_BINARY_OK,
     reason="ArduPlane SITL binary not found in container",
 )
 
@@ -454,7 +494,7 @@ def test_adapter_records_telemetry_from_live_sitl(tmp_path: Path) -> None:
 
 @pytest.mark.live_sitl
 @requires_live_sitl
-@requires_copter_binary
+@requires_plane_binary
 def test_full_evidence_bundle_has_completed_status(tmp_path: Path) -> None:
     """A full SITL run produces a COMPLETED evidence bundle."""
 
@@ -467,9 +507,9 @@ def test_full_evidence_bundle_has_completed_status(tmp_path: Path) -> None:
     from estimator.execution.scenario import run_scenario
     from schemas import SitlEvidenceStatus
 
-    _launch_sitl_background("copter")
-    assert _port_open_in_container(COPTER_PORT), "SITL port not ready"
-    host = _require_host_port(COPTER_PORT)
+    _restart_sitl("plane")
+    assert _port_open_in_container(PLANE_PORT), "SITL port not ready"
+    host = _require_host_port(PLANE_PORT)
 
     scenario_path = (
         _REPO_ROOT / "examples" / "scenarios" / "pipeline_demo_001_scenario.yaml"
@@ -488,12 +528,14 @@ def test_full_evidence_bundle_has_completed_status(tmp_path: Path) -> None:
         vehicle_document=vehicle_doc,
     )
 
-    config = ArduPilotSitlConfig(host=host, port=COPTER_PORT)
+    config = ArduPilotSitlConfig(host=host, port=PLANE_PORT)
     adapter = ArduPilotSitlAdapter(config)
     adapter.start_recording(tmp_path)
     try:
         adapter.connect()
         adapter.upload_mission(mission_model)
+        adapter.arm_and_start()
+        assert adapter.wait_for_mission_complete(timeout_s=600.0).value == "complete"
         adapter.record_telemetry(
             sample_count=TELEMETRY_SAMPLE_COUNT,
             timeout_s=10.0,
@@ -523,7 +565,7 @@ def test_full_evidence_bundle_has_completed_status(tmp_path: Path) -> None:
 
 @pytest.mark.live_sitl
 @requires_live_sitl
-@requires_copter_binary
+@requires_plane_binary
 def test_comparison_report_from_live_evidence_bundle(tmp_path: Path) -> None:
     """A full SITL run produces a comparison report with PASSED or DRIFTED summary."""
 
@@ -540,9 +582,9 @@ def test_comparison_report_from_live_evidence_bundle(tmp_path: Path) -> None:
     from estimator.execution.scenario import run_scenario
     from schemas import SitlComparisonOutcome, SitlComparisonSummary
 
-    _launch_sitl_background("copter")
-    assert _port_open_in_container(COPTER_PORT), "SITL port not ready"
-    host = _require_host_port(COPTER_PORT)
+    _restart_sitl("plane")
+    assert _port_open_in_container(PLANE_PORT), "SITL port not ready"
+    host = _require_host_port(PLANE_PORT)
 
     scenario_path = (
         _REPO_ROOT / "examples" / "scenarios" / "pipeline_demo_001_scenario.yaml"
@@ -561,12 +603,14 @@ def test_comparison_report_from_live_evidence_bundle(tmp_path: Path) -> None:
         vehicle_document=vehicle_doc,
     )
 
-    config = ArduPilotSitlConfig(host=host, port=COPTER_PORT)
+    config = ArduPilotSitlConfig(host=host, port=PLANE_PORT)
     adapter = ArduPilotSitlAdapter(config)
     adapter.start_recording(tmp_path)
     try:
         adapter.connect()
         adapter.upload_mission(mission_model)
+        adapter.arm_and_start()
+        assert adapter.wait_for_mission_complete(timeout_s=600.0).value == "complete"
         adapter.record_telemetry(
             sample_count=TELEMETRY_SAMPLE_COUNT,
             timeout_s=10.0,
@@ -615,7 +659,7 @@ def test_comparison_report_from_live_evidence_bundle(tmp_path: Path) -> None:
 
 @pytest.mark.live_sitl
 @requires_live_sitl
-@requires_copter_binary
+@requires_plane_binary
 def test_sitl_cli_live_produces_completed_evidence_bundle(tmp_path: Path) -> None:
     """bvlos-sim sitl --live produces a COMPLETED evidence bundle via the CLI."""
 
@@ -625,9 +669,9 @@ def test_sitl_cli_live_produces_completed_evidence_bundle(tmp_path: Path) -> Non
     artifact_dir = tmp_path / "artifacts"
     output_path = tmp_path / "evidence.json"
 
-    _launch_sitl_background("copter")
-    assert _port_open_in_container(COPTER_PORT), "SITL port not ready"
-    host = _require_host_port(COPTER_PORT)
+    _restart_sitl("plane")
+    assert _port_open_in_container(PLANE_PORT), "SITL port not ready"
+    host = _require_host_port(PLANE_PORT)
 
     result = subprocess.run(
         [
@@ -640,19 +684,21 @@ def test_sitl_cli_live_produces_completed_evidence_bundle(tmp_path: Path) -> Non
             "--host",
             host,
             "--port",
-            str(COPTER_PORT),
+            str(PLANE_PORT),
             "--artifact-dir",
             str(artifact_dir),
             "--telemetry-samples",
             "5",
             "--telemetry-timeout-s",
             "15.0",
+            "--mission-timeout-s",
+            "480.0",
             "--output",
             str(output_path),
         ],
         capture_output=True,
         text=True,
-        timeout=120,
+        timeout=600,
         cwd=str(_REPO_ROOT),
     )
 
@@ -660,6 +706,8 @@ def test_sitl_cli_live_produces_completed_evidence_bundle(tmp_path: Path) -> Non
         f"CLI failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
     )
     assert "[sitl] Connecting" in result.stderr
+    assert "[sitl] Arming and starting" in result.stderr
+    assert "[sitl] Waiting for mission completion" in result.stderr
     assert "[sitl] Recording telemetry" in result.stderr
     bundle = json.loads(output_path.read_text(encoding="utf-8"))
     assert bundle["schema_version"] == "sitl-evidence.v1"
@@ -674,7 +722,7 @@ def test_sitl_cli_live_produces_completed_evidence_bundle(tmp_path: Path) -> Non
 
 @pytest.mark.live_sitl
 @requires_live_sitl
-@requires_copter_binary
+@requires_plane_binary
 def test_compare_cli_on_live_evidence_bundle(tmp_path: Path) -> None:
     """bvlos-sim compare produces a PASSED or DRIFTED report from a live bundle."""
 
@@ -685,9 +733,9 @@ def test_compare_cli_on_live_evidence_bundle(tmp_path: Path) -> None:
     evidence_path = tmp_path / "evidence.json"
     comparison_path = tmp_path / "comparison.json"
 
-    _launch_sitl_background("copter")
-    assert _port_open_in_container(COPTER_PORT), "SITL port not ready"
-    host = _require_host_port(COPTER_PORT)
+    _restart_sitl("plane")
+    assert _port_open_in_container(PLANE_PORT), "SITL port not ready"
+    host = _require_host_port(PLANE_PORT)
 
     result = subprocess.run(
         [
@@ -700,19 +748,21 @@ def test_compare_cli_on_live_evidence_bundle(tmp_path: Path) -> None:
             "--host",
             host,
             "--port",
-            str(COPTER_PORT),
+            str(PLANE_PORT),
             "--artifact-dir",
             str(artifact_dir),
             "--telemetry-samples",
             "5",
             "--telemetry-timeout-s",
             "15.0",
+            "--mission-timeout-s",
+            "480.0",
             "--output",
             str(evidence_path),
         ],
         capture_output=True,
         text=True,
-        timeout=120,
+        timeout=600,
         cwd=str(_REPO_ROOT),
     )
     assert result.returncode == 0, result.stderr

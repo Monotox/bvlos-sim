@@ -45,4 +45,4 @@ maintaining a library of scenarios for regression testing need this.
   optional field rather than bumping to `batch.v2`, as long as old
   manifests are fully compatible.
 - Per-run output files follow the same envelope format as the individual
-  commands (scenario-envelope.v2, stochastic-envelope.v1).
+  commands (scenario-report.v3, stochastic-envelope.v2).

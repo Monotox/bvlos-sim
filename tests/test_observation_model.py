@@ -5,7 +5,7 @@ from pathlib import Path
 from adapters.io import load_mission, load_vehicle
 from estimator.execution.propagator import run_stochastic_propagation
 from schemas.stochastic import StochasticPropagationPlan
-from schemas.uncertainty import NormalDistribution, UncertaintyParameters
+from schemas.uncertainty import UncertaintyParameters, UniformDistribution
 from schemas.vehicle_sensors import BatteryMeterModel, GpsModel, SensorProfile
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -27,7 +27,7 @@ def _plan(
     parameters: UncertaintyParameters | None = None,
 ) -> StochasticPropagationPlan:
     return StochasticPropagationPlan(
-        schema_version="stochastic.v1",
+        schema_version="stochastic.v2",
         propagation_id="test-observation",
         mission_file=str(MISSION_PATH),
         vehicle_file=str(VEHICLE_PATH),
@@ -39,8 +39,8 @@ def _plan(
             parameters
             if parameters is not None
             else UncertaintyParameters(
-                battery_capacity_wh=NormalDistribution(
-                    kind="normal", mean=260.0, std=80.0
+                battery_capacity_wh=UniformDistribution(
+                    kind="uniform", low=180.0, high=340.0
                 )
             )
         ),
@@ -64,8 +64,7 @@ def test_perfect_gps_produces_zero_position_error() -> None:
     result = run_stochastic_propagation(_plan(samples=20, seed=4), mission, vehicle)
 
     assert all(
-        point.position_error_m.mean < 0.01
-        for point in result.estimation_error_timeline
+        point.position_error_m.mean < 0.01 for point in result.estimation_error_timeline
     )
 
 
@@ -123,12 +122,14 @@ def test_sensors_none_results_identical_to_ticket_047() -> None:
     assert result_explicit.estimation_error_timeline == []
 
 
-def test_battery_meter_noise_affects_p_reserve_violation() -> None:
+def test_battery_meter_noise_affects_energy_estimation_error() -> None:
     mission, vehicle = _mission_vehicle()
-    low_energy = vehicle.energy.model_copy(update={"battery_capacity_wh": 56.0})
+    # Keep the deterministic baseline barely above its required reserve so the
+    # stochastic power and meter-error distributions can cross the threshold.
+    low_energy = vehicle.energy.model_copy(update={"battery_capacity_wh": 70.0})
     low_battery_vehicle = vehicle.model_copy(update={"energy": low_energy})
     parameters = UncertaintyParameters(
-        cruise_power_w=NormalDistribution(kind="normal", mean=450.0, std=30.0)
+        cruise_power_w=UniformDistribution(kind="uniform", low=400.0, high=500.0)
     )
     perfect_meter = low_battery_vehicle.model_copy(
         update={
@@ -156,7 +157,10 @@ def test_battery_meter_noise_affects_p_reserve_violation() -> None:
         noisy_meter,
     )
 
-    assert perfect.timeline[-1].p_reserve_violation != noisy.timeline[-1].p_reserve_violation
+    assert (
+        noisy.estimation_error_timeline[-1].energy_error_wh.std
+        > perfect.estimation_error_timeline[-1].energy_error_wh.std
+    )
 
 
 def test_same_seed_identical_results_with_sensors() -> None:

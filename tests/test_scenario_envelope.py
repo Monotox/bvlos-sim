@@ -7,6 +7,7 @@ import pytest
 
 from adapters.envelope import DeterminismMetadata, ProvenanceInput
 from adapters.io import load_mission, load_vehicle
+from adapters.operational_readiness import evaluate_operational_readiness
 from adapters.scenario_envelope import (
     SCENARIO_REPORT_SCHEMA_VERSION,
     ScenarioProvenance,
@@ -147,6 +148,17 @@ def test_envelope_rejects_unknown_fields() -> None:
         ScenarioResultEnvelope.model_validate(payload)
 
 
+def test_envelope_rejects_wrong_contract_version() -> None:
+    from pydantic import ValidationError
+
+    envelope = _build_envelope_for("passed")
+    payload = json.loads(render_scenario_envelope_json(envelope))
+    payload["schema_version"] = "scenario-report.v2"
+
+    with pytest.raises(ValidationError):
+        ScenarioResultEnvelope.model_validate(payload)
+
+
 # ---------------------------------------------------------------------------
 # Golden fixture regression tests
 # ---------------------------------------------------------------------------
@@ -173,9 +185,11 @@ def test_markdown_matches_golden_fixture(scenario_name: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _minimal_envelope(event_outcomes: list[ScenarioEventOutcome]) -> ScenarioResultEnvelope:
+def _minimal_envelope(
+    event_outcomes: list[ScenarioEventOutcome],
+) -> ScenarioResultEnvelope:
     return ScenarioResultEnvelope(
-        schema_version="scenario-report.v2",
+        schema_version=SCENARIO_REPORT_SCHEMA_VERSION,
         tool_version="0.0.0",
         scenario_schema_version="scenario.v1",
         scenario_id="test",
@@ -194,6 +208,7 @@ def _minimal_envelope(event_outcomes: list[ScenarioEventOutcome]) -> ScenarioRes
         timeline=[],
         event_outcomes=event_outcomes,
         assertion_results=[],
+        operational_readiness=evaluate_operational_readiness(None),
         estimate=None,
     )
 
@@ -233,7 +248,12 @@ def test_scenario_markdown_not_fired_without_reason_shows_not_fired() -> None:
     assert "not fired" in output
 
 
-def _policy_outcome(*, is_feasible: bool = True, infeasible_reason: str | None = None, warnings: list[WarningCode] | None = None) -> CommsLinkPolicyOutcome:
+def _policy_outcome(
+    *,
+    is_feasible: bool = True,
+    infeasible_reason: str | None = None,
+    warnings: list[WarningCode] | None = None,
+) -> CommsLinkPolicyOutcome:
     divert = DivertRouteEstimate(
         target_zone_id="lz-a",
         distance_m=500.0,

@@ -170,6 +170,7 @@ def test_estimate_sensitivity_format_exits_zero_and_reports_status() -> None:
             str(VEHICLE_PATH),
             "--format",
             "sensitivity",
+            "--engineering-only",
         ],
     )
 

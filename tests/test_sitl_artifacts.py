@@ -12,6 +12,7 @@ import pytest
 from adapters.io import InputDocument, load_vehicle
 from adapters.scenario_envelope import ScenarioResultEnvelope, build_scenario_envelope
 from adapters.sitl.artifacts import (
+    SITL_ARTIFACT_FILENAMES,
     SITL_COMMAND_LOG_SCHEMA_VERSION,
     SITL_TELEMETRY_SCHEMA_VERSION,
     SitlArtifactError,
@@ -67,6 +68,7 @@ class RaisingTelemetryMessage:
 @dataclass(frozen=True)
 class CompletedEvidenceAdapter:
     observed: SitlObservedArtifacts
+    run_state: str | None = "complete"
 
     adapter_id: str = "test-ardupilot"
     adapter_kind: SitlAdapterKind = SitlAdapterKind.ARDUPILOT
@@ -82,7 +84,11 @@ class CompletedEvidenceAdapter:
             simulator_version=None,
             autopilot=vehicle.autopilot.value,
             frame=vehicle.sitl.frame if vehicle.sitl is not None else None,
-            metadata={"connected": True},
+            metadata={
+                "connected": True,
+                "mission_run_state": self.run_state,
+                "mission_execution_verified": self.run_state == "complete",
+            },
         )
 
     def observed_artifacts(self) -> SitlObservedArtifacts:
@@ -158,6 +164,21 @@ def test_sitl_artifact_recorder_write_without_records_returns_empty_observed(
 
     assert observed == SitlObservedArtifacts()
     assert list(tmp_path.iterdir()) == []
+
+
+def test_empty_payloads_remove_stale_files_from_reused_artifact_directory(
+    tmp_path: Path,
+) -> None:
+    for filename in SITL_ARTIFACT_FILENAMES:
+        (tmp_path / filename).write_text("stale previous-run data\n", encoding="utf-8")
+    recorder = SitlArtifactRecorder(artifact_dir=tmp_path)
+
+    observed = recorder.write()
+
+    assert observed == SitlObservedArtifacts()
+    assert not any(
+        (tmp_path / filename).exists() for filename in SITL_ARTIFACT_FILENAMES
+    )
 
 
 def test_sitl_artifact_recorder_rewrites_after_mutation_and_refreshes_hashes(
@@ -252,6 +273,8 @@ def test_build_sitl_evidence_bundle_completed_with_observed_artifacts(
         scenario_document=_document("scenario.yaml"),
         mission_document=_document("mission.yaml"),
         vehicle_document=_document("vehicle.yaml"),
+        population_document=_document("population.yaml"),
+        obstacle_document=_document("obstacles.geojson"),
         uncertainty_document=_document("uncertainty.yaml"),
         vehicle=_vehicle(),
         adapter=CompletedEvidenceAdapter(observed),
@@ -260,10 +283,56 @@ def test_build_sitl_evidence_bundle_completed_with_observed_artifacts(
     assert bundle.status == SitlEvidenceStatus.COMPLETED
     assert bundle.metadata["contract_only"] is False
     assert bundle.observed.telemetry[0].schema_version == SITL_TELEMETRY_SCHEMA_VERSION
-    assert {artifact.role for artifact in bundle.inputs} >= {"uncertainty"}
+    assert {artifact.role for artifact in bundle.inputs} >= {
+        "population",
+        "obstacles",
+        "uncertainty",
+    }
 
 
-def test_build_sitl_evidence_bundle_without_telemetry_remains_contract_only(
+def test_evidence_builder_emits_observed_paths_relative_to_bundle(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = tmp_path / "bundle"
+    artifact_dir = bundle_dir / "artifacts"
+    recorder = SitlArtifactRecorder(artifact_dir=artifact_dir)
+    recorder.record_telemetry_message(
+        1.0,
+        SyntheticTelemetryMessage("HEARTBEAT", system_status=4),
+    )
+    observed = recorder.write()
+
+    bundle = build_sitl_evidence_bundle(
+        evidence_id="sitl-portable",
+        scenario_envelope=_scenario_envelope(),
+        scenario_document=_document("scenario.yaml"),
+        mission_document=_document("mission.yaml"),
+        vehicle_document=_document("vehicle.yaml"),
+        vehicle=_vehicle(),
+        adapter=CompletedEvidenceAdapter(observed),
+        reference_base_dir=bundle_dir,
+    )
+
+    assert bundle.observed.telemetry[0].path == "artifacts/telemetry.json"
+    assert not Path(bundle.observed.telemetry[0].path).is_absolute()
+
+
+def test_live_adapter_without_run_evidence_is_error() -> None:
+    bundle = build_sitl_evidence_bundle(
+        evidence_id="sitl-empty-live",
+        scenario_envelope=_scenario_envelope(),
+        scenario_document=_document("scenario.yaml"),
+        mission_document=_document("mission.yaml"),
+        vehicle_document=_document("vehicle.yaml"),
+        vehicle=_vehicle(),
+        adapter=CompletedEvidenceAdapter(SitlObservedArtifacts(), run_state=None),
+    )
+
+    assert bundle.status == SitlEvidenceStatus.ERROR
+    assert bundle.metadata["contract_only"] is False
+
+
+def test_build_sitl_evidence_bundle_without_telemetry_is_error(
     tmp_path: Path,
 ) -> None:
     recorder = SitlArtifactRecorder(artifact_dir=tmp_path)
@@ -280,6 +349,30 @@ def test_build_sitl_evidence_bundle_without_telemetry_remains_contract_only(
         adapter=CompletedEvidenceAdapter(observed),
     )
 
-    assert bundle.status == SitlEvidenceStatus.CONTRACT_ONLY
-    assert bundle.metadata["contract_only"] is True
+    assert bundle.status == SitlEvidenceStatus.ERROR
+    assert bundle.metadata["contract_only"] is False
     assert bundle.observed.command_logs
+
+
+def test_build_sitl_evidence_bundle_requires_verified_completion(
+    tmp_path: Path,
+) -> None:
+    recorder = SitlArtifactRecorder(artifact_dir=tmp_path)
+    recorder.record_telemetry_message(
+        1.0,
+        SyntheticTelemetryMessage("HEARTBEAT", system_status=4),
+    )
+    observed = recorder.write()
+
+    bundle = build_sitl_evidence_bundle(
+        evidence_id="sitl-timeout",
+        scenario_envelope=_scenario_envelope(),
+        scenario_document=_document("scenario.yaml"),
+        mission_document=_document("mission.yaml"),
+        vehicle_document=_document("vehicle.yaml"),
+        vehicle=_vehicle(),
+        adapter=CompletedEvidenceAdapter(observed, run_state="timeout"),
+    )
+
+    assert bundle.status == SitlEvidenceStatus.ERROR
+    assert bundle.metadata["mission_execution_verified"] is False

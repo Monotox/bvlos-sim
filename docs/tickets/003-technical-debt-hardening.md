@@ -14,11 +14,11 @@ This ticket is complete.
 
 Implementation note:
 - Keep the package-root `estimator` API stable while simplifying internal boundaries.
-- Keep accepted-but-non-operative schema fields documented in [Estimator v1 field semantics](../ESTIMATOR_V1_FIELD_SEMANTICS.md).
+- Keep accepted-but-non-operative schema fields documented in [Estimator v1 field semantics](../missions.md).
 
 Implemented in:
-- [docs/VERSIONING_POLICY.md](../VERSIONING_POLICY.md)
-- [docs/ESTIMATOR_V1_FIELD_SEMANTICS.md](../ESTIMATOR_V1_FIELD_SEMANTICS.md)
+- [docs/VERSIONING_POLICY.md](../design.md)
+- [docs/ESTIMATOR_V1_FIELD_SEMANTICS.md](../missions.md)
 - [tests/test_contract_golden.py](https://github.com/Monotox/bvlos-sim/blob/main/tests/test_contract_golden.py)
 
 Follow-up hardening completed after the initial package-boundary cleanup:

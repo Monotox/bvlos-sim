@@ -2,18 +2,20 @@
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from schemas.numeric import FiniteFloat
+
 
 class UsableCapacityPoint(BaseModel):
     """Battery usable-capacity fraction at a state of charge."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
-    soc: float = Field(
+    soc: FiniteFloat = Field(
         ge=0.0,
         le=1.0,
         description="State of charge fraction, from 0.0 to 1.0.",
     )
-    usable_fraction: float = Field(
+    usable_fraction: FiniteFloat = Field(
         ge=0.0,
         le=1.0,
         description="Usable capacity fraction available at this state of charge.",
@@ -23,49 +25,65 @@ class UsableCapacityPoint(BaseModel):
 class EnergyModel(BaseModel):
     """Deterministic phase-power energy model used by estimator feasibility."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
-    battery_capacity_wh: float = Field(
+    battery_capacity_wh: FiniteFloat = Field(
         gt=0,
         description="Battery capacity in watt-hours before landing reserve is held back.",
     )
-    reserve_percent_default: float = Field(
+    battery_specific_energy_wh_per_kg: FiniteFloat | None = Field(
+        default=None,
+        gt=0,
+        description=(
+            "Pack-level battery specific energy used to convert capacity changes "
+            "to operating-mass changes during battery sizing."
+        ),
+    )
+    battery_excluded_operating_mass_kg: FiniteFloat | None = Field(
+        default=None,
+        gt=0,
+        description=(
+            "All-up mission mass excluding the swappable battery pack. Combined "
+            "with pack specific energy during battery sizing."
+        ),
+    )
+    reserve_percent_default: FiniteFloat = Field(
         ge=0,
         le=100,
         description=(
             "Default minimum landing reserve used when a mission does not override it."
         ),
     )
-    cruise_power_w: float = Field(
+    cruise_power_w: FiniteFloat = Field(
         gt=0,
         description="Nominal power draw during cruise.",
     )
-    hover_power_w: float | None = Field(
+    hover_power_w: FiniteFloat | None = Field(
         default=None,
         gt=0,
         description="Nominal power draw while hovering. Required for multirotor and VTOL.",
     )
-    climb_power_w: float | None = Field(
+    climb_power_w: FiniteFloat | None = Field(
         default=None,
         gt=0,
         description="Nominal power draw during climb. Falls back to cruise_power_w if omitted.",
     )
-    descent_power_w: float | None = Field(
+    descent_power_w: FiniteFloat | None = Field(
         default=None,
         gt=0,
         description="Nominal power draw during descent. Falls back to cruise_power_w if omitted.",
     )
-    reference_mass_kg: float | None = Field(
+    reference_mass_kg: FiniteFloat | None = Field(
         default=None,
         gt=0,
         description="All-up mass at which phase power values were calibrated.",
     )
-    reference_density_kgm3: float | None = Field(
+    reference_density_kgm3: FiniteFloat | None = Field(
         default=None,
         gt=0,
         description="Air density at which phase power values were calibrated.",
     )
-    induced_power_mass_exponent: float = Field(
+    induced_power_mass_exponent: FiniteFloat = Field(
         default=1.5,
         gt=0,
         description="Mass-scaling exponent for induced hover and climb power.",
@@ -106,21 +124,21 @@ class FailsafeProfile(BaseModel):
     advisory only — the estimator does not abort the route.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
-    low_battery_warn_percent: float = Field(
+    low_battery_warn_percent: FiniteFloat = Field(
         default=30,
         ge=0,
         le=100,
         description="Warn threshold. Source: PX4/ArduPilot battery failsafe concepts.",
     )
-    low_battery_abort_percent: float = Field(
+    low_battery_abort_percent: FiniteFloat = Field(
         default=25,
         ge=0,
         le=100,
         description="Abort/RTL threshold used by the validator.",
     )
-    emergency_land_percent: float = Field(
+    emergency_land_percent: FiniteFloat = Field(
         default=10,
         ge=0,
         le=100,

@@ -1,7 +1,10 @@
 """Shared CLI support for mission assets and scenario execution."""
 
+import contextlib
+import sys
 from collections.abc import Callable
 from dataclasses import dataclass
+from math import isfinite
 from pathlib import Path
 from typing import TypeVar
 
@@ -15,7 +18,7 @@ from adapters.envelope import (
     OutputFormat,
     render_envelope_json,
 )
-from adapters.atomic_write import atomic_write_text
+from adapters.atomic_write import AtomicWriteDurabilityError, atomic_write_text
 from adapters.assets.geofence_geojson import GeofenceLoadError, load_geofences
 from adapters.assets.obstacle_geojson import ObstacleLoadError, load_obstacles
 from adapters.io import (
@@ -321,6 +324,14 @@ def _parse_wind_layer_entry(i: int, entry: str) -> WindLayer:
             stage=InputLoadStage.PARSE,
             details={"entry_index": i, "raw": entry},
         )
+    if not all(isfinite(value) for value in (altitude_m, east, north)):
+        raise InputLoadError(
+            f"{_WIND_LAYER_FLAG} entry {i}: all three values must be finite.",
+            input_name=_WIND_LAYER_FLAG,
+            path=Path(_WIND_LAYER_FLAG),
+            stage=InputLoadStage.PARSE,
+            details={"entry_index": i, "raw": entry},
+        )
     return WindLayer(altitude_m=altitude_m, wind_east_mps=east, wind_north_mps=north)
 
 
@@ -515,9 +526,19 @@ _ROUTE_EXPORT_FORMATS: frozenset[OutputFormat] = frozenset(
 def _write_output(rendered: str, output: Path | None) -> None:
     try:
         if output is None:
-            typer.echo(rendered, nl=False)
+            typer.echo(rendered, nl=not rendered.endswith("\n"))
             return
         atomic_write_text(output, rendered)
+    except BrokenPipeError:
+        # The downstream reader (head, less, ...) closed the pipe; close
+        # stdout quietly so interpreter shutdown does not report the failure.
+        with contextlib.suppress(OSError):
+            sys.stdout.close()
+        raise typer.Exit(code=0) from None
+    except AtomicWriteDurabilityError as exc:
+        raise OutputWriteError(
+            "Output was replaced, but filesystem durability could not be confirmed."
+        ) from exc
     except OSError as exc:
         raise OutputWriteError("Failed to write output.") from exc
 

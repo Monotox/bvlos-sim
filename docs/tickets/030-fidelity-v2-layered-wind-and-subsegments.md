@@ -12,17 +12,19 @@ Improve model fidelity without breaking v1 estimator contracts.
 
 This ticket is complete. Fidelity v2, layered wind, and sub-segment sampling
 are available through mission YAML, scenario YAML, CLI flags, and Python APIs.
+They are separate controls: fidelity v2 enables neither layered wind nor
+straight-leg sub-segment sampling by itself.
 
 ## Scope
 
 - Add `LayeredWindProvider`.
 - Add optional fixed sub-segment sampling for long legs.
 - Add deterministic sampling policy and compatibility mode for v1 behavior.
-- Add schema flags for fidelity mode selection.
+- Add independent schema controls for fidelity and maximum segment length.
 
 ## Acceptance Criteria
 
-- Users can choose v1-compatible mode or layered/sub-segment mode.
+- Users can choose fidelity and layered/sub-segment behavior independently.
 - Existing v1 golden outputs remain stable unless explicitly running the v2 mode.
 
 ## Integrated Surfaces

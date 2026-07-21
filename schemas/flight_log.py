@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 FLIGHT_TRACE_SCHEMA_VERSION = "flight-trace.v1"
 
@@ -12,22 +12,33 @@ FLIGHT_TRACE_SCHEMA_VERSION = "flight-trace.v1"
 class FlightTraceRecord(BaseModel):
     """One timestamped sample in a normalized flight trace."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
     timestamp_s: float = Field(
         ge=0.0,
         description="Elapsed flight time in seconds from trace start.",
     )
-    lat_deg: float = Field(description="WGS-84 latitude in decimal degrees.")
-    lon_deg: float = Field(description="WGS-84 longitude in decimal degrees.")
+    lat_deg: float = Field(
+        ge=-90.0,
+        le=90.0,
+        description="WGS-84 latitude in decimal degrees.",
+    )
+    lon_deg: float = Field(
+        ge=-180.0,
+        le=180.0,
+        description="WGS-84 longitude in decimal degrees.",
+    )
     alt_amsl_m: float | None = Field(
         default=None, description="Altitude AMSL in metres, if available."
     )
     groundspeed_mps: float | None = Field(
-        default=None, description="Groundspeed in m/s, if available."
+        default=None, ge=0.0, description="Groundspeed in m/s, if available."
     )
     heading_deg: float | None = Field(
-        default=None, description="Ground course in degrees, if available."
+        default=None,
+        ge=0.0,
+        le=360.0,
+        description="Ground course in true degrees clockwise from north, if available.",
     )
     battery_voltage_v: float | None = Field(
         default=None, description="Battery voltage in volts, if available."
@@ -131,6 +142,15 @@ class NormalizedFlightTrace(BaseModel):
         default_factory=list,
         description="Normalized trace records in chronological order.",
     )
+
+    @model_validator(mode="after")
+    def validate_record_chronology(self) -> "NormalizedFlightTrace":
+        for previous, following in zip(self.records, self.records[1:], strict=False):
+            if following.timestamp_s <= previous.timestamp_s:
+                raise ValueError(
+                    "flight trace record timestamps must be strictly increasing"
+                )
+        return self
 
 
 __all__ = [

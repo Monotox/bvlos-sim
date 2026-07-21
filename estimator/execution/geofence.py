@@ -279,6 +279,10 @@ def _intervals_overlap(
 
 
 def _leg_geometry(leg: LegEstimate) -> BaseGeometry:
+    if leg.path_coordinates is not None:
+        if len(leg.path_coordinates) == 1:
+            return Point(leg.path_coordinates[0])
+        return LineString(leg.path_coordinates)
     start = (leg.start_lon, leg.start_lat)
     end = (leg.end_lon, leg.end_lat)
     if start == end:

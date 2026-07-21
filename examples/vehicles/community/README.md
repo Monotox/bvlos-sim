@@ -148,7 +148,7 @@ estimate output. Update `cruise_power_w`, `hover_power_w`, `climb_power_w`,
 `cruise_speed_mps`, and turn-radius assumptions until the deterministic output
 matches repeatable log evidence.
 
-Tickets 080-082 are planned to automate this comparison with calibration
-profiles and predicted-vs-observed validation metrics. Until then, keep manual
-calibration notes in `metadata.notes` and preserve the original manufacturer
-source link in `metadata.source`.
+The `ingest-log`, `validate`, and `calibrate` commands automate this
+comparison: ingest a flight log, validate predicted vs. observed metrics, and
+fit a calibration profile (see `docs/cli.md`). Keep the original
+manufacturer source link in `metadata.source`.

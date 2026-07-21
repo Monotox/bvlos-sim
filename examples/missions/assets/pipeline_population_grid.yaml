@@ -1,3 +1,4 @@
+schema_version: population-grid.v2
 origin_lat: 51.99
 origin_lon: 3.99
 step_lat_deg: 0.01
@@ -6,3 +7,14 @@ density_ppl_km2:
   - [12.0, 12.0, 12.0]
   - [12.0, 12.0, 12.0]
   - [12.0, 12.0, 12.0]
+metadata:
+  source: Example authority-approved conservative population map
+  population_year: 2026
+  native_resolution_m: 100.0
+  effective_resolution_m: 100.0
+  value_semantics: conservative_cell_maximum
+  authority_assessment_reference: Example population assessment POP-001, rev 1
+  valid_from: 2026-01-01T00:00:00Z
+  valid_until: 2026-12-31T23:59:59Z
+  transient_population_assessment_reference: Example events assessment EVT-001, rev 1
+  operational_footprint_assemblies_present: false

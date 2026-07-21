@@ -26,7 +26,7 @@ def canonical_json_value(value: JsonValue) -> JsonValue:
 def canonical_float(value: float) -> float:
     """Round insignificant platform-specific float noise."""
     if not math.isfinite(value):
-        return value
+        raise ValueError(f"Canonical JSON cannot represent non-finite float {value!r}")
     rounded = round(value, _FLOAT_DECIMAL_PLACES)
     return 0.0 if rounded == 0.0 else rounded
 
@@ -48,6 +48,7 @@ def render_canonical_json(
             indent=2,
             sort_keys=True,
             ensure_ascii=ensure_ascii,
+            allow_nan=False,
         )
         + "\n"
     )

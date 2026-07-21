@@ -1,6 +1,8 @@
 """Batch-specific CLI support helpers."""
 
 from enum import StrEnum
+import json
+from html import escape
 from pathlib import Path
 
 from adapters.batch_support import BatchRunResult, summarize_batch
@@ -56,7 +58,9 @@ def _batch_output_extension(output_format: OutputFormat | BatchOutputFormat) -> 
     return _OUTPUT_EXTENSIONS.get(output_format, ".json")
 
 
-def _batch_route_export(output_format: OutputFormat, result: BatchRunResult) -> str | None:
+def _batch_route_export(
+    output_format: OutputFormat, result: BatchRunResult
+) -> str | None:
     builder = _ROUTE_EXPORT_BUILDERS.get(output_format)
     if builder is None or result.envelope is None or result.envelope.result is None:
         return None
@@ -74,12 +78,62 @@ def _batch_route_export(output_format: OutputFormat, result: BatchRunResult) -> 
     )
 
 
-def _render_batch_run_output(output_format: OutputFormat, result: BatchRunResult) -> str:
+def _render_batch_run_output(
+    output_format: OutputFormat, result: BatchRunResult
+) -> str:
+    if result.envelope is None:
+        message = (
+            result.error_message or "Batch run failed before an estimate was produced"
+        )
+        if output_format == OutputFormat.JSON:
+            return (
+                json.dumps(
+                    {
+                        "schema_version": "batch-run-error.v1",
+                        "id": result.id,
+                        "status": "ERROR",
+                        "message": message,
+                    },
+                    indent=2,
+                    sort_keys=True,
+                )
+                + "\n"
+            )
+        if output_format == OutputFormat.GEOJSON:
+            return (
+                json.dumps(
+                    {
+                        "type": "FeatureCollection",
+                        "features": [],
+                        "properties": {
+                            "schema_version": "batch-run-error.v1",
+                            "id": result.id,
+                            "status": "ERROR",
+                            "message": message,
+                        },
+                    },
+                    indent=2,
+                    sort_keys=True,
+                )
+                + "\n"
+            )
+        if output_format == OutputFormat.KML:
+            return (
+                '<?xml version="1.0" encoding="UTF-8"?>\n'
+                '<kml xmlns="http://www.opengis.net/kml/2.2"><Document>'
+                f"<name>{escape(result.id)}</name>"
+                f"<description>ERROR: {escape(message)}</description>"
+                "</Document></kml>\n"
+            )
+        return f"## Batch Run: {result.id}\n\nStatus: ERROR\n\n{message}\n"
     route_export = _batch_route_export(output_format, result)
     if route_export is not None:
         return route_export
     if output_format == OutputFormat.PROFILE and result.envelope is not None:
-        return render_profile_markdown(result.envelope, terrain_provider=None)
+        return render_profile_markdown(
+            result.envelope,
+            terrain_provider=result.terrain_provider,
+        )
     rendered_format = _envelope_output_format(output_format)
     return _render_output(rendered_format, result.envelope, mission_id=result.id)
 
@@ -93,8 +147,6 @@ def write_batch_outputs(
     output_dir.mkdir(parents=True, exist_ok=True)
     extension = _batch_output_extension(output_format)
     for result in results:
-        if result.envelope is None:
-            continue
         _write_output(
             _render_batch_run_output(output_format, result),
             output_dir / f"{result.id}{extension}",

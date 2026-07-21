@@ -4,24 +4,26 @@ import random
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
+from estimator.core.enums import EstimateStatus
 from estimator.core.geofence import GeofenceZone
 from estimator.core.landing_zone import LandingZone
 from estimator.core.results import MissionEstimate
 from estimator.environment.obstacle import ObstacleProvider
 from estimator.environment.population import GridPopulationProvider
 from estimator.environment.terrain import TerrainProvider
-from estimator.environment.wind import ConstantWindProvider, WindProvider
+from estimator.environment.wind import WindProvider
 from estimator.execution.engine import try_estimate_mission_distance_time
-from estimator.execution.propagation.curves import best_position_legs
 from estimator.execution.propagation.particles import ParticlePopulation, ParticleTrack
 from estimator.execution.propagation.stats import (
     sample_optional,
     sample_positive_optional,
 )
+from estimator.execution.propagation.wind import (
+    build_component_override_wind_provider,
+)
 from schemas.mission import MissionPlan
 from schemas.stochastic import StochasticPropagationPlan
 from schemas.vehicle import VehicleProfile
-from schemas.vehicle_controller import ControllerProfile
 from schemas.vehicle_sensors import SensorProfile
 
 
@@ -99,47 +101,52 @@ class EstimatorInputs:
 @dataclass(slots=True)
 class ParticleSampler:
     plan: StochasticPropagationPlan
-    baseline_legs: list
     estimator_inputs: EstimatorInputs
     rng: random.Random
     sensors: SensorProfile | None
-    controller: ControllerProfile | None
     progress: Callable[[int, int], None] | None = None
 
     def run(self) -> ParticlePopulation:
         particles: list[ParticleTrack] = []
-        position_legs = self.baseline_legs
+        infeasible_sample_count = 0
         spatial_infeasible_count = 0
+        failed_sample_count = 0
 
         for sample_index in range(self.plan.samples):
-            sample = SampledParameters.from_plan(plan=self.plan, rng=self.rng)
-            result = self.estimator_inputs.with_sample(sample).estimate()
+            try:
+                sample = SampledParameters.from_plan(plan=self.plan, rng=self.rng)
+                result = self.estimator_inputs.with_sample(sample).estimate()
+            except (ArithmeticError, ValueError):
+                failed_sample_count += 1
+                if self.progress is not None:
+                    self.progress(sample_index + 1, self.plan.samples)
+                continue
 
-            if is_spatial_infeasible(result):
-                spatial_infeasible_count += 1
+            spatial_infeasible = is_spatial_infeasible(result)
+            if result.status == EstimateStatus.INFEASIBLE or spatial_infeasible:
+                infeasible_sample_count += 1
+                if spatial_infeasible:
+                    spatial_infeasible_count += 1
+            elif result.status == EstimateStatus.ERROR:
+                failed_sample_count += 1
             else:
                 particle = ParticleTrack.from_estimate(
                     estimate=result,
-                    wind_east_mps=sample.wind_east_mps
-                    if sample.wind_east_mps is not None
-                    else 0.0,
-                    wind_north_mps=sample.wind_north_mps
-                    if sample.wind_north_mps is not None
-                    else 0.0,
                     sensors=self.sensors,
-                    controller=self.controller,
                 )
                 if particle is not None:
                     particles.append(particle)
-                    position_legs = best_position_legs(position_legs, result)
+                else:
+                    failed_sample_count += 1
 
             if self.progress is not None:
                 self.progress(sample_index + 1, self.plan.samples)
 
         return ParticlePopulation(
             particles=tuple(particles),
-            position_legs=position_legs,
+            infeasible_sample_count=infeasible_sample_count,
             spatial_infeasible_count=spatial_infeasible_count,
+            failed_sample_count=failed_sample_count,
         )
 
 
@@ -156,11 +163,7 @@ def build_sample_wind_provider(
     north: float | None,
     base_provider: WindProvider | None,
 ) -> WindProvider | None:
-    if east is None and north is None:
-        return base_provider
-    east_val = east if east is not None else 0.0
-    north_val = north if north is not None else 0.0
-    return ConstantWindProvider(wind_east_mps=east_val, wind_north_mps=north_val)
+    return build_component_override_wind_provider(east, north, base_provider)
 
 
 def apply_mission_overrides(

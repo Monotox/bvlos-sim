@@ -1,4 +1,4 @@
-schema_version: uncertainty.v1
+schema_version: uncertainty.v2
 uncertainty_id: pipeline-demo-speed-uncertainty
 mission_file: ../missions/pipeline_demo_001.yaml
 vehicle_file: ../vehicles/quadplane_v1.yaml

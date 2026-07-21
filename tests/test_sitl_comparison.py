@@ -1,5 +1,6 @@
 """SITL comparison report tests."""
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -304,6 +305,28 @@ def test_completed_bundle_matched_scenario_assertions_pass(tmp_path: Path) -> No
         item.outcome == SitlComparisonOutcome.MATCHED for item in assertion_items
     )
     assert report.summary == SitlComparisonSummary.PASSED
+
+
+def test_completed_bundle_rejects_tampered_artifact(tmp_path: Path) -> None:
+    bundle = _completed_bundle(tmp_path)
+    telemetry_ref = bundle.observed.telemetry[0]
+    telemetry_path = Path(telemetry_ref.path)
+    bundle.observed.telemetry[0] = telemetry_ref.model_copy(
+        update={"sha256": hashlib.sha256(telemetry_path.read_bytes()).hexdigest()}
+    )
+    telemetry_path.write_text("{}\n", encoding="utf-8")
+
+    report = build_sitl_comparison_report(
+        comparison_id="comparison-report",
+        bundle=bundle,
+    )
+
+    record_count = next(
+        item for item in report.items if item.dimension == "telemetry_record_count"
+    )
+    assert record_count.outcome == SitlComparisonOutcome.MISSING
+    assert "SHA-256 mismatch" in (record_count.notes or "")
+    assert report.summary == SitlComparisonSummary.FAILED
 
 
 def test_completed_bundle_failed_assertion_does_not_cause_summary_failed(

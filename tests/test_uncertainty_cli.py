@@ -51,12 +51,14 @@ def test_sample_command_result_has_expected_keys() -> None:
     payload = json.loads(result.output)
     r = payload["result"]
     assert "sample_count" in r
-    assert "completed_sample_count" in r
+    assert "modeled_pass_sample_count" in r
+    assert "infeasible_sample_count" in r
     assert "failed_sample_count" in r
-    assert "feasibility_rate" in r
+    assert "modeled_constraint_pass_rate" in r
+    assert r["operational_feasibility_assessed"] is False
     assert "total_time_s" in r
-    assert "reserve_at_landing_wh" in r
-    assert "reserve_at_landing_percent" in r
+    assert "reserve_at_mission_end_wh" in r
+    assert "reserve_at_mission_end_percent" in r
     assert "baseline" in r
 
 
@@ -133,7 +135,8 @@ def test_sample_command_speed_example() -> None:
 def test_sample_command_markdown_format(tmp_path: Path) -> None:
     result = _run(["sample", str(EXAMPLE_UNCERTAINTY), "--format", "markdown"])
     assert result.exit_code == int(CliExitCode.SUCCESS)
-    assert "# Uncertainty Report" in result.output
+    assert "# Diagnostic Uncertainty Parameter Sweep" in result.output
+    assert "Operational Feasibility Assessed:** No" in result.output
     assert "Seed" in result.output
     assert "Summary Statistics" in result.output
     assert "Baseline (Deterministic)" in result.output
@@ -142,8 +145,9 @@ def test_sample_command_markdown_format(tmp_path: Path) -> None:
 def test_sample_command_summary_format() -> None:
     result = _run(["sample", str(EXAMPLE_UNCERTAINTY), "--format", "summary"])
     assert result.exit_code == int(CliExitCode.SUCCESS)
-    assert "feasible" in result.output
-    assert "reserve" in result.output
+    assert "DIAGNOSTIC" in result.output
+    assert "modeled_pass" in result.output
+    assert "conditional_end_energy" in result.output
     assert "n=" in result.output
 
 
@@ -185,7 +189,7 @@ def test_sample_schema_error_includes_field_level_details(tmp_path: Path) -> Non
     bad_file.write_text(
         "\n".join(
             [
-                "schema_version: uncertainty.v1",
+                "schema_version: uncertainty.v2",
                 "uncertainty_id: test",
                 "mission_file: m.yaml",
                 "vehicle_file: v.yaml",
@@ -257,14 +261,18 @@ def test_sample_infeasible_baseline_exits_invalid_input(tmp_path: Path) -> None:
     uncertainty.write_text(
         yaml_mod.dump(
             {
-                "schema_version": "uncertainty.v1",
+                "schema_version": "uncertainty.v2",
                 "uncertainty_id": "test",
                 "mission_file": str(MISSION_PATH),
                 "vehicle_file": str(no_energy_vehicle),
                 "samples": 5,
                 "seed": 1,
                 "parameters": {
-                    "cruise_power_w": {"kind": "normal", "mean": 450.0, "std": 10.0}
+                    "cruise_power_w": {
+                        "kind": "uniform",
+                        "low": 440.0,
+                        "high": 460.0,
+                    }
                 },
             }
         ),

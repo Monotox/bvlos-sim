@@ -12,11 +12,11 @@
     "inputs": {
       "mission": {
         "format": "yaml",
-        "sha256": "7bab3b2b9b996564f04f80c9cbb92051e2e187f2d4198b355e0939e9eec4473c"
+        "sha256": "f51ebfee7ac0a53d5f1f010d15fbc838d171388865d762f3732fdb113963b445"
       },
       "stochastic": {
         "format": "yaml",
-        "sha256": "cef9899e0183085ea5b618ae6f807d4cab4b7c981246bf96e2282e8c95eb0604"
+        "sha256": "37bf8e2cf34e5a42b0b0676dbb4c2aa1d6b035c1310a21168d9ad2379920420a"
       },
       "vehicle": {
         "format": "yaml",
@@ -25,6 +25,7 @@
     }
   },
   "result": {
+    "analysis_scope": "diagnostic_open_loop_parameter_sweep",
     "baseline": {
       "energy": {
         "battery_capacity_wh": 900.0,
@@ -41,11 +42,11 @@
             "time_s": 26.66666667
           },
           {
-            "energy_wh": 1.66666667,
+            "energy_wh": 5.55555556,
             "leg_index": 1,
             "phase": "transit",
-            "power_source": "vehicle.energy.cruise_power_w",
-            "power_w": 450.0,
+            "power_source": "vehicle.energy.climb_power_w",
+            "power_w": 1500.0,
             "route_item_id": "wp1",
             "route_item_index": 1,
             "time_s": 13.33333333
@@ -81,8 +82,8 @@
             "time_s": 60.0
           }
         ],
-        "reserve_at_landing_percent": 95.38829865,
-        "reserve_at_landing_wh": 858.49468783,
+        "reserve_at_landing_percent": 94.95619988,
+        "reserve_at_landing_wh": 854.60579894,
         "reserve_threshold_percent": 25.0,
         "reserve_threshold_wh": 225.0,
         "rth_reserve_timeline": [
@@ -90,59 +91,59 @@
             "energy_remaining_before_rth_wh": 888.88888889,
             "is_feasible": true,
             "leg_index": 0,
-            "reserve_after_rth_wh": 888.88888889,
-            "reserve_margin_wh": 663.88888889,
+            "reserve_after_rth_wh": 883.88888889,
+            "reserve_margin_wh": 658.88888889,
             "route_item_id": "takeoff",
             "route_item_index": 0,
             "rth_distance_m": 0.0,
-            "rth_energy_wh": 0.0
+            "rth_energy_wh": 5.0
           },
           {
-            "energy_remaining_before_rth_wh": 887.22222222,
+            "energy_remaining_before_rth_wh": 883.33333333,
             "is_feasible": true,
             "leg_index": 1,
-            "reserve_after_rth_wh": 885.99467139,
-            "reserve_margin_wh": 660.99467139,
+            "reserve_after_rth_wh": 872.38826637,
+            "reserve_margin_wh": 647.38826637,
             "route_item_id": "wp1",
             "route_item_index": 1,
-            "rth_distance_m": 176.76731937,
-            "rth_energy_wh": 1.22755083
+            "rth_distance_m": 496.08964332,
+            "rth_energy_wh": 10.94506697
           },
           {
-            "energy_remaining_before_rth_wh": 885.99468783,
+            "energy_remaining_before_rth_wh": 882.10579894,
             "is_feasible": true,
             "leg_index": 2,
-            "reserve_after_rth_wh": 883.5396026,
-            "reserve_margin_wh": 658.5396026,
+            "reserve_after_rth_wh": 870.1581675,
+            "reserve_margin_wh": 645.1581675,
             "route_item_id": "loiter",
             "route_item_index": 2,
-            "rth_distance_m": 353.53227242,
-            "rth_energy_wh": 2.45508523
+            "rth_distance_m": 640.45892746,
+            "rth_energy_wh": 11.94763144
           },
           {
-            "energy_remaining_before_rth_wh": 865.99468783,
+            "energy_remaining_before_rth_wh": 862.10579894,
             "is_feasible": true,
             "leg_index": 3,
-            "reserve_after_rth_wh": 863.5396026,
-            "reserve_margin_wh": 638.5396026,
+            "reserve_after_rth_wh": 852.15071371,
+            "reserve_margin_wh": 627.15071371,
             "route_item_id": "loiter",
             "route_item_index": 2,
             "rth_distance_m": 353.53227242,
-            "rth_energy_wh": 2.45508523
+            "rth_energy_wh": 9.95508523
           },
           {
-            "energy_remaining_before_rth_wh": 858.49468783,
+            "energy_remaining_before_rth_wh": 854.60579894,
             "is_feasible": true,
             "leg_index": 4,
-            "reserve_after_rth_wh": 858.49468783,
-            "reserve_margin_wh": 633.49468783,
+            "reserve_after_rth_wh": 854.60579894,
+            "reserve_margin_wh": 629.60579894,
             "route_item_id": "rtl",
             "route_item_index": 3,
             "rth_distance_m": 0.0,
             "rth_energy_wh": 0.0
           }
         ],
-        "total_energy_wh": 41.50531217,
+        "total_energy_wh": 45.39420106,
         "usable_energy_wh": 675.0
       },
       "failure": null,
@@ -308,6 +309,7 @@
         "capabilities_source": "explicit",
         "estimator_version": "v1",
         "options_source": "library_defaults",
+        "require_rth_reserve": true,
         "wind_provider_id": "constant"
       },
       "resource": null,
@@ -329,604 +331,644 @@
       ]
     },
     "cross_track_timeline": [],
+    "distributions_conditioned_on_modeled_pass": true,
     "dt_s": 5.0,
     "estimation_error_timeline": [],
     "failed_sample_count": 0,
-    "feasibility_rate": 1.0,
+    "infeasible_sample_count": 0,
+    "modeled_constraint_pass_rate": 1.0,
+    "operational_feasibility_assessed": false,
     "propagation_id": "golden-stochastic",
-    "reserve_at_landing_wh": {
+    "requested_sample_count": 5,
+    "reserve_at_mission_end_wh": {
       "count": 5,
-      "max": 867.25674413,
-      "mean": 850.53662187,
-      "min": 837.3250882,
-      "p5": 832.26260413,
-      "p50": 847.16487782,
-      "p95": 874.87103141,
-      "std": 11.5689754
+      "max": 868.77008598,
+      "mean": 851.6882765,
+      "min": 830.82353363,
+      "p5": 833.10417129,
+      "p50": 850.87845628,
+      "p95": 868.16458571,
+      "std": 15.92816775
     },
     "sample_count": 5,
     "seed": 1,
     "spatial_infeasible_count": 0,
     "timeline": [
       {
+        "conditional_reserve_violation_rate": 0.0,
+        "contributing_sample_count": 5,
         "elapsed_time_s": 0.0,
         "energy_remaining_wh": {
           "count": 5,
-          "max": 908.06995768,
-          "mean": 891.83385249,
-          "min": 878.44755832,
-          "p5": 872.95754406,
-          "p50": 888.53184524,
-          "p95": 915.23830229,
-          "std": 11.4059642
+          "max": 914.43616756,
+          "mean": 897.2868946,
+          "min": 876.52949915,
+          "p5": 878.77428958,
+          "p50": 896.6383534,
+          "p95": 913.76433437,
+          "std": 15.86222894
         },
-        "lat_mean": 52.0,
-        "lon_mean": 4.0,
-        "p_reserve_violation": 0.0
+        "route_position_centroid_lat_deg": 52.0,
+        "route_position_centroid_lon_deg": 4.0
       },
       {
+        "conditional_reserve_violation_rate": 0.0,
+        "contributing_sample_count": 5,
         "elapsed_time_s": 5.0,
         "energy_remaining_wh": {
           "count": 5,
-          "max": 905.98662435,
-          "mean": 889.75051916,
-          "min": 876.36422499,
-          "p5": 870.87421073,
-          "p50": 886.4485119,
-          "p95": 913.15496896,
-          "std": 11.4059642
+          "max": 912.35283422,
+          "mean": 895.20356127,
+          "min": 874.44616582,
+          "p5": 876.69095625,
+          "p50": 894.55502006,
+          "p95": 911.68100104,
+          "std": 15.86222894
         },
-        "lat_mean": 52.0,
-        "lon_mean": 4.0,
-        "p_reserve_violation": 0.0
+        "route_position_centroid_lat_deg": 52.0,
+        "route_position_centroid_lon_deg": 4.0
       },
       {
+        "conditional_reserve_violation_rate": 0.0,
+        "contributing_sample_count": 5,
         "elapsed_time_s": 10.0,
         "energy_remaining_wh": {
           "count": 5,
-          "max": 903.90329101,
-          "mean": 887.66718583,
-          "min": 874.28089166,
-          "p5": 868.79087739,
-          "p50": 884.36517857,
-          "p95": 911.07163562,
-          "std": 11.4059642
+          "max": 910.26950089,
+          "mean": 893.12022793,
+          "min": 872.36283249,
+          "p5": 874.60762291,
+          "p50": 892.47168673,
+          "p95": 909.5976677,
+          "std": 15.86222894
         },
-        "lat_mean": 52.0,
-        "lon_mean": 4.0,
-        "p_reserve_violation": 0.0
+        "route_position_centroid_lat_deg": 52.0,
+        "route_position_centroid_lon_deg": 4.0
       },
       {
+        "conditional_reserve_violation_rate": 0.0,
+        "contributing_sample_count": 5,
         "elapsed_time_s": 15.0,
         "energy_remaining_wh": {
           "count": 5,
-          "max": 901.81995768,
-          "mean": 885.58385249,
-          "min": 872.19755832,
-          "p5": 866.70754406,
-          "p50": 882.28184524,
-          "p95": 908.98830229,
-          "std": 11.4059642
+          "max": 908.18616756,
+          "mean": 891.0368946,
+          "min": 870.27949915,
+          "p5": 872.52428958,
+          "p50": 890.3883534,
+          "p95": 907.51433437,
+          "std": 15.86222894
         },
-        "lat_mean": 52.0,
-        "lon_mean": 4.0,
-        "p_reserve_violation": 0.0
+        "route_position_centroid_lat_deg": 52.0,
+        "route_position_centroid_lon_deg": 4.0
       },
       {
+        "conditional_reserve_violation_rate": 0.0,
+        "contributing_sample_count": 5,
         "elapsed_time_s": 20.0,
         "energy_remaining_wh": {
           "count": 5,
-          "max": 899.73662435,
-          "mean": 883.50051916,
-          "min": 870.11422499,
-          "p5": 864.62421073,
-          "p50": 880.1985119,
-          "p95": 906.90496896,
-          "std": 11.4059642
+          "max": 906.10283422,
+          "mean": 888.95356127,
+          "min": 868.19616582,
+          "p5": 870.44095625,
+          "p50": 888.30502006,
+          "p95": 905.43100104,
+          "std": 15.86222894
         },
-        "lat_mean": 52.0,
-        "lon_mean": 4.0,
-        "p_reserve_violation": 0.0
+        "route_position_centroid_lat_deg": 52.0,
+        "route_position_centroid_lon_deg": 4.0
       },
       {
+        "conditional_reserve_violation_rate": 0.0,
+        "contributing_sample_count": 5,
         "elapsed_time_s": 25.0,
         "energy_remaining_wh": {
           "count": 5,
-          "max": 897.65329101,
-          "mean": 881.41718583,
-          "min": 868.03089166,
-          "p5": 862.54087739,
-          "p50": 878.11517857,
-          "p95": 904.82163562,
-          "std": 11.4059642
+          "max": 904.01950089,
+          "mean": 886.87022793,
+          "min": 866.11283249,
+          "p5": 868.35762291,
+          "p50": 886.22168673,
+          "p95": 903.3476677,
+          "std": 15.86222894
         },
-        "lat_mean": 52.0,
-        "lon_mean": 4.0,
-        "p_reserve_violation": 0.0
+        "route_position_centroid_lat_deg": 52.0,
+        "route_position_centroid_lon_deg": 4.0
       },
       {
+        "conditional_reserve_violation_rate": 0.0,
+        "contributing_sample_count": 5,
         "elapsed_time_s": 30.0,
         "energy_remaining_wh": {
           "count": 5,
-          "max": 896.57006562,
-          "mean": 880.31241604,
-          "min": 866.93870838,
-          "p5": 861.46902745,
-          "p50": 877.00283902,
-          "p95": 903.76056132,
-          "std": 11.41116922
+          "max": 901.93616756,
+          "mean": 884.7868946,
+          "min": 864.02949915,
+          "p5": 866.27428958,
+          "p50": 884.1383534,
+          "p95": 901.26433437,
+          "std": 15.86222894
         },
-        "lat_mean": 52.00025,
-        "lon_mean": 4.0005,
-        "p_reserve_violation": 0.0
+        "route_position_centroid_lat_deg": 52.00025,
+        "route_position_centroid_lon_deg": 4.00049999
       },
       {
+        "conditional_reserve_violation_rate": 0.0,
+        "contributing_sample_count": 5,
         "elapsed_time_s": 35.0,
         "energy_remaining_wh": {
           "count": 5,
-          "max": 895.98689421,
-          "mean": 879.69692804,
-          "min": 866.34210014,
-          "p5": 860.90291921,
-          "p50": 876.37599636,
-          "p95": 903.21061654,
-          "std": 11.41901552
+          "max": 899.85283422,
+          "mean": 882.70356127,
+          "min": 861.94616582,
+          "p5": 864.19095625,
+          "p50": 882.05502006,
+          "p95": 899.18100104,
+          "std": 15.86222894
         },
-        "lat_mean": 52.000625,
-        "lon_mean": 4.00125,
-        "p_reserve_violation": 0.0
+        "route_position_centroid_lat_deg": 52.000625,
+        "route_position_centroid_lon_deg": 4.00124999
       },
       {
+        "conditional_reserve_violation_rate": 0.0,
+        "contributing_sample_count": 5,
         "elapsed_time_s": 40.0,
         "energy_remaining_wh": {
           "count": 5,
-          "max": 895.40372279,
-          "mean": 879.08144003,
-          "min": 865.74549189,
-          "p5": 860.33681096,
-          "p50": 875.74915369,
-          "p95": 902.66067175,
-          "std": 11.42690826
+          "max": 897.76950089,
+          "mean": 880.62022793,
+          "min": 859.86283249,
+          "p5": 862.10762291,
+          "p50": 879.97168673,
+          "p95": 897.0976677,
+          "std": 15.86222894
         },
-        "lat_mean": 52.001,
-        "lon_mean": 4.002,
-        "p_reserve_violation": 0.0
+        "route_position_centroid_lat_deg": 52.001,
+        "route_position_centroid_lon_deg": 4.002
       },
       {
+        "conditional_reserve_violation_rate": 0.0,
+        "contributing_sample_count": 5,
         "elapsed_time_s": 45.0,
         "energy_remaining_wh": {
           "count": 5,
-          "max": 894.82055137,
-          "mean": 878.46595202,
-          "min": 865.14888365,
-          "p5": 859.77070272,
-          "p50": 875.12231103,
-          "p95": 902.11072697,
-          "std": 11.43484734
+          "max": 897.13186814,
+          "mean": 879.97692881,
+          "min": 859.2043802,
+          "p5": 861.45146484,
+          "p50": 879.3187063,
+          "p95": 896.46347172,
+          "std": 15.87433876
         },
-        "lat_mean": 52.00150915,
-        "lon_mean": 4.0030183,
-        "p_reserve_violation": 0.0
+        "route_position_centroid_lat_deg": 52.00153376,
+        "route_position_centroid_lon_deg": 4.0030675
       },
       {
+        "conditional_reserve_violation_rate": 0.0,
+        "contributing_sample_count": 5,
         "elapsed_time_s": 50.0,
         "energy_remaining_wh": {
           "count": 5,
-          "max": 894.20501253,
-          "mean": 877.70886408,
-          "min": 864.5522754,
-          "p5": 859.25795903,
-          "p50": 874.17776739,
-          "p95": 901.70294489,
-          "std": 11.42843233
+          "max": 896.49423539,
+          "mean": 879.19518575,
+          "min": 858.27179442,
+          "p5": 860.51369037,
+          "p50": 878.59044149,
+          "p95": 895.82302497,
+          "std": 16.01700968
         },
-        "lat_mean": 52.002,
-        "lon_mean": 4.004,
-        "p_reserve_violation": 0.0
+        "route_position_centroid_lat_deg": 52.00198923,
+        "route_position_centroid_lon_deg": 4.00397847
       },
       {
+        "conditional_reserve_violation_rate": 0.0,
+        "contributing_sample_count": 5,
         "elapsed_time_s": 55.0,
         "energy_remaining_wh": {
           "count": 5,
-          "max": 892.53834586,
-          "mean": 876.06654988,
-          "min": 863.00737104,
-          "p5": 857.79828828,
-          "p50": 872.51110072,
-          "p95": 900.03627822,
-          "std": 11.3934649
+          "max": 894.94466285,
+          "mean": 877.55193791,
+          "min": 856.60512775,
+          "p5": 858.84702371,
+          "p50": 876.92377482,
+          "p95": 894.25003359,
+          "std": 16.04868062
         },
-        "lat_mean": 52.002,
-        "lon_mean": 4.004,
-        "p_reserve_violation": 0.0
+        "route_position_centroid_lat_deg": 52.002,
+        "route_position_centroid_lon_deg": 4.004
       },
       {
+        "conditional_reserve_violation_rate": 0.0,
+        "contributing_sample_count": 5,
         "elapsed_time_s": 60.0,
         "energy_remaining_wh": {
           "count": 5,
-          "max": 890.8716792,
-          "mean": 874.39988321,
-          "min": 861.34070438,
-          "p5": 856.13162162,
-          "p50": 870.84443405,
-          "p95": 898.36961156,
-          "std": 11.3934649
+          "max": 893.27799618,
+          "mean": 875.88527124,
+          "min": 854.93846108,
+          "p5": 857.18035704,
+          "p50": 875.25710816,
+          "p95": 892.58336693,
+          "std": 16.04868062
         },
-        "lat_mean": 52.002,
-        "lon_mean": 4.004,
-        "p_reserve_violation": 0.0
+        "route_position_centroid_lat_deg": 52.002,
+        "route_position_centroid_lon_deg": 4.004
       },
       {
+        "conditional_reserve_violation_rate": 0.0,
+        "contributing_sample_count": 5,
         "elapsed_time_s": 65.0,
         "energy_remaining_wh": {
           "count": 5,
-          "max": 889.20501253,
-          "mean": 872.73321655,
-          "min": 859.67403771,
-          "p5": 854.46495495,
-          "p50": 869.17776739,
-          "p95": 896.70294489,
-          "std": 11.3934649
+          "max": 891.61132951,
+          "mean": 874.21860457,
+          "min": 853.27179442,
+          "p5": 855.51369037,
+          "p50": 873.59044149,
+          "p95": 890.91670026,
+          "std": 16.04868062
         },
-        "lat_mean": 52.002,
-        "lon_mean": 4.004,
-        "p_reserve_violation": 0.0
+        "route_position_centroid_lat_deg": 52.002,
+        "route_position_centroid_lon_deg": 4.004
       },
       {
+        "conditional_reserve_violation_rate": 0.0,
+        "contributing_sample_count": 5,
         "elapsed_time_s": 70.0,
         "energy_remaining_wh": {
           "count": 5,
-          "max": 887.53834586,
-          "mean": 871.06654988,
-          "min": 858.00737104,
-          "p5": 852.79828828,
-          "p50": 867.51110072,
-          "p95": 895.03627822,
-          "std": 11.3934649
+          "max": 889.94466285,
+          "mean": 872.55193791,
+          "min": 851.60512775,
+          "p5": 853.84702371,
+          "p50": 871.92377482,
+          "p95": 889.25003359,
+          "std": 16.04868062
         },
-        "lat_mean": 52.002,
-        "lon_mean": 4.004,
-        "p_reserve_violation": 0.0
+        "route_position_centroid_lat_deg": 52.002,
+        "route_position_centroid_lon_deg": 4.004
       },
       {
+        "conditional_reserve_violation_rate": 0.0,
+        "contributing_sample_count": 5,
         "elapsed_time_s": 75.0,
         "energy_remaining_wh": {
           "count": 5,
-          "max": 885.8716792,
-          "mean": 869.39988321,
-          "min": 856.34070438,
-          "p5": 851.13162162,
-          "p50": 865.84443405,
-          "p95": 893.36961156,
-          "std": 11.3934649
+          "max": 888.27799618,
+          "mean": 870.88527124,
+          "min": 849.93846108,
+          "p5": 852.18035704,
+          "p50": 870.25710816,
+          "p95": 887.58336693,
+          "std": 16.04868062
         },
-        "lat_mean": 52.002,
-        "lon_mean": 4.004,
-        "p_reserve_violation": 0.0
+        "route_position_centroid_lat_deg": 52.002,
+        "route_position_centroid_lon_deg": 4.004
       },
       {
+        "conditional_reserve_violation_rate": 0.0,
+        "contributing_sample_count": 5,
         "elapsed_time_s": 80.0,
         "energy_remaining_wh": {
           "count": 5,
-          "max": 884.20501253,
-          "mean": 867.73321655,
-          "min": 854.67403771,
-          "p5": 849.46495495,
-          "p50": 864.17776739,
-          "p95": 891.70294489,
-          "std": 11.3934649
+          "max": 886.61132951,
+          "mean": 869.21860457,
+          "min": 848.27179442,
+          "p5": 850.51369037,
+          "p50": 868.59044149,
+          "p95": 885.91670026,
+          "std": 16.04868062
         },
-        "lat_mean": 52.002,
-        "lon_mean": 4.004,
-        "p_reserve_violation": 0.0
+        "route_position_centroid_lat_deg": 52.002,
+        "route_position_centroid_lon_deg": 4.004
       },
       {
+        "conditional_reserve_violation_rate": 0.0,
+        "contributing_sample_count": 5,
         "elapsed_time_s": 85.0,
         "energy_remaining_wh": {
           "count": 5,
-          "max": 882.53834586,
-          "mean": 866.06654988,
-          "min": 853.00737104,
-          "p5": 847.79828828,
-          "p50": 862.51110072,
-          "p95": 890.03627822,
-          "std": 11.3934649
+          "max": 884.94466285,
+          "mean": 867.55193791,
+          "min": 846.60512775,
+          "p5": 848.84702371,
+          "p50": 866.92377482,
+          "p95": 884.25003359,
+          "std": 16.04868062
         },
-        "lat_mean": 52.002,
-        "lon_mean": 4.004,
-        "p_reserve_violation": 0.0
+        "route_position_centroid_lat_deg": 52.002,
+        "route_position_centroid_lon_deg": 4.004
       },
       {
+        "conditional_reserve_violation_rate": 0.0,
+        "contributing_sample_count": 5,
         "elapsed_time_s": 90.0,
         "energy_remaining_wh": {
           "count": 5,
-          "max": 880.8716792,
-          "mean": 864.39988321,
-          "min": 851.34070438,
-          "p5": 846.13162162,
-          "p50": 860.84443405,
-          "p95": 888.36961156,
-          "std": 11.3934649
+          "max": 883.27799618,
+          "mean": 865.88527124,
+          "min": 844.93846108,
+          "p5": 847.18035704,
+          "p50": 865.25710816,
+          "p95": 882.58336693,
+          "std": 16.04868062
         },
-        "lat_mean": 52.002,
-        "lon_mean": 4.004,
-        "p_reserve_violation": 0.0
+        "route_position_centroid_lat_deg": 52.002,
+        "route_position_centroid_lon_deg": 4.004
       },
       {
+        "conditional_reserve_violation_rate": 0.0,
+        "contributing_sample_count": 5,
         "elapsed_time_s": 95.0,
         "energy_remaining_wh": {
           "count": 5,
-          "max": 879.20501253,
-          "mean": 862.73321655,
-          "min": 849.67403771,
-          "p5": 844.46495495,
-          "p50": 859.17776739,
-          "p95": 886.70294489,
-          "std": 11.3934649
+          "max": 881.61132951,
+          "mean": 864.21860457,
+          "min": 843.27179442,
+          "p5": 845.51369037,
+          "p50": 863.59044149,
+          "p95": 880.91670026,
+          "std": 16.04868062
         },
-        "lat_mean": 52.002,
-        "lon_mean": 4.004,
-        "p_reserve_violation": 0.0
+        "route_position_centroid_lat_deg": 52.002,
+        "route_position_centroid_lon_deg": 4.004
       },
       {
+        "conditional_reserve_violation_rate": 0.0,
+        "contributing_sample_count": 5,
         "elapsed_time_s": 100.0,
         "energy_remaining_wh": {
           "count": 5,
-          "max": 877.53834586,
-          "mean": 861.06654988,
-          "min": 848.00737104,
-          "p5": 842.79828828,
-          "p50": 857.51110072,
-          "p95": 885.03627822,
-          "std": 11.3934649
+          "max": 879.94466285,
+          "mean": 862.55193791,
+          "min": 841.60512775,
+          "p5": 843.84702371,
+          "p50": 861.92377482,
+          "p95": 879.25003359,
+          "std": 16.04868062
         },
-        "lat_mean": 52.002,
-        "lon_mean": 4.004,
-        "p_reserve_violation": 0.0
+        "route_position_centroid_lat_deg": 52.002,
+        "route_position_centroid_lon_deg": 4.004
       },
       {
+        "conditional_reserve_violation_rate": 0.0,
+        "contributing_sample_count": 5,
         "elapsed_time_s": 105.0,
         "energy_remaining_wh": {
           "count": 5,
-          "max": 875.8716792,
-          "mean": 859.39988321,
-          "min": 846.34070438,
-          "p5": 841.13162162,
-          "p50": 855.84443405,
-          "p95": 883.36961156,
-          "std": 11.3934649
+          "max": 878.27799618,
+          "mean": 860.88527124,
+          "min": 839.93846108,
+          "p5": 842.18035704,
+          "p50": 860.25710816,
+          "p95": 877.58336693,
+          "std": 16.04868062
         },
-        "lat_mean": 52.002,
-        "lon_mean": 4.004,
-        "p_reserve_violation": 0.0
+        "route_position_centroid_lat_deg": 52.002,
+        "route_position_centroid_lon_deg": 4.004
       },
       {
+        "conditional_reserve_violation_rate": 0.0,
+        "contributing_sample_count": 5,
         "elapsed_time_s": 110.0,
         "energy_remaining_wh": {
           "count": 5,
-          "max": 874.23737996,
-          "mean": 857.87481648,
-          "min": 844.67403771,
-          "p5": 839.4115904,
-          "p50": 854.49546837,
-          "p95": 881.56078218,
-          "std": 11.40753154
+          "max": 876.61132951,
+          "mean": 859.35704851,
+          "min": 838.54592791,
+          "p5": 840.79530676,
+          "p50": 858.66572588,
+          "p95": 875.92295103,
+          "std": 15.91812947
         },
-        "lat_mean": 52.00199401,
-        "lon_mean": 4.00398802,
-        "p_reserve_violation": 0.0
+        "route_position_centroid_lat_deg": 52.00197728,
+        "route_position_centroid_lon_deg": 4.00395456
       },
       {
+        "conditional_reserve_violation_rate": 0.0,
+        "contributing_sample_count": 5,
         "elapsed_time_s": 115.0,
         "energy_remaining_wh": {
           "count": 5,
-          "max": 873.65420854,
-          "mean": 857.23497601,
-          "min": 843.95566716,
-          "p5": 838.63848623,
-          "p50": 853.86862571,
-          "p95": 881.0108374,
-          "std": 11.45086416
+          "max": 875.85660265,
+          "mean": 858.69033057,
+          "min": 837.88747562,
+          "p5": 840.13914869,
+          "p50": 858.01274545,
+          "p95": 875.19507975,
+          "std": 15.89857277
         },
-        "lat_mean": 52.00182734,
-        "lon_mean": 4.00365469,
-        "p_reserve_violation": 0.0
+        "route_position_centroid_lat_deg": 52.00181441,
+        "route_position_centroid_lon_deg": 4.0036288
       },
       {
+        "conditional_reserve_violation_rate": 0.0,
+        "contributing_sample_count": 5,
         "elapsed_time_s": 120.0,
         "energy_remaining_wh": {
           "count": 5,
-          "max": 873.07103712,
-          "mean": 856.61948801,
-          "min": 843.35905891,
-          "p5": 838.07237798,
-          "p50": 853.24178305,
-          "p95": 880.46089261,
-          "std": 11.45894169
+          "max": 875.2189699,
+          "mean": 858.04703145,
+          "min": 837.22902333,
+          "p5": 839.48299062,
+          "p50": 857.35976503,
+          "p95": 874.56088376,
+          "std": 15.91069694
         },
-        "lat_mean": 52.00166068,
-        "lon_mean": 4.00332135,
-        "p_reserve_violation": 0.0
+        "route_position_centroid_lat_deg": 52.00164775,
+        "route_position_centroid_lon_deg": 4.00329546
       },
       {
+        "conditional_reserve_violation_rate": 0.0,
+        "contributing_sample_count": 5,
         "elapsed_time_s": 125.0,
         "energy_remaining_wh": {
           "count": 5,
-          "max": 872.48786571,
-          "mean": 856.004,
-          "min": 842.76245067,
-          "p5": 837.50626974,
-          "p50": 852.61494039,
-          "p95": 879.91094783,
-          "std": 11.46706519
+          "max": 874.58133715,
+          "mean": 857.40373232,
+          "min": 836.57057104,
+          "p5": 838.82683254,
+          "p50": 856.7067846,
+          "p95": 873.92668778,
+          "std": 15.92282586
         },
-        "lat_mean": 52.00149401,
-        "lon_mean": 4.00298802,
-        "p_reserve_violation": 0.0
+        "route_position_centroid_lat_deg": 52.00148109,
+        "route_position_centroid_lon_deg": 4.00296211
       },
       {
+        "conditional_reserve_violation_rate": 0.0,
+        "contributing_sample_count": 5,
         "elapsed_time_s": 130.0,
         "energy_remaining_wh": {
           "count": 5,
-          "max": 871.90469429,
-          "mean": 855.38851199,
-          "min": 842.16584242,
-          "p5": 836.9401615,
-          "p50": 851.98809773,
-          "p95": 879.36100304,
-          "std": 11.47523454
+          "max": 873.9437044,
+          "mean": 856.7604332,
+          "min": 835.91211876,
+          "p5": 838.17067447,
+          "p50": 856.05380418,
+          "p95": 873.29249179,
+          "std": 15.93495954
         },
-        "lat_mean": 52.00132734,
-        "lon_mean": 4.00265469,
-        "p_reserve_violation": 0.0
+        "route_position_centroid_lat_deg": 52.00131442,
+        "route_position_centroid_lon_deg": 4.00262877
       },
       {
+        "conditional_reserve_violation_rate": 0.0,
+        "contributing_sample_count": 5,
         "elapsed_time_s": 135.0,
         "energy_remaining_wh": {
           "count": 5,
-          "max": 871.32152287,
-          "mean": 854.77302399,
-          "min": 841.56923417,
-          "p5": 836.37405325,
-          "p50": 851.36125506,
-          "p95": 878.81105826,
-          "std": 11.48344966
+          "max": 873.30607166,
+          "mean": 856.11713408,
+          "min": 835.25366647,
+          "p5": 837.51451639,
+          "p50": 855.40082375,
+          "p95": 872.65829581,
+          "std": 15.94709795
         },
-        "lat_mean": 52.00116068,
-        "lon_mean": 4.00232135,
-        "p_reserve_violation": 0.0
+        "route_position_centroid_lat_deg": 52.00114776,
+        "route_position_centroid_lon_deg": 4.00229544
       },
       {
+        "conditional_reserve_violation_rate": 0.0,
+        "contributing_sample_count": 5,
         "elapsed_time_s": 140.0,
         "energy_remaining_wh": {
           "count": 5,
-          "max": 870.73835146,
-          "mean": 854.15753598,
-          "min": 840.97262593,
-          "p5": 835.80794501,
-          "p50": 850.7344124,
-          "p95": 878.26111347,
-          "std": 11.49171043
+          "max": 872.66843891,
+          "mean": 855.47383496,
+          "min": 834.59521418,
+          "p5": 836.85835832,
+          "p50": 854.74784333,
+          "p95": 872.02409982,
+          "std": 15.95924109
         },
-        "lat_mean": 52.00099401,
-        "lon_mean": 4.00198802,
-        "p_reserve_violation": 0.0
+        "route_position_centroid_lat_deg": 52.00098109,
+        "route_position_centroid_lon_deg": 4.0019621
       },
       {
+        "conditional_reserve_violation_rate": 0.0,
+        "contributing_sample_count": 5,
         "elapsed_time_s": 145.0,
         "energy_remaining_wh": {
           "count": 5,
-          "max": 870.15518004,
-          "mean": 853.54204798,
-          "min": 840.37601768,
-          "p5": 835.24183676,
-          "p50": 850.10756974,
-          "p95": 877.71116868,
-          "std": 11.50001678
+          "max": 872.03080616,
+          "mean": 854.83053583,
+          "min": 833.93676189,
+          "p5": 836.20220024,
+          "p50": 854.0948629,
+          "p95": 871.38990384,
+          "std": 15.97138895
         },
-        "lat_mean": 52.00082734,
-        "lon_mean": 4.00165469,
-        "p_reserve_violation": 0.0
+        "route_position_centroid_lat_deg": 52.00081442,
+        "route_position_centroid_lon_deg": 4.00162877
       },
       {
+        "conditional_reserve_violation_rate": 0.0,
+        "contributing_sample_count": 5,
         "elapsed_time_s": 150.0,
         "energy_remaining_wh": {
           "count": 5,
-          "max": 869.57200862,
-          "mean": 852.92655997,
-          "min": 839.77940944,
-          "p5": 834.67572852,
-          "p50": 849.48072708,
-          "p95": 877.1612239,
-          "std": 11.50836858
+          "max": 871.39317341,
+          "mean": 854.18723671,
+          "min": 833.2783096,
+          "p5": 835.54604217,
+          "p50": 853.44188248,
+          "p95": 870.75570785,
+          "std": 15.98354152
         },
-        "lat_mean": 52.00066068,
-        "lon_mean": 4.00132135,
-        "p_reserve_violation": 0.0
+        "route_position_centroid_lat_deg": 52.00064776,
+        "route_position_centroid_lon_deg": 4.00129544
       },
       {
+        "conditional_reserve_violation_rate": 0.0,
+        "contributing_sample_count": 5,
         "elapsed_time_s": 155.0,
         "energy_remaining_wh": {
           "count": 5,
-          "max": 868.98883721,
-          "mean": 852.31107196,
-          "min": 839.18280119,
-          "p5": 834.10962027,
-          "p50": 848.85388442,
-          "p95": 876.61127911,
-          "std": 11.51676576
+          "max": 870.75554067,
+          "mean": 853.54393759,
+          "min": 832.61985732,
+          "p5": 834.8898841,
+          "p50": 852.78890205,
+          "p95": 870.12151187,
+          "std": 15.99569877
         },
-        "lat_mean": 52.00049401,
-        "lon_mean": 4.00098802,
-        "p_reserve_violation": 0.0
+        "route_position_centroid_lat_deg": 52.00048109,
+        "route_position_centroid_lon_deg": 4.00096212
       },
       {
+        "conditional_reserve_violation_rate": 0.0,
+        "contributing_sample_count": 5,
         "elapsed_time_s": 160.0,
         "energy_remaining_wh": {
           "count": 5,
-          "max": 868.40566579,
-          "mean": 851.69558396,
-          "min": 838.58619295,
-          "p5": 833.54351203,
-          "p50": 848.22704176,
-          "p95": 876.06133433,
-          "std": 11.5252082
+          "max": 870.11790792,
+          "mean": 852.90063847,
+          "min": 831.96140503,
+          "p5": 834.23372602,
+          "p50": 852.13592162,
+          "p95": 869.48731589,
+          "std": 16.00786072
         },
-        "lat_mean": 52.00032734,
-        "lon_mean": 4.00065469,
-        "p_reserve_violation": 0.0
+        "route_position_centroid_lat_deg": 52.00031442,
+        "route_position_centroid_lon_deg": 4.00062879
       },
       {
+        "conditional_reserve_violation_rate": 0.0,
+        "contributing_sample_count": 5,
         "elapsed_time_s": 165.0,
         "energy_remaining_wh": {
           "count": 5,
-          "max": 867.82249437,
-          "mean": 851.08009595,
-          "min": 837.9895847,
-          "p5": 832.97740378,
-          "p50": 847.6001991,
-          "p95": 875.51138954,
-          "std": 11.53369582
+          "max": 869.48027517,
+          "mean": 852.25733934,
+          "min": 831.30295274,
+          "p5": 833.57756795,
+          "p50": 851.4829412,
+          "p95": 868.8531199,
+          "std": 16.02002733
         },
-        "lat_mean": 52.00016068,
-        "lon_mean": 4.00032135,
-        "p_reserve_violation": 0.0
+        "route_position_centroid_lat_deg": 52.00014775,
+        "route_position_centroid_lon_deg": 4.00029547
       },
       {
+        "conditional_reserve_violation_rate": 0.0,
+        "contributing_sample_count": 5,
         "elapsed_time_s": 170.0,
         "energy_remaining_wh": {
           "count": 5,
-          "max": 867.25674413,
-          "mean": 850.55019952,
-          "min": 837.39297646,
-          "p5": 832.37801416,
-          "p50": 847.16487782,
-          "p95": 874.87103141,
-          "std": 11.54961729
+          "max": 868.84264242,
+          "mean": 851.70278779,
+          "min": 830.82353363,
+          "p5": 833.10417129,
+          "p50": 850.87845628,
+          "p95": 868.22263087,
+          "std": 15.94764178
         },
-        "lat_mean": 52.0,
-        "lon_mean": 4.0,
-        "p_reserve_violation": 0.0
+        "route_position_centroid_lat_deg": 52.00000379,
+        "route_position_centroid_lon_deg": 4.00000759
       },
       {
+        "conditional_reserve_violation_rate": 0.0,
+        "contributing_sample_count": 5,
         "elapsed_time_s": 170.56895169,
         "energy_remaining_wh": {
           "count": 5,
-          "max": 867.25674413,
-          "mean": 850.53662187,
-          "min": 837.3250882,
-          "p5": 832.26260413,
-          "p50": 847.16487782,
-          "p95": 874.87103141,
-          "std": 11.5689754
+          "max": 868.77008598,
+          "mean": 851.6882765,
+          "min": 830.82353363,
+          "p5": 833.10417129,
+          "p50": 850.87845628,
+          "p95": 868.16458571,
+          "std": 15.92816775
         },
-        "lat_mean": 52.0,
-        "lon_mean": 4.0,
-        "p_reserve_violation": 0.0
+        "route_position_centroid_lat_deg": 52.0,
+        "route_position_centroid_lon_deg": 4.0
       }
     ]
   },
-  "schema_version": "stochastic-envelope.v1",
-  "stochastic_schema_version": "stochastic.v1",
+  "schema_version": "stochastic-envelope.v2",
+  "stochastic_schema_version": "stochastic.v2",
   "tool_version": "0.0.0-test"
 }

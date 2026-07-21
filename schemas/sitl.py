@@ -32,6 +32,8 @@ class SitlArtifactRole(StrEnum):
     VEHICLE = "vehicle"
     SCENARIO = "scenario"
     TERRAIN = "terrain"
+    POPULATION = "population"
+    OBSTACLES = "obstacles"
     WIND_GRID = "wind_grid"
     GEOFENCES = "geofences"
     LANDING_ZONES = "landing_zones"

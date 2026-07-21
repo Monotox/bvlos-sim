@@ -9,3 +9,8 @@ build/
 .pytest_cache/
 .ruff_cache/
 .idea/
+.codex/
+graphify-out/
+AGENTS.md
+RTK.md
+docs/GRAPHIFY.md

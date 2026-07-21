@@ -6,14 +6,18 @@ from pydantic import ValidationError
 
 from adapters.geofence_geojson import GeofenceLoadError, load_geofences
 from estimator import (
+    EstimationOptions,
     EstimateStatus,
     FailureCode,
     FailureKind,
     GeofenceKind,
     GeofenceZone,
+    LegPhase,
+    estimate_mission_distance_time,
     try_estimate_mission_distance_time,
 )
 from tests.helpers import make_mission, make_vehicle
+from schemas.mission import MissionAction, RouteItem
 
 
 def _zone(
@@ -61,6 +65,60 @@ def _mission_single_waypoint():
     mission = make_mission()
     mission.route = [mission.route[1]]
     return mission
+
+
+def test_forbidden_zone_intersecting_materialized_turn_arc_is_detected() -> None:
+    mission = make_mission()
+    mission.constraints.require_rth_reserve = False
+    mission.route = [
+        RouteItem(
+            id="north",
+            action=MissionAction.WAYPOINT,
+            lat=52.01,
+            lon=4.0,
+            altitude_m=120.0,
+        ),
+        RouteItem(
+            id="east",
+            action=MissionAction.WAYPOINT,
+            lat=52.01,
+            lon=4.02,
+            altitude_m=120.0,
+        ),
+    ]
+    options = EstimationOptions(fidelity="v2")
+    baseline = estimate_mission_distance_time(
+        mission,
+        make_vehicle(),
+        options=options,
+    )
+    arc = next(leg for leg in baseline.legs if leg.phase == LegPhase.TURN_ARC)
+    assert arc.path_coordinates is not None
+    arc_lon, arc_lat = arc.path_coordinates[len(arc.path_coordinates) // 2]
+    delta = 0.000002
+    zone = _zone(
+        zone_id="arc_only",
+        kind=GeofenceKind.FORBIDDEN,
+        exterior=[
+            (arc_lat - delta, arc_lon - delta),
+            (arc_lat + delta, arc_lon - delta),
+            (arc_lat + delta, arc_lon + delta),
+            (arc_lat - delta, arc_lon + delta),
+            (arc_lat - delta, arc_lon - delta),
+        ],
+    )
+
+    result = try_estimate_mission_distance_time(
+        mission,
+        make_vehicle(),
+        options=options,
+        geofences=[zone],
+    )
+
+    assert result.status == EstimateStatus.INFEASIBLE
+    assert result.failure is not None
+    assert result.failure.code == FailureCode.ROUTE_ENTERS_FORBIDDEN_ZONE
+    assert result.failure.leg_index == arc.leg_index
 
 
 def test_route_entering_forbidden_zone_returns_complete_infeasible_result() -> None:

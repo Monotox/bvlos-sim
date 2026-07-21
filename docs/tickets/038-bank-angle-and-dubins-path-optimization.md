@@ -37,7 +37,7 @@ There are three related path-planning limitations in the current codebase:
   as out of scope if needed.
 - Add unit tests for Dubins path geometry and regression tests against existing
   fidelity v2 golden fixtures.
-- Update [ESTIMATOR_V1_FIELD_SEMANTICS.md](../ESTIMATOR_V1_FIELD_SEMANTICS.md)
+- Update [ESTIMATOR_V1_FIELD_SEMANTICS.md](../missions.md)
   Divert Routing Semantics and Fidelity Semantics sections when the bank-angle
   model becomes operative.
 - Update golden fixtures if public result contracts change.

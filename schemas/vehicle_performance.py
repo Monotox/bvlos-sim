@@ -2,20 +2,22 @@
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from schemas.numeric import FiniteFloat
+
 
 class PerformanceProfile(BaseModel):
     """Flight performance values used by route and feasibility models."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
-    cruise_speed_mps: float = Field(
+    cruise_speed_mps: FiniteFloat = Field(
         gt=0,
         description=(
             "Nominal forward cruise speed. Source: QGC cruiseSpeed, autopilot "
             "parameters, or manufacturer/spec sheet."
         ),
     )
-    hover_speed_mps: float | None = Field(
+    hover_speed_mps: FiniteFloat | None = Field(
         default=None,
         gt=0,
         description=(
@@ -23,19 +25,22 @@ class PerformanceProfile(BaseModel):
             "manufacturer/spec sheet. Required for multirotor and VTOL profiles."
         ),
     )
-    max_speed_mps: float = Field(
+    max_speed_mps: FiniteFloat = Field(
         gt=0,
-        description="Maximum commanded/allowed speed. Source: manufacturer/spec sheet.",
+        description=(
+            "Designer-defined maximum possible commanded airspeed, not a mission "
+            "speed limit. Source: designer/manufacturer specification."
+        ),
     )
-    climb_rate_mps: float = Field(
+    climb_rate_mps: FiniteFloat = Field(
         gt=0,
         description="Nominal climb rate used for time and energy estimates.",
     )
-    descent_rate_mps: float = Field(
+    descent_rate_mps: FiniteFloat = Field(
         gt=0,
         description="Nominal descent rate used for time and energy estimates.",
     )
-    turn_radius_m: float | None = Field(
+    turn_radius_m: FiniteFloat | None = Field(
         default=None,
         gt=0,
         description=(
@@ -43,7 +48,7 @@ class PerformanceProfile(BaseModel):
             "for fixed-wing and VTOL profiles."
         ),
     )
-    max_wind_mps: float | None = Field(
+    max_wind_mps: FiniteFloat | None = Field(
         default=None,
         ge=0,
         description=(
@@ -52,7 +57,7 @@ class PerformanceProfile(BaseModel):
             "exceeds this limit. The estimator does not abort the route."
         ),
     )
-    max_crab_angle_deg: float | None = Field(
+    max_crab_angle_deg: FiniteFloat | None = Field(
         default=None,
         gt=0,
         lt=90,
@@ -61,7 +66,7 @@ class PerformanceProfile(BaseModel):
             "its own numeric validation and defaults when omitted."
         ),
     )
-    max_station_keep_wind_mps: float | None = Field(
+    max_station_keep_wind_mps: FiniteFloat | None = Field(
         default=None,
         ge=0,
         description=(

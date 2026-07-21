@@ -45,6 +45,7 @@ def make_vehicle_payload() -> dict:
 
 def make_mission_payload() -> dict:
     return {
+        "schema_version": "mission.v7",
         "mission_id": "pipeline_demo_001",
         "vehicle_profile": "quadplane_v1",
         "planned_home": {

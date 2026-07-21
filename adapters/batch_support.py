@@ -8,6 +8,7 @@ from rich import box
 from rich.console import Console
 from rich.table import Table
 
+from adapters.checklist_markdown import checklist_is_go
 from adapters.cli_support import MissionAssetBundle, _populate_mission_assets
 from adapters.envelope import EstimatorResultEnvelope, build_estimator_envelope
 from adapters.assets.geofence_geojson import GeofenceLoadError
@@ -24,6 +25,7 @@ from estimator import (
     Obstacle,
     try_estimate_mission_distance_time,
 )
+from estimator.environment.terrain import TerrainProvider
 from schemas.batch import BatchManifest, BatchRun
 
 _BATCH_RUN_INPUT_ERRORS = (
@@ -53,6 +55,7 @@ class BatchRunResult:
     geofences: list[GeofenceZone] | None = None
     landing_zones: list[LandingZone] | None = None
     obstacles: tuple[Obstacle, ...] | None = None
+    terrain_provider: TerrainProvider | None = None
     warning_count: int = 0
     error_message: str | None = None
 
@@ -73,11 +76,21 @@ def _reserve_margin_percent(estimate: MissionEstimate) -> float | None:
     return (energy.reserve_at_landing_wh / energy.reserve_threshold_wh - 1) * 100
 
 
-def _status_label(estimate: MissionEstimate) -> str:
+def _status_label(
+    estimate: MissionEstimate,
+    *,
+    engineering_only: bool,
+) -> str:
+    if (
+        estimate.status == EstimateStatus.SUCCESS
+        and not engineering_only
+        and not checklist_is_go(estimate)
+    ):
+        return "INFEASIBLE"
     return _STATUS_LABELS.get(estimate.status, "ERROR")
 
 
-def _run_estimate(run: BatchRun) -> BatchRunResult:
+def _run_estimate(run: BatchRun, *, engineering_only: bool) -> BatchRunResult:
     mission_assets = MissionAssetBundle()
     mission_model, mission_document = load_mission(run.mission)
     vehicle_model, vehicle_document = load_vehicle(run.vehicle)
@@ -105,7 +118,7 @@ def _run_estimate(run: BatchRun) -> BatchRunResult:
     )
     return BatchRunResult(
         id=run.id,
-        status=_status_label(result),
+        status=_status_label(result, engineering_only=engineering_only),
         reserve_margin_percent=_reserve_margin_percent(result),
         flight_time_s=result.total_time_s,
         envelope=envelope,
@@ -114,6 +127,7 @@ def _run_estimate(run: BatchRun) -> BatchRunResult:
         obstacles=mission_assets.obstacle_provider.obstacles()
         if mission_assets.obstacle_provider is not None
         else None,
+        terrain_provider=mission_assets.terrain_provider,
         warning_count=len(result.warnings),
     )
 
@@ -122,13 +136,14 @@ def run_batch_manifest(
     manifest: BatchManifest,
     *,
     progress: Callable[[int, int], None] | None = None,
+    engineering_only: bool = False,
 ) -> list[BatchRunResult]:
     """Run all estimates in a validated batch manifest."""
     results: list[BatchRunResult] = []
     total = len(manifest.runs)
     for index, run in enumerate(manifest.runs):
         try:
-            results.append(_run_estimate(run))
+            results.append(_run_estimate(run, engineering_only=engineering_only))
         except _BATCH_RUN_INPUT_ERRORS as exc:
             results.append(
                 BatchRunResult(

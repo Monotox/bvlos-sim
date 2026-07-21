@@ -1,4 +1,4 @@
-"""YAML loading adapter for uncertainty plan files (uncertainty.v1)."""
+"""YAML loading adapter for diagnostic uncertainty plans (uncertainty.v2)."""
 
 from pathlib import Path
 

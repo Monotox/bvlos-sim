@@ -51,6 +51,7 @@ def _landing_zone() -> LandingZone:
     return LandingZone.model_validate(
         {
             "id": "lz-near",
+            "altitude_amsl_m": 12.0,
             "geometry": {"points": [{"lat": 52.001, "lon": 4.002}]},
         }
     )
@@ -60,9 +61,7 @@ def _outcome_actions(plan: ScenarioPlan) -> dict[str, str | None]:
     result = run_scenario(plan, make_mission(), make_vehicle())
     return {
         outcome.event_id: (
-            None
-            if outcome.policy_outcome is None
-            else outcome.policy_outcome.action
+            None if outcome.policy_outcome is None else outcome.policy_outcome.action
         )
         for outcome in result.event_outcomes
     }
@@ -111,7 +110,9 @@ def test_two_events_different_policies() -> None:
         make_vehicle(),
         landing_zones=[_landing_zone()],
     )
-    outcomes = {outcome.event_id: outcome.policy_outcome for outcome in result.event_outcomes}
+    outcomes = {
+        outcome.event_id: outcome.policy_outcome for outcome in result.event_outcomes
+    }
 
     assert outcomes["early-loss"] is not None
     assert outcomes["early-loss"].action == "rtl"
@@ -195,9 +196,13 @@ def test_example_scenario_runs_via_cli() -> None:
         app,
         [
             "scenario",
-            str(REPO_ROOT / "examples/scenarios/pipeline_demo_001_waypoint_policy_scenario.yaml"),
+            str(
+                REPO_ROOT
+                / "examples/scenarios/pipeline_demo_001_waypoint_policy_scenario.yaml"
+            ),
             "--format",
             "summary",
+            "--engineering-only",
         ],
     )
 

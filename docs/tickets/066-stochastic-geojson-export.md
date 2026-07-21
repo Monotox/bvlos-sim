@@ -1,5 +1,9 @@
 # Ticket 066: Stochastic Propagation GeoJSON Export
 
+> Contract note: the v1 `feasibility_rate` and `p_reserve_violation` names below
+> are obsolete. Any implementation must target `stochastic-envelope.v2`, use
+> conditional timeline semantics, and remain visibly diagnostic.
+
 ## Goal
 
 Add `--format geojson` and `--format kml` output modes to the `propagate`

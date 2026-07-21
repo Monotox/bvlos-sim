@@ -72,7 +72,11 @@ from estimator.core.scenario import (
     ScenarioStatus,
     TimelinePoint,
 )
-from estimator.environment.population import GridPopulationProvider, PopulationProvider
+from estimator.environment.population import (
+    GridPopulationProvider,
+    PopulationEvidence,
+    PopulationProvider,
+)
 from estimator.environment.obstacle import ListObstacleProvider, ObstacleProvider
 from estimator.environment.terrain import (
     ConstantElevationProvider,
@@ -148,6 +152,7 @@ __all__ = [
     "ObstaclePolygon",
     "ObstacleProvider",
     "PopulationProvider",
+    "PopulationEvidence",
     "ResourceEstimate",
     "ResourceSystemEstimate",
     "RthReserveTimelinePoint",

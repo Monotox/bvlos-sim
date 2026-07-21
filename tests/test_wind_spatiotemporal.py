@@ -13,6 +13,16 @@ from tests.helpers import make_mission, make_vehicle
 # --- SpatiotemporalWindProvider ---
 
 
+def _uniform_values(
+    east: float = 2.0, north: float = 0.0
+) -> list[list[list[list[list[float]]]]]:
+    cell = [east, north]
+    lat_row = [cell, cell]
+    alt_slice = [lat_row, lat_row]
+    time_snapshot = [alt_slice, alt_slice]
+    return [time_snapshot, time_snapshot]
+
+
 def _uniform_provider(
     east: float = 2.0, north: float = 0.0
 ) -> SpatiotemporalWindProvider:
@@ -20,18 +30,64 @@ def _uniform_provider(
 
     Structure: values[t_idx][alt_idx][lat_idx][lon_idx] = [east, north]
     """
-    cell = [east, north]
-    lat_row = [cell, cell]  # 2 lon entries
-    alt_slice = [lat_row, lat_row]  # 2 lat rows
-    t_snap = [alt_slice, alt_slice]  # 2 alt bands
-    v = [t_snap, t_snap]  # 2 time snapshots
     return SpatiotemporalWindProvider(
         time_s=[0.0, 600.0],
         altitude_m=[0.0, 200.0],
         lat=[52.0, 52.01],
         lon=[4.0, 4.01],
-        values=v,
+        values=_uniform_values(east, north),
     )
+
+
+def _provider_kwargs() -> dict[str, object]:
+    return {
+        "time_s": [0.0, 600.0],
+        "altitude_m": [0.0, 200.0],
+        "lat": [52.0, 52.01],
+        "lon": [4.0, 4.01],
+        "values": _uniform_values(),
+    }
+
+
+@pytest.mark.parametrize(
+    ("axis", "values"),
+    [
+        ("time_s", [0.0]),
+        ("altitude_m", [200.0, 0.0]),
+        ("lat", [52.0, float("nan")]),
+        ("lon", [4.0, float("inf")]),
+        ("time_s", [False, 600.0]),
+    ],
+)
+def test_constructor_rejects_invalid_axes(axis: str, values: list[float]) -> None:
+    kwargs = _provider_kwargs()
+    kwargs[axis] = values
+    with pytest.raises(ValueError, match="Wind grid axis"):
+        SpatiotemporalWindProvider(**kwargs)  # type: ignore[arg-type]
+
+
+def test_constructor_rejects_out_of_range_coordinates() -> None:
+    kwargs = _provider_kwargs()
+    kwargs["lat"] = [52.0, 91.0]
+    with pytest.raises(ValueError, match="axis 'lat'"):
+        SpatiotemporalWindProvider(**kwargs)  # type: ignore[arg-type]
+
+
+def test_constructor_rejects_mismatched_grid_shape() -> None:
+    kwargs = _provider_kwargs()
+    kwargs["values"] = []
+    with pytest.raises(ValueError, match="must contain 2 entries"):
+        SpatiotemporalWindProvider(**kwargs)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("component", [float("nan"), float("inf"), True])
+def test_constructor_rejects_invalid_wind_components(component: object) -> None:
+    kwargs = _provider_kwargs()
+    values = _uniform_values()
+    values[0][0][0][0][0] = component  # type: ignore[assignment]
+    kwargs["values"] = values
+    with pytest.raises(ValueError, match="Wind grid values"):
+        SpatiotemporalWindProvider(**kwargs)  # type: ignore[arg-type]
 
 
 def test_uniform_grid_returns_constant_wind() -> None:
@@ -250,4 +306,23 @@ def test_load_wind_grid_single_element_axis_raises(tmp_path) -> None:
         "values: []\n"
     )
     with pytest.raises(WindGridLoadError):
+        load_wind_grid(f)
+
+
+@pytest.mark.parametrize("time_axis", ["[false, 600.0]", "[0.0, .inf]"])
+def test_load_wind_grid_rejects_non_numeric_or_non_finite_axes(
+    tmp_path, time_axis: str
+) -> None:
+    from adapters.wind_grid import WindGridLoadError, load_wind_grid
+
+    f = tmp_path / "wind.yaml"
+    f.write_text(
+        "axes:\n"
+        f"  time_s: {time_axis}\n"
+        "  altitude_m: [0.0, 200.0]\n"
+        "  lat: [52.0, 52.01]\n"
+        "  lon: [4.0, 4.01]\n"
+        "values: []\n"
+    )
+    with pytest.raises(WindGridLoadError, match="invalid values"):
         load_wind_grid(f)

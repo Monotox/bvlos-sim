@@ -175,6 +175,37 @@ def test_apply_bump_writes_both_files(tmp_path: Path) -> None:
     assert "## [0.32.1] - 2026-06-01" in changelog.read_text(encoding="utf-8")
 
 
+def test_apply_bump_rolls_back_when_second_write_fails(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    import adapters.release as release_module
+
+    pyproject, changelog = _write_fixtures(tmp_path)
+    real_write = release_module.atomic_write_text
+    call_count = 0
+
+    def fail_second_write(path: Path, text: str, *, encoding: str = "utf-8") -> None:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 2:
+            raise OSError("synthetic changelog failure")
+        real_write(path, text, encoding=encoding)
+
+    monkeypatch.setattr(release_module, "atomic_write_text", fail_second_write)
+
+    with pytest.raises(OSError, match="synthetic changelog failure"):
+        apply_bump(
+            part=BumpPart.PATCH,
+            pyproject_path=pyproject,
+            changelog_path=changelog,
+            today="2026-06-01",
+        )
+
+    assert pyproject.read_text(encoding="utf-8") == _PYPROJECT
+    assert changelog.read_text(encoding="utf-8") == _CHANGELOG
+
+
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------

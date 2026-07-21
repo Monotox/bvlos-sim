@@ -2,7 +2,7 @@
 
 ## Status
 
-Planned.
+Implemented.
 
 ## Goal
 
@@ -11,7 +11,7 @@ actually produce — ArduPilot DataFlash binary (`.bin`) and PX4 ULog (`.ulg`) �
 into the existing `NormalizedFlightTrace`, so calibration (Ticket 082) is not
 limited to the rare hand-exported DataFlash *text* (`.log`) format.
 
-## Current Gap
+## Previous Gap
 
 `adapters/flight_log/` only parses ArduPilot DataFlash **text** (`.log`). In
 practice:
@@ -21,8 +21,8 @@ practice:
 - PX4 / the public **Flight Review** log database (review.px4.io) — the largest
   source of real logs with battery current/voltage — uses **ULog (`.ulg`)**.
 
-So the ingestion path cannot consume the formats needed to calibrate against
-real, publicly available flights.
+The implemented `ingest-log` command and `ingest_flight_log` API now dispatch by
+content and produce the same normalized trace contract for all three formats.
 
 ## Scope
 
@@ -41,7 +41,7 @@ real, publicly available flights.
 - Preserve determinism: identical input bytes yield byte-identical canonical
   output.
 
-## Dependency Decision (resolve in this ticket)
+## Dependency Decision
 
 Two viable approaches; pick one explicitly and record the rationale:
 
@@ -55,8 +55,16 @@ Two viable approaches; pick one explicitly and record the rationale:
    in particular is intricate (subscriptions, multi-id topics, appended data)
    and risky to fully cover without real sample files.
 
-Recommendation: library-backed for ULog (correctness density is high), and
-either approach for `.bin`. Decide and note the choice before implementing.
+The implementation is library-backed: `pymavlink` handles DataFlash binary and
+`pyulog` handles ULog. Both live in the optional `flight-logs` extra so the base
+CLI remains small. The existing self-describing text parser remains unchanged.
+This avoids duplicating intricate binary parsers while keeping imports lazy.
+
+The dispatcher rejects unknown content and enforces a 64 MiB hard input limit
+before a parser reads the file. Callers may lower but not raise the limit,
+because snapshotting plus parser expansion can otherwise exhaust a worker. CLI
+pairing with `--mission` and `--vehicle` records both SHA-256 values for later
+validation.
 
 ## Integration Requirements
 

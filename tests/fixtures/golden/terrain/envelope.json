@@ -4,14 +4,14 @@
     "Wind input is constant in space and time unless a layered, time-varying, or spatiotemporal grid provider is used.",
     "Transit is modeled as geodesic leg-to-leg kinematics.",
     "Terrain-referenced altitude uses an offline uniform elevation grid; online terrain service calls are not performed.",
-    "Fidelity v1 uses geodesic leg-to-leg kinematics with no turn-arc dynamics or sub-segment wind sampling; fidelity v2 adds turn-arc geometry, sub-segment sampling, and tangent-point offset subtraction (turn_radius_m * tan(|\u0394\u03b8|/2)) from adjacent transit leg path_distance_m values so total path distance reflects the true Dubins-path length.",
+    "Fidelity v1 uses geodesic leg-to-leg kinematics with no turn-arc dynamics or sub-segment wind sampling; fidelity v2 replaces feasible corners with connected circular fillets, trims adjacent transit legs to their tangent points, and samples wind along the materialized path. Corners that cannot fit the configured turn radius fail closed.",
     "Fixed-wing circular loiter requires fidelity v2; it is unsupported in fidelity v1.",
     "Takeoff and landing-transit legs report path_distance_m equal to vertical_distance_m; for purely vertical movement this is the 3D slant path distance.",
     "Energy feasibility uses deterministic phase power values from the vehicle profile.",
-    "Explicit resource systems are evaluated after route expansion; when configured, they determine resource feasibility while result.energy remains the legacy battery-only energy view.",
+    "Explicit resource systems are evaluated after route expansion; when configured, they determine resource feasibility while result.energy remains the legacy battery-only energy view. Onboard and hybrid resources include per-state RTH reserve demand; continuous external power replaces battery reserve gating but must cover RTH peak power.",
     "Communication-link feasibility is deterministic and uses configured static availability and range constraints only; live network calls are not performed.",
-    "Static geofence feasibility uses 2D lon/lat segments; zones declaring floor_m/ceiling_m additionally constrain the leg's altitude band, treated as AMSL.",
-    "Static landing-zone reachability uses straight-line geodesic distance and deterministic cruise-power divert energy.",
+    "Static geofence feasibility uses the materialized 2D lon/lat flown path, including fidelity-v2 turn arcs; zones declaring floor_m/ceiling_m additionally constrain the leg's altitude band, treated as AMSL.",
+    "Static landing-zone reachability uses geodesic-aware Dubins distance when entry heading and vehicle turn radius are known, otherwise straight-line geodesic distance; divert energy remains deterministic and TAS-only.",
     "Landing-zone v1 excludes terrain, obstacles, dynamic availability, suitability scoring, and comms dependency.",
     "Dynamic landing-zone availability is a scenario-only feature; availability changes are resolved deterministically against the scenario timeline and do not affect the estimate CLI.",
     "Divert route estimates use geodesic-aware Dubins path distance (bank-angle-constrained arc + straight sampled to target geometry boundary points) when entry heading and vehicle turn radius are known; otherwise straight-line geodesic distance. When a wind provider is configured, a wind-triangle correction is applied to the divert ground speed; without a wind provider, TAS is used and a DIVERT_ENERGY_TAS_ONLY warning is emitted.",
@@ -39,18 +39,37 @@
   "input_schema_versions": {
     "geofences": "geofence-geojson.v1",
     "landing_zones": "landing-zone-geojson.v1",
-    "mission": "mission.v6",
+    "mission": "mission.v7",
     "population": "population-grid.v1",
     "terrain": "terrain-grid.v1",
     "vehicle": "vehicle.v4",
     "wind_grid": "wind-grid.v1"
+  },
+  "operational_readiness": {
+    "failed_checks": [
+      "warnings"
+    ],
+    "is_go": false,
+    "missing_evidence": [
+      "geofence",
+      "landing_zone",
+      "resource",
+      "link",
+      "obstacle",
+      "weather",
+      "ground_risk"
+    ],
+    "verdict": "no_go",
+    "warning_codes": [
+      "LOITER_ASSUMED_ZERO_GROUND_DISTANCE"
+    ]
   },
   "provenance": {
     "estimator_api": "estimator.try_estimate_mission_distance_time",
     "inputs": {
       "mission": {
         "format": "yaml",
-        "sha256": "b8bb0971a34817a6a6048a41300f15c3a0e9cce2baed2705855c8fd1d9cebe14"
+        "sha256": "085d5948535c896a84fb902c61de4579a82849a64f9c2ac6082121996208363d"
       },
       "terrain": {
         "format": "yaml",
@@ -78,11 +97,11 @@
           "time_s": 26.0
         },
         {
-          "energy_wh": 1.66666667,
+          "energy_wh": 5.55555556,
           "leg_index": 1,
           "phase": "transit",
-          "power_source": "vehicle.energy.cruise_power_w",
-          "power_w": 450.0,
+          "power_source": "vehicle.energy.climb_power_w",
+          "power_w": 1500.0,
           "route_item_id": "wp1",
           "route_item_index": 1,
           "time_s": 13.33333333
@@ -118,8 +137,8 @@
           "time_s": 59.0
         }
       ],
-      "reserve_at_landing_percent": 95.43305173,
-      "reserve_at_landing_wh": 858.8974656,
+      "reserve_at_landing_percent": 95.00095297,
+      "reserve_at_landing_wh": 855.00857671,
       "reserve_threshold_percent": 25.0,
       "reserve_threshold_wh": 225.0,
       "rth_reserve_timeline": [
@@ -127,59 +146,59 @@
           "energy_remaining_before_rth_wh": 889.16666667,
           "is_feasible": true,
           "leg_index": 0,
-          "reserve_after_rth_wh": 889.16666667,
-          "reserve_margin_wh": 664.16666667,
+          "reserve_after_rth_wh": 884.29166667,
+          "reserve_margin_wh": 659.29166667,
           "route_item_id": "takeoff",
           "route_item_index": 0,
           "rth_distance_m": 0.0,
-          "rth_energy_wh": 0.0
+          "rth_energy_wh": 4.875
         },
         {
-          "energy_remaining_before_rth_wh": 887.5,
+          "energy_remaining_before_rth_wh": 883.61111111,
           "is_feasible": true,
           "leg_index": 1,
-          "reserve_after_rth_wh": 886.27244917,
-          "reserve_margin_wh": 661.27244917,
+          "reserve_after_rth_wh": 872.79104414,
+          "reserve_margin_wh": 647.79104414,
           "route_item_id": "wp1",
           "route_item_index": 1,
-          "rth_distance_m": 176.76731937,
-          "rth_energy_wh": 1.22755083
+          "rth_distance_m": 496.08964332,
+          "rth_energy_wh": 10.82006697
         },
         {
-          "energy_remaining_before_rth_wh": 886.2724656,
+          "energy_remaining_before_rth_wh": 882.38357671,
           "is_feasible": true,
           "leg_index": 2,
-          "reserve_after_rth_wh": 883.81738038,
-          "reserve_margin_wh": 658.81738038,
+          "reserve_after_rth_wh": 870.56094527,
+          "reserve_margin_wh": 645.56094527,
           "route_item_id": "loiter",
           "route_item_index": 2,
-          "rth_distance_m": 353.53227242,
-          "rth_energy_wh": 2.45508523
+          "rth_distance_m": 640.45892746,
+          "rth_energy_wh": 11.82263144
         },
         {
-          "energy_remaining_before_rth_wh": 866.2724656,
+          "energy_remaining_before_rth_wh": 862.38357671,
           "is_feasible": true,
           "leg_index": 3,
-          "reserve_after_rth_wh": 863.81738038,
-          "reserve_margin_wh": 638.81738038,
+          "reserve_after_rth_wh": 852.55349149,
+          "reserve_margin_wh": 627.55349149,
           "route_item_id": "loiter",
           "route_item_index": 2,
           "rth_distance_m": 353.53227242,
-          "rth_energy_wh": 2.45508523
+          "rth_energy_wh": 9.83008523
         },
         {
-          "energy_remaining_before_rth_wh": 858.8974656,
+          "energy_remaining_before_rth_wh": 855.00857671,
           "is_feasible": true,
           "leg_index": 4,
-          "reserve_after_rth_wh": 858.8974656,
-          "reserve_margin_wh": 633.8974656,
+          "reserve_after_rth_wh": 855.00857671,
+          "reserve_margin_wh": 630.00857671,
           "route_item_id": "rtl",
           "route_item_index": 3,
           "rth_distance_m": 0.0,
           "rth_energy_wh": 0.0
         }
       ],
-      "total_energy_wh": 41.1025344,
+      "total_energy_wh": 44.99142329,
       "usable_energy_wh": 675.0
     },
     "failure": null,
@@ -345,6 +364,7 @@
       "capabilities_source": "explicit",
       "estimator_version": "v1",
       "options_source": "library_defaults",
+      "require_rth_reserve": true,
       "terrain_provider_id": "uniform_grid",
       "wind_provider_id": "constant"
     },
@@ -374,7 +394,7 @@
     "scope": "full_mission",
     "unavailable_fields": []
   },
-  "schema_version": "estimator-envelope.v7",
+  "schema_version": "estimator-envelope.v9",
   "status": "success",
   "tool_version": "0.0.0-test"
 }

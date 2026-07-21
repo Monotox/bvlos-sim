@@ -60,7 +60,7 @@ Ticket 081 (phase segmentation) is implemented: `PhaseSegmentResult` from
 
 | File | Purpose |
 |---|---|
-| `schemas/validation.py` | `MetricComparison`, `MissionValidationMetrics`, `PhaseValidation`, `ValidationReport` (schema version `validation-report.v1`) |
+| `schemas/validation.py` | `MetricComparison`, `MissionValidationMetrics`, `PhaseValidation`, `ValidationReport` (current schema version `validation-report.v2`; v2 adds the required acceptance gate) |
 | `adapters/validation/validator.py` | `build_validation_report` — deterministic predicted-vs-observed comparison engine |
 | `adapters/validation/io.py` | `write_validation_report`, `load_validation_report` |
 | `adapters/validation/__init__.py` | Public package |

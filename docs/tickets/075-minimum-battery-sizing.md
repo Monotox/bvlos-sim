@@ -4,9 +4,9 @@
 
 Add a `bvlos-sim size-battery` command (or `estimate --find-min-battery`) that
 computes the **minimum battery capacity needed for a mission to be feasible**.
-Given a mission and vehicle, binary-search the battery capacity until the
-energy reserve just meets the configured threshold, and report the required Wh
-with a safety margin recommendation.
+Given a mission and vehicle, search the mass-valid capacity range until the
+energy reserve just meets the configured threshold, and report the verified
+feasible interval with safety-margin recommendations.
 
 ## Motivation
 
@@ -33,11 +33,12 @@ Mission energy required:   328.4 Wh
 Reserve threshold (25 %):  225.0 Wh (of battery capacity)
 
 Minimum feasible capacity: 843.2 Wh
+Maximum feasible capacity: 1200.0 Wh
 With 10 % safety margin:   927.5 Wh
 With 20 % safety margin:  1011.8 Wh
 With 30 % safety margin:  1096.2 Wh
 
-Recommendation: use ≥ 927.5 Wh battery (10 % margin above minimum feasible)
+Recommendation: target 927.5 Wh (10 % margin); do not exceed the verified 1200.0 Wh upper bound.
 
 Status: SIZED
 ```
@@ -50,6 +51,7 @@ If the current battery is already sufficient:
 Current capacity:   900.0 Wh
 Reserve at landing: 585.0 Wh (65.0% of capacity)
 Minimum feasible:   550.3 Wh
+Maximum feasible:   900.0 Wh
 Margin over minimum: 349.7 Wh (63.5% above minimum)
 
 Status: FEASIBLE (current battery exceeds minimum by 63.5%)
@@ -65,6 +67,9 @@ class BatterySizingResult:
     mission_energy_wh: float
     reserve_threshold_wh: float
     minimum_capacity_wh: float
+    maximum_feasible_capacity_wh: float
+    maximum_capacity_at_mtow_wh: float
+    search_tolerance_wh: float
     current_capacity_wh: float
     current_reserve_wh: float
     current_reserve_pct: float
@@ -81,7 +86,7 @@ def compute_minimum_battery_capacity(
     tolerance_wh: float = 1.0,
     max_iterations: int = 40,
 ) -> BatterySizingResult:
-    """Binary-search battery capacity until reserve just meets threshold."""
+    """Find the first feasible interval under battery-mass feedback."""
 
 def render_battery_sizing_markdown(
     result: BatterySizingResult,
@@ -92,15 +97,18 @@ def render_battery_sizing_markdown(
     """Render the sizing result as Markdown."""
 ```
 
-Binary search bounds:
-- Lower bound: start at `mission_energy_wh + reserve_threshold_wh` (minimum
-  possible feasible capacity where reserve equals threshold exactly)
-- Upper bound: start at `2 × current_battery_capacity_wh` or
-  `mission_energy_wh × 4` if current is already infeasible
-- Convergence: when upper − lower < `tolerance_wh`
+Search bounds and resolution:
+- Lower bound: the smallest positive capacity consistent with the mass model.
+- Upper bound: capacity at `mass.max_takeoff_kg`.
+- Discovery: scan from low to high at `tolerance_wh` resolution so a bounded
+  feasible window cannot be skipped by exponential probes.
+- Refinement: refine both transitions of the first contiguous feasible interval.
+- A feasible island narrower than `tolerance_wh` is below the selected search
+  resolution; reduce the tolerance through the Python API.
 
-The vehicle `VehicleProfile` is patched per-iteration using
-`model_copy(update={"energy": energy.model_copy(update={"battery_capacity_wh": cap})})`.
+Each candidate updates battery capacity and operating mass using pack specific
+energy. Requested percentage margins above the verified interval are
+unavailable rather than silently emitted as unsafe recommendations.
 
 ### 2 — New `size-battery` CLI command
 

@@ -7,8 +7,10 @@ feature is off by default, and a direct callback contract on ``run_monte_carlo``
 """
 
 import json
+import os
 from pathlib import Path
 
+import yaml
 from typer.testing import CliRunner
 
 from adapters.cli import CliExitCode, app
@@ -18,6 +20,7 @@ from adapters.uncertainty_io import (
     resolve_uncertainty_asset_path,
 )
 from estimator.execution.monte_carlo import run_monte_carlo
+from tests.helpers import make_mission_payload
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 EXAMPLE_UNCERTAINTY = (
@@ -163,6 +166,136 @@ def test_progress_off_by_default_is_unchanged(tmp_path: Path) -> None:
     assert baseline_out.read_bytes() == progress_out.read_bytes()
     # A run with no progress flag emits no progress framing on stderr.
     assert "progress" not in baseline.stderr
+
+
+def test_progress_file_cannot_overwrite_output(tmp_path: Path) -> None:
+    shared_path = tmp_path / "shared.json"
+    result = runner.invoke(
+        app,
+        [
+            "sample",
+            str(EXAMPLE_UNCERTAINTY),
+            "--output",
+            str(shared_path),
+            "--progress-file",
+            str(shared_path),
+        ],
+    )
+
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+    assert not shared_path.exists()
+    assert "overwrite" in result.stdout
+
+
+def test_progress_file_cannot_overwrite_input_plan(tmp_path: Path) -> None:
+    plan_path = tmp_path / "uncertainty.yaml"
+    text = EXAMPLE_UNCERTAINTY.read_text(encoding="utf-8")
+    text = text.replace(
+        "../missions/pipeline_demo_001.yaml",
+        str(REPO_ROOT / "examples/missions/pipeline_demo_001.yaml"),
+    ).replace(
+        "../vehicles/quadplane_v1.yaml",
+        str(REPO_ROOT / "examples/vehicles/quadplane_v1.yaml"),
+    )
+    plan_path.write_text(text, encoding="utf-8")
+    original = plan_path.read_bytes()
+
+    result = runner.invoke(
+        app,
+        ["sample", str(plan_path), "--progress-file", str(plan_path)],
+    )
+
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+    assert plan_path.read_bytes() == original
+
+
+def test_batch_progress_file_must_be_outside_output_directory(tmp_path: Path) -> None:
+    output_dir = tmp_path / "outputs"
+    progress_path = output_dir / "progress.jsonl"
+    result = runner.invoke(
+        app,
+        [
+            "batch",
+            str(EXAMPLE_BATCH),
+            "--format",
+            "json",
+            "--output-dir",
+            str(output_dir),
+            "--progress-file",
+            str(progress_path),
+        ],
+    )
+
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+    assert not progress_path.exists()
+
+
+def test_batch_progress_file_cannot_overwrite_mission_asset(tmp_path: Path) -> None:
+    terrain_path = tmp_path / "terrain.yaml"
+    original = b"asset sentinel\n"
+    terrain_path.write_bytes(original)
+    mission_path = tmp_path / "mission.yaml"
+    mission_payload = make_mission_payload()
+    mission_payload["assets"] = {"terrain_file": terrain_path.name}
+    mission_path.write_text(
+        yaml.safe_dump(mission_payload, sort_keys=False),
+        encoding="utf-8",
+    )
+    manifest_path = tmp_path / "batch.yaml"
+    manifest_path.write_text(
+        "\n".join(
+            [
+                "format_version: batch.v1",
+                "runs:",
+                "  - id: run",
+                f"    mission: {mission_path}",
+                f"    vehicle: {REPO_ROOT / 'examples/vehicles/quadplane_v1.yaml'}",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        app,
+        ["batch", str(manifest_path), "--progress-file", str(terrain_path)],
+    )
+
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+    assert terrain_path.read_bytes() == original
+    assert "overwrite" in result.output
+
+
+def test_batch_progress_file_cannot_overwrite_hardlinked_input(tmp_path: Path) -> None:
+    mission_path = tmp_path / "mission.yaml"
+    mission_path.write_text(
+        yaml.safe_dump(make_mission_payload(), sort_keys=False),
+        encoding="utf-8",
+    )
+    progress_path = tmp_path / "progress.jsonl"
+    os.link(mission_path, progress_path)
+    original = mission_path.read_bytes()
+    manifest_path = tmp_path / "batch.yaml"
+    manifest_path.write_text(
+        "\n".join(
+            [
+                "format_version: batch.v1",
+                "runs:",
+                "  - id: run",
+                f"    mission: {mission_path}",
+                f"    vehicle: {REPO_ROOT / 'examples/vehicles/quadplane_v1.yaml'}",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        app,
+        ["batch", str(manifest_path), "--progress-file", str(progress_path)],
+    )
+
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+    assert mission_path.read_bytes() == original
+    assert "overwrite" in result.output
 
 
 # ---------------------------------------------------------------------------

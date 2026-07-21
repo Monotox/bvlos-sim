@@ -17,7 +17,25 @@ def render_validation_markdown(report: ValidationReport) -> str:
         if report.mission_ref.vehicle_file is not None:
             lines.append(f"- Vehicle file: `{report.mission_ref.vehicle_file}`")
     lines.append(f"- Tool version: {report.tool_version}")
+    lines.append(f"- Acceptance: **{'PASS' if report.acceptance.passed else 'FAIL'}**")
     lines.append("")
+
+    lines.append("## Acceptance gate")
+    lines.append("")
+    lines.append("| Metric | Error | Maximum | Result |")
+    lines.append("|---|---:|---:|---|")
+    for name, limit in report.acceptance.thresholds_pct.items():
+        error = report.acceptance.errors_pct.get(name)
+        passed = error is not None and error <= limit
+        lines.append(
+            f"| {name} | {_pct(error)} | {_pct(limit)} | "
+            f"{'PASS' if passed else 'FAIL'} |"
+        )
+    lines.append("")
+    for failure in report.acceptance.failures:
+        lines.append(f"- {failure}")
+    if report.acceptance.failures:
+        lines.append("")
 
     lines.append("## Mission metrics")
     lines.append("")
