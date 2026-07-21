@@ -44,6 +44,8 @@ RUN apt-get update \
 
 RUN pip3 install --no-cache-dir \
         empy==3.3.4 \
+        future \
+        pexpect \
         pymavlink==2.4.49 \
         MAVProxy==1.8.74
 
