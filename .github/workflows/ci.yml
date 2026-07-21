@@ -79,6 +79,9 @@ jobs:
   sitl-live:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - name: Checkout
@@ -97,8 +100,19 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y podman
 
-      - name: Build pinned ArduPilot SITL image
-        run: podman build -t bvlos-sitl sitl/
+      - name: Pull cached SITL image or build and push it
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io \
+            -u "${{ github.actor }}" --password-stdin
+          key="$(cat sitl/Containerfile sitl/launch.sh | sha256sum | cut -c1-16)"
+          image="ghcr.io/monotox/bvlos-sitl:${key}"
+          if podman pull "$image"; then
+            podman tag "$image" bvlos-sitl
+          else
+            podman build -t bvlos-sitl sitl/
+            podman tag bvlos-sitl "$image"
+            podman push "$image" || echo "push failed (read-only token?); continuing"
+          fi
 
       - name: Start SITL container
         run: podman run --rm -d --name bvlos-sitl -p 5760:5760 -p 5770:5770 bvlos-sitl sleep infinity
@@ -107,10 +121,10 @@ jobs:
         env:
           BVLOS_SITL_HOST: 127.0.0.1
           BVLOS_SITL_REQUIRED: '1'
-        run: uv run --locked pytest -m live_sitl tests/test_sitl_live.py
+        run: uv run --locked pytest -m live_sitl --maxfail=1 tests/test_sitl_live.py
 
       - name: Upload SITL artifacts on failure
-        if: failure()
+        if: failure() || cancelled()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: sitl-live-artifacts

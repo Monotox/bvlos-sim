@@ -504,6 +504,34 @@ def test_wait_for_mission_complete_requires_completion_evidence() -> None:
     assert adapter.wait_for_mission_complete(timeout_s=0.1).value == "complete"
 
 
+def test_wait_for_mission_complete_aborts_on_stalled_sequence() -> None:
+    connection = FakeConnection(_upload_messages(item_count=3))
+    adapter, _connection = _connected_adapter(connection)
+    adapter.upload_mission(_three_item_mission())
+    adapter.config = ArduPilotSitlConfig(mission_stall_timeout_s=0.01)
+    connection.messages.extend(
+        FakeMessage("MISSION_CURRENT", seq=0, mission_state=3) for _ in range(50)
+    )
+
+    assert adapter.wait_for_mission_complete(timeout_s=5.0).value == "timeout"
+
+
+def test_wait_for_mission_complete_sequence_advance_defers_stall() -> None:
+    connection = FakeConnection(_upload_messages(item_count=3))
+    adapter, _connection = _connected_adapter(connection)
+    adapter.upload_mission(_three_item_mission())
+    adapter.config = ArduPilotSitlConfig(mission_stall_timeout_s=10.0)
+    connection.messages.extend(
+        [
+            FakeMessage("MISSION_CURRENT", seq=0, mission_state=3),
+            FakeMessage("MISSION_CURRENT", seq=1, mission_state=3),
+            FakeMessage("MISSION_ITEM_REACHED", seq=2),
+        ]
+    )
+
+    assert adapter.wait_for_mission_complete(timeout_s=5.0).value == "complete"
+
+
 def test_wait_for_mission_complete_accepts_mavlink2_complete_state() -> None:
     connection = FakeConnection(_upload_messages(item_count=3))
     adapter, _connection = _connected_adapter(connection)

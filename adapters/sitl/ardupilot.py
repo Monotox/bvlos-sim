@@ -15,6 +15,8 @@ from adapters.sitl.ardupilot_mavlink import (
     MavutilModule,
     arm_with_retry,
     drain_mission_progress_messages,
+    message_sequence,
+    message_type,
     mission_execution_complete,
     mission_execution_progressed,
     set_auto_mode,
@@ -44,6 +46,18 @@ from schemas.vehicle import VehicleProfile
 
 _MISSION_UPLOAD_ATTEMPTS = 3
 _MISSION_UPLOAD_RETRY_DELAY_S = 5.0
+
+
+def _message_mission_sequence(message: object | None) -> int | None:
+    """Mission sequence carried by a run-state message, if any."""
+    if message is None:
+        return None
+    if message_type(message) not in ("MISSION_CURRENT", "MISSION_ITEM_REACHED"):
+        return None
+    try:
+        return message_sequence(message)
+    except (AttributeError, TypeError, ValueError):
+        return None
 
 
 @dataclass(init=False)
@@ -150,7 +164,24 @@ class ArduPilotSitlAdapter:
         deadline = monotonic() + timeout_s
         final_sequence = max(0, self._mission_item_count - 1)
         current_run_progress_seen = False
+        # A vehicle that enters AUTO but never advances its mission sequence
+        # streams MISSION_CURRENT forever; abort well before the completion
+        # deadline instead of burning the full window.
+        best_sequence = -1
+        last_advance = monotonic()
         while monotonic() < deadline:
+            if (
+                monotonic() - last_advance
+                > self.config.mission_stall_timeout_s
+            ):
+                self._record_adapter_event(
+                    "mission_stalled",
+                    {
+                        "best_sequence": best_sequence,
+                        "stall_timeout_s": self.config.mission_stall_timeout_s,
+                    },
+                )
+                return self._set_run_state(RunState.TIMEOUT)
             try:
                 message = self._receive_run_state_message(connection)
                 if message is not None and self._artifact_recorder is not None:
@@ -177,6 +208,10 @@ class ArduPilotSitlAdapter:
                 ):
                     current_run_progress_seen = True
                     self._record_adapter_event("mission_progress_verified")
+                sequence = _message_mission_sequence(message)
+                if sequence is not None and sequence > best_sequence:
+                    best_sequence = sequence
+                    last_advance = monotonic()
             except (AttributeError, OSError, RuntimeError, TypeError, ValueError):
                 return self._set_run_state(RunState.ERROR)
         return self._set_run_state(RunState.TIMEOUT)

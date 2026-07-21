@@ -13,6 +13,7 @@ class ArduPilotSitlConfig:
     connection_timeout_s: float = 30.0
     mission_upload_timeout_s: float = 60.0
     arm_timeout_s: float = 90.0
+    mission_stall_timeout_s: float = 240.0
 
 
 @dataclass(frozen=True)
