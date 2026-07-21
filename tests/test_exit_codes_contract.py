@@ -4,7 +4,7 @@ These tests pin the part of the contract that is easy to regress: an unexpected
 exception inside ``validate``, ``sora``, or ``calibrate`` must surface as the
 documented ``INTERNAL_ERROR`` (exit ``13``) rather than escaping as a bare
 traceback (shell status ``1``). They also assert the success exit is unchanged
-by the catch-all. See ``docs/CLI_EXIT_CODES.md`` for the full per-command table.
+by the catch-all. See ``docs/cli.md`` for the full per-command table.
 """
 
 import json

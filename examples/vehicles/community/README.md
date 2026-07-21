@@ -150,5 +150,5 @@ matches repeatable log evidence.
 
 The `ingest-log`, `validate`, and `calibrate` commands automate this
 comparison: ingest a flight log, validate predicted vs. observed metrics, and
-fit a calibration profile (see `docs/USAGE.md`). Keep the original
+fit a calibration profile (see `docs/cli.md`). Keep the original
 manufacturer source link in `metadata.source`.

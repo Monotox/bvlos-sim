@@ -17,7 +17,7 @@ Implementation note:
 - Avoid coupling fixtures to internal subpackage boundaries so internal refactors do not create false compatibility breaks.
 
 Implemented in:
-- [docs/VERSIONING_POLICY.md](../VERSIONING_POLICY.md)
+- [docs/VERSIONING_POLICY.md](../design.md)
 - [tests/test_contract_golden.py](https://github.com/Monotox/bvlos-sim/blob/main/tests/test_contract_golden.py)
 - [tests/fixtures/golden/](https://github.com/Monotox/bvlos-sim/tree/main/tests/fixtures/golden)
 
