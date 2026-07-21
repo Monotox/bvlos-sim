@@ -214,6 +214,30 @@ def _launch_sitl_background(vehicle: str) -> None:
         return
 
 
+def _restart_sitl(vehicle: str) -> None:
+    """Boot a fresh SITL for this vehicle; a prior mission leaves it airborne."""
+
+    port = COPTER_PORT if vehicle == "copter" else PLANE_PORT
+    for pattern in ("ArduPlane", "arduplane") if vehicle != "copter" else (
+        "ArduCopter",
+        "arducopter",
+    ):
+        try:
+            subprocess.run(
+                _podman_command("exec", CONTAINER_NAME, "pkill", "-f", pattern),
+                capture_output=True,
+                timeout=10,
+            )
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            return
+    deadline = time.monotonic() + 15
+    while time.monotonic() < deadline and _port_open_in_container(
+        port, timeout_s=1.0
+    ):
+        time.sleep(1)
+    _launch_sitl_background(vehicle)
+
+
 def _host_for_port(port: int) -> str | None:
     return (
         os.environ.get("BVLOS_SITL_HOST")
@@ -483,7 +507,7 @@ def test_full_evidence_bundle_has_completed_status(tmp_path: Path) -> None:
     from estimator.execution.scenario import run_scenario
     from schemas import SitlEvidenceStatus
 
-    _launch_sitl_background("plane")
+    _restart_sitl("plane")
     assert _port_open_in_container(PLANE_PORT), "SITL port not ready"
     host = _require_host_port(PLANE_PORT)
 
@@ -558,7 +582,7 @@ def test_comparison_report_from_live_evidence_bundle(tmp_path: Path) -> None:
     from estimator.execution.scenario import run_scenario
     from schemas import SitlComparisonOutcome, SitlComparisonSummary
 
-    _launch_sitl_background("plane")
+    _restart_sitl("plane")
     assert _port_open_in_container(PLANE_PORT), "SITL port not ready"
     host = _require_host_port(PLANE_PORT)
 
@@ -645,7 +669,7 @@ def test_sitl_cli_live_produces_completed_evidence_bundle(tmp_path: Path) -> Non
     artifact_dir = tmp_path / "artifacts"
     output_path = tmp_path / "evidence.json"
 
-    _launch_sitl_background("plane")
+    _restart_sitl("plane")
     assert _port_open_in_container(PLANE_PORT), "SITL port not ready"
     host = _require_host_port(PLANE_PORT)
 
@@ -709,7 +733,7 @@ def test_compare_cli_on_live_evidence_bundle(tmp_path: Path) -> None:
     evidence_path = tmp_path / "evidence.json"
     comparison_path = tmp_path / "comparison.json"
 
-    _launch_sitl_background("plane")
+    _restart_sitl("plane")
     assert _port_open_in_container(PLANE_PORT), "SITL port not ready"
     host = _require_host_port(PLANE_PORT)
 
