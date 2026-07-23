@@ -602,7 +602,11 @@ def test_cli_calibrate_json_emits_versioned_envelope() -> None:
     assert payload["schema_version"] == CALIBRATION_PROFILE_SCHEMA_VERSION
     assert payload["base_vehicle_id"] == "quadplane_v1"
     fitted = {p["parameter"] for p in payload["parameters"]}
-    assert fitted == {"cruise_speed_mps", "climb_rate_mps"}
+    assert fitted == {
+        "cruise_speed_mps",
+        "climb_rate_mps",
+        "max_station_keep_wind_mps",
+    }
 
 
 def test_cli_calibrate_markdown_default() -> None:

@@ -2,41 +2,54 @@
   "base_vehicle_id": "quadplane_v1",
   "calibration_id": "quadplane_v1-calibration",
   "notes": [
-    "descent_rate_mps not fit: no descending records (vertical rate <= -0.5 m/s) in descent/landing segments.",
-    "max_station_keep_wind_mps not fit: no loiter-dwell records holding position with a wind estimate."
+    "descent_rate_mps not fit: no descending records (vertical rate <= -0.5 m/s) in descent/landing segments."
   ],
   "parameters": [
     {
       "applicable_conditions": [
-        "AMSL band 410.0 to 430.0 m"
+        "AMSL band 12.0 to 132.0 m"
       ],
-      "calibration_dataset_version": "ds-1-87bd568803a2fbf294972a6080989dfaf18174601ed347252924e32b8d13c612",
-      "confidence_high": 2.5,
-      "confidence_low": 2.5,
+      "calibration_dataset_version": "ds-1-91cce360ca1bcbd35b7d13921d7b137b4d4cf4a3abb93232a3aee4e0301f11d8",
+      "confidence_high": 2.87096774,
+      "confidence_low": 2.82978723,
       "derivation": "mean positive vertical rate over takeoff/climb-phase records",
-      "fitted_value": 2.5,
+      "fitted_value": 2.85721639,
       "parameter": "climb_rate_mps",
+      "sample_count": 4,
+      "spread": 0.01681193,
+      "unit": "m/s"
+    },
+    {
+      "applicable_conditions": [
+        "observed wind speed up to 1.34 m/s"
+      ],
+      "calibration_dataset_version": "ds-1-91cce360ca1bcbd35b7d13921d7b137b4d4cf4a3abb93232a3aee4e0301f11d8",
+      "confidence_high": 17.45083153,
+      "confidence_low": 17.45083153,
+      "derivation": "mean wind-corrected true airspeed derived from ground-velocity and wind vectors over transit-phase trace records",
+      "fitted_value": 17.45083153,
+      "parameter": "cruise_speed_mps",
       "sample_count": 2,
       "spread": 0.0,
       "unit": "m/s"
     },
     {
       "applicable_conditions": [
-        "observed wind speed up to 1.70 m/s"
+        "held position (groundspeed < 1.5 m/s) during loiter dwell"
       ],
-      "calibration_dataset_version": "ds-1-87bd568803a2fbf294972a6080989dfaf18174601ed347252924e32b8d13c612",
-      "confidence_high": 16.51938256,
-      "confidence_low": 16.51938256,
-      "derivation": "mean wind-corrected true airspeed derived from ground-velocity and wind vectors over transit-phase trace records",
-      "fitted_value": 16.51938256,
-      "parameter": "cruise_speed_mps",
-      "sample_count": 24,
+      "calibration_dataset_version": "ds-1-91cce360ca1bcbd35b7d13921d7b137b4d4cf4a3abb93232a3aee4e0301f11d8",
+      "confidence_high": 1.34164079,
+      "confidence_low": 1.34164079,
+      "derivation": "maximum observed wind speed while holding position in loiter dwell",
+      "fitted_value": 1.34164079,
+      "parameter": "max_station_keep_wind_mps",
+      "sample_count": 7,
       "spread": 0.0,
       "unit": "m/s"
     }
   ],
   "provenance": {
-    "calibration_dataset_version": "ds-1-87bd568803a2fbf294972a6080989dfaf18174601ed347252924e32b8d13c612",
+    "calibration_dataset_version": "ds-1-91cce360ca1bcbd35b7d13921d7b137b4d4cf4a3abb93232a3aee4e0301f11d8",
     "source_trace_ids": [
       "pipeline-demo-001-obs"
     ],
