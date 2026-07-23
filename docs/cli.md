@@ -156,7 +156,7 @@ assertions, lost-link policies) is documented in
 
 ## batch
 
-Multiple estimate runs from a `batch.v1` manifest.
+Multiple estimate, scenario, or propagate runs from one `batch.v1` manifest.
 
 **Usage:** `bvlos-sim batch MANIFEST [--output-dir DIR] [--format FMT]`
 
@@ -168,12 +168,36 @@ runs:
     vehicle: ../real_world/quadplane_v1.yaml
 ```
 
-Paths resolve relative to the manifest. The command always prints a table (run
-id, status, reserve margin, flight time) plus a count line. `--output-dir`
-writes one file per run; `--format` selects `json`, `markdown`, `summary`,
-`geojson`, or `kml` for those files. `--format csv` emits a comma-separated
-table (`id, status, reserve_margin_percent, flight_time_s, warning_count`) to
-stdout or `--output`.
+`run_type` selects what every run in the manifest does — `estimate` (the
+default, and what an unversioned manifest means), `scenario`, or `propagate`:
+
+```yaml
+format_version: "batch.v1"
+run_type: scenario           # each run points at a scenario file
+runs:
+  - {id: nominal, scenario: scenarios/nominal.yaml}
+  - {id: lost_link, scenario: scenarios/lost_link.yaml}
+```
+
+```yaml
+format_version: "batch.v1"
+run_type: propagate          # each run points at a stochastic plan
+runs:
+  - {id: wind_sweep, plan: stochastic/wind.yaml}
+```
+
+Paths resolve relative to the manifest. The table columns match the run type:
+estimate shows reserve margin and flight time; scenario shows the assertion
+count (`passed/total`); propagate shows the modeled pass rate. Exit is `10`
+when any estimate run is infeasible/NO-GO or any scenario run fails; propagate
+runs are diagnostic and never exit `10`.
+
+`--output-dir` writes one file per run id, in that run type's envelope
+(`estimator-envelope.v9`, `scenario-report.v3`, or `stochastic-envelope.v2`).
+`--format` selects `json`, `markdown`, or `summary` for any run type; the
+route-shaped formats `geojson`, `kml`, `checklist`, and `profile` are
+estimate-only. `--format csv` emits a comma-separated table to stdout, with
+columns matching the run type.
 
 ## sample
 
