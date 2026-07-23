@@ -14,6 +14,10 @@ from estimator.core.results import EstimatorContextValue
 from schemas import MissionPlan, VehicleProfile
 from schemas.mission import MISSION_SCHEMA_VERSION
 
+# libyaml parses identical YAML ~8x faster; large terrain/population grids
+# make the difference operationally visible.
+_YAML_LOADER = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
+
 
 @dataclass(frozen=True)
 class InputDocument:
@@ -119,7 +123,7 @@ def read_and_parse_document(
     try:
         if format_name == "json":
             return json.loads(raw_bytes.decode("utf-8")), document
-        return yaml.safe_load(raw_bytes.decode("utf-8")), document
+        return yaml.load(raw_bytes.decode("utf-8"), Loader=_YAML_LOADER), document
     except (UnicodeDecodeError, json.JSONDecodeError, yaml.YAMLError) as exc:
         raise InputLoadError(
             f"Unable to parse {input_name} file.",

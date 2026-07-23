@@ -1,8 +1,10 @@
 """Batch estimate execution support for CLI and tests."""
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from io import StringIO
+from pathlib import Path
+from typing import Any
 
 from rich import box
 from rich.console import Console
@@ -13,7 +15,7 @@ from adapters.cli_support import MissionAssetBundle, _populate_mission_assets
 from adapters.envelope import EstimatorResultEnvelope, build_estimator_envelope
 from adapters.assets.geofence_geojson import GeofenceLoadError
 from adapters.assets.obstacle_geojson import ObstacleLoadError
-from adapters.io import InputLoadError, load_mission, load_vehicle
+from adapters.io import InputDocument, InputLoadError, load_mission, load_vehicle
 from adapters.assets.landing_zone_geojson import LandingZoneLoadError
 from adapters.assets.terrain_grid import TerrainGridLoadError
 from adapters.assets.wind_grid import WindGridLoadError
@@ -27,6 +29,21 @@ from estimator import (
 )
 from estimator.environment.terrain import TerrainProvider
 from schemas.batch import BatchManifest, BatchRun
+from schemas.mission import MissionPlan
+from schemas.vehicle import VehicleProfile
+
+
+@dataclass
+class _BatchLoadCaches:
+    """Per-invocation caches so shared inputs parse once across runs."""
+
+    missions: dict[Path, tuple[MissionPlan, InputDocument]] = field(
+        default_factory=dict
+    )
+    vehicles: dict[Path, tuple[VehicleProfile, InputDocument]] = field(
+        default_factory=dict
+    )
+    assets: dict[Path, tuple[Any, InputDocument]] = field(default_factory=dict)
 
 _BATCH_RUN_INPUT_ERRORS = (
     InputLoadError,
@@ -90,14 +107,27 @@ def _status_label(
     return _STATUS_LABELS.get(estimate.status, "ERROR")
 
 
-def _run_estimate(run: BatchRun, *, engineering_only: bool) -> BatchRunResult:
+def _run_estimate(
+    run: BatchRun,
+    *,
+    engineering_only: bool,
+    caches: _BatchLoadCaches | None = None,
+) -> BatchRunResult:
+    caches = caches or _BatchLoadCaches()
     mission_assets = MissionAssetBundle()
-    mission_model, mission_document = load_mission(run.mission)
-    vehicle_model, vehicle_document = load_vehicle(run.vehicle)
+    mission_key = run.mission.resolve(strict=False)
+    if mission_key not in caches.missions:
+        caches.missions[mission_key] = load_mission(run.mission)
+    mission_model, mission_document = caches.missions[mission_key]
+    vehicle_key = run.vehicle.resolve(strict=False)
+    if vehicle_key not in caches.vehicles:
+        caches.vehicles[vehicle_key] = load_vehicle(run.vehicle)
+    vehicle_model, vehicle_document = caches.vehicles[vehicle_key]
     _populate_mission_assets(
         mission_assets,
         mission_model=mission_model,
         mission_document=mission_document,
+        asset_cache=caches.assets,
     )
     result = try_estimate_mission_distance_time(
         mission_model,
@@ -135,15 +165,19 @@ def _run_estimate(run: BatchRun, *, engineering_only: bool) -> BatchRunResult:
 def run_batch_manifest(
     manifest: BatchManifest,
     *,
-    progress: Callable[[int, int], None] | None = None,
+    progress: Callable[[int, int, str], None] | None = None,
     engineering_only: bool = False,
+    preloaded_missions: dict[Path, tuple[MissionPlan, InputDocument]] | None = None,
 ) -> list[BatchRunResult]:
     """Run all estimates in a validated batch manifest."""
     results: list[BatchRunResult] = []
     total = len(manifest.runs)
+    caches = _BatchLoadCaches(missions=dict(preloaded_missions or {}))
     for index, run in enumerate(manifest.runs):
         try:
-            results.append(_run_estimate(run, engineering_only=engineering_only))
+            results.append(
+                _run_estimate(run, engineering_only=engineering_only, caches=caches)
+            )
         except _BATCH_RUN_INPUT_ERRORS as exc:
             results.append(
                 BatchRunResult(
@@ -156,7 +190,7 @@ def run_batch_manifest(
                 )
             )
         if progress is not None:
-            progress(index + 1, total)
+            progress(index + 1, total, run.id)
     return results
 
 
