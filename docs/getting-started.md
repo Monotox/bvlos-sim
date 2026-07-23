@@ -33,19 +33,19 @@ You should see every evaluated check pass, and still:
 
 ```text
 ✓ Energy feasibility        PASS   reserve 573.05 Wh above threshold (798.05 Wh at landing, 225.00 Wh threshold)
-✓ Geofence clearance        PASS   0 conflicts across 0 zone(s)
+◌ Geofence clearance        N/A    not evaluated
 ✓ Landing-zone coverage     PASS   reachable zone found at all 166 checked state(s)
 ◌ Resource availability     N/A    not evaluated
 ...
 Status: NO-GO
-Blocked by: missing evidence (resource, link, obstacle, ground_risk) — the checklist is fail-closed
+Blocked by: missing evidence (geofence, resource, link, obstacle, ground_risk) — the checklist is fail-closed
 ```
 
 The exit code is `10`. This is deliberate: the checklist is **fail-closed** —
 evidence that was never evaluated (`◌ N/A`) can never contribute to a `GO`.
-The demo mission omits resource, link, obstacle, and ground-risk inputs, so it
-cannot pass an *operational* preflight, and the `Blocked by:` line names
-exactly what's missing.
+The demo mission omits geofence, resource, link, obstacle, and ground-risk
+inputs, so it cannot pass an *operational* preflight, and the `Blocked by:`
+line names exactly what's missing.
 
 ## 2. Get the engineering verdict
 
