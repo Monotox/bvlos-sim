@@ -713,3 +713,181 @@ def test_batch_parses_shared_inputs_once(
 
     assert len(results) == 3
     assert calls["terrain"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Ticket 064: scenario and propagate run types
+# ---------------------------------------------------------------------------
+
+_SCENARIO = REPO_ROOT / "examples/scenarios/pipeline_demo_001_scenario.yaml"
+_PLAN = REPO_ROOT / "examples/stochastic/pipeline_demo_001_stochastic.yaml"
+
+
+def _write_manifest(tmp_path: Path, body: str) -> Path:
+    path = tmp_path / "batch.yaml"
+    path.write_text(body, encoding="utf-8")
+    return path
+
+
+def test_batch_manifest_defaults_run_type_to_estimate() -> None:
+    manifest = _manifest(
+        _run(
+            "r1",
+            REPO_ROOT / "examples/missions/pipeline_demo_001.yaml",
+            REPO_ROOT / "examples/vehicles/quadplane_v1.yaml",
+        )
+    )
+    assert manifest.run_type == "estimate"
+
+
+def test_scenario_run_type_requires_scenario_field() -> None:
+    with pytest.raises(ValueError, match="must set scenario"):
+        BatchManifest(
+            format_version="batch.v1",
+            run_type="scenario",
+            runs=[BatchRun(id="r1", mission=Path("m.yaml"), vehicle=Path("v.yaml"))],
+        )
+
+
+def test_scenario_run_type_forbids_mission_field() -> None:
+    with pytest.raises(ValueError, match="must not set mission"):
+        BatchManifest(
+            format_version="batch.v1",
+            run_type="scenario",
+            runs=[
+                BatchRun(id="r1", scenario=Path("s.yaml"), mission=Path("m.yaml"))
+            ],
+        )
+
+
+def test_propagate_run_type_requires_plan_field() -> None:
+    with pytest.raises(ValueError, match="must set plan"):
+        BatchManifest(
+            format_version="batch.v1",
+            run_type="propagate",
+            runs=[BatchRun(id="r1", scenario=Path("s.yaml"))],
+        )
+
+
+def test_batch_cli_scenario_run_type(tmp_path: Path) -> None:
+    manifest = _write_manifest(
+        tmp_path,
+        "format_version: \"batch.v1\"\n"
+        "run_type: scenario\n"
+        "runs:\n"
+        f"  - {{id: s1, scenario: {_SCENARIO}}}\n"
+        f"  - {{id: s2, scenario: {_SCENARIO}}}\n",
+    )
+    result = _runner.invoke(app, ["batch", str(manifest)])
+    assert result.exit_code == 0, result.output
+    assert "assertions" in result.output
+    assert "PASSED" in result.output
+
+
+def test_batch_cli_scenario_writes_per_run_envelopes(tmp_path: Path) -> None:
+    out_dir = tmp_path / "out"
+    manifest = _write_manifest(
+        tmp_path,
+        "format_version: \"batch.v1\"\n"
+        "run_type: scenario\n"
+        f"runs:\n  - {{id: s1, scenario: {_SCENARIO}}}\n",
+    )
+    result = _runner.invoke(
+        app, ["batch", str(manifest), "--format", "json", "--output-dir", str(out_dir)]
+    )
+    assert result.exit_code == 0, result.output
+    import json
+
+    payload = json.loads((out_dir / "s1.json").read_text(encoding="utf-8"))
+    assert payload["schema_version"] == "scenario-report.v3"
+
+
+def test_batch_cli_propagate_run_type(tmp_path: Path) -> None:
+    manifest = _write_manifest(
+        tmp_path,
+        "format_version: \"batch.v1\"\n"
+        "run_type: propagate\n"
+        f"runs:\n  - {{id: p1, plan: {_PLAN}}}\n",
+    )
+    result = _runner.invoke(app, ["batch", str(manifest)])
+    assert result.exit_code == 0, result.output
+    assert "modeled pass rate" in result.output
+    assert "DIAGNOSTIC" in result.output
+
+
+def test_batch_cli_propagate_writes_stochastic_envelope(tmp_path: Path) -> None:
+    out_dir = tmp_path / "out"
+    manifest = _write_manifest(
+        tmp_path,
+        "format_version: \"batch.v1\"\n"
+        "run_type: propagate\n"
+        f"runs:\n  - {{id: p1, plan: {_PLAN}}}\n",
+    )
+    result = _runner.invoke(
+        app, ["batch", str(manifest), "--format", "json", "--output-dir", str(out_dir)]
+    )
+    assert result.exit_code == 0, result.output
+    import json
+
+    payload = json.loads((out_dir / "p1.json").read_text(encoding="utf-8"))
+    assert payload["schema_version"] == "stochastic-envelope.v2"
+
+
+def test_batch_cli_scenario_rejects_estimate_only_format(tmp_path: Path) -> None:
+    out_dir = tmp_path / "out"
+    manifest = _write_manifest(
+        tmp_path,
+        "format_version: \"batch.v1\"\n"
+        "run_type: scenario\n"
+        f"runs:\n  - {{id: s1, scenario: {_SCENARIO}}}\n",
+    )
+    result = _runner.invoke(
+        app,
+        ["batch", str(manifest), "--format", "geojson", "--output-dir", str(out_dir)],
+    )
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+    assert "only available for estimate runs" in result.output
+
+
+def test_batch_cli_scenario_validate_only(tmp_path: Path) -> None:
+    manifest = _write_manifest(
+        tmp_path,
+        "format_version: \"batch.v1\"\n"
+        "run_type: scenario\n"
+        f"runs:\n  - {{id: s1, scenario: {_SCENARIO}}}\n",
+    )
+    result = _runner.invoke(app, ["batch", str(manifest), "--validate-only"])
+    assert result.exit_code == 0, result.output
+    assert "scenario:" in result.output
+
+
+def test_scenario_failed_status_exits_infeasible() -> None:
+    from adapters.cli_batch_support import _batch_exit_code
+
+    results = [
+        BatchRunResult(
+            id="s1",
+            status="FAILED",
+            run_type="scenario",
+            reserve_margin_percent=None,
+            flight_time_s=None,
+            envelope=None,
+        )
+    ]
+    assert _batch_exit_code(results) == int(CliExitCode.INFEASIBLE)
+
+
+def test_propagate_diagnostic_status_exits_zero() -> None:
+    from adapters.cli_batch_support import _batch_exit_code
+
+    results = [
+        BatchRunResult(
+            id="p1",
+            status="DIAGNOSTIC",
+            run_type="propagate",
+            reserve_margin_percent=None,
+            flight_time_s=None,
+            envelope=None,
+        )
+    ]
+    assert _batch_exit_code(results) == int(CliExitCode.SUCCESS)

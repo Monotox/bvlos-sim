@@ -1,6 +1,6 @@
 # Ticket 064 — Batch Scenario and Batch Propagate Modes
 
-## Status: Planned
+## Status: Implemented
 
 ## Problem
 
@@ -46,3 +46,17 @@ maintaining a library of scenarios for regression testing need this.
   manifests are fully compatible.
 - Per-run output files follow the same envelope format as the individual
   commands (scenario-report.v3, stochastic-envelope.v2).
+
+## Completion
+
+`BatchManifest` gained an optional manifest-level `run_type`
+(`estimate` default, `scenario`, `propagate`); a missing field means
+`estimate`, so `batch.v1` manifests stay valid. `BatchRun` gained optional
+`scenario` and `plan` paths, and the manifest validator enforces the right
+fields per type. `run_batch_manifest` dispatches to the estimate, scenario, or
+propagate runner, reusing the same loaders and asset caches as the individual
+commands. The table and CSV columns match the run type (reserve/flight time,
+assertion count, or modeled pass rate), `--output-dir` writes each run's native
+envelope, and the route-shaped formats stay estimate-only. Exit stays `10` for
+an infeasible estimate or a failed scenario and never for a diagnostic
+propagate run.

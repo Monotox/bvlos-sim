@@ -16,6 +16,10 @@ from adapters.envelope import OutputFormat
 from adapters.geojson_export import build_geojson_export
 from adapters.kml_export import build_kml_export
 from adapters.profile_markdown import render_profile_markdown
+from adapters.scenario_envelope import render_scenario_envelope_json
+from adapters.scenario_markdown import render_scenario_markdown
+from adapters.stochastic_envelope import render_stochastic_envelope_json
+from adapters.stochastic_markdown import render_stochastic_markdown
 
 
 class BatchOutputFormat(StrEnum):
@@ -78,54 +82,68 @@ def _batch_route_export(
     )
 
 
-def _render_batch_run_output(
-    output_format: OutputFormat, result: BatchRunResult
-) -> str:
-    if result.envelope is None:
-        message = (
-            result.error_message or "Batch run failed before an estimate was produced"
+def _render_batch_run_error(output_format: OutputFormat, result: BatchRunResult) -> str:
+    message = result.error_message or "Batch run failed before a result was produced"
+    if output_format == OutputFormat.JSON:
+        return (
+            json.dumps(
+                {
+                    "schema_version": "batch-run-error.v1",
+                    "id": result.id,
+                    "status": "ERROR",
+                    "message": message,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n"
         )
-        if output_format == OutputFormat.JSON:
-            return (
-                json.dumps(
-                    {
+    if output_format == OutputFormat.GEOJSON:
+        return (
+            json.dumps(
+                {
+                    "type": "FeatureCollection",
+                    "features": [],
+                    "properties": {
                         "schema_version": "batch-run-error.v1",
                         "id": result.id,
                         "status": "ERROR",
                         "message": message,
                     },
-                    indent=2,
-                    sort_keys=True,
-                )
-                + "\n"
+                },
+                indent=2,
+                sort_keys=True,
             )
-        if output_format == OutputFormat.GEOJSON:
-            return (
-                json.dumps(
-                    {
-                        "type": "FeatureCollection",
-                        "features": [],
-                        "properties": {
-                            "schema_version": "batch-run-error.v1",
-                            "id": result.id,
-                            "status": "ERROR",
-                            "message": message,
-                        },
-                    },
-                    indent=2,
-                    sort_keys=True,
-                )
-                + "\n"
-            )
-        if output_format == OutputFormat.KML:
-            return (
-                '<?xml version="1.0" encoding="UTF-8"?>\n'
-                '<kml xmlns="http://www.opengis.net/kml/2.2"><Document>'
-                f"<name>{escape(result.id)}</name>"
-                f"<description>ERROR: {escape(message)}</description>"
-                "</Document></kml>\n"
-            )
-        return f"## Batch Run: {result.id}\n\nStatus: ERROR\n\n{message}\n"
+            + "\n"
+        )
+    if output_format == OutputFormat.KML:
+        return (
+            '<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<kml xmlns="http://www.opengis.net/kml/2.2"><Document>'
+            f"<name>{escape(result.id)}</name>"
+            f"<description>ERROR: {escape(message)}</description>"
+            "</Document></kml>\n"
+        )
+    return f"## Batch Run: {result.id}\n\nStatus: ERROR\n\n{message}\n"
+
+
+def _render_batch_run_output(
+    output_format: OutputFormat, result: BatchRunResult
+) -> str:
+    if result.run_type == "scenario":
+        if result.scenario_envelope is None:
+            return _render_batch_run_error(output_format, result)
+        if output_format == OutputFormat.JSON:
+            return render_scenario_envelope_json(result.scenario_envelope)
+        return render_scenario_markdown(result.scenario_envelope)
+    if result.run_type == "propagate":
+        if result.stochastic_envelope is None:
+            return _render_batch_run_error(output_format, result)
+        if output_format == OutputFormat.JSON:
+            return render_stochastic_envelope_json(result.stochastic_envelope)
+        return render_stochastic_markdown(result.stochastic_envelope)
+    if result.envelope is None:
+        return _render_batch_run_error(output_format, result)
     route_export = _batch_route_export(output_format, result)
     if route_export is not None:
         return route_export

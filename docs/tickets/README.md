@@ -55,12 +55,6 @@ This track is complete: contract-version discovery (105), machine-readable run
 progress (106), and the machine-readable preflight validation envelope (107) are
 all implemented — see the full list below.
 
-### Core simulation gaps
-
-| # | Ticket | What it adds |
-|---|---|---|
-| 064 | [Batch scenario & propagate](./064-batch-scenario-and-propagate.md) | Extend `batch` command to run scenario and propagate jobs, not only estimates |
-
 ### Output & visualisation gaps
 
 | # | Ticket | What it adds |

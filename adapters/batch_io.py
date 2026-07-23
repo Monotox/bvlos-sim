@@ -21,12 +21,12 @@ def _resolve_manifest_path(path: Path, *, manifest_dir: Path) -> Path:
 
 
 def _resolve_run_paths(run: BatchRun, *, manifest_dir: Path) -> BatchRun:
-    return run.model_copy(
-        update={
-            "mission": _resolve_manifest_path(run.mission, manifest_dir=manifest_dir),
-            "vehicle": _resolve_manifest_path(run.vehicle, manifest_dir=manifest_dir),
-        }
-    )
+    resolved = {
+        field: _resolve_manifest_path(value, manifest_dir=manifest_dir)
+        for field in ("mission", "vehicle", "scenario", "plan")
+        if (value := getattr(run, field)) is not None
+    }
+    return run.model_copy(update=resolved)
 
 
 def load_batch_manifest(path: Path) -> BatchManifest:
