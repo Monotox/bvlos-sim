@@ -1,6 +1,8 @@
 """Pre-flight go/no-go checklist rendering."""
 
-from adapters.envelope import EstimatorResultEnvelope
+from collections.abc import Sequence
+
+from adapters.envelope import EnvelopeDiagnostic, EstimatorResultEnvelope
 from adapters.scenario_envelope import ScenarioResultEnvelope
 from adapters.operational_readiness import (
     OperationalReadiness,
@@ -239,10 +241,20 @@ def checklist_is_go(result: MissionEstimate) -> bool:
     return evaluate_operational_readiness(result).is_go
 
 
-def _render_checklist(result: MissionEstimate | None, mission_id: str) -> str:
+def _render_checklist(
+    result: MissionEstimate | None,
+    mission_id: str,
+    diagnostics: Sequence[EnvelopeDiagnostic] = (),
+) -> str:
     lines: list[str] = [f"## Pre-Flight Checklist: {mission_id}", ""]
     if result is None:
         lines.append(_row(_FAIL, "Estimate", "FAIL", "estimate not available"))
+        for diagnostic in diagnostics:
+            detail = str(diagnostic.code)
+            context_path = diagnostic.context.get("path")
+            if isinstance(context_path, str):
+                detail += f" ({context_path})"
+            lines.append(f"  {detail}: {diagnostic.message}")
         lines.extend(["", "Status: NO-GO", ""])
         return "\n".join(lines)
 
@@ -263,6 +275,16 @@ def _render_checklist(result: MissionEstimate | None, mission_id: str) -> str:
     lines.append(_warnings_row(result))
     lines.append("")
     readiness = evaluate_operational_readiness(result)
+    if readiness.acknowledged_warning_codes:
+        lines.insert(
+            len(lines) - 1,
+            _row(
+                " ",
+                "Acknowledged warnings",
+                str(len(readiness.acknowledged_warning_codes)),
+                ", ".join(readiness.acknowledged_warning_codes),
+            ),
+        )
     lines.append(f"Status: {'GO' if readiness.is_go else 'NO-GO'}")
     if not readiness.is_go:
         reason = _blocked_by(readiness)
@@ -282,9 +304,12 @@ def _blocked_by(readiness: OperationalReadiness) -> str:
     if failed:
         parts.append("failed checks (" + ", ".join(failed) + ")")
     if "warnings" in readiness.failed_checks:
-        parts.append(
-            "blocking warnings (" + ", ".join(readiness.warning_codes) + ")"
-        )
+        blocking = [
+            code
+            for code in readiness.warning_codes
+            if code not in readiness.acknowledged_warning_codes
+        ]
+        parts.append("blocking warnings (" + ", ".join(blocking) + ")")
     if not parts:
         return ""
     return "Blocked by: " + "; ".join(parts) + " — the checklist is fail-closed"
@@ -296,7 +321,7 @@ def render_checklist_markdown(
     mission_id: str = "mission",
 ) -> str:
     """Render a pre-flight go/no-go checklist for an estimate envelope."""
-    return _render_checklist(envelope.result, mission_id)
+    return _render_checklist(envelope.result, mission_id, envelope.diagnostics)
 
 
 def render_checklist_markdown_from_scenario(envelope: ScenarioResultEnvelope) -> str:

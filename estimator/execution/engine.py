@@ -149,6 +149,20 @@ def run_estimation(
         link=link_evaluation.link,
     )
 
+    if context.geofences is not None and not context.geofences:
+        context.warnings.append(
+            EstimatorWarning(
+                code=WarningCode.GEOFENCE_ZERO_ZONES,
+                message=(
+                    "A geofence file is configured but contains zero zones; "
+                    "the clearance check evaluated no airspace. Verify the "
+                    "fetch produced real coverage before trusting this PASS."
+                ),
+                leg_index=None,
+                route_item_index=None,
+                route_item_id=None,
+            )
+        )
     if context.geofences:
         context.warnings.append(
             EstimatorWarning(
