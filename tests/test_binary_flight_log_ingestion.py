@@ -24,6 +24,8 @@ from adapters.flight_log import (
 from adapters.flight_log.dataflash import ingest_dataflash_log
 from adapters.flight_log.dataflash_binary import ingest_dataflash_binary
 from adapters.flight_log.ulog import ULOG_MAGIC, _battery_rows, _mode_rows, ingest_ulog
+from adapters.phase_segmentation import segment_trace
+from schemas.phase_segment import TracePhase
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 runner = CliRunner()
@@ -391,6 +393,76 @@ def test_ulog_uses_current_px4_navigation_state_values(
     rows = _mode_rows({"timestamp": [1_000_000], "nav_state": [nav_state]})
 
     assert rows == [{"TimeUS": 1_000_000, "Mode": expected_mode}]
+
+
+def test_ulog_trace_segments_into_flight_phases(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A PX4 takeoff/mission/RTL/land trace segments into real phases, not UNKNOWN."""
+    module = importlib.import_module("adapters.flight_log.ulog")
+    path = tmp_path / "flight.ulg"
+    path.write_bytes(ULOG_MAGIC + b"synthetic")
+    count = 9
+    datasets = {
+        ("vehicle_gps_position", 0): {
+            "timestamp": [(i + 1) * 1_000_000 for i in range(count)],
+            "fix_type": [3] * count,
+            "latitude_deg": [47.0 + i * 0.001 for i in range(count)],
+            "longitude_deg": [9.0 + i * 0.001 for i in range(count)],
+            "altitude_msl_m": [100.0] * count,
+            "vel_m_s": [1.0, 1.0, 18.0, 18.0, 18.0, 15.0, 15.0, 1.0, 1.0],
+            "cog_rad": [0.0] * count,
+        },
+        ("vehicle_status", 0): {
+            # AUTO_TAKEOFF → AUTO_MISSION → AUTO_RTL → AUTO_LAND
+            "timestamp": [900_000, 2_500_000, 5_500_000, 7_500_000],
+            "nav_state": [17, 3, 5, 18],
+        },
+    }
+    monkeypatch.setattr(module, "_read_ulog_datasets", lambda _path: datasets)
+
+    trace = ingest_ulog(path, trace_id="px4-phases")
+    result = segment_trace(trace)
+
+    assert [segment.phase for segment in result.segments] == [
+        TracePhase.TAKEOFF,
+        TracePhase.TRANSIT,
+        TracePhase.RTL,
+        TracePhase.LANDING,
+    ]
+    assert result.metadata.unknown_record_count == 0
+
+
+def test_ulog_manual_nav_state_segments_fail_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Nav states outside the phase vocabulary stay UNKNOWN, never guessed."""
+    module = importlib.import_module("adapters.flight_log.ulog")
+    path = tmp_path / "flight.ulg"
+    path.write_bytes(ULOG_MAGIC + b"synthetic")
+    datasets = {
+        ("vehicle_gps_position", 0): {
+            "timestamp": [1_000_000, 2_000_000],
+            "fix_type": [3, 3],
+            "latitude_deg": [47.0, 47.001],
+            "longitude_deg": [9.0, 9.001],
+            "altitude_msl_m": [100.0, 100.0],
+            "vel_m_s": [18.0, 18.0],
+            "cog_rad": [0.0, 0.0],
+        },
+        ("vehicle_status", 0): {
+            "timestamp": [900_000],
+            "nav_state": [2],  # POSCTL: pilot-flown position control
+        },
+    }
+    monkeypatch.setattr(module, "_read_ulog_datasets", lambda _path: datasets)
+
+    result = segment_trace(ingest_ulog(path, trace_id="px4-manual"))
+
+    assert [segment.phase for segment in result.segments] == [TracePhase.UNKNOWN]
+    assert result.metadata.unknown_record_count == 2
 
 
 def test_ulog_omits_invalid_px4_battery_sentinels() -> None:

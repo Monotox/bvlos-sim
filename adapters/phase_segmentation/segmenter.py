@@ -18,12 +18,22 @@ from schemas.phase_segment import (
 SEGMENTATION_METHOD = "flight_mode_priority"
 
 # ---------------------------------------------------------------------------
-# ArduPilot flight mode → TracePhase (direct mappings)
+# Flight mode → TracePhase (direct mappings)
+#
+# Keys cover both mode vocabularies the ingestion adapters emit into
+# FlightTraceRecord.flight_mode:
+#   - ArduPilot DataFlash MODE message names (TAKEOFF, RTL, LAND, ...)
+#   - PX4 nav_state names produced by the ULog adapter's _PX4_NAV_STATES
+#     table (AUTO_RTL, AUTO_LAND, AUTO_LOITER, ...)
+# Fail-closed: any mode absent from both this map and the kinematic dispatch
+# set below segments as UNKNOWN — manual/acro/stabilized flight, flight
+# termination, external modes, and unrecognized nav_state numbers
+# (NAV_STATE_<n>) are never guessed into a phase.
 # ---------------------------------------------------------------------------
 
 _MODE_PHASE_MAP: dict[str, TracePhase] = {
+    # ArduPilot
     "TAKEOFF": TracePhase.TAKEOFF,
-    "AUTO_TAKEOFF": TracePhase.TAKEOFF,
     "RTL": TracePhase.RTL,
     "SMART_RTL": TracePhase.RTL,
     "LAND": TracePhase.LANDING,
@@ -31,10 +41,33 @@ _MODE_PHASE_MAP: dict[str, TracePhase] = {
     "LOITER_UNLIMITED": TracePhase.LOITER,
     "LOITER_TO_ALT": TracePhase.LOITER,
     "POSHOLD": TracePhase.LOITER,
+    # PX4 nav_state names
+    "AUTO_TAKEOFF": TracePhase.TAKEOFF,
+    "AUTO_VTOL_TAKEOFF": TracePhase.TAKEOFF,
+    "AUTO_RTL": TracePhase.RTL,
+    "AUTO_LAND": TracePhase.LANDING,
+    "AUTO_PRECLAND": TracePhase.LANDING,
+    # PX4 Descend failsafe: controlled descent to touchdown without a
+    # position setpoint — a landing, not free flight.
+    "DESCEND": TracePhase.LANDING,
+    "AUTO_LOITER": TracePhase.LOITER,
+    "ORBIT": TracePhase.LOITER,
 }
 
-# Modes that have no direct phase but delegate to kinematic rules.
-_KINEMATIC_DISPATCH_MODES: frozenset[str] = frozenset({"AUTO", "GUIDED", "GUIDED_NOGPS"})
+# Modes that have no direct phase but delegate to kinematic rules: the vehicle
+# flies an arbitrary trajectory, so the phase depends on its actual motion.
+# ArduPilot: AUTO (mission) and GUIDED. PX4: AUTO_MISSION (mission),
+# OFFBOARD (companion-computer guidance), AUTO_FOLLOW_TARGET (target tracking).
+_KINEMATIC_DISPATCH_MODES: frozenset[str] = frozenset(
+    {
+        "AUTO",
+        "GUIDED",
+        "GUIDED_NOGPS",
+        "AUTO_MISSION",
+        "OFFBOARD",
+        "AUTO_FOLLOW_TARGET",
+    }
+)
 
 # ---------------------------------------------------------------------------
 # Estimator LegPhase mapping (string values, no estimator import required)
