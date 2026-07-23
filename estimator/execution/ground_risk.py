@@ -25,8 +25,10 @@ from estimator.execution.spatial_sampling import (
 from schemas.sora import (
     DEFAULT_SORA_VERSION,
     GrcMitigationCredit,
+    GrcMitigationCreditStatus,
     GroundRiskMitigations,
     SoraAdvisory,
+    SoraAdvisoryCode,
 )
 
 # JARUS SORA 2.5 Main Body, Table 2.  The left-most column satisfying both
@@ -44,17 +46,25 @@ _IGRC_TABLE: tuple[tuple[int | None, ...], ...] = (
     (7, 8, None, None, None),
 )
 
-_GROUND_MITIGATION_FIELDS: tuple[tuple[str, str], ...] = (
-    ("M1(A)", "m1a_sheltering"),
-    ("M1(B)", "m1b_operational_restrictions"),
-    ("M1(C)", "m1c_ground_observation"),
-    ("M2", "m2_impact_reduction"),
+_GROUND_MITIGATION_FIELDS: tuple[tuple[str, str, str], ...] = (
+    ("M1(A)", "m1a_sheltering", "Strategic mitigation by sheltering"),
+    (
+        "M1(B)",
+        "m1b_operational_restrictions",
+        "Strategic mitigation by operational restrictions",
+    ),
+    ("M1(C)", "m1c_ground_observation", "Tactical ground observation"),
+    ("M2", "m2_impact_reduction", "Reduction of the effects of ground impact"),
 )
 
 
 @dataclass(frozen=True, slots=True)
 class GrcMitigationResult:
-    """Unmitigated GRC result; applied declarations are currently rejected."""
+    """Unmitigated GRC result; applied declarations earn no credit.
+
+    ``credits`` records each applied declaration with
+    ``credit_rejected_pending_annex_b`` and zero GRC credit.
+    """
 
     final_grc: int
     credits: list[GrcMitigationCredit] = field(default_factory=list)
@@ -72,12 +82,14 @@ def apply_grc_mitigations(
     sora_version: str,
     controlled_ground_floor: int | None = None,
 ) -> GrcMitigationResult:
-    """Return intrinsic GRC, rejecting mitigation credit until criteria exist.
+    """Return the intrinsic GRC, recording rejected mitigation credit.
 
     A robustness label and free-text evidence reference do not demonstrate the
     integrity and assurance criteria in Annex B. Crediting any applied M1/M2
     declaration would therefore be unsafe until a criteria evaluator is part of
-    the operational workflow.
+    the operational workflow. Instead of aborting, the evaluator fails closed:
+    the final GRC stays at the intrinsic GRC and every applied declaration is
+    recorded as ``credit_rejected_pending_annex_b``.
     """
 
     if sora_version != DEFAULT_SORA_VERSION:
@@ -85,23 +97,51 @@ def apply_grc_mitigations(
         raise ValueError(
             f"unsupported SORA version {sora_version!r}; supported versions: {supported}"
         )
+    del controlled_ground_floor
     if mitigations is None:
         return GrcMitigationResult(final_grc=intrinsic_grc)
 
     applied = [
-        mitigation_id
-        for mitigation_id, field_name in _GROUND_MITIGATION_FIELDS
+        (mitigation_id, title, getattr(mitigations, field_name))
+        for mitigation_id, field_name, title in _GROUND_MITIGATION_FIELDS
         if getattr(mitigations, field_name).applied
     ]
-    if applied:
-        raise ValueError(
-            "applied SORA 2.5 ground-risk mitigations are not supported until an "
-            "Annex B integrity-and-assurance criteria evaluator is implemented; "
-            "a robustness label and free-text evidence reference cannot earn GRC "
-            f"credit ({', '.join(applied)} declared)"
+    if not applied:
+        return GrcMitigationResult(final_grc=intrinsic_grc)
+
+    credits: list[GrcMitigationCredit] = []
+    for mitigation_id, title, declaration in applied:
+        # The declaration validator guarantees nonblank evidence when applied.
+        assert declaration.evidence is not None
+        credits.append(
+            GrcMitigationCredit(
+                mitigation_id=mitigation_id,
+                title=title,
+                robustness=declaration.robustness,
+                evidence=declaration.evidence,
+                nominal_grc_credit=0,
+                grc_credit=0,
+                credit_status=(
+                    GrcMitigationCreditStatus.CREDIT_REJECTED_PENDING_ANNEX_B
+                ),
+            )
         )
-    del controlled_ground_floor
-    return GrcMitigationResult(final_grc=intrinsic_grc)
+    declared = ", ".join(mitigation_id for mitigation_id, _, _ in applied)
+    advisory = SoraAdvisory(
+        code=SoraAdvisoryCode.GROUND_MITIGATION_CREDIT_REJECTED,
+        message=(
+            f"Applied ground-risk mitigation declarations ({declared}) earn no "
+            "GRC credit until an Annex B integrity-and-assurance criteria "
+            "evaluator is implemented; a robustness label and free-text "
+            "evidence reference cannot earn GRC credit. The assessment assumes "
+            "no mitigation credit: the final GRC equals the intrinsic GRC."
+        ),
+    )
+    return GrcMitigationResult(
+        final_grc=intrinsic_grc,
+        credits=credits,
+        advisories=[advisory],
+    )
 
 
 def _aircraft_column(

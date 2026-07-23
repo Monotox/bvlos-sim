@@ -1,4 +1,4 @@
-"""SORA 2.5 ground credits and unsupported mitigation declarations."""
+"""SORA 2.5 ground credits and fail-closed mitigation-credit rejection."""
 
 import math
 
@@ -11,10 +11,13 @@ from estimator.execution.ground_risk import (
 )
 from schemas.sora import (
     AirRiskMitigations,
+    GrcMitigationCredit,
+    GrcMitigationCreditStatus,
     GroundRiskMitigation,
     GroundRiskMitigations,
     GroundRiskFootprint,
     MitigationRobustness,
+    SoraAdvisoryCode,
     SoraMitigations,
 )
 
@@ -58,29 +61,80 @@ def test_every_applied_ground_mitigation_is_rejected_until_criteria_evaluation(
     robustness: MitigationRobustness,
 ) -> None:
     mitigations = GroundRiskMitigations(**{field: _applied(robustness)})
-    with pytest.raises(ValueError, match="Annex B.*criteria evaluator") as exc_info:
-        apply_grc_mitigations(
-            6,
-            mitigations,
-            sora_version="2.5",
-            controlled_ground_floor=1,
-        )
-    assert "free-text evidence reference cannot earn GRC credit" in str(exc_info.value)
+
+    result = apply_grc_mitigations(
+        6,
+        mitigations,
+        sora_version="2.5",
+        controlled_ground_floor=1,
+    )
+
+    assert result.final_grc == 6
+    assert len(result.credits) == 1
+    credit = result.credits[0]
+    assert (
+        credit.credit_status
+        is GrcMitigationCreditStatus.CREDIT_REJECTED_PENDING_ANNEX_B
+    )
+    assert credit.robustness is robustness
+    assert credit.evidence == "Test assurance dossier"
+    assert credit.nominal_grc_credit == 0
+    assert credit.grc_credit == 0
+    assert [advisory.code for advisory in result.advisories] == [
+        SoraAdvisoryCode.GROUND_MITIGATION_CREDIT_REJECTED
+    ]
+    message = result.advisories[0].message
+    assert "Annex B integrity-and-assurance criteria evaluator" in message
+    assert "free-text evidence reference cannot earn GRC credit" in message
 
 
-def test_multiple_applied_ground_mitigations_remain_unsupported() -> None:
+def test_multiple_applied_ground_mitigations_earn_no_credit() -> None:
     mitigations = GroundRiskMitigations(
         m1a_sheltering=_applied(_R.LOW),
         m1b_operational_restrictions=_applied(_R.MEDIUM),
     )
 
-    with pytest.raises(ValueError, match=r"M1\(A\).*M1\(B\)"):
-        apply_grc_mitigations(
-            6,
-            mitigations,
-            sora_version="2.5",
-            controlled_ground_floor=1,
+    result = apply_grc_mitigations(
+        6,
+        mitigations,
+        sora_version="2.5",
+        controlled_ground_floor=1,
+    )
+
+    assert result.final_grc == 6
+    assert [credit.mitigation_id for credit in result.credits] == ["M1(A)", "M1(B)"]
+    assert all(
+        credit.credit_status
+        is GrcMitigationCreditStatus.CREDIT_REJECTED_PENDING_ANNEX_B
+        for credit in result.credits
+    )
+    message = result.advisories[0].message
+    assert "M1(A), M1(B)" in message
+
+
+def test_rejected_credit_status_cannot_carry_grc_credit() -> None:
+    with pytest.raises(ValidationError, match="cannot carry GRC credit"):
+        GrcMitigationCredit(
+            mitigation_id="M1(A)",
+            title="Strategic mitigation by sheltering",
+            robustness=_R.LOW,
+            evidence="Test assurance dossier",
+            nominal_grc_credit=-1,
+            grc_credit=-1,
+            credit_status=GrcMitigationCreditStatus.CREDIT_REJECTED_PENDING_ANNEX_B,
         )
+
+
+def test_unset_credit_status_is_omitted_from_serialized_credit() -> None:
+    credit = GrcMitigationCredit(
+        mitigation_id="M1(A)",
+        title="Strategic mitigation by sheltering",
+        robustness=_R.LOW,
+        evidence="Test assurance dossier",
+        nominal_grc_credit=-1,
+        grc_credit=-1,
+    )
+    assert "credit_status" not in credit.model_dump(mode="json")
 
 
 def test_unsupported_version_is_rejected_instead_of_ignored() -> None:
@@ -162,13 +216,22 @@ def test_m2_free_text_evidence_cannot_bypass_criteria_evaluator() -> None:
             footprint_revalidated=True,
         )
     )
-    with pytest.raises(ValueError, match="Annex B.*criteria evaluator"):
-        apply_grc_mitigations(
-            5,
-            mitigations,
-            sora_version="2.5",
-            controlled_ground_floor=1,
-        )
+
+    result = apply_grc_mitigations(
+        5,
+        mitigations,
+        sora_version="2.5",
+        controlled_ground_floor=1,
+    )
+
+    assert result.final_grc == 5
+    credit = result.credits[0]
+    assert credit.mitigation_id == "M2"
+    assert credit.grc_credit == 0
+    assert (
+        credit.credit_status
+        is GrcMitigationCreditStatus.CREDIT_REJECTED_PENDING_ANNEX_B
+    )
 
 
 def test_tactical_air_mitigation_claim_is_rejected_not_credited() -> None:

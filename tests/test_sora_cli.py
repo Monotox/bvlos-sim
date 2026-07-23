@@ -185,6 +185,7 @@ def test_sora_json_envelope_contains_sail(tmp_path: Path) -> None:
         "operational_volume_margin_m": 30.0,
         "vertical_contingency_margin_m": 10.0,
     }
+    assert assessment["ground_risk_mitigations"] == []
     assert assessment["tactical_mitigation_requirement"] == {
         "required_robustness": "low"
     }
@@ -348,7 +349,7 @@ def test_grc_above_seven_flags_certified_category(tmp_path: Path) -> None:
     }
 
 
-def test_ground_risk_mitigation_credit_is_rejected_without_criteria_evaluator(
+def test_ground_risk_mitigation_credit_is_rejected_but_reported(
     tmp_path: Path,
 ) -> None:
     mission_path, vehicle_path = _write_inputs(
@@ -372,9 +373,31 @@ def test_ground_risk_mitigation_credit_is_rejected_without_criteria_evaluator(
 
     result = _invoke(mission_path, vehicle_path, "json")
 
-    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
-    assert "Annex B integrity-and-assurance criteria evaluator" in result.stdout
-    assert "free-text evidence reference cannot earn GRC credit" in result.stdout
+    # The only problem is the applied mitigation declaration: the assessment
+    # is still written without credit, and the exit code is INFEASIBLE (10).
+    assert result.exit_code == int(CliExitCode.INFEASIBLE)
+    assessment = json.loads(result.stdout)["result"]
+    assert assessment["intrinsic_grc"] == 5
+    assert assessment["final_grc"] == 5
+    assert assessment["within_specific_category_method_scope"] is True
+    assert assessment["ground_risk_mitigations"] == [
+        {
+            "mitigation_id": "M1(A)",
+            "title": "Strategic mitigation by sheltering",
+            "robustness": "medium",
+            "evidence": "Test sheltering dossier",
+            "nominal_grc_credit": 0,
+            "grc_credit": 0,
+            "credit_status": "credit_rejected_pending_annex_b",
+        }
+    ]
+    advisory = next(
+        advisory
+        for advisory in assessment["advisories"]
+        if advisory["code"] == "GROUND_MITIGATION_CREDIT_REJECTED"
+    )
+    assert "Annex B integrity-and-assurance criteria evaluator" in advisory["message"]
+    assert "free-text evidence reference cannot earn GRC credit" in advisory["message"]
 
 
 def test_tactical_air_risk_credit_is_rejected(tmp_path: Path) -> None:
@@ -421,7 +444,12 @@ def test_markdown_request_cannot_bypass_mitigation_credit_gate(tmp_path: Path) -
 
     result = _invoke(mission_path, vehicle_path, "markdown")
 
-    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+    assert result.exit_code == int(CliExitCode.INFEASIBLE)
+    assert "## Declared Ground Risk Mitigations: NO CREDIT APPLIED" in result.stdout
+    assert "REJECTED pending an Annex B" in result.stdout
+    assert "assume NO mitigation credit" in result.stdout
+    assert "credit_rejected_pending_annex_b" in result.stdout
+    assert "(declared mitigation credit rejected)" in result.stdout
     assert "Annex B integrity-and-assurance criteria evaluator" in result.stdout
 
 

@@ -166,8 +166,10 @@ class GroundRiskMitigation(BaseModel):
 class GroundRiskMitigations(BaseModel):
     """Reserved ground-risk mitigation declarations.
 
-    The operational evaluator currently rejects every applied declaration until
-    Annex B integrity and assurance criteria can be evaluated.
+    The operational evaluator credits no applied declaration until Annex B
+    integrity and assurance criteria can be evaluated: the assessment proceeds
+    with the intrinsic GRC and records each declaration as
+    ``credit_rejected_pending_annex_b``.
     """
 
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
@@ -323,8 +325,9 @@ class AdjacentAreaContainmentEvidence(BaseModel):
 class SoraMitigations(BaseModel):
     """SORA footprint plus reserved mitigation declarations.
 
-    The operational evaluator accepts a no-mitigation intrinsic assessment but
-    rejects applied declarations until Annex B criteria evaluation exists.
+    Applied ground-risk declarations earn no credit until Annex B criteria
+    evaluation exists; the assessment still runs without credit and reports
+    each rejected declaration.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -357,6 +360,7 @@ class SoraAdvisoryCode(StrEnum):
     """Advisory codes explaining why part of the assessment was not computed."""
 
     AIRSPACE_DESCRIPTOR_MISSING = "AIRSPACE_DESCRIPTOR_MISSING"
+    GROUND_MITIGATION_CREDIT_REJECTED = "GROUND_MITIGATION_CREDIT_REJECTED"
     GROUND_RISK_NOT_COMPUTED = "GROUND_RISK_NOT_COMPUTED"
     OPERATION_OUTSIDE_SPECIFIC_CATEGORY = "OPERATION_OUTSIDE_SPECIFIC_CATEGORY"
     MITIGATION_VERSION_UNSUPPORTED = "MITIGATION_VERSION_UNSUPPORTED"
@@ -426,11 +430,21 @@ class OsoRequirement(BaseModel):
         return self
 
 
+class GrcMitigationCreditStatus(StrEnum):
+    """Outcome of the credit evaluation for one declared mitigation."""
+
+    CREDIT_REJECTED_PENDING_ANNEX_B = "credit_rejected_pending_annex_b"
+
+
 class GrcMitigationCredit(BaseModel):
-    """Reserved output contract for a future evaluated GRC credit.
+    """Credit-evaluation record for one declared ground-risk mitigation.
 
     ``nominal_grc_credit`` is the table value. ``grc_credit`` is the effective
-    value after the controlled-ground-area floor is applied to M1 credits.
+    value after the controlled-ground-area floor is applied to M1 credits. A
+    ``credit_status`` of ``credit_rejected_pending_annex_b`` records an applied
+    declaration that earned no credit because the Annex B integrity and
+    assurance criteria could not be evaluated; the field is omitted from
+    serialized output for an evaluated credit.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -441,6 +455,24 @@ class GrcMitigationCredit(BaseModel):
     evidence: str
     nominal_grc_credit: int
     grc_credit: int
+    credit_status: GrcMitigationCreditStatus | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+        description=(
+            "Set when the declaration earned no credit; absent for an "
+            "evaluated credit."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def reject_credit_on_rejected_status(self) -> "GrcMitigationCredit":
+        if self.credit_status is not None and (
+            self.nominal_grc_credit != 0 or self.grc_credit != 0
+        ):
+            raise ValueError(
+                "a rejected mitigation declaration cannot carry GRC credit"
+            )
+        return self
 
 
 class TacticalMitigationRequirement(BaseModel):
@@ -618,6 +650,7 @@ __all__ = [
     "ContainmentMethod",
     "ContainmentRobustness",
     "GrcMitigationCredit",
+    "GrcMitigationCreditStatus",
     "GroundRiskFootprint",
     "GroundRiskMitigation",
     "GroundRiskMitigations",
