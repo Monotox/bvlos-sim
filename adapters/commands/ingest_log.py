@@ -25,8 +25,6 @@ from schemas.flight_log import FlightTraceMissionRef
 def ingest_log(
     log: Path = typer.Argument(
         ...,
-        exists=True,
-        readable=True,
         resolve_path=True,
         help="ArduPilot DataFlash .log/.bin or PX4 .ulg file.",
     ),
@@ -38,16 +36,12 @@ def ingest_log(
     mission: Path | None = typer.Option(
         None,
         "--mission",
-        exists=True,
-        readable=True,
         resolve_path=True,
         help="Paired mission file; requires --vehicle and embeds its SHA-256.",
     ),
     vehicle: Path | None = typer.Option(
         None,
         "--vehicle",
-        exists=True,
-        readable=True,
         resolve_path=True,
         help="Paired vehicle file; requires --mission and embeds its SHA-256.",
     ),

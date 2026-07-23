@@ -38,8 +38,6 @@ def _run_compare_preflight(*, evidence: Path, as_json: bool) -> None:
 def compare(
     evidence: Path = typer.Argument(
         ...,
-        exists=True,
-        readable=True,
         resolve_path=True,
         help="Path to a sitl-evidence.v1 JSON bundle.",
     ),

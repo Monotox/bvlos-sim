@@ -138,15 +138,11 @@ def _run_size_battery_preflight(*, mission: Path, vehicle: Path, as_json: bool) 
 def size_battery(
     mission: Path = typer.Argument(
         ...,
-        exists=True,
-        readable=True,
         resolve_path=True,
         help="Path to mission.v7 YAML file.",
     ),
     vehicle: Path = typer.Argument(
         ...,
-        exists=True,
-        readable=True,
         resolve_path=True,
         help="Path to vehicle profile YAML file.",
     ),

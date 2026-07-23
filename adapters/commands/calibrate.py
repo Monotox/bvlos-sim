@@ -54,15 +54,11 @@ def _run_calibrate_preflight(
 def calibrate(
     vehicle: Path = typer.Argument(
         ...,
-        exists=True,
-        readable=True,
         resolve_path=True,
         help="Path to the base vehicle profile YAML file.",
     ),
     traces: list[Path] = typer.Argument(
         ...,
-        exists=True,
-        readable=True,
         resolve_path=True,
         help="One or more flight-trace.v1 JSON files (from flight-log ingestion).",
     ),

@@ -31,22 +31,16 @@ from schemas.flight_log import FlightTraceMissionRef
 def validate(
     mission: Path = typer.Argument(
         ...,
-        exists=True,
-        readable=True,
         resolve_path=True,
         help="Path to mission.v7 YAML file.",
     ),
     vehicle: Path = typer.Argument(
         ...,
-        exists=True,
-        readable=True,
         resolve_path=True,
         help="Path to vehicle profile YAML file.",
     ),
     trace: Path = typer.Argument(
         ...,
-        exists=True,
-        readable=True,
         resolve_path=True,
         help="Path to a flight-trace.v1 JSON file (from flight-log ingestion).",
     ),
@@ -58,8 +52,6 @@ def validate(
     calibration: Path | None = typer.Option(
         None,
         "--calibration",
-        exists=True,
-        readable=True,
         resolve_path=True,
         help=(
             "Optional calibration-profile.v1 JSON to layer on the vehicle before "

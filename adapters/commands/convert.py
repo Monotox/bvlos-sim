@@ -101,7 +101,7 @@ def _run_convert_preflight(
 
 
 def convert(
-    plan: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True),
+    plan: Path = typer.Argument(..., resolve_path=True),
     vehicle_profile: str | None = typer.Option(
         None,
         "--vehicle-profile",
