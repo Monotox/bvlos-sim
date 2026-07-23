@@ -78,8 +78,6 @@ def _run_sample_preflight(*, uncertainty_file: Path, as_json: bool) -> None:
 def sample(
     uncertainty_file: Path = typer.Argument(
         ...,
-        exists=True,
-        readable=True,
         resolve_path=True,
         help="Path to uncertainty.v2 diagnostic YAML file.",
     ),

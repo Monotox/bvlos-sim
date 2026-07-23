@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from math import isfinite
 from pathlib import Path
-from typing import TypeVar
+from typing import Any, TypeVar
 
 import typer
 
@@ -306,10 +306,22 @@ def _load_optional_asset(
     *,
     mission_path: Path,
     loader: Callable[[Path], tuple[LoadedAssetT, InputDocument]],
+    cache: dict[Path, tuple[Any, InputDocument]] | None = None,
 ) -> tuple[LoadedAssetT | None, InputDocument | None]:
     if path is None:
         return None, None
-    return loader(_resolve_asset_path(path, mission_path=mission_path))
+    resolved = _resolve_asset_path(path, mission_path=mission_path)
+    if cache is None:
+        return loader(resolved)
+    key = resolved.resolve(strict=False)
+    if key not in cache:
+        cache[key] = loader(resolved)
+    value, document = cache[key]
+    # Zone lists are handed to the estimator per run; copy so one run can
+    # never see another's list object.
+    if isinstance(value, list):
+        value = list(value)
+    return value, document
 
 
 def _status_for_failure_kind(kind: FailureKind) -> EstimateStatus:
@@ -395,37 +407,44 @@ def _populate_mission_assets(
     *,
     mission_model: MissionPlan,
     mission_document: InputDocument,
+    asset_cache: dict[Path, tuple[Any, InputDocument]] | None = None,
 ) -> None:
     mission_path = mission_document.path
     bundle.terrain_provider, bundle.terrain_document = _load_optional_asset(
         mission_model.assets.terrain_file,
         mission_path=mission_path,
         loader=load_terrain_grid,
+        cache=asset_cache,
     )
     bundle.population_provider, bundle.population_document = _load_optional_asset(
         mission_model.assets.population_grid_file,
         mission_path=mission_path,
         loader=load_population_grid,
+        cache=asset_cache,
     )
     bundle.obstacle_provider, bundle.obstacle_document = _load_optional_asset(
         mission_model.assets.obstacles_file,
         mission_path=mission_path,
         loader=load_obstacles,
+        cache=asset_cache,
     )
     bundle.wind_provider, bundle.wind_grid_document = _load_optional_asset(
         mission_model.assets.wind_grid_file,
         mission_path=mission_path,
         loader=load_wind_grid,
+        cache=asset_cache,
     )
     bundle.geofences, bundle.geofence_document = _load_optional_asset(
         mission_model.assets.geofences_file,
         mission_path=mission_path,
         loader=load_geofences,
+        cache=asset_cache,
     )
     bundle.landing_zones, bundle.landing_zone_document = _load_optional_asset(
         mission_model.assets.landing_zones_file,
         mission_path=mission_path,
         loader=load_landing_zones,
+        cache=asset_cache,
     )
 
 

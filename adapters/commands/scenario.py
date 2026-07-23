@@ -36,8 +36,10 @@ from adapters.assets.landing_zone_geojson import LandingZoneLoadError
 from adapters.preflight import (
     check_file,
     emit_preflight,
+    format_note_suffix,
     is_json_format,
     mission_asset_checks,
+    mission_block_notes,
 )
 from adapters.profile_markdown import render_profile_markdown_from_scenario
 from adapters.scenario_envelope import (
@@ -208,9 +210,16 @@ def _run_scenario_preflight(
             path_str=mission_path.name,
             loader=lambda: load_mission(mission_path),
         )
+        if mission_check.ok and mission_result is not None:
+            mission_check = mission_check.model_copy(
+                update={"notes": mission_block_notes(mission_result[0])}
+            )
         files.append(mission_check)
         if mission_check.ok:
-            text_lines.append(f"mission: {mission_path.name}: OK")
+            text_lines.append(
+                f"mission: {mission_path.name}: OK"
+                f"{format_note_suffix(mission_check.notes)}"
+            )
         vehicle_check, _ = check_file(
             role="vehicle",
             path_str=vehicle_path.name,
@@ -241,8 +250,6 @@ def _run_scenario_preflight(
 def scenario(
     scenario_file: Path = typer.Argument(
         ...,
-        exists=True,
-        readable=True,
         resolve_path=True,
         help="Path to scenario.v1 YAML file.",
     ),
@@ -269,8 +276,6 @@ def scenario(
     calibration: Path | None = typer.Option(
         None,
         "--calibration",
-        exists=True,
-        readable=True,
         resolve_path=True,
         help=(
             "Optional calibration-profile.v1 JSON to layer on the vehicle. "

@@ -75,8 +75,6 @@ def _run_propagate_preflight(*, stochastic_file: Path, as_json: bool) -> None:
 def propagate(
     stochastic_file: Path = typer.Argument(
         ...,
-        exists=True,
-        readable=True,
         resolve_path=True,
         help="Path to stochastic.v2 diagnostic YAML file.",
     ),

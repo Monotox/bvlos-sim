@@ -68,8 +68,6 @@ def _run_export_preflight(*, mission: Path, as_json: bool) -> None:
 def export(
     mission: Path = typer.Argument(
         ...,
-        exists=True,
-        readable=True,
         resolve_path=True,
         help="Path to mission.v7 YAML file.",
     ),

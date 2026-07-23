@@ -903,7 +903,8 @@ def _build_cases(root: Path) -> list[Case]:
         Case(
             "estimate missing mission file",
             ["estimate", str(root / "missing.yaml"), str(paths["vehicle"])],
-            USAGE_ERROR,
+            INVALID_INPUT,
+            _estimate_case_status("error"),
         ),
         Case(
             "estimate mission vehicle mismatch",
@@ -1048,7 +1049,8 @@ def _build_cases(root: Path) -> list[Case]:
         Case(
             "scenario missing file",
             ["scenario", str(root / "missing-scenario.yaml")],
-            USAGE_ERROR,
+            INVALID_INPUT,
+            _scenario_status("error"),
         ),
         Case(
             "scenario duplicate event ids",

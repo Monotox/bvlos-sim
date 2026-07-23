@@ -21,7 +21,7 @@ from adapters.cli_batch_support import (
 )
 from adapters.cli_support import OutputWriteError, _write_output
 from adapters.envelope import OutputFormat
-from adapters.io import InputLoadError, load_mission, load_vehicle
+from adapters.io import InputDocument, InputLoadError, load_mission, load_vehicle
 from adapters.preflight import (
     check_file,
     emit_preflight,
@@ -30,6 +30,7 @@ from adapters.preflight import (
 )
 from adapters.progress import progress_reporter
 from schemas.batch import BatchManifest
+from schemas.mission import MissionPlan
 
 
 BatchStdoutRenderer = Callable[[list[BatchRunResult]], str]
@@ -47,12 +48,21 @@ _BATCH_FILE_OUTPUT_FORMATS = frozenset(
 def _batch_protected_input_paths(
     manifest: Path,
     batch_manifest: BatchManifest,
-) -> tuple[Path, ...]:
-    """Resolve every file that a batch run may read before opening sidecars."""
+) -> tuple[tuple[Path, ...], dict[Path, tuple[MissionPlan, InputDocument]]]:
+    """Resolve every file a batch run may read before opening sidecars.
+
+    Missions are parsed here anyway to enumerate their asset paths, so the
+    parsed models are returned for the run loop to reuse instead of parsing
+    every mission a second time.
+    """
     protected = [manifest]
+    preloaded: dict[Path, tuple[MissionPlan, InputDocument]] = {}
     for run in batch_manifest.runs:
         protected.extend((run.mission, run.vehicle))
-        mission_model, _mission_document = load_mission(run.mission)
+        mission_key = run.mission.resolve(strict=False)
+        if mission_key not in preloaded:
+            preloaded[mission_key] = load_mission(run.mission)
+        mission_model, _mission_document = preloaded[mission_key]
         for asset_path in mission_model.assets.model_dump().values():
             if not isinstance(asset_path, Path):
                 continue
@@ -61,7 +71,7 @@ def _batch_protected_input_paths(
                 if asset_path.is_absolute()
                 else run.mission.parent / asset_path
             )
-    return tuple(protected)
+    return tuple(protected), preloaded
 
 
 def _validate_batch_output_paths(
@@ -174,7 +184,7 @@ def _run_batch_preflight(*, manifest: Path, as_json: bool) -> None:
 
 
 def batch(
-    manifest: Path = typer.Argument(..., exists=True, readable=True, resolve_path=True),
+    manifest: Path = typer.Argument(..., resolve_path=True),
     output_dir: Path | None = typer.Option(
         None,
         "--output-dir",
@@ -231,7 +241,9 @@ def batch(
                 err=True,
             )
         batch_manifest = load_batch_manifest(manifest)
-        protected_paths = _batch_protected_input_paths(manifest, batch_manifest)
+        protected_paths, preloaded_missions = _batch_protected_input_paths(
+            manifest, batch_manifest
+        )
         _validate_batch_output_paths(
             output_dir=output_dir,
             output_format=format,
@@ -258,6 +270,7 @@ def batch(
                 batch_manifest,
                 progress=reporter,
                 engineering_only=engineering_only,
+                preloaded_missions=preloaded_missions,
             )
         _emit_batch_warnings(results)
         _write_batch_file_outputs(

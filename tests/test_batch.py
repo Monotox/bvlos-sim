@@ -679,3 +679,37 @@ def test_batch_manifest_rejects_invalid_run_id_characters() -> None:
                 REPO_ROOT / "examples/vehicles/quadplane_v1.yaml",
             ),
         )
+
+
+def test_batch_parses_shared_inputs_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Runs sharing mission/vehicle/asset files must not re-parse them."""
+    import adapters.cli_support as cli_support
+    from adapters.batch_support import run_batch_manifest as run_manifest
+
+    fixture = Path(__file__).parent / "fixtures" / "golden" / "terrain"
+    calls = {"terrain": 0}
+    original = cli_support.load_terrain_grid
+
+    def counting_loader(path: Path):  # noqa: ANN202
+        calls["terrain"] += 1
+        return original(path)
+
+    monkeypatch.setattr(cli_support, "load_terrain_grid", counting_loader)
+    manifest = BatchManifest(
+        format_version="batch.v1",
+        runs=[
+            BatchRun(
+                id=f"r{index}",
+                mission=fixture / "mission.yaml",
+                vehicle=fixture / "vehicle.yaml",
+            )
+            for index in range(3)
+        ],
+    )
+
+    results = run_manifest(manifest, engineering_only=True)
+
+    assert len(results) == 3
+    assert calls["terrain"] == 1

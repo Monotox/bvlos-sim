@@ -53,6 +53,14 @@ class FileCheck(BaseModel):
     error: PreflightError | None = Field(
         default=None, description="Failure detail; None when ok."
     )
+    notes: list[str] = Field(
+        default_factory=list,
+        exclude_if=lambda value: not value,
+        description=(
+            "Advisories that do not fail validation, e.g. safety-relevant "
+            "blocks absent from an otherwise valid mission."
+        ),
+    )
 
 
 class PreflightValidationReport(BaseModel):

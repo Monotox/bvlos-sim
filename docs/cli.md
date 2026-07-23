@@ -21,6 +21,11 @@ upgrade older files with [`migrate`](#migrate).
 | `13` | Internal or adapter runtime error |
 | `14` | Cancelled by `SIGINT`/`SIGTERM` (console entrypoint only) |
 
+A missing or unreadable input file is invalid input (`11`, with an error
+envelope) like any other load failure. Only genuine command-line usage errors
+— an unknown flag or a missing required argument — exit `2` from the argument
+parser.
+
 Per-command behavior:
 
 | Command | `0` | `10` | `11` | `12` | `13` | Notes |
@@ -204,7 +209,9 @@ non-zero `wind_process_noise_std_mps` are rejected rather than approximated.
 
 Long `sample`, `propagate`, and `batch` runs can stream progress:
 `--progress-format jsonl` emits one JSON object per ~5% of the run to stderr
-(`{"event":"progress","command":"propagate","completed":250,"total":1000,"elapsed_s":75.3}`);
+(`{"event":"progress","command":"propagate","completed":250,"total":1000,"elapsed_s":75.3}`;
+batch records also carry `run_id` — the id of the run that just completed —
+so a worker can attribute stalls);
 `--progress-file PATH` writes the same stream to a tailable file. Progress
 never touches the result envelope or the exit code.
 
