@@ -19,7 +19,11 @@ from adapters.cli_batch_support import (
     _batch_output_extension,
     write_batch_outputs,
 )
-from adapters.cli_support import OutputWriteError, _write_output
+from adapters.cli_support import (
+    OutputWriteError,
+    _resolve_scenario_input_paths,
+    _write_output,
+)
 from adapters.envelope import OutputFormat
 from adapters.io import InputDocument, InputLoadError, load_mission, load_vehicle
 from adapters.preflight import (
@@ -29,8 +33,21 @@ from adapters.preflight import (
     mission_asset_checks,
 )
 from adapters.progress import progress_reporter
-from schemas.batch import BatchManifest
+from adapters.scenario_io import load_scenario
+from adapters.stochastic_io import load_stochastic_plan, resolve_stochastic_asset_path
+from schemas.batch import BatchManifest, BatchRun
 from schemas.mission import MissionPlan
+
+# Per-run output formats are estimate-only when they render route/checklist
+# geometry the scenario and propagate envelopes do not carry.
+_ESTIMATE_ONLY_FORMATS = frozenset(
+    {
+        BatchOutputFormat.GEOJSON,
+        BatchOutputFormat.KML,
+        BatchOutputFormat.CHECKLIST,
+        BatchOutputFormat.PROFILE,
+    }
+)
 
 
 BatchStdoutRenderer = Callable[[list[BatchRunResult]], str]
@@ -45,6 +62,42 @@ _BATCH_FILE_OUTPUT_FORMATS = frozenset(
 )
 
 
+def _mission_asset_paths(
+    mission_model: MissionPlan, *, mission_path: Path
+) -> list[Path]:
+    paths: list[Path] = []
+    for asset_path in mission_model.assets.model_dump().values():
+        if not isinstance(asset_path, Path):
+            continue
+        paths.append(
+            asset_path
+            if asset_path.is_absolute()
+            else mission_path.parent / asset_path
+        )
+    return paths
+
+
+def _run_mission_vehicle_paths(
+    run: BatchRun, run_type: str
+) -> tuple[Path, Path]:
+    """Resolve the mission and vehicle a run reads, from whichever file names it."""
+    if run_type == "scenario":
+        assert run.scenario is not None
+        scenario_plan, _ = load_scenario(run.scenario)
+        return _resolve_scenario_input_paths(
+            scenario_plan, scenario_file=run.scenario
+        )
+    if run_type == "propagate":
+        assert run.plan is not None
+        plan, _ = load_stochastic_plan(run.plan)
+        return (
+            resolve_stochastic_asset_path(plan.mission_file, stochastic_path=run.plan),
+            resolve_stochastic_asset_path(plan.vehicle_file, stochastic_path=run.plan),
+        )
+    assert run.mission is not None and run.vehicle is not None
+    return run.mission, run.vehicle
+
+
 def _batch_protected_input_paths(
     manifest: Path,
     batch_manifest: BatchManifest,
@@ -52,26 +105,30 @@ def _batch_protected_input_paths(
     """Resolve every file a batch run may read before opening sidecars.
 
     Missions are parsed here anyway to enumerate their asset paths, so the
-    parsed models are returned for the run loop to reuse instead of parsing
-    every mission a second time.
+    parsed estimate-run models are returned for the run loop to reuse instead
+    of parsing every mission a second time.
     """
+    run_type = batch_manifest.run_type
     protected = [manifest]
     preloaded: dict[Path, tuple[MissionPlan, InputDocument]] = {}
     for run in batch_manifest.runs:
-        protected.extend((run.mission, run.vehicle))
-        mission_key = run.mission.resolve(strict=False)
+        if run.scenario is not None:
+            protected.append(run.scenario)
+        if run.plan is not None:
+            protected.append(run.plan)
+        mission_path, vehicle_path = _run_mission_vehicle_paths(run, run_type)
+        protected.extend((mission_path, vehicle_path))
+        mission_key = mission_path.resolve(strict=False)
         if mission_key not in preloaded:
-            preloaded[mission_key] = load_mission(run.mission)
+            preloaded[mission_key] = load_mission(mission_path)
         mission_model, _mission_document = preloaded[mission_key]
-        for asset_path in mission_model.assets.model_dump().values():
-            if not isinstance(asset_path, Path):
-                continue
-            protected.append(
-                asset_path
-                if asset_path.is_absolute()
-                else run.mission.parent / asset_path
-            )
-    return tuple(protected), preloaded
+        protected.extend(
+            _mission_asset_paths(mission_model, mission_path=mission_path)
+        )
+    # Only estimate runs reuse the preloaded models directly; scenario and
+    # propagate re-resolve inputs through their own loaders.
+    reusable = preloaded if run_type == "estimate" else {}
+    return tuple(protected), reusable
 
 
 def _validate_batch_output_paths(
@@ -156,26 +213,53 @@ def _run_batch_preflight(*, manifest: Path, as_json: bool) -> None:
         text_lines.append(
             f"batch: {manifest.name}: OK ({len(manifest_loaded.runs)} runs)"
         )
+        run_type = manifest_loaded.run_type
         for run in manifest_loaded.runs:
+            if run.scenario is not None:
+                scenario_check, _ = check_file(
+                    role="scenario",
+                    path_str=run.scenario.name,
+                    loader=lambda r=run: load_scenario(r.scenario),
+                )
+                files.append(scenario_check)
+                if scenario_check.ok:
+                    text_lines.append(f"  scenario: {run.scenario.name}: OK")
+            if run.plan is not None:
+                plan_check, _ = check_file(
+                    role="stochastic",
+                    path_str=run.plan.name,
+                    loader=lambda r=run: load_stochastic_plan(r.plan),
+                )
+                files.append(plan_check)
+                if plan_check.ok:
+                    text_lines.append(f"  plan: {run.plan.name}: OK")
+            try:
+                mission_path, vehicle_path = _run_mission_vehicle_paths(run, run_type)
+            except InputLoadError:
+                # The scenario/plan file failed to load above; its own check
+                # already recorded the failure.
+                continue
             mission_check, mission_result = check_file(
                 role="mission",
-                path_str=run.mission.name,
-                loader=lambda r=run: load_mission(r.mission),
+                path_str=mission_path.name,
+                loader=lambda p=mission_path: load_mission(p),
             )
             files.append(mission_check)
             if mission_check.ok:
-                text_lines.append(f"  mission: {run.mission.name}: OK")
+                text_lines.append(f"  mission: {mission_path.name}: OK")
             vehicle_check, _ = check_file(
                 role="vehicle",
-                path_str=run.vehicle.name,
-                loader=lambda r=run: load_vehicle(r.vehicle),
+                path_str=vehicle_path.name,
+                loader=lambda p=vehicle_path: load_vehicle(p),
             )
             files.append(vehicle_check)
             if vehicle_check.ok:
-                text_lines.append(f"  vehicle: {run.vehicle.name}: OK")
+                text_lines.append(f"  vehicle: {vehicle_path.name}: OK")
             if mission_result is not None:
                 files.extend(
-                    mission_asset_checks(mission_result[0], mission_path=run.mission)
+                    mission_asset_checks(
+                        mission_result[0], mission_path=mission_path
+                    )
                 )
 
     emit_preflight(
@@ -241,6 +325,15 @@ def batch(
                 err=True,
             )
         batch_manifest = load_batch_manifest(manifest)
+        if (
+            batch_manifest.run_type != "estimate"
+            and format in _ESTIMATE_ONLY_FORMATS
+        ):
+            raise ValueError(
+                f"--format {format} is only available for estimate runs; "
+                f"{batch_manifest.run_type} runs support json, markdown, "
+                "summary, and csv."
+            )
         protected_paths, preloaded_missions = _batch_protected_input_paths(
             manifest, batch_manifest
         )
