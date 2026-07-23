@@ -198,6 +198,41 @@ def test_landing_zone_divert_fails_when_headwind_blocks_path() -> None:
     assert result.failure.code == FailureCode.GROUNDSPEED_NON_POSITIVE
 
 
+def _reachability_divert_energy_wh(wind_east: float, wind_north: float) -> float:
+    """Divert energy for a single east-of-home landing zone under a wind."""
+    mission = make_mission()
+    mission.route = [mission.route[0]]
+    mission.constraints.require_rth_reserve = False
+    mission.constraints.max_wind_mps = None
+    mission.constraints.min_distance_to_landing_zone_m = 3_000.0
+    zone_lon, zone_lat, _ = Geod(ellps="WGS84").fwd(
+        mission.planned_home.lon, mission.planned_home.lat, 90.0, 800.0
+    )
+    vehicle = make_vehicle()
+    vehicle.performance.turn_radius_m = None
+    vehicle.performance.max_crab_angle_deg = 89.0
+    result = try_estimate_mission_distance_time(
+        mission,
+        vehicle,
+        wind_provider=ConstantWindProvider(wind_east, wind_north),
+        landing_zones=[_point_zone("east", lat=zone_lat, lon=zone_lon)],
+    )
+    assert result.landing_zone is not None
+    return result.landing_zone.states[0].divert_energy_wh
+
+
+def test_landing_zone_reachability_energy_tracks_wind() -> None:
+    """Reachability divert energy is wind-corrected, not TAS-only."""
+    # Zone due east of home: negative east wind is a headwind, positive a tailwind.
+    no_wind = _reachability_divert_energy_wh(0.0, 0.0)
+    headwind = _reachability_divert_energy_wh(-6.0, 0.0)
+    tailwind = _reachability_divert_energy_wh(6.0, 0.0)
+    crosswind = _reachability_divert_energy_wh(0.0, 6.0)
+
+    assert headwind > no_wind > tailwind
+    assert crosswind > no_wind
+
+
 def test_landing_zone_distance_is_checked_between_long_leg_endpoints() -> None:
     mission = make_mission()
     mission.constraints.require_rth_reserve = False
