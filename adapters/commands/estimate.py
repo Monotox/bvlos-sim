@@ -42,8 +42,10 @@ from adapters.assets.landing_zone_geojson import LandingZoneLoadError
 from adapters.preflight import (
     check_file,
     emit_preflight,
+    format_note_suffix,
     is_json_format,
     mission_asset_checks,
+    mission_block_notes,
 )
 from adapters.profile_markdown import render_profile_markdown
 from adapters.sensitivity import render_sensitivity_markdown, run_sensitivity_sweep
@@ -301,9 +303,15 @@ def _run_estimate_preflight(
     mission_check, mission_result = check_file(
         role="mission", path_str=mission.name, loader=lambda: load_mission(mission)
     )
+    if mission_check.ok and mission_result is not None:
+        mission_check = mission_check.model_copy(
+            update={"notes": mission_block_notes(mission_result[0])}
+        )
     files.append(mission_check)
     if mission_check.ok:
-        text_lines.append(f"mission: {mission.name}: OK")
+        text_lines.append(
+            f"mission: {mission.name}: OK{format_note_suffix(mission_check.notes)}"
+        )
 
     vehicle_check, _ = check_file(
         role="vehicle", path_str=vehicle.name, loader=lambda: load_vehicle(vehicle)
@@ -333,15 +341,11 @@ def _run_estimate_preflight(
 def estimate(
     mission: Path = typer.Argument(
         ...,
-        exists=True,
-        readable=True,
         resolve_path=True,
         help="Path to mission.v7 YAML file.",
     ),
     vehicle: Path = typer.Argument(
         ...,
-        exists=True,
-        readable=True,
         resolve_path=True,
         help="Path to vehicle profile YAML file.",
     ),
@@ -368,8 +372,6 @@ def estimate(
     calibration: Path | None = typer.Option(
         None,
         "--calibration",
-        exists=True,
-        readable=True,
         resolve_path=True,
         help=(
             "Optional calibration-profile.v1 JSON to layer on the vehicle. "

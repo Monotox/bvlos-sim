@@ -189,10 +189,33 @@ def is_json_format(validate_format: PreflightFormat) -> bool:
     return validate_format is PreflightFormat.JSON
 
 
+# Safety-relevant mission blocks that are schema-optional. A file truncated at
+# a clean line boundary can silently lose them, so validate-only names their
+# absence without failing the check.
+_OPTIONAL_SAFETY_BLOCKS = ("constraints", "assets", "policy")
+
+
+def mission_block_notes(mission: Any) -> list[str]:
+    """Advisory notes for safety-relevant blocks the mission never declared."""
+    fields_set = getattr(mission, "model_fields_set", frozenset())
+    absent = [name for name in _OPTIONAL_SAFETY_BLOCKS if name not in fields_set]
+    if not absent:
+        return []
+    return ["no " + "/".join(absent) + " block declared"]
+
+
+def format_note_suffix(notes: list[str]) -> str:
+    if not notes:
+        return ""
+    return " (note: " + "; ".join(notes) + ")"
+
+
 __all__ = [
     "build_report",
     "check_file",
     "emit_preflight",
+    "format_note_suffix",
     "is_json_format",
     "mission_asset_checks",
+    "mission_block_notes",
 ]

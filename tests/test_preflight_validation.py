@@ -447,3 +447,58 @@ def test_envelope_is_deterministic() -> None:
     first = runner.invoke(app, args)
     second = runner.invoke(app, args)
     assert first.stdout == second.stdout
+
+
+# ---------------------------------------------------------------------------
+# Absent safety blocks
+# ---------------------------------------------------------------------------
+
+
+def test_validate_only_notes_absent_safety_blocks(tmp_path: Path) -> None:
+    minimal = tmp_path / "minimal.yaml"
+    minimal.write_text(
+        "\n".join(
+            [
+                "schema_version: mission.v7",
+                "mission_id: minimal_001",
+                "vehicle_profile: quadplane_v1",
+                "planned_home: {lat: 52.0, lon: 4.0, altitude_amsl_m: 12.0}",
+                "defaults: {cruise_speed_mps: 18.0, altitude_reference: relative_home}",
+                "route:",
+                "  - {id: takeoff, action: vtol_takeoff, altitude_m: 80.0}",
+                "  - {id: rtl, action: rtl}",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        app, ["estimate", str(minimal), str(VEHICLE), "--validate-only"]
+    )
+    assert result.exit_code == 0
+    assert "no constraints/assets/policy block declared" in result.stdout
+
+    as_json = runner.invoke(
+        app,
+        [
+            "estimate",
+            str(minimal),
+            str(VEHICLE),
+            "--validate-only",
+            "--validate-format",
+            "json",
+        ],
+    )
+    payload = _json(as_json)
+    assert _file_by_role(payload, "mission")["notes"] == [
+        "no constraints/assets/policy block declared"
+    ]
+
+
+def test_validate_only_full_mission_has_no_notes() -> None:
+    result = runner.invoke(
+        app,
+        ["estimate", str(MISSION), str(VEHICLE), "--validate-only", "--validate-format", "json"],
+    )
+    payload = _json(result)
+    assert "notes" not in _file_by_role(payload, "mission")
