@@ -11,6 +11,7 @@ from pydantic import ValidationError
 
 import adapters.cli as cli
 from adapters.atomic_write import atomic_write_text
+from adapters.cli_support import NO_CLOBBER_OPTION, _refuse_output_clobber
 from adapters.migration import detect_mission_version, migrate_payload
 from schemas.mission import MISSION_SCHEMA_VERSION, MissionPlan
 
@@ -150,8 +151,11 @@ def migrate(
         "--glob",
         help="Pattern used when PATH is a directory (default: *.yaml).",
     ),
+    no_clobber: bool = NO_CLOBBER_OPTION,
 ) -> None:
     """Migrate mission.v6 YAML/JSON inputs to mission.v7."""
+
+    _refuse_output_clobber(output, no_clobber=no_clobber, command="migrate")
 
     try:
         if not path.exists():

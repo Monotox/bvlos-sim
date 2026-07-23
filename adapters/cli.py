@@ -35,6 +35,13 @@ class ScenarioExitCode(IntEnum):
     INTERNAL_ERROR = 13
 
 
+class VerifyExitCode(IntEnum):
+    PASSED = 0
+    FAILED = 10
+    INVALID_INPUT = 11
+    INTERNAL_ERROR = 13
+
+
 class DocumentOutputFormat(StrEnum):
     JSON = "json"
     MARKDOWN = "markdown"
@@ -90,6 +97,7 @@ __all__ = [
     "ScenarioExitCode",
     "SoraOutputFormat",
     "SummaryOutputFormat",
+    "VerifyExitCode",
     "install_cancellation_handlers",
     "run_monte_carlo",
     "run_stochastic_propagation",
@@ -187,6 +195,7 @@ def _register_commands() -> None:
     from adapters.commands.size_battery import size_battery
     from adapters.commands.sora import sora
     from adapters.commands.validate import validate
+    from adapters.commands.verify_evidence import verify
 
     app.command()(convert)
     app.command()(estimate)
@@ -202,6 +211,7 @@ def _register_commands() -> None:
     app.command()(sitl)
     app.command()(sora)
     app.command()(validate)
+    app.command()(verify)
     app.command()(calibrate)
     source_root = Path(__file__).resolve().parent.parent
     if (source_root / "pyproject.toml").is_file() and (

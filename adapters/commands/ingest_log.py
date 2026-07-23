@@ -7,7 +7,12 @@ from pydantic import ValidationError
 
 import adapters.cli as cli
 from adapters.canonical_json import render_canonical_json
-from adapters.cli_support import OutputWriteError, _write_output
+from adapters.cli_support import (
+    NO_CLOBBER_OPTION,
+    OutputWriteError,
+    _refuse_output_clobber,
+    _write_output,
+)
 from adapters.flight_log import (
     DEFAULT_MAX_FLIGHT_LOG_BYTES,
     FlightLogIngestionError,
@@ -60,8 +65,10 @@ def ingest_log(
         "-o",
         help="Write flight-trace.v1 JSON to a file instead of stdout.",
     ),
+    no_clobber: bool = NO_CLOBBER_OPTION,
 ) -> None:
     """Normalize a controller log into a content-addressed flight trace."""
+    _refuse_output_clobber(output, no_clobber=no_clobber, command="ingest-log")
     try:
         _reject_output_collision(output, log, mission, vehicle)
         mission_ref = _mission_ref(mission, vehicle)

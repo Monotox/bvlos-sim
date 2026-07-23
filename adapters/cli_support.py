@@ -4,6 +4,7 @@ import contextlib
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from math import isfinite
 from pathlib import Path
 from typing import TypeVar
@@ -89,9 +90,38 @@ GeoJsonAssetLoadError = GeofenceLoadError | LandingZoneLoadError | ObstacleLoadE
 LoadedAssetT = TypeVar("LoadedAssetT")
 _MAX_SEGMENT_FLAG = "--max-segment-length-m"
 _WIND_LAYER_FLAG = "--wind-layer"
+_GENERATED_AT_FLAG = "--generated-at"
 _FAILURE_KIND_STATUSES = {
     FailureKind.INFEASIBLE: EstimateStatus.INFEASIBLE,
 }
+
+NO_CLOBBER_OPTION = typer.Option(
+    False,
+    "--no-clobber",
+    help=(
+        "Refuse to overwrite an existing --output file: exit INVALID_INPUT (11) "
+        "with a clear message instead. Default behavior replaces the file atomically."
+    ),
+)
+
+OPERATOR_ID_OPTION = typer.Option(
+    None,
+    "--operator-id",
+    help=(
+        "Operator identity recorded in the result's free-form metadata map. "
+        "Omitted entirely when the flag is absent, keeping outputs byte-identical."
+    ),
+)
+
+GENERATED_AT_OPTION = typer.Option(
+    None,
+    "--generated-at",
+    help=(
+        "Generation timestamp recorded in the result's free-form metadata map: "
+        "an ISO 8601 timestamp, or 'now' for the current UTC time. "
+        "Omitted entirely when the flag is absent, keeping outputs byte-identical."
+    ),
+)
 
 
 @dataclass
@@ -514,6 +544,58 @@ def _build_scenario_result_envelope(
     )
 
 
+def _resolve_generated_at(raw: str) -> str:
+    """Resolve a --generated-at value to an ISO 8601 UTC timestamp string."""
+    if raw == "now":
+        return datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
+    try:
+        datetime.fromisoformat(raw)
+    except ValueError:
+        raise InputLoadError(
+            f"{_GENERATED_AT_FLAG} must be an ISO 8601 timestamp or 'now'.",
+            input_name=_GENERATED_AT_FLAG,
+            path=Path(_GENERATED_AT_FLAG),
+            stage=InputLoadStage.PARSE,
+            details={"raw": raw},
+        ) from None
+    return raw
+
+
+def _provenance_metadata(
+    operator_id: str | None,
+    generated_at: str | None,
+) -> dict[str, str]:
+    """Metadata entries for --operator-id/--generated-at; empty when absent.
+
+    An empty map means the flags were not given and the result envelope must
+    stay byte-identical to a run without them.
+    """
+    entries: dict[str, str] = {}
+    if operator_id is not None:
+        entries["operator_id"] = operator_id
+    if generated_at is not None:
+        entries["generated_at"] = _resolve_generated_at(generated_at)
+    return entries
+
+
+def _refuse_output_clobber(
+    output: Path | None,
+    *,
+    no_clobber: bool,
+    command: str,
+) -> None:
+    """Exit INVALID_INPUT when --no-clobber is set and the output file exists."""
+    if not no_clobber or output is None or not output.exists():
+        return
+    import adapters.cli as cli
+
+    cli._exit_with_cli_error(
+        f"--no-clobber: refusing to overwrite existing output file: {output}",
+        command=command,
+        code=cli.CliExitCode.INVALID_INPUT,
+    )
+
+
 class OutputWriteError(OSError):
     """Raised when the CLI cannot write rendered output."""
 
@@ -550,9 +632,12 @@ def _envelope_output_format(output_format: OutputFormat) -> OutputFormat:
 
 
 __all__ = [
+    "GENERATED_AT_OPTION",
     "GeoJsonAssetLoadError",
     "LoadedAssetT",
     "MissionAssetBundle",
+    "NO_CLOBBER_OPTION",
+    "OPERATOR_ID_OPTION",
     "SitlScenarioContext",
     "_build_estimation_options",
     "_build_scenario_result_envelope",
@@ -564,11 +649,14 @@ __all__ = [
     "_parse_wind_layers",
     "_populate_mission_assets",
     "_envelope_output_format",
+    "_provenance_metadata",
+    "_refuse_output_clobber",
     "_render_output",
     "_render_scenario_output",
     "_render_stochastic_output",
     "_render_uncertainty_output",
     "_resolve_asset_path",
+    "_resolve_generated_at",
     "_resolve_scenario_input_paths",
     "_run_scenario_with_assets",
     "_write_output",

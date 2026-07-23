@@ -9,7 +9,12 @@ import adapters.cli as cli
 from adapters.calibration import CalibrationInput, fit_calibration_profile
 from adapters.calibration_markdown import render_calibration_markdown
 from adapters.canonical_json import render_canonical_json
-from adapters.cli_support import OutputWriteError, _write_output
+from adapters.cli_support import (
+    NO_CLOBBER_OPTION,
+    OutputWriteError,
+    _refuse_output_clobber,
+    _write_output,
+)
 from adapters.flight_log import load_flight_trace
 from adapters.io import InputLoadError, load_vehicle
 from adapters.phase_segmentation import segment_trace
@@ -74,6 +79,7 @@ def calibrate(
     output: Path | None = typer.Option(
         None, "--output", "-o", help="Write output to file instead of stdout."
     ),
+    no_clobber: bool = NO_CLOBBER_OPTION,
     validate_only: bool = typer.Option(
         False,
         "--validate-only",
@@ -95,6 +101,8 @@ def calibrate(
         _run_calibrate_preflight(
             vehicle=vehicle, traces=traces, as_json=is_json_format(validate_format)
         )
+
+    _refuse_output_clobber(output, no_clobber=no_clobber, command="calibrate")
 
     try:
         vehicle_model, _vehicle_document = load_vehicle(vehicle)

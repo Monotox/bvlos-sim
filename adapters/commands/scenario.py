@@ -10,12 +10,17 @@ import adapters.cli as cli
 from adapters.calibration import load_and_apply_calibration, load_calibration_profile
 from adapters.checklist_markdown import checklist_is_go
 from adapters.cli_support import (
+    GENERATED_AT_OPTION,
+    NO_CLOBBER_OPTION,
+    OPERATOR_ID_OPTION,
     MissionAssetBundle,
     OutputWriteError,
     _build_scenario_result_envelope,
     _envelope_output_format,
     _input_error_for_geojson_asset_error,
     _populate_mission_assets,
+    _provenance_metadata,
+    _refuse_output_clobber,
     _render_scenario_output,
     _resolve_scenario_input_paths,
     _run_scenario_with_assets,
@@ -249,6 +254,9 @@ def scenario(
     output: Path | None = typer.Option(
         None, "--output", "-o", help="Write output to file instead of stdout."
     ),
+    no_clobber: bool = NO_CLOBBER_OPTION,
+    operator_id: str | None = OPERATOR_ID_OPTION,
+    generated_at: str | None = GENERATED_AT_OPTION,
     engineering_only: bool = typer.Option(
         False,
         "--engineering-only",
@@ -300,6 +308,8 @@ def scenario(
             code=cli.CliExitCode.INVALID_INPUT,
         )
 
+    _refuse_output_clobber(output, no_clobber=no_clobber, command="scenario")
+
     scenario_document: InputDocument | None = None
     mission_document: InputDocument | None = None
     vehicle_document: InputDocument | None = None
@@ -307,6 +317,7 @@ def scenario(
     scenario_id = "<unknown>"
 
     try:
+        provenance_metadata = _provenance_metadata(operator_id, generated_at)
         scenario_plan, scenario_document = load_scenario(scenario_file)
         scenario_id = scenario_plan.scenario_id
 
@@ -331,6 +342,19 @@ def scenario(
             vehicle_model=vehicle_model,
             mission_assets=mission_assets,
         )
+        if provenance_metadata and result.estimate is not None:
+            result = result.model_copy(
+                update={
+                    "estimate": result.estimate.model_copy(
+                        update={
+                            "metadata": {
+                                **result.estimate.metadata,
+                                **provenance_metadata,
+                            }
+                        }
+                    )
+                }
+            )
         envelope = _build_scenario_result_envelope(
             result=result,
             scenario_document=scenario_document,

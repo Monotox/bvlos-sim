@@ -12,9 +12,11 @@ from adapters.assets.landing_zone_geojson import LandingZoneLoadError
 from adapters.assets.obstacle_geojson import ObstacleLoadError
 from adapters.canonical_json import render_canonical_json
 from adapters.cli_support import (
+    NO_CLOBBER_OPTION,
     MissionAssetBundle,
     OutputWriteError,
     _populate_mission_assets,
+    _refuse_output_clobber,
     _write_output,
 )
 from adapters.flight_log import load_flight_trace
@@ -73,6 +75,7 @@ def validate(
     output: Path | None = typer.Option(
         None, "--output", "-o", help="Write output to file instead of stdout."
     ),
+    no_clobber: bool = NO_CLOBBER_OPTION,
     max_time_error_percent: float = typer.Option(
         20.0, "--max-time-error-percent", min=0.0
     ),
@@ -87,6 +90,8 @@ def validate(
     ),
 ) -> None:
     """Compare a deterministic mission estimate against an observed flight trace."""
+
+    _refuse_output_clobber(output, no_clobber=no_clobber, command="validate")
 
     mission_document: InputDocument | None = None
     mission_assets = MissionAssetBundle()
