@@ -12,6 +12,10 @@ try:
 except ImportError:
     srtm = None  # type: ignore[assignment]
 
+# SRTM tiles exist between 56 degrees south and 60 degrees north only.
+_SRTM_LAT_MIN = -56.0
+_SRTM_LAT_MAX = 60.0
+
 
 def _axis(start: float, stop: float, step: float) -> list[float]:
     if not all(math.isfinite(value) for value in (start, stop, step)):
@@ -36,6 +40,16 @@ def _sample_grid(
         raise ValueError("latitude bounds must lie between -90 and 90")
     if not -180.0 <= lon_min < lon_max <= 180.0:
         raise ValueError("longitude bounds must lie between -180 and 180")
+    if lat_max > _SRTM_LAT_MAX:
+        raise ValueError(
+            f"SRTM has no coverage north of {_SRTM_LAT_MAX} degrees latitude; "
+            f"requested lat_max={lat_max}"
+        )
+    if lat_min < _SRTM_LAT_MIN:
+        raise ValueError(
+            f"SRTM has no coverage south of {_SRTM_LAT_MIN} degrees latitude; "
+            f"requested lat_min={lat_min}"
+        )
     if srtm is None:
         raise RuntimeError(
             "'srtm.py' package not installed; run: pip install 'bvlos-sim[scripts]' "

@@ -178,7 +178,9 @@ def main() -> None:
         f"date={target_date}, departure={dep_hour:02d}:00 UTC, "
         f"window={args.window_hours}h …"
     )
-    wind_data = _fetch_wind(args.lat, args.lon, target_date)
+    wind_data = _fetch_wind(
+        args.lat, args.lon, target_date, end_hour=dep_hour + args.window_hours
+    )
     wind_grid = _build_wind_grid(
         wind_data, args.lat, args.lon, dep_hour, args.window_hours
     )

@@ -121,7 +121,9 @@ uv run python scripts/fetch_geofences.py 46.9 47.2 8.1 8.4 \
 
 Overpass is the keyless fallback. It returns way-based airspace only;
 relation-based zones, including most CTR/TMA areas, are skipped. Use OpenAIP
-when complete coverage matters.
+when complete coverage matters. When a fetch yields zero features the script
+refuses to write the file and exits with an error; pass `--allow-empty` to
+write an empty `geofences.geojson` for an area that genuinely has no airspace.
 
 ```bash
 uv run python scripts/fetch_geofences.py 46.9 47.2 8.1 8.4 \
@@ -129,7 +131,11 @@ uv run python scripts/fetch_geofences.py 46.9 47.2 8.1 8.4 \
   --output geofences.geojson
 ```
 
-The committed `geofences.geojson` was produced via the Overpass fallback.
+The demo ships no geofence file: the Overpass fallback returned zero zones
+for this area (its CTR/TMA coverage is relation-based), and an empty airspace
+file would render a meaningless green "0 conflicts across 0 zone(s)" check.
+The checklist therefore reports geofence evidence as missing — fetch real
+coverage via OpenAIP before flying here.
 
 ## Area and data sources
 
@@ -138,7 +144,6 @@ The committed `geofences.geojson` was produced via the Overpass fallback.
 | `terrain.yaml` | SRTM via `srtm.py` | lat 46.9–47.2, lon 8.1–8.4, 31×31 grid |
 | `wind_grid.yaml` | Open-Meteo archive (2025-06-15 14:00 UTC) | 4 altitude bands, 4 hourly slices |
 | `landing_zones.geojson` | OpenStreetMap via Overpass | 13 helipads/aerodromes/runways |
-| `geofences.geojson` | OpenStreetMap via Overpass | way-based aeronautical boundaries |
 
 The area covers the Lucerne basin and surrounding pre-Alps, including the
 Pilatus massif (peak elevation 1943 m in the SRTM grid). Wind at 10 m vs.

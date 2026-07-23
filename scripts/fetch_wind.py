@@ -5,6 +5,7 @@ import math
 import sys
 from datetime import date
 from datetime import datetime
+from datetime import timedelta
 from pathlib import Path
 
 import yaml
@@ -33,7 +34,14 @@ def _object_dict(value: object) -> dict[str, object]:
     return {str(key): item for key, item in value.items()}
 
 
-def _fetch(lat: float, lon: float, target_date: date) -> dict[str, object]:
+def _fetch(
+    lat: float, lon: float, target_date: date, *, end_hour: int = 24
+) -> dict[str, object]:
+    """Fetch hourly wind covering hours [0, end_hour) counted from target_date.
+
+    A window crossing UTC midnight (end_hour > 24) extends the request's
+    end_date so the response covers the following day(s) in one hourly series.
+    """
     if target_date < _HISTORICAL_FORECAST_START:
         raise ValueError(
             "80/120/180 m historical forecast levels are unavailable before "
@@ -45,13 +53,14 @@ def _fetch(lat: float, lon: float, target_date: date) -> dict[str, object]:
             "pip install 'bvlos-sim[scripts]' or uv sync --extra scripts"
         )
     hourly_vars = ",".join(f"wind_speed_{a}m,wind_direction_{a}m" for a in _ALTITUDES_M)
+    end_date = target_date + timedelta(days=max(0, end_hour - 1) // 24)
     params = {
         "latitude": lat,
         "longitude": lon,
         "hourly": hourly_vars,
         "wind_speed_unit": "ms",
         "start_date": target_date.isoformat(),
-        "end_date": target_date.isoformat(),
+        "end_date": end_date.isoformat(),
     }
     url = _HISTORICAL_FORECAST_URL if target_date < date.today() else _FORECAST_URL
     resp = requests.get(url, params=params, timeout=30)
@@ -82,11 +91,6 @@ def _build_grid(
     if not hourly:
         raise ValueError("Open-Meteo response missing hourly wind data")
     end_hour = dep_hour + window_hours
-    if end_hour > 24:
-        raise ValueError(
-            "requested wind window extends beyond the available UTC day; "
-            "fetch a shorter window or the following day separately"
-        )
     n = end_hour - dep_hour
     if n < 2:
         raise ValueError("wind grids require at least two consecutive hourly samples")
@@ -272,7 +276,9 @@ def main() -> None:
     )
 
     try:
-        data = _fetch(args.lat, args.lon, target_date)
+        data = _fetch(
+            args.lat, args.lon, target_date, end_hour=dep_hour + args.window_hours
+        )
         grid = _build_grid(data, args.lat, args.lon, dep_hour, args.window_hours)
     except (RuntimeError, ValueError) as exc:
         sys.exit(f"Error: {exc}")

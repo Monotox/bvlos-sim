@@ -16,6 +16,11 @@ try:
 except ImportError:
     requests = None  # type: ignore[assignment]
 
+try:
+    from . import _overpass
+except ImportError:
+    import _overpass  # type: ignore[no-redef]  # executed as a script
+
 _MISSING_REQUESTS = (
     "'requests' package not installed; run: pip install 'bvlos-sim[scripts]'"
 )
@@ -78,13 +83,12 @@ def _query_overpass(
         "out body geom;\n"
     )
     headers = {"User-Agent": "bvlos-sim/fetch_obstacles"}
-    response = requests.post(
+    response = _overpass.post_with_retry(
         _OVERPASS_URL,
         data={"data": query},
         headers=headers,
         timeout=90,
     )
-    response.raise_for_status()
     payload: object = response.json()
     return [
         _object_dict(element)
@@ -236,7 +240,15 @@ def main() -> None:
     parser.add_argument("--default-height-m", type=float, default=30.0)
     parser.add_argument("--default-radius-m", type=float, default=10.0)
     parser.add_argument("--default-uncertainty-m", type=float, default=10.0)
-    parser.add_argument("--base-altitude-amsl-m", type=float, default=0.0)
+    parser.add_argument(
+        "--base-altitude-amsl-m",
+        type=float,
+        required=True,
+        help=(
+            "Terrain base altitude in metres AMSL for obstacles without an "
+            "'ele' tag; output heights are base + relative height in metres AMSL"
+        ),
+    )
     args = parser.parse_args()
 
     if requests is None:
@@ -251,12 +263,15 @@ def main() -> None:
         f"Querying Overpass for obstacles in lat [{args.lat_min}, {args.lat_max}] "
         f"lon [{args.lon_min}, {args.lon_max}] ..."
     )
-    elements = _query_overpass(
-        lat_min=args.lat_min,
-        lat_max=args.lat_max,
-        lon_min=args.lon_min,
-        lon_max=args.lon_max,
-    )
+    try:
+        elements = _query_overpass(
+            lat_min=args.lat_min,
+            lat_max=args.lat_max,
+            lon_min=args.lon_min,
+            lon_max=args.lon_max,
+        )
+    except _overpass.OverpassError as exc:
+        sys.exit(f"Error: {exc}")
     payload = {
         "type": "FeatureCollection",
         "features": _features(

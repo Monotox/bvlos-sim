@@ -10,6 +10,11 @@ try:
 except ImportError:
     requests = None  # type: ignore[assignment]
 
+try:
+    from . import _overpass
+except ImportError:
+    import _overpass  # type: ignore[no-redef]  # executed as a script
+
 _MISSING_REQUESTS = (
     "'requests' package not installed; run: pip install 'bvlos-sim[scripts]'"
 )
@@ -41,10 +46,9 @@ def _query(
     headers = {
         "User-Agent": "bvlos-sim/fetch_landing_zones (github.com/Monotox/bvlos-sim)"
     }
-    resp = requests.post(
+    resp = _overpass.post_with_retry(
         _OVERPASS_URL, data={"data": query}, headers=headers, timeout=60
     )
-    resp.raise_for_status()
     payload = _object_dict(resp.json())
     elements = payload.get("elements")
     if not isinstance(elements, list):
@@ -95,7 +99,10 @@ def main() -> None:
         f"lon [{args.lon_min}, {args.lon_max}] …"
     )
 
-    elements = _query(args.lat_min, args.lat_max, args.lon_min, args.lon_max)
+    try:
+        elements = _query(args.lat_min, args.lat_max, args.lon_min, args.lon_max)
+    except _overpass.OverpassError as exc:
+        sys.exit(f"Error: {exc}")
     features = [f for e in elements if (f := _to_feature(e)) is not None]
 
     geojson = {"type": "FeatureCollection", "features": features}
