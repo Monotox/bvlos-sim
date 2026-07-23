@@ -31,15 +31,16 @@ Per-command behavior:
 | `sample`       |  ✓  |      |  ✓   |      |  ✓   | Never `10`: an infeasible Monte Carlo result is in the body, exit `0`. |
 | `propagate`    |  ✓  |      |  ✓   |      |  ✓   | Never `10`: same divergence as `sample`. |
 | `size-battery` |  ✓  |      |  ✓   |      |  ✓   | A NO answer (no feasible capacity) is in the body, not `10`. |
-| `sora`         |  ✓  |  ✓   |  ✓   |  ✓   |  ✓   | `10` for out-of-scope Step 8, GRC > 7, or an infeasible mission; `12` for an unsupported estimator failure. |
+| `sora`         |  ✓  |  ✓   |  ✓   |  ✓   |  ✓   | `10` for out-of-scope Step 8, GRC > 7, rejected mitigation credit, or an infeasible mission; `12` for an unsupported estimator failure. |
 | `validate`     |  ✓  |  ✓   |  ✓   |      |  ✓   | `10` when an acceptance threshold fails. |
 | `calibrate`    |  ✓  |      |  ✓   |      |  ✓   | Fitted profile is in the body. |
 | `compare`      |  ✓  |  ✓   |  ✓   |  ✓   |  ✓   | `10` drifted/failed; `12` for a contract-only bundle. |
-| `convert`      |  ✓  |      |  ✓   |      |  ✓   | Missing `--vehicle-profile` and parse errors are `11`. |
+| `convert`      |  ✓  |      |  ✓   |  ✓   |  ✓   | Missing `--vehicle-profile` and parse errors are `11`; a lossy conversion without `--allow-lossy` is `12`. |
 | `migrate`      |  ✓  |      |  ✓   |      |      | Legacy input that cannot be migrated is `11`. |
 | `export`       |  ✓  |      |  ✓   |      |  ✓   | Mission load / exportability failures are `11`. |
 | `ingest-log`   |  ✓  |      |  ✓   |      |  ✓   | Unknown/oversized logs and missing readers are `11`. |
 | `sitl`         |  ✓  |      |  ✓   |      |  ✓   | Input failures are `11`; live adapter/timeout failures are `13`. |
+| `verify`       |  ✓  |  ✓   |  ✓   |      |  ✓   | `10` on any checksum mismatch or missing artifact; `11` for an unreadable or invalid bundle. |
 | `schema-versions` | ✓ |     |      |      |      | Read-only; always `0`. |
 | `bump`         |  ✓  |      |  ✓   |      |  ✓   | Developer-only release tool; `11` on version drift. |
 
@@ -107,8 +108,9 @@ Formats:
 - `checklist` — the pre-flight go/no-go view: one `✓`/`✗`/`◌` row per check,
   `Status: GO` or `Status: NO-GO`, and a `Blocked by:` line naming the missing
   evidence, failed checks, or blocking warnings. `GO` requires every check
-  present and passed and zero warnings; missing evidence (`◌ N/A`) is NO-GO,
-  never an implicit pass.
+  present and passed and no unacknowledged warnings (see
+  [Advisory warnings](#advisory-warnings)); missing evidence (`◌ N/A`) is
+  NO-GO, never an implicit pass.
 - `profile` — per-leg altitude table with terrain elevation and clearance
   columns when a terrain asset is configured.
 - `sensitivity` — deterministic reserve sweep over cruise power
@@ -233,9 +235,12 @@ The command is strictly evidence-gated: it requires `population-grid.v2`
 population evidence, a complete `airspace` descriptor, and an explicit
 `sora.ground_risk_footprint` (see
 [Missions and vehicles](missions.md#sora-evidence)). Applied M1/M2 mitigation
-declarations are rejected until an Annex B criteria evaluator exists — the
-final GRC equals the intrinsic GRC. It never assesses Annex E containment or
-OSO compliance and is a planning aid, not an authorization.
+declarations earn no credit until an Annex B criteria evaluator exists — the
+assessment is still produced with the final GRC equal to the intrinsic GRC,
+each declaration is recorded as `credit_rejected_pending_annex_b`, and the
+command exits `10` so the no-credit result stays auditable. It never assesses
+Annex E containment or OSO compliance and is a planning aid, not an
+authorization.
 
 ## validate
 
@@ -302,11 +307,28 @@ uv run bvlos-sim export mission.yaml -o mission.plan
 ```
 
 `convert` reads the planned home, cruise/hover speeds, and supported mission
-items (takeoff, VTOL takeoff, waypoint, loiter-time, RTL, land, VTOL land);
-unsupported items are skipped with stderr warnings. `export` maps route
-actions back to MAVLink commands and omits bvlos-sim-specific fields
-(`constraints`, `assets`, `policy`) with a stderr note; the result round-trips
-through `convert`.
+items (takeoff, VTOL takeoff, waypoint, loiter-time, RTL, land, VTOL land).
+Altitude frames map onto `altitude_reference`: frame `0` -> `amsl`, frame `3`
+-> `relative_home`, frame `10` (terrain) -> `terrain`; mixed frames become
+per-item overrides.
+
+Conversion is **fail-closed**: any dropped item (Survey/ComplexItem, an
+unsupported MAVLink command, an unknown altitude frame) and any populated
+`geoFence` or `rallyPoints` section is a loss. By default every loss is listed
+on stderr (kind plus item index or section), nothing is written, and the
+command exits `12`. `--allow-lossy` restores convert-what-we-can behavior:
+each loss is still reported on stderr and the run ends with a one-line
+summary — `lossy conversion: N item(s) dropped, sections: geoFence,
+rallyPoints` — so lossy imports stay visible in CI logs. `--validate-only`
+reports the same losses under the same exit-code contract.
+
+`export` maps route actions back to MAVLink commands and omits
+bvlos-sim-specific fields (`constraints`, `assets`, `policy`) with a stderr
+note. Semantic rewrites — `terrain` altitudes falling back to frame `3`, a
+fixed-wing `takeoff` exported as VTOL takeoff — are warned per item and
+summarised with the same one-line `lossy conversion` summary, but `export`
+keeps exit `0`: the `.plan` format simply cannot represent them. The result
+round-trips through `convert`.
 
 ## migrate
 
@@ -340,6 +362,32 @@ uv run bvlos-sim sitl SCENARIO --live --host 127.0.0.1 --port 5770 \
 # compare a completed bundle against its embedded expectations
 uv run bvlos-sim compare evidence.json --output comparison.json
 ```
+
+## verify
+
+Re-verify the chain of custody of a `sitl-evidence.v1` bundle: recompute the
+SHA-256 of every referenced artifact file (relative paths resolve against the
+bundle's directory) and compare against the recorded checksums.
+
+**Usage:** `bvlos-sim verify EVIDENCE.json`
+
+One line per artifact — `OK`, `MISMATCH`, `MISSING`, or `SKIPPED` (no
+recorded checksum) — then a final verdict. Exit `0` when everything matches,
+`10` on any mismatch or missing artifact, `11` for an unreadable or invalid
+bundle.
+
+## Provenance and output safety
+
+Three flags exist for evidence hygiene, all default-off so outputs stay
+byte-identical unless you opt in:
+
+- `--operator-id TEXT` (`estimate`, `scenario`, `sitl`) — records the
+  operator identity in the result's free-form metadata map.
+- `--generated-at ISO8601|now` (same commands) — records a generation
+  timestamp; `now` resolves to the current UTC time.
+- `--no-clobber` (every command with `--output`) — refuse to overwrite an
+  existing output file (exit `11`) instead of replacing it, so a re-run
+  cannot silently destroy prior evidence.
 
 ## schema-versions
 
@@ -380,12 +428,18 @@ operational `GO` (they appear in `failed_checks` as `warnings`). The full JSON
 envelope carries each warning's `code`, `message`, and location; the checklist
 lists the codes on its `Advisory warnings` row.
 
+A reviewed warning can be accepted per mission via
+`constraints.accepted_warning_codes` (see
+[Missions and vehicles](missions.md#constraints)): acknowledged codes stay in
+every artifact but stop blocking `GO`; any unlisted warning still blocks.
+
 | Code | Meaning |
 |------|---------|
 | `MAX_WIND_EXCEEDED` | Leg wind exceeds `vehicle.performance.max_wind_mps` (not enforced as a hard limit). |
 | `RESERVE_BELOW_FAILSAFE_ABORT_THRESHOLD` | Predicted landing reserve is below the autopilot abort threshold. |
 | `RESERVE_BELOW_FAILSAFE_WARN_THRESHOLD` | Predicted landing reserve is below the low-battery warning threshold. |
 | `GEOFENCE_EVALUATED_2D_ONLY` | Geofence intersection is 2D; declared `floor_m`/`ceiling_m` bounds are checked, per-zone AGL is not modeled. |
+| `GEOFENCE_ZERO_ZONES` | A geofence file is configured but contains zero zones — the clearance check evaluated no airspace. |
 | `DEPARTURE_TIME_MISSING` | A geofence has a time window but the mission has no `departure_time`; the zone is treated as always active. |
 | `DIVERT_ENERGY_TAS_ONLY` | A scenario divert estimate used TAS without wind correction. |
 | `POPULATION_DENSITY_DIMENSION_MISSING` | Population grid present but the vehicle omits `characteristic_dimension_m`; iGRC cannot be computed. |

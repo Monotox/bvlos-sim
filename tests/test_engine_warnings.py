@@ -11,6 +11,23 @@ from schemas.mission import MissionPlan
 from tests.helpers import make_mission, make_vehicle
 
 
+def test_zero_zone_geofence_file_emits_warning() -> None:
+    result = estimate_mission_distance_time(
+        make_mission(), make_vehicle(), geofences=[]
+    )
+
+    codes = {w.code for w in result.warnings}
+    assert WarningCode.GEOFENCE_ZERO_ZONES in codes
+    assert WarningCode.GEOFENCE_EVALUATED_2D_ONLY not in codes
+
+
+def test_no_geofence_file_emits_no_zero_zone_warning() -> None:
+    result = estimate_mission_distance_time(make_mission(), make_vehicle())
+
+    codes = {w.code for w in result.warnings}
+    assert WarningCode.GEOFENCE_ZERO_ZONES not in codes
+
+
 def test_max_wind_warning_emitted_when_leg_wind_exceeds_limit() -> None:
     vehicle = make_vehicle()
     vehicle.performance.max_wind_mps = 2.0

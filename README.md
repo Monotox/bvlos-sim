@@ -18,14 +18,14 @@ $ bvlos-sim estimate alpine_mission.yaml quadplane_v1.yaml --format checklist
 ## Pre-Flight Checklist: alpine_demo_001
 
 ✓ Energy feasibility        PASS   reserve 573.05 Wh above threshold (798.05 Wh at landing, 225.00 Wh threshold)
-✓ Geofence clearance        PASS   0 conflicts across 0 zone(s)
+◌ Geofence clearance        N/A    not evaluated
 ✓ Landing-zone coverage     PASS   reachable zone found at all 166 checked state(s)
 ◌ Resource availability     N/A    not evaluated
 ✓ Weather limits            PASS   worst wind 0.00 m/s at leg 0 (takeoff)
 ✓ RTH reserve               PASS   reserve intact for RTH from all 4 leg(s)
 
 Status: NO-GO
-Blocked by: missing evidence (resource, link, obstacle, ground_risk) — the checklist is fail-closed
+Blocked by: missing evidence (geofence, resource, link, obstacle, ground_risk) — the checklist is fail-closed
 
 $ bvlos-sim estimate alpine_infeasible.yaml small_battery.yaml --format summary
 INFEASIBLE   reserve −179.7 %   flight 7m 55s   RTH infeasible   [INSUFFICIENT_ENERGY]
@@ -45,7 +45,8 @@ uv run bvlos-sim estimate \
 ```
 
 Expect `Status: NO-GO` and exit `10` — the demo deliberately omits
-resource/link/obstacle/ground-risk evidence, and the checklist is fail-closed.
+geofence/resource/link/obstacle/ground-risk evidence, and the checklist is
+fail-closed.
 Add `--engineering-only` for the pure-physics verdict (`FEASIBLE`, exit `0`).
 The [getting-started tutorial](./docs/getting-started.md) walks through both.
 

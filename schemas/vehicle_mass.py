@@ -14,9 +14,13 @@ class MassProfile(BaseModel):
         gt=0,
         description="Vehicle mass without payload. Source: manufacturer/spec sheet.",
     )
-    max_payload_kg: FiniteFloat = Field(
+    max_payload_kg: FiniteFloat | None = Field(
+        default=None,
         ge=0,
-        description="Maximum payload mass. Source: manufacturer/spec sheet.",
+        description=(
+            "Maximum payload mass. Source: manufacturer/spec sheet. When "
+            "omitted, the takeoff-mass consistency check uses empty_kg alone."
+        ),
     )
     max_takeoff_kg: FiniteFloat = Field(
         gt=0,
@@ -30,7 +34,7 @@ class MassProfile(BaseModel):
 
     @model_validator(mode="after")
     def validate_takeoff_mass(self) -> "MassProfile":
-        required_takeoff_mass = self.empty_kg + self.max_payload_kg
+        required_takeoff_mass = self.empty_kg + (self.max_payload_kg or 0.0)
         if self.max_takeoff_kg < required_takeoff_mass:
             raise ValueError(
                 "max_takeoff_kg must be greater than or equal to "

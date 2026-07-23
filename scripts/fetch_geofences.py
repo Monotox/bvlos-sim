@@ -14,6 +14,11 @@ try:
 except ImportError:
     requests = None  # type: ignore[assignment]
 
+try:
+    from . import _overpass
+except ImportError:
+    import _overpass  # type: ignore[no-redef]  # executed as a script
+
 _MISSING_REQUESTS = (
     "'requests' package not installed; run: pip install 'bvlos-sim[scripts]'"
 )
@@ -125,10 +130,9 @@ def _overpass_elements(
         "out geom;\n"
     )
     headers = {"User-Agent": "bvlos-sim/fetch_geofences (github.com/Monotox/bvlos-sim)"}
-    resp = requests.post(
+    resp = _overpass.post_with_retry(
         _OVERPASS_URL, data={"data": query}, headers=headers, timeout=60
     )
-    resp.raise_for_status()
     payload: object = resp.json()
     elements = _object_list(_object_dict(payload).get("elements"))
     return [_object_dict(element) for element in elements if isinstance(element, dict)]
@@ -204,6 +208,23 @@ def _overpass_name(tags: dict[str, object]) -> str:
     return "Unknown"
 
 
+def _empty_features_error(source: str) -> str:
+    """Return the refusal message for a fetch that produced zero features."""
+    message = (
+        "Error: no geofence features found; refusing to write an empty "
+        "airspace file. "
+    )
+    if source == "overpass":
+        message += (
+            "Overpass returns way-based airspace only and skips relation-based "
+            "zones (most CTR/TMA); retry with --source openaip for complete "
+            "coverage, or pass "
+        )
+    else:
+        message += "Pass "
+    return message + "--allow-empty if the area genuinely has no airspace."
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("lat_min", type=float)
@@ -213,6 +234,11 @@ def main() -> None:
     parser.add_argument("--source", choices=["openaip", "overpass"], default="overpass")
     parser.add_argument("--api-key", default=None, metavar="KEY")
     parser.add_argument("--output", default="geofences.geojson", metavar="PATH")
+    parser.add_argument(
+        "--allow-empty",
+        action="store_true",
+        help="Write the output file even when zero geofence features are found",
+    )
     args = parser.parse_args()
 
     if requests is None:
@@ -240,9 +266,12 @@ def main() -> None:
             f"lat [{args.lat_min}, {args.lat_max}] "
             f"lon [{args.lon_min}, {args.lon_max}] …"
         )
-        elements = _overpass_elements(
-            args.lat_min, args.lat_max, args.lon_min, args.lon_max
-        )
+        try:
+            elements = _overpass_elements(
+                args.lat_min, args.lat_max, args.lon_min, args.lon_max
+            )
+        except _overpass.OverpassError as exc:
+            sys.exit(f"Error: {exc}")
         print(
             "Warning: Overpass path returns way-based airspace only; "
             "relation-based zones (most CTR/TMA) are skipped. "
@@ -254,6 +283,9 @@ def main() -> None:
             for element in elements
             if (feature := _way_to_feature(element)) is not None
         ]
+
+    if not features and not args.allow_empty:
+        sys.exit(_empty_features_error(args.source))
 
     geojson = {"type": "FeatureCollection", "features": features}
 

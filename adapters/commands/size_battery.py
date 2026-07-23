@@ -18,9 +18,11 @@ from adapters.battery_sizing_envelope import (
     render_battery_sizing_envelope_json,
 )
 from adapters.cli_support import (
+    NO_CLOBBER_OPTION,
     MissionAssetBundle,
     OutputWriteError,
     _populate_mission_assets,
+    _refuse_output_clobber,
     _write_output,
 )
 from adapters.assets.geofence_geojson import GeofenceLoadError
@@ -156,6 +158,7 @@ def size_battery(
     output: Path | None = typer.Option(
         None, "--output", "-o", help="Write output to file instead of stdout."
     ),
+    no_clobber: bool = NO_CLOBBER_OPTION,
     margin: list[int] | None = typer.Option(
         None,
         "--margin",
@@ -182,6 +185,8 @@ def size_battery(
         _run_size_battery_preflight(
             mission=mission, vehicle=vehicle, as_json=is_json_format(validate_format)
         )
+
+    _refuse_output_clobber(output, no_clobber=no_clobber, command="size-battery")
 
     mission_document: InputDocument | None = None
     vehicle_document: InputDocument | None = None

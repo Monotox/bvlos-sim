@@ -224,6 +224,10 @@ def build_estimation_context(
         metadata["departure_time"] = _utc_isoformat(mission.departure_time)
     if mission.constraints.require_rth_reserve:
         metadata["require_rth_reserve"] = True
+    if mission.constraints.accepted_warning_codes:
+        metadata["accepted_warning_codes"] = ",".join(
+            sorted(mission.constraints.accepted_warning_codes)
+        )
     capabilities = derive_capabilities(vehicle)
     metadata["capabilities_source"] = capabilities.source
 

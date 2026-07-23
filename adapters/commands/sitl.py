@@ -15,7 +15,15 @@ from adapters.cli_sitl_support import (
     _resolve_sitl_live_options,
     _sitl_adapter_for_options,
 )
-from adapters.cli_support import OutputWriteError, _write_output
+from adapters.cli_support import (
+    GENERATED_AT_OPTION,
+    NO_CLOBBER_OPTION,
+    OPERATOR_ID_OPTION,
+    OutputWriteError,
+    _provenance_metadata,
+    _refuse_output_clobber,
+    _write_output,
+)
 from adapters.assets.geofence_geojson import GeofenceLoadError
 from adapters.io import InputLoadError
 from adapters.assets.landing_zone_geojson import LandingZoneLoadError
@@ -32,6 +40,9 @@ def sitl(
     output: Path | None = typer.Option(
         None, "--output", "-o", help="Write output to file instead of stdout."
     ),
+    no_clobber: bool = NO_CLOBBER_OPTION,
+    operator_id: str | None = OPERATOR_ID_OPTION,
+    generated_at: str | None = GENERATED_AT_OPTION,
     format: cli.DocumentOutputFormat = typer.Option(
         cli.DocumentOutputFormat.JSON,
         "--format",
@@ -96,7 +107,9 @@ def sitl(
             command="sitl",
             code=cli.CliExitCode.INVALID_INPUT,
         )
+    _refuse_output_clobber(output, no_clobber=no_clobber, command="sitl")
     try:
+        provenance_metadata = _provenance_metadata(operator_id, generated_at)
         context = _load_sitl_scenario_context(scenario_file)
         _validate_sitl_paths(
             scenario_file=scenario_file,
@@ -117,6 +130,10 @@ def sitl(
                 else Path.cwd()
             ),
         )
+        if provenance_metadata:
+            evidence = evidence.model_copy(
+                update={"metadata": {**evidence.metadata, **provenance_metadata}}
+            )
         _write_output(
             _render_sitl_evidence_output(cli._document_output_format(format), evidence),
             output,

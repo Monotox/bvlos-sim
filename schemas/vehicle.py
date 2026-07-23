@@ -77,10 +77,11 @@ class VehicleProfile(BaseModel):
             "tips for a multicopter. Required for SORA Ground Risk Class."
         ),
     )
-    mav_type: str = Field(
+    mav_type: str | None = Field(
+        default=None,
         min_length=1,
         description=(
-            "MAVLink MAV_TYPE name, for example MAV_TYPE_VTOL_QUADROTOR. "
+            "Optional MAVLink MAV_TYPE name, for example MAV_TYPE_VTOL_QUADROTOR. "
             "Kept as a string to avoid coupling schemas to a MAVLink library. "
             "Accepted for interoperability, but not used by estimator v1."
         ),

@@ -206,6 +206,48 @@ def test_checklist_all_pass_shows_go() -> None:
     assert "Status: GO" in output
 
 
+def test_checklist_acknowledged_warnings_allow_go() -> None:
+    result = _complete_estimate(
+        warnings=[
+            EstimatorWarning(
+                code=WarningCode.GEOFENCE_EVALUATED_2D_ONLY, message="2D only"
+            )
+        ]
+    ).model_copy(
+        update={
+            "metadata": {
+                "accepted_warning_codes": "GEOFENCE_EVALUATED_2D_ONLY",
+            }
+        }
+    )
+    output = render_checklist_markdown(_envelope(result))
+    assert "Status: GO" in output
+    assert "Acknowledged warnings" in output
+    assert "GEOFENCE_EVALUATED_2D_ONLY" in output
+
+
+def test_checklist_unacknowledged_warning_still_blocks_go() -> None:
+    result = _complete_estimate(
+        warnings=[
+            EstimatorWarning(
+                code=WarningCode.GEOFENCE_EVALUATED_2D_ONLY, message="2D only"
+            ),
+            EstimatorWarning(
+                code=WarningCode.MAX_WIND_EXCEEDED, message="wind too high"
+            ),
+        ]
+    ).model_copy(
+        update={
+            "metadata": {
+                "accepted_warning_codes": "GEOFENCE_EVALUATED_2D_ONLY",
+            }
+        }
+    )
+    output = render_checklist_markdown(_envelope(result))
+    assert "Status: NO-GO" in output
+    assert "blocking warnings (MAX_WIND_EXCEEDED)" in output
+
+
 def test_checklist_error_status_cannot_go_without_failure_object() -> None:
     result = _complete_estimate().model_copy(
         update={"status": EstimateStatus.ERROR, "failure": None}

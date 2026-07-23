@@ -9,9 +9,11 @@ from adapters.assets.geofence_geojson import GeofenceLoadError
 from adapters.assets.landing_zone_geojson import LandingZoneLoadError
 from adapters.assets.obstacle_geojson import ObstacleLoadError
 from adapters.cli_support import (
+    NO_CLOBBER_OPTION,
     MissionAssetBundle,
     OutputWriteError,
     _populate_mission_assets,
+    _refuse_output_clobber,
     _write_output,
 )
 from adapters.io import InputDocument, InputLoadError, load_mission, load_vehicle
@@ -25,6 +27,7 @@ from adapters.sora_envelope import build_sora_envelope, render_sora_envelope_jso
 from adapters.sora_markdown import render_sora_markdown
 from estimator.core.enums import EstimateStatus, FailureKind
 from estimator.execution.sora import build_sora_assessment
+from schemas.sora import GrcMitigationCreditStatus
 
 _FAILURE_KIND_EXIT_CODES = {
     FailureKind.INFEASIBLE: cli.CliExitCode.INFEASIBLE,
@@ -82,6 +85,7 @@ def sora(
     output: Path | None = typer.Option(
         None, "--output", "-o", help="Write output to file instead of stdout."
     ),
+    no_clobber: bool = NO_CLOBBER_OPTION,
     validate_only: bool = typer.Option(
         False,
         "--validate-only",
@@ -102,6 +106,8 @@ def sora(
         _run_sora_preflight(
             mission=mission, vehicle=vehicle, as_json=is_json_format(validate_format)
         )
+
+    _refuse_output_clobber(output, no_clobber=no_clobber, command="sora")
 
     mission_document: InputDocument | None = None
     vehicle_document: InputDocument | None = None
@@ -166,9 +172,17 @@ def sora(
         else:
             rendered = render_sora_markdown(envelope)
         _write_output(rendered, output)
+        mitigation_credit_rejected = any(
+            credit.credit_status
+            is GrcMitigationCreditStatus.CREDIT_REJECTED_PENDING_ANNEX_B
+            for credit in assessment.ground_risk_mitigations
+        )
         exit_code = (
             cli.CliExitCode.SUCCESS
-            if assessment.within_specific_category_method_scope
+            if (
+                assessment.within_specific_category_method_scope
+                and not mitigation_credit_rejected
+            )
             else cli.CliExitCode.INFEASIBLE
         )
         raise typer.Exit(code=int(exit_code))

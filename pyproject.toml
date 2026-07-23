@@ -49,6 +49,7 @@ bvlos-fetch-geofences = "scripts.fetch_geofences:main"
 bvlos-fetch-landing-zones = "scripts.fetch_landing_zones:main"
 bvlos-fetch-obstacles = "scripts.fetch_obstacles:main"
 bvlos-fetch-population = "scripts.fetch_population:main"
+bvlos-build-population-grid = "scripts.build_population_grid:main"
 bvlos-fetch-terrain = "scripts.fetch_terrain:main"
 bvlos-fetch-wind = "scripts.fetch_wind:main"
 

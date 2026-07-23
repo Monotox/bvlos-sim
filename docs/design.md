@@ -36,8 +36,12 @@ permission.**
 - Monte Carlo outputs are labeled diagnostics with conditional statistics —
   never an operational probability.
 
-The `--engineering-only` flag is the single, explicit opt-out, and even then
-the JSON envelope still records the structured readiness verdict.
+Two explicit, auditable opt-outs exist — and only these. The
+`--engineering-only` flag trades the operational gate for a purely
+computational verdict, and `constraints.accepted_warning_codes` lets a
+mission accept named advisory warnings after review. In both cases the JSON
+envelope still records the full structured readiness verdict, including what
+was acknowledged.
 
 ## Scope — what a GO is and is not
 

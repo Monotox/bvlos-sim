@@ -25,6 +25,9 @@ class OperationalReadiness(BaseModel):
     missing_evidence: list[str] = Field(default_factory=list)
     failed_checks: list[str] = Field(default_factory=list)
     warning_codes: list[str] = Field(default_factory=list)
+    acknowledged_warning_codes: list[str] = Field(
+        default_factory=list, exclude_if=lambda value: not value
+    )
 
 
 def evaluate_operational_readiness(
@@ -36,6 +39,7 @@ def evaluate_operational_readiness(
     missing: list[str] = []
     failed = list(additional_failed_checks)
     warning_codes: list[str] = []
+    acknowledged: list[str] = []
     if result is None:
         missing.append("estimate")
     else:
@@ -121,7 +125,9 @@ def evaluate_operational_readiness(
         ):
             failed.append("landing_zone_coverage")
         warning_codes = [str(warning.code) for warning in result.warnings]
-        if warning_codes:
+        accepted = _accepted_warning_codes(result)
+        acknowledged = sorted({code for code in warning_codes if code in accepted})
+        if any(code not in accepted for code in warning_codes):
             failed.append("warnings")
 
     missing = list(dict.fromkeys(missing))
@@ -133,7 +139,16 @@ def evaluate_operational_readiness(
         missing_evidence=missing,
         failed_checks=failed,
         warning_codes=warning_codes,
+        acknowledged_warning_codes=acknowledged,
     )
+
+
+def _accepted_warning_codes(result: MissionEstimate) -> frozenset[str]:
+    """Warning codes the mission explicitly accepted, from result metadata."""
+    raw = result.metadata.get("accepted_warning_codes")
+    if not isinstance(raw, str) or not raw:
+        return frozenset()
+    return frozenset(raw.split(","))
 
 
 __all__ = [

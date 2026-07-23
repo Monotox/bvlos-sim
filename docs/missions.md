@@ -10,11 +10,12 @@ uv run bvlos-sim estimate mission.yaml vehicle.yaml --validate-only
 
 Files may be YAML or JSON. Unknown fields are rejected everywhere except the
 documented free-form `metadata` maps. Some fields are accepted for schema
-stability but not consumed yet (for example `route[].acceptance_radius_m`,
-`route[].loiter_radius_m`, `defaults.hover_speed_mps`,
-`assets.comms_coverage_file`, `mission.policy.lost_link_policy` as a named
-policy, and vehicle `mass.empty_kg`/`max_payload_kg`) — never treat them as
-enforced.
+stability but not consumed by the estimator yet (for example
+`route[].acceptance_radius_m`, `route[].loiter_radius_m`,
+`defaults.hover_speed_mps`, `assets.comms_coverage_file`, and
+`mission.policy.lost_link_policy` as a named policy) — never treat them as
+enforced. Every YAML example on this page passes `--validate-only` exactly as
+written; a regression test keeps it that way.
 
 ## Mission (`mission.v7`)
 
@@ -60,6 +61,7 @@ command — run `bvlos-sim migrate mission.yaml --dry-run` first.
 
 ```yaml
 constraints:
+  accepted_warning_codes: [GEOFENCE_EVALUATED_2D_ONLY]   # reviewed advisory warnings
   min_landing_reserve_percent: 25.0   # % of battery that must survive landing
   require_rth_reserve: true           # hard per-leg return-to-home reserve gate
   max_wind_mps: 12.0                  # sustained-wind limit at every path sample
@@ -68,6 +70,15 @@ constraints:
   min_obstacle_clearance_m: 15.0      # separation buffer around obstacles
   min_terrain_clearance_m: 30.0       # sampled terrain clearance (needs terrain asset)
 ```
+
+Advisory warnings block the operational `GO` verdict by default.
+`accepted_warning_codes` is the explicit, reviewable opt-out: codes listed
+there (validated against the [warning table](cli.md#advisory-warnings)) still
+appear in every artifact — including a checklist `Acknowledged warnings` row
+and the envelope's `operational_readiness.acknowledged_warning_codes` — but
+no longer force `NO-GO`. Unlisted warnings keep blocking. Because the
+acceptance lives in the mission file, it is versioned and reviewed with the
+mission, not slipped in on a command line.
 
 All constraints fail closed. `max_gust_mps`, `min_visibility_m`, and
 `max_precipitation_mm_h` are accepted, but no built-in provider supplies those
@@ -376,8 +387,18 @@ maxima plus metadata with `source`, `population_year`,
 containing `departure_time`, and a transient-population/assemblies assessment.
 WorldPop point samples and legacy grids stay diagnostic-only.
 
-Every `applied: true` mitigation is rejected until an Annex B criteria
-evaluator exists, so the final GRC equals the intrinsic GRC. Population
+Produce the file from an authority-exported raster with
+`scripts/build_population_grid.py` (entry point
+`bvlos-build-population-grid`): it converts an ESRI ASCII grid or a
+lat/lon/density CSV using per-cell maxima, refuses uncovered cells, and
+requires every metadata field as a flag. The tool guarantees format and
+max-pooling only — authority approval and data conservatism remain the
+operator's obligations.
+
+Every `applied: true` mitigation earns no credit until an Annex B criteria
+evaluator exists: the assessment still runs with the final GRC equal to the
+intrinsic GRC, records each declaration as `credit_rejected_pending_annex_b`
+in the result and the report, and exits `10`. Population
 density exactly at a band boundary (for example 50,000 ppl/km²) is assigned to
 the stricter band. Medium/high containment requires a reference showing the
 GRB was fed back through Step 2; Annex E compliance is always

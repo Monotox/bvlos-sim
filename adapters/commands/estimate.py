@@ -9,6 +9,9 @@ import adapters.cli as cli
 from adapters.calibration import load_and_apply_calibration, load_calibration_profile
 from adapters.checklist_markdown import checklist_is_go
 from adapters.cli_support import (
+    GENERATED_AT_OPTION,
+    NO_CLOBBER_OPTION,
+    OPERATOR_ID_OPTION,
     MissionAssetBundle,
     OutputWriteError,
     _build_estimation_options,
@@ -17,6 +20,8 @@ from adapters.cli_support import (
     _envelope_output_format,
     _parse_wind_layers,
     _populate_mission_assets,
+    _provenance_metadata,
+    _refuse_output_clobber,
     _render_output,
     _write_output,
 )
@@ -348,6 +353,9 @@ def estimate(
     output: Path | None = typer.Option(
         None, "--output", "-o", help="Write output to file instead of stdout."
     ),
+    no_clobber: bool = NO_CLOBBER_OPTION,
+    operator_id: str | None = OPERATOR_ID_OPTION,
+    generated_at: str | None = GENERATED_AT_OPTION,
     engineering_only: bool = typer.Option(
         False,
         "--engineering-only",
@@ -430,11 +438,14 @@ def estimate(
             as_json=is_json_format(validate_format),
         )
 
+    _refuse_output_clobber(output, no_clobber=no_clobber, command="estimate")
+
     mission_document: InputDocument | None = None
     vehicle_document: InputDocument | None = None
     mission_assets = MissionAssetBundle()
     envelope_inputs: EnvelopeInputs | None = None
     try:
+        provenance_metadata = _provenance_metadata(operator_id, generated_at)
         options = _build_estimation_options(fidelity, max_segment_length_m)
         wind_provider = (
             LayeredWindProvider(_parse_wind_layers(wind_layer)) if wind_layer else None
@@ -466,6 +477,10 @@ def estimate(
             geofences=mission_assets.geofences,
             landing_zones=mission_assets.landing_zones,
         )
+        if provenance_metadata:
+            result = result.model_copy(
+                update={"metadata": {**result.metadata, **provenance_metadata}}
+            )
         envelope = build_estimator_envelope(
             result=result,
             inputs=envelope_inputs,

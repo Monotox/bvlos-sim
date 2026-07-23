@@ -42,8 +42,16 @@ def _boom(*_args: object, **_kwargs: object) -> None:
 # --- validate -------------------------------------------------------------
 
 
-def test_validate_out_of_threshold_exit_code() -> None:
-    result = runner.invoke(app, ["validate", str(_MISSION), str(_VEHICLE), str(_TRACE)])
+def test_validate_out_of_threshold_exit_code(tmp_path: Path) -> None:
+    trace = json.loads(_TRACE.read_text(encoding="utf-8"))
+    for record in trace["records"]:
+        record["timestamp_s"] = round(record["timestamp_s"] * 2.0, 1)
+    slow_trace = tmp_path / "slow_trace.json"
+    slow_trace.write_text(json.dumps(trace), encoding="utf-8")
+
+    result = runner.invoke(
+        app, ["validate", str(_MISSION), str(_VEHICLE), str(slow_trace)]
+    )
     assert result.exit_code == INFEASIBLE
     assert "Acceptance: **FAIL**" in result.stdout
 
@@ -78,6 +86,54 @@ def test_sora_internal_error_exit_code(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(sora_cmd, "build_sora_assessment", _boom)
     result = runner.invoke(app, ["sora", str(_SORA_MISSION), str(_SORA_VEHICLE)])
     assert result.exit_code == INTERNAL_ERROR
+
+
+# --- convert --------------------------------------------------------------
+
+
+def _write_survey_plan(tmp_path: Path) -> Path:
+    plan = {
+        "fileType": "Plan",
+        "mission": {
+            "plannedHomePosition": [52.0, 4.0, 12.0],
+            "items": [
+                {"type": "ComplexItem", "complexItemType": "survey", "command": 16},
+                {
+                    "type": "SimpleItem",
+                    "command": 16,
+                    "frame": 3,
+                    "coordinate": [52.001, 4.002, 120.0],
+                    "params": [0, 0, 0, None, 52.001, 4.002, 120.0],
+                },
+            ],
+        },
+    }
+    plan_path = tmp_path / "survey.plan"
+    plan_path.write_text(json.dumps(plan), encoding="utf-8")
+    return plan_path
+
+
+def test_convert_lossy_plan_exits_unsupported(tmp_path: Path) -> None:
+    plan_path = _write_survey_plan(tmp_path)
+    result = runner.invoke(
+        app, ["convert", str(plan_path), "--vehicle-profile", "quadplane_v1"]
+    )
+    assert result.exit_code == int(CliExitCode.UNSUPPORTED)
+
+
+def test_convert_lossy_plan_with_allow_lossy_exits_success(tmp_path: Path) -> None:
+    plan_path = _write_survey_plan(tmp_path)
+    result = runner.invoke(
+        app,
+        [
+            "convert",
+            str(plan_path),
+            "--vehicle-profile",
+            "quadplane_v1",
+            "--allow-lossy",
+        ],
+    )
+    assert result.exit_code == SUCCESS
 
 
 # --- calibrate ------------------------------------------------------------

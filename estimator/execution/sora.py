@@ -2,8 +2,9 @@
 
 Combines the SORA 2.5 Ground Risk Class with the initial/residual Air Risk Class
 and SAIL determination. Ground mitigation declarations fail closed until Annex B
-criteria can be evaluated; tactical air-risk mitigations are represented as TMPR
-requirements and never lower residual ARC.
+criteria can be evaluated: they earn no GRC credit and are recorded in the
+assessment as ``credit_rejected_pending_annex_b``. Tactical air-risk mitigations
+are represented as TMPR requirements and never lower residual ARC.
 """
 
 import math

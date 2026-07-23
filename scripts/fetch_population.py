@@ -59,7 +59,10 @@ def _year_epoch_ms(year: int) -> int:
 
 
 def _sample_density(
-    points: Sequence[tuple[float, float]], *, year: int = _DEFAULT_YEAR
+    points: Sequence[tuple[float, float]],
+    *,
+    year: int = _DEFAULT_YEAR,
+    fail_on_missing: bool = False,
 ) -> list[float]:
     if requests is None:
         raise RuntimeError(
@@ -67,6 +70,7 @@ def _sample_density(
             "pip install 'bvlos-sim[scripts]' or uv sync --extra scripts"
         )
     densities: list[float] = []
+    missing_cells = 0
     for batch in _chunks(points, _BATCH_SIZE):
         geometry = {
             "points": [[lon, lat] for lat, lon in batch],
@@ -95,17 +99,36 @@ def _sample_density(
                 "WorldPop response returned partial coverage for a requested batch "
                 f"({len(samples)} samples for {len(batch)} points)"
             )
-        densities.extend(_sample_value(sample) for sample in samples)
+        for sample in samples:
+            value = _sample_value(sample)
+            if value is None:
+                if fail_on_missing:
+                    raise ValueError(
+                        "WorldPop returned a no-data sample (water or unmapped "
+                        "cell) and --fail-on-missing is set"
+                    )
+                missing_cells += 1
+                value = 0.0
+            densities.append(value)
+    if missing_cells:
+        print(
+            f"Warning: {missing_cells} water/no-data cells sampled as density 0.0",
+            file=sys.stderr,
+        )
     return densities
 
 
-def _sample_value(sample: object) -> float:
+def _sample_value(sample: object) -> float | None:
+    """Return sampled density, or None for a water/no-data cell."""
     if not isinstance(sample, dict):
         raise ValueError("WorldPop sample must be an object")
-    if "value" not in sample:
-        raise ValueError("WorldPop sample is missing value")
+    raw_value = sample.get("value")
+    if raw_value is None:
+        return None
+    if isinstance(raw_value, str) and raw_value.strip().lower() == "nodata":
+        return None
     try:
-        value = float(sample["value"])
+        value = float(raw_value)
     except (TypeError, ValueError) as exc:
         raise ValueError("WorldPop sample value must be numeric") from exc
     if not math.isfinite(value) or value < 0.0:
@@ -121,6 +144,7 @@ def _sample_grid(
     step: float,
     *,
     year: int = _DEFAULT_YEAR,
+    fail_on_missing: bool = False,
 ) -> tuple[list[float], list[float], list[list[float]]]:
     if not -90.0 <= lat_min < lat_max <= 90.0:
         raise ValueError("latitude bounds must lie between -90 and 90")
@@ -129,7 +153,7 @@ def _sample_grid(
     lats = _axis(lat_min, lat_max, step)
     lons = _axis(lon_min, lon_max, step)
     points = [(lat, lon) for lat in lats for lon in lons]
-    densities = _sample_density(points, year=year)
+    densities = _sample_density(points, year=year, fail_on_missing=fail_on_missing)
     if len(densities) != len(points):
         raise ValueError("WorldPop response size did not match requested grid")
 
@@ -156,6 +180,14 @@ def main() -> None:
         help=(
             f"WorldPop annual density slice ({_MIN_YEAR}-{_MAX_YEAR}; "
             f"default: {_DEFAULT_YEAR})"
+        ),
+    )
+    parser.add_argument(
+        "--fail-on-missing",
+        action="store_true",
+        help=(
+            "Abort when WorldPop returns no-data cells (water or unmapped) "
+            "instead of sampling them as density 0.0"
         ),
     )
     parser.add_argument("--output", default="population.yaml", metavar="PATH")
@@ -195,6 +227,7 @@ def main() -> None:
             args.lon_max,
             args.step_deg,
             year=args.year,
+            fail_on_missing=args.fail_on_missing,
         )
     except (RuntimeError, ValueError) as exc:
         sys.exit(f"Error: {exc}")

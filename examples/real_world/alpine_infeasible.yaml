@@ -43,7 +43,6 @@ assets:
   terrain_file: assets/terrain.yaml
   wind_grid_file: assets/wind_grid.yaml
   landing_zones_file: assets/landing_zones.geojson
-  geofences_file: assets/geofences.geojson
 
 metadata:
   notes: >

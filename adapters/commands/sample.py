@@ -6,9 +6,11 @@ import typer
 
 import adapters.cli as cli
 from adapters.cli_support import (
+    NO_CLOBBER_OPTION,
     MissionAssetBundle,
     OutputWriteError,
     _populate_mission_assets,
+    _refuse_output_clobber,
     _render_uncertainty_output,
     _write_output,
 )
@@ -92,6 +94,7 @@ def sample(
     output: Path | None = typer.Option(
         None, "--output", "-o", help="Write output to file instead of stdout."
     ),
+    no_clobber: bool = NO_CLOBBER_OPTION,
     progress_format: cli.ProgressFormat = typer.Option(
         cli.ProgressFormat.NONE,
         "--progress-format",
@@ -124,6 +127,8 @@ def sample(
             uncertainty_file=uncertainty_file,
             as_json=is_json_format(validate_format),
         )
+
+    _refuse_output_clobber(output, no_clobber=no_clobber, command="sample")
 
     uncertainty_document = None
     mission_document = None

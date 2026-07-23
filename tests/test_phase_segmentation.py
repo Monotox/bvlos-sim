@@ -109,6 +109,48 @@ def test_unrecognized_mode_produces_unknown_segment() -> None:
 
 
 # ---------------------------------------------------------------------------
+# PX4 nav_state vocabulary (emitted by the ULog adapter)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("mode", "expected"),
+    [
+        ("AUTO_TAKEOFF", TracePhase.TAKEOFF),
+        ("AUTO_VTOL_TAKEOFF", TracePhase.TAKEOFF),
+        ("AUTO_RTL", TracePhase.RTL),
+        ("AUTO_LAND", TracePhase.LANDING),
+        ("AUTO_PRECLAND", TracePhase.LANDING),
+        ("DESCEND", TracePhase.LANDING),
+        ("AUTO_LOITER", TracePhase.LOITER),
+        ("ORBIT", TracePhase.LOITER),
+    ],
+)
+def test_px4_nav_state_modes_map_directly(mode: str, expected: TracePhase) -> None:
+    result = segment_trace(_trace(_rec(0, mode=mode)))
+
+    assert result.segments[0].phase == expected
+
+
+@pytest.mark.parametrize("mode", ["AUTO_MISSION", "OFFBOARD", "AUTO_FOLLOW_TARGET"])
+def test_px4_autonomous_modes_dispatch_kinematically(mode: str) -> None:
+    speed = TRANSIT_SPEED_MPS + 1.0
+    records = [_rec(i, mode=mode, speed=speed, alt=100.0) for i in range(3)]
+    result = segment_trace(_trace(*records))
+
+    assert all(p == TracePhase.TRANSIT for p in _phases(result))
+
+
+@pytest.mark.parametrize("mode", ["MANUAL", "POSCTL", "TERMINATION", "NAV_STATE_99"])
+def test_px4_manual_and_unrecognized_nav_states_stay_unknown(mode: str) -> None:
+    # Fail-closed: modes outside the vocabulary never fall through to kinematics,
+    # even when speed and altitude data could classify the motion.
+    result = segment_trace(_trace(_rec(0, mode=mode, speed=10.0, alt=100.0)))
+
+    assert result.segments[0].phase == TracePhase.UNKNOWN
+
+
+# ---------------------------------------------------------------------------
 # Kinematic segmentation (AUTO mode delegates to kinematics)
 # ---------------------------------------------------------------------------
 

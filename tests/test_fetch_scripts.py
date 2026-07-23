@@ -1,11 +1,15 @@
-from datetime import datetime, timedelta
+from collections.abc import Callable
+from datetime import date, datetime, timedelta
+import json
 import math
+from pathlib import Path
 import sys
 from types import ModuleType
 
 import pytest
 
 from scripts import (
+    _overpass,
     fetch_all,
     fetch_geofences,
     fetch_landing_zones,
@@ -24,7 +28,11 @@ _FETCH_ENTRYPOINTS: tuple[tuple[ModuleType, str, list[str]], ...] = (
         "requests",
         ["fetch-landing-zones", "0", "1", "0", "1"],
     ),
-    (fetch_obstacles, "requests", ["fetch-obstacles", "0", "1", "0", "1"]),
+    (
+        fetch_obstacles,
+        "requests",
+        ["fetch-obstacles", "0", "1", "0", "1", "--base-altitude-amsl-m", "450"],
+    ),
     (
         fetch_population,
         "requests",
@@ -69,11 +77,16 @@ def test_fetch_entrypoint_missing_dependency_has_wheel_install_guidance(
 
 @pytest.mark.parametrize(
     "sample",
-    [None, {}, {"value": None}, {"value": "bad"}, {"value": -1}, {"value": math.nan}],
+    [None, {"value": "bad"}, {"value": -1}, {"value": math.nan}],
 )
 def test_worldpop_malformed_samples_are_rejected(sample: object) -> None:
     with pytest.raises(ValueError):
         fetch_population._sample_value(sample)
+
+
+@pytest.mark.parametrize("sample", [{}, {"value": None}, {"value": "NoData"}])
+def test_worldpop_no_data_samples_are_detected(sample: object) -> None:
+    assert fetch_population._sample_value(sample) is None
 
 
 def test_worldpop_nondivisible_axis_is_rejected() -> None:
@@ -97,6 +110,49 @@ def test_worldpop_partial_batch_is_rejected(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setattr(fetch_population, "requests", _Requests())
     with pytest.raises(ValueError, match="partial coverage"):
         fetch_population._sample_density([(0.0, 0.0), (0.0, 1.0)])
+
+
+def _worldpop_requests(samples: list[object]) -> object:
+    class _Response:
+        @staticmethod
+        def raise_for_status() -> None:
+            return None
+
+        @staticmethod
+        def json() -> dict[str, object]:
+            return {"samples": samples}
+
+    class _Requests:
+        @staticmethod
+        def get(*args: object, **kwargs: object) -> _Response:
+            return _Response()
+
+    return _Requests()
+
+
+def test_worldpop_water_cells_sample_as_zero_with_summary_warning(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    samples: list[object] = [{"value": None}, {"value": 2.5}, {"value": "NoData"}]
+    monkeypatch.setattr(fetch_population, "requests", _worldpop_requests(samples))
+
+    densities = fetch_population._sample_density(
+        [(0.0, 0.0), (0.0, 1.0), (1.0, 0.0)]
+    )
+
+    assert densities == [0.0, 2.5, 0.0]
+    assert "2 water/no-data cells" in capsys.readouterr().err
+
+
+def test_worldpop_fail_on_missing_keeps_strict_behavior(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    samples: list[object] = [{"value": None}]
+    monkeypatch.setattr(fetch_population, "requests", _worldpop_requests(samples))
+
+    with pytest.raises(ValueError, match="no-data"):
+        fetch_population._sample_density([(0.0, 0.0)], fail_on_missing=True)
 
 
 def test_worldpop_requests_explicit_annual_slice(
@@ -145,17 +201,28 @@ def test_srtm_missing_elevation_is_rejected(monkeypatch: pytest.MonkeyPatch) -> 
         fetch_terrain._sample_grid(0.0, 1.0, 0.0, 1.0, 1.0)
 
 
-def _wind_payload() -> dict[str, object]:
+@pytest.mark.parametrize(
+    ("lat_min", "lat_max", "bound"),
+    [(59.0, 61.0, "north of 60.0"), (-58.0, -56.5, "south of -56.0")],
+)
+def test_srtm_out_of_coverage_latitudes_are_rejected(
+    lat_min: float, lat_max: float, bound: str
+) -> None:
+    with pytest.raises(ValueError, match=f"SRTM has no coverage {bound}"):
+        fetch_terrain._sample_grid(lat_min, lat_max, 0.0, 1.0, 0.5)
+
+
+def _wind_payload(hours: int = 24) -> dict[str, object]:
     start = datetime(2026, 1, 1)
     hourly: dict[str, object] = {
         "time": [
             (start + timedelta(hours=index)).isoformat(timespec="minutes")
-            for index in range(24)
+            for index in range(hours)
         ]
     }
     for altitude_m in fetch_wind._ALTITUDES_M:
-        hourly[f"wind_speed_{altitude_m}m"] = [5.0] * 24
-        hourly[f"wind_direction_{altitude_m}m"] = [270.0] * 24
+        hourly[f"wind_speed_{altitude_m}m"] = [5.0] * hours
+        hourly[f"wind_direction_{altitude_m}m"] = [270.0] * hours
     return {"elevation": 100.0, "hourly": hourly}
 
 
@@ -210,9 +277,51 @@ def test_open_meteo_invalid_wind_value_is_rejected(invalid_speed: object) -> Non
         fetch_wind._build_grid(payload, 52.0, 4.0, 0, 4)
 
 
-def test_open_meteo_partial_day_window_is_rejected() -> None:
-    with pytest.raises(ValueError, match="beyond"):
+def test_open_meteo_midnight_crossing_window_builds_grid() -> None:
+    grid = fetch_wind._build_grid(_wind_payload(hours=48), 52.0, 4.0, 23, 4)
+    axes = grid["axes"]
+    assert isinstance(axes, dict)
+    assert axes["time_s"] == [0, 3600, 7200, 10800]
+
+
+def test_open_meteo_short_response_for_midnight_window_is_rejected() -> None:
+    with pytest.raises(ValueError, match="does not cover"):
         fetch_wind._build_grid(_wind_payload(), 52.0, 4.0, 23, 2)
+
+
+@pytest.mark.parametrize(
+    ("end_hour", "expected_end_date"),
+    [(24, "2026-03-01"), (27, "2026-03-02"), (49, "2026-03-03")],
+)
+def test_midnight_crossing_fetch_requests_following_days(
+    end_hour: int,
+    expected_end_date: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured_params: dict[str, object] = {}
+
+    class _Response:
+        @staticmethod
+        def raise_for_status() -> None:
+            return None
+
+        @staticmethod
+        def json() -> dict[str, object]:
+            return _wind_payload(hours=72)
+
+    class _Requests:
+        @staticmethod
+        def get(url: str, **kwargs: object) -> _Response:
+            params = kwargs["params"]
+            assert isinstance(params, dict)
+            captured_params.update(params)
+            return _Response()
+
+    monkeypatch.setattr(fetch_wind, "requests", _Requests())
+    fetch_wind._fetch(52.0, 4.0, date(2026, 3, 1), end_hour=end_hour)
+
+    assert captured_params["start_date"] == "2026-03-01"
+    assert captured_params["end_date"] == expected_end_date
 
 
 def test_open_meteo_single_sample_grid_is_rejected() -> None:
@@ -244,3 +353,184 @@ def test_open_meteo_missing_surface_elevation_is_rejected() -> None:
     del payload["elevation"]
     with pytest.raises(ValueError, match="elevation"):
         fetch_wind._build_grid(payload, 52.0, 4.0, 0, 4)
+
+
+class _OverpassResponse:
+    def __init__(self, status_code: int = 200) -> None:
+        self.status_code = status_code
+
+    def raise_for_status(self) -> None:
+        if self.status_code >= 400:
+            raise RuntimeError(f"HTTP {self.status_code}")
+
+    @staticmethod
+    def json() -> dict[str, object]:
+        return {"elements": []}
+
+
+def test_overpass_retry_recovers_from_transient_failures(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sleeps: list[float] = []
+    attempts: list[str] = []
+
+    class _Requests:
+        @staticmethod
+        def post(url: str, **kwargs: object) -> _OverpassResponse:
+            attempts.append(url)
+            if len(attempts) == 1:
+                raise ConnectionError("connection reset")
+            if len(attempts) == 2:
+                return _OverpassResponse(status_code=504)
+            return _OverpassResponse()
+
+    monkeypatch.setattr(_overpass.time, "sleep", sleeps.append)
+    monkeypatch.setattr(_overpass, "requests", _Requests())
+
+    response = _overpass.post_with_retry(
+        "https://overpass.test/api", data={}, headers={}, timeout=1
+    )
+
+    assert response.status_code == 200
+    assert len(attempts) == 3
+    assert sleeps == [2.0, 8.0]
+
+
+def test_overpass_retry_exhaustion_names_endpoint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Requests:
+        @staticmethod
+        def post(url: str, **kwargs: object) -> _OverpassResponse:
+            return _OverpassResponse(status_code=429)
+
+    monkeypatch.setattr(_overpass.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(_overpass, "requests", _Requests())
+
+    with pytest.raises(_overpass.OverpassError, match="3 attempts") as exc_info:
+        _overpass.post_with_retry(
+            "https://overpass.test/api", data={}, headers={}, timeout=1
+        )
+
+    assert "https://overpass.test/api" in str(exc_info.value)
+    assert "HTTP 429" in str(exc_info.value)
+
+
+def test_overpass_non_retryable_http_error_raises_immediately(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    attempts: list[str] = []
+
+    class _Requests:
+        @staticmethod
+        def post(url: str, **kwargs: object) -> _OverpassResponse:
+            attempts.append(url)
+            return _OverpassResponse(status_code=400)
+
+    monkeypatch.setattr(_overpass.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(_overpass, "requests", _Requests())
+
+    with pytest.raises(RuntimeError, match="HTTP 400"):
+        _overpass.post_with_retry(
+            "https://overpass.test/api", data={}, headers={}, timeout=1
+        )
+
+    assert len(attempts) == 1
+
+
+@pytest.mark.parametrize(
+    ("module", "query"),
+    [
+        (
+            fetch_geofences,
+            lambda: fetch_geofences._overpass_elements(0.0, 1.0, 0.0, 1.0),
+        ),
+        (
+            fetch_landing_zones,
+            lambda: fetch_landing_zones._query(0.0, 1.0, 0.0, 1.0),
+        ),
+        (
+            fetch_obstacles,
+            lambda: fetch_obstacles._query_overpass(
+                lat_min=0.0, lat_max=1.0, lon_min=0.0, lon_max=1.0
+            ),
+        ),
+    ],
+)
+def test_overpass_queries_use_shared_retry_helper(
+    module: ModuleType,
+    query: Callable[[], list[dict[str, object]]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def _post_with_retry(url: str, **kwargs: object) -> _OverpassResponse:
+        captured["url"] = url
+        return _OverpassResponse()
+
+    monkeypatch.setattr(module, "requests", object())
+    monkeypatch.setattr(_overpass, "post_with_retry", _post_with_retry)
+
+    assert query() == []
+    assert captured["url"] == module._OVERPASS_URL
+
+
+def test_geofences_refuses_to_write_empty_airspace_file(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "geofences.geojson"
+    monkeypatch.setattr(fetch_geofences, "requests", object())
+    monkeypatch.setattr(fetch_geofences, "_overpass_elements", lambda *args: [])
+    monkeypatch.setattr(
+        sys, "argv", ["fetch-geofences", "0", "1", "0", "1", "--output", str(output)]
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        fetch_geofences.main()
+
+    message = str(exc_info.value.code)
+    assert "relation-based" in message
+    assert "--source openaip" in message
+    assert not output.exists()
+
+
+def test_geofences_allow_empty_writes_empty_file(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "geofences.geojson"
+    monkeypatch.setattr(fetch_geofences, "requests", object())
+    monkeypatch.setattr(fetch_geofences, "_overpass_elements", lambda *args: [])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "fetch-geofences",
+            "0",
+            "1",
+            "0",
+            "1",
+            "--allow-empty",
+            "--output",
+            str(output),
+        ],
+    )
+
+    fetch_geofences.main()
+
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload == {"type": "FeatureCollection", "features": []}
+
+
+def test_obstacles_base_altitude_flag_is_required(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr(sys, "argv", ["fetch-obstacles", "0", "1", "0", "1"])
+
+    with pytest.raises(SystemExit) as exc_info:
+        fetch_obstacles.main()
+
+    assert exc_info.value.code == 2
+    assert "--base-altitude-amsl-m" in capsys.readouterr().err

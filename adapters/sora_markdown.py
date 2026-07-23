@@ -39,8 +39,42 @@ def _signed_credit(credit: int) -> str:
     return f"+{credit}" if credit >= 0 else str(credit)
 
 
+def _rejected_mitigation_lines(assessment: SoraAssessment) -> list[str]:
+    rejected = [
+        credit
+        for credit in assessment.ground_risk_mitigations
+        if credit.credit_status is not None
+    ]
+    if not rejected:
+        return []
+    lines = [
+        "",
+        "## Declared Ground Risk Mitigations: NO CREDIT APPLIED",
+        "",
+        (
+            "The mission declares applied ground-risk mitigations, but "
+            "mitigation credit is REJECTED pending an Annex B "
+            "integrity/assurance evaluation. The GRC and SAIL in this report "
+            "assume NO mitigation credit: the final GRC equals the intrinsic "
+            "GRC."
+        ),
+        "",
+    ]
+    for credit in rejected:
+        lines.append(
+            f"- {credit.mitigation_id} {credit.title} "
+            f"(declared robustness: {credit.robustness.value}; evidence: "
+            f"{credit.evidence}): {credit.credit_status.value}"
+        )
+    return lines
+
+
 def _mitigation_lines(assessment: SoraAssessment) -> list[str]:
-    credits: list[GrcMitigationCredit] = assessment.ground_risk_mitigations
+    credits: list[GrcMitigationCredit] = [
+        credit
+        for credit in assessment.ground_risk_mitigations
+        if credit.credit_status is None
+    ]
     if not credits:
         return []
     lines = [
@@ -168,12 +202,20 @@ def _containment_lines(assessment: SoraAssessment) -> list[str]:
 
 
 def render_sora_markdown_for_assessment(assessment: SoraAssessment) -> str:
-    has_mitigations = bool(assessment.ground_risk_mitigations)
-    final_suffix = (
-        ""
-        if assessment.final_grc is None or has_mitigations
-        else "   (no mitigations applied)"
+    has_credited_mitigations = any(
+        credit.credit_status is None
+        for credit in assessment.ground_risk_mitigations
     )
+    has_rejected_mitigations = any(
+        credit.credit_status is not None
+        for credit in assessment.ground_risk_mitigations
+    )
+    if assessment.final_grc is None or has_credited_mitigations:
+        final_suffix = ""
+    elif has_rejected_mitigations:
+        final_suffix = "   (declared mitigation credit rejected)"
+    else:
+        final_suffix = "   (no mitigations applied)"
     lines = [
         f"# SORA Pre-Assessment: {assessment.mission_id}",
         "",
@@ -229,6 +271,7 @@ def render_sora_markdown_for_assessment(assessment: SoraAssessment) -> str:
             f"{assessment.tactical_mitigation_requirement.required_robustness.value}"
         )
     lines.extend(_sail_lines(assessment))
+    lines.extend(_rejected_mitigation_lines(assessment))
     lines.extend(_mitigation_lines(assessment))
     lines.extend(_containment_lines(assessment))
     lines.extend(_oso_lines(assessment))

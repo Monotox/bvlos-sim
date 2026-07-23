@@ -341,6 +341,15 @@ class MissionConstraints(BaseModel):
 
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
+    accepted_warning_codes: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Advisory warning codes the operator has reviewed and explicitly "
+            "accepts for this mission. Acknowledged warnings are still "
+            "reported in every artifact but no longer block the operational "
+            "GO verdict. Unlisted warnings keep blocking."
+        ),
+    )
     min_landing_reserve_percent: FiniteFloat | None = Field(
         default=None,
         ge=0,
@@ -427,6 +436,27 @@ class MissionConstraints(BaseModel):
             "Maximum tolerated straight-line distance to an emergency landing zone."
         ),
     )
+
+    @model_validator(mode="after")
+    def _validate_accepted_warning_codes(self) -> "MissionConstraints":
+        # Imported lazily: estimator.execution imports this module, so a
+        # top-level estimator import would be circular.
+        from estimator.core.enums import WarningCode
+
+        valid = {code.value for code in WarningCode}
+        seen: set[str] = set()
+        for code in self.accepted_warning_codes:
+            if code not in valid:
+                raise ValueError(
+                    f"accepted_warning_codes entry {code!r} is not a known "
+                    f"warning code; valid codes: {', '.join(sorted(valid))}"
+                )
+            if code in seen:
+                raise ValueError(
+                    f"accepted_warning_codes entry {code!r} is duplicated"
+                )
+            seen.add(code)
+        return self
 
 
 class MissionAssets(BaseModel):
@@ -649,7 +679,7 @@ class MissionPlan(BaseModel):
         min_length=1,
         description="Ordered mission route.",
     )
-    constraints: MissionConstraints
+    constraints: MissionConstraints = Field(default_factory=MissionConstraints)
     assets: MissionAssets = Field(default_factory=MissionAssets)
     airspace: Airspace | None = Field(
         default=None,

@@ -6,7 +6,12 @@ import typer
 from pydantic import ValidationError
 
 import adapters.cli as cli
-from adapters.cli_support import OutputWriteError, _write_output
+from adapters.cli_support import (
+    NO_CLOBBER_OPTION,
+    OutputWriteError,
+    _refuse_output_clobber,
+    _write_output,
+)
 from adapters.io import InputLoadError
 from adapters.preflight import check_file, emit_preflight, is_json_format
 from adapters.sitl.evidence import compare_sitl_evidence_bundle
@@ -55,6 +60,7 @@ def compare(
         help="Output format for the comparison report.",
     ),
     output: Path | None = typer.Option(None, "--output", "-o", help="Write output to file instead of stdout."),
+    no_clobber: bool = NO_CLOBBER_OPTION,
     validate_only: bool = typer.Option(
         False,
         "--validate-only",
@@ -76,6 +82,8 @@ def compare(
         _run_compare_preflight(
             evidence=evidence, as_json=is_json_format(validate_format)
         )
+
+    _refuse_output_clobber(output, no_clobber=no_clobber, command="compare")
 
     try:
         bundle, _document = load_sitl_evidence_bundle(evidence)
