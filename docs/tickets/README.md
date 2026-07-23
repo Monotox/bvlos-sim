@@ -59,7 +59,6 @@ all implemented — see the full list below.
 
 | # | Ticket | What it adds |
 |---|---|---|
-| 062 | [LZ reachability wind correction](./062-wind-corrected-divert-energy.md) | Apply wind-triangle correction to landing-zone reachability energy (divert already done) |
 | 064 | [Batch scenario & propagate](./064-batch-scenario-and-propagate.md) | Extend `batch` command to run scenario and propagate jobs, not only estimates |
 
 ### Output & visualisation gaps
@@ -174,7 +173,7 @@ New capabilities should work *with* existing pieces, not alongside them in isola
 30. [057](./057-summary-output-format.md) Summary output format
 31. [059](./059-infeasible-demo-mission.md) Infeasible demo mission
 32. [060](./060-import-export-and-batch-workflows.md) Import, export, and batch workflows
-33. [062](./062-wind-corrected-divert-energy.md) Wind-corrected divert energy *(LZ reachability TAS-only remaining — Ticket 062)*
+33. [062](./062-wind-corrected-divert-energy.md) Wind-corrected divert energy
 34. [063](./063-rth-reserve-check.md) Return-to-home reserve check
 35. [065](./065-geofence-and-lz-in-stochastic.md) Geofence and LZ in stochastic propagation
 36. [069](./069-per-event-lost-link-policy-override.md) Per-event lost-link policy override

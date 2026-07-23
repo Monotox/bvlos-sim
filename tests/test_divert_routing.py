@@ -594,6 +594,43 @@ def test_divert_estimate_tailwind_decreases_energy() -> None:
     assert WarningCode.DIVERT_ENERGY_TAS_ONLY not in tailwind_result.warnings
 
 
+def test_divert_estimate_crosswind_increases_energy() -> None:
+    """A pure crosswind forces a crab, lowering along-track ground speed."""
+    mission = make_mission()
+    vehicle = make_vehicle()
+    zone = _point_zone("lz", lat=52.1, lon=4.0)
+    energy = _energy()
+
+    crosswind_result = compute_divert_estimate(
+        action_lat=52.0,
+        action_lon=4.0,
+        action_at_timeline_index=0,
+        target_zone_id="lz",
+        landing_zones=[zone],
+        energy=energy,
+        mission=mission,
+        vehicle=vehicle,
+        wind_east_mps=6.0,  # due-east wind, aircraft heading north: pure crosswind
+        wind_north_mps=0.0,
+        wind_corrected=True,
+    )
+
+    tas_result = compute_divert_estimate(
+        action_lat=52.0,
+        action_lon=4.0,
+        action_at_timeline_index=0,
+        target_zone_id="lz",
+        landing_zones=[zone],
+        energy=energy,
+        mission=mission,
+        vehicle=vehicle,
+        wind_corrected=False,
+    )
+
+    assert crosswind_result.energy_wh > tas_result.energy_wh
+    assert WarningCode.DIVERT_ENERGY_TAS_ONLY not in crosswind_result.warnings
+
+
 def test_divert_estimate_zero_wind_with_corrected_flag_matches_tas() -> None:
     """Zero wind with wind_corrected=True produces same result as TAS."""
     mission = make_mission()
