@@ -311,6 +311,122 @@ def test_takeoff_with_missing_altitude_produces_diagnostic() -> None:
     assert "takeoff altitude missing or invalid" in diagnostics[0].message
 
 
+def test_frame_10_terrain_sets_terrain_altitude_reference() -> None:
+    mission, diagnostics = parse_qgc_plan(
+        _plan(
+            [
+                _simple_item(84, frame=10),
+                _simple_item(16, frame=10, coordinate=[52.001, 4.002, 120.0]),
+            ]
+        ),
+        vehicle_profile=_VP,
+    )
+
+    assert diagnostics == []
+    assert mission["defaults"]["altitude_reference"] == "terrain"
+    assert all("altitude_reference" not in item for item in mission["route"])
+
+
+def test_mixed_frames_keep_per_item_altitude_reference_override() -> None:
+    mission, diagnostics = parse_qgc_plan(
+        _plan(
+            [
+                _simple_item(16, frame=3, coordinate=[52.001, 4.002, 120.0]),
+                _simple_item(16, frame=3, coordinate=[52.002, 4.003, 120.0]),
+                _simple_item(16, frame=0, coordinate=[52.003, 4.004, 120.0]),
+            ]
+        ),
+        vehicle_profile=_VP,
+    )
+
+    assert diagnostics == []
+    assert mission["defaults"]["altitude_reference"] == "relative_home"
+    assert "altitude_reference" not in mission["route"][0]
+    assert "altitude_reference" not in mission["route"][1]
+    assert mission["route"][2]["altitude_reference"] == "amsl"
+
+
+def test_unknown_frame_is_a_lossy_diagnostic() -> None:
+    mission, diagnostics = parse_qgc_plan(
+        _plan([_simple_item(16, frame=5, coordinate=[52.001, 4.002, 120.0])]),
+        vehicle_profile=_VP,
+    )
+
+    assert mission["route"] == []
+    assert len(diagnostics) == 1
+    assert diagnostics[0].lossy is True
+    assert "unsupported altitude frame 5" in diagnostics[0].message
+
+
+def test_rtl_mission_frame_is_ignored_for_altitude_reference() -> None:
+    # QGC writes RTL with the non-positional MAV_FRAME_MISSION (2); it must
+    # neither count as a loss nor drag the mission default off amsl.
+    mission, diagnostics = parse_qgc_plan(
+        _plan(
+            [
+                _simple_item(16, frame=0, coordinate=[52.001, 4.002, 120.0]),
+                _simple_item(
+                    20, frame=2, coordinate=[0, 0, 0], params=[0, 0, 0, 0, 0, 0, 0]
+                ),
+            ]
+        ),
+        vehicle_profile=_VP,
+    )
+
+    assert diagnostics == []
+    assert mission["defaults"]["altitude_reference"] == "amsl"
+
+
+def test_takeoff_normalisation_warning_is_not_lossy() -> None:
+    _, diagnostics = parse_qgc_plan(_plan([_simple_item(22)]), vehicle_profile=_VP)
+
+    assert len(diagnostics) == 1
+    assert diagnostics[0].lossy is False
+
+
+def test_dropped_item_diagnostics_are_lossy() -> None:
+    _, diagnostics = parse_qgc_plan(
+        _plan(
+            [
+                {"type": "ComplexItem", "complexItemType": "survey", "command": 16},
+                _simple_item(999),
+            ]
+        ),
+        vehicle_profile=_VP,
+    )
+
+    assert [diagnostic.lossy for diagnostic in diagnostics] == [True, True]
+
+
+def test_populated_geofence_and_rally_sections_are_lossy_diagnostics() -> None:
+    plan = _plan([])
+    plan["geoFence"] = {
+        "circles": [],
+        "polygons": [{"polygon": [[52.0, 4.0]]}],
+        "version": 2,
+    }
+    plan["rallyPoints"] = {"points": [[52.0, 4.0, 20.0]], "version": 2}
+
+    mission, diagnostics = parse_qgc_plan(plan, vehicle_profile=_VP)
+
+    assert [diagnostic.section for diagnostic in diagnostics] == [
+        "geoFence",
+        "rallyPoints",
+    ]
+    assert all(diagnostic.lossy for diagnostic in diagnostics)
+    assert all(diagnostic.item_index is None for diagnostic in diagnostics)
+
+
+def test_empty_geofence_and_rally_sections_are_not_losses() -> None:
+    plan = _plan([])
+    plan["geoFence"] = {"circles": [], "polygons": [], "version": 2}
+    plan["rallyPoints"] = {"points": [], "version": 2}
+
+    _, diagnostics = parse_qgc_plan(plan, vehicle_profile=_VP)
+
+    assert diagnostics == []
+
+
 def test_mission_without_cruise_or_hover_speed_defaults_are_omitted() -> None:
     raw = {
         "fileType": "Plan",
@@ -428,3 +544,181 @@ def test_convert_cli_writes_to_output_file_with_profile(tmp_path: Path) -> None:
     parsed = yaml.safe_load(out.read_text(encoding="utf-8"))
     assert parsed["vehicle_profile"] == "quadplane_v1"
     assert "FIXME" not in out.read_text(encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# CLI fail-closed lossy conversion contract
+# ---------------------------------------------------------------------------
+
+
+def _write_plan(tmp_path: Path, plan: dict[str, object]) -> Path:
+    path = tmp_path / "input.plan"
+    path.write_text(json.dumps(plan), encoding="utf-8")
+    return path
+
+
+def _survey_plan() -> dict[str, object]:
+    return _plan(
+        [
+            {"type": "ComplexItem", "complexItemType": "survey", "command": 16},
+            _simple_item(16, coordinate=[52.001, 4.002, 120.0]),
+        ]
+    )
+
+
+def test_convert_cli_survey_complex_item_fails_closed(tmp_path: Path) -> None:
+    plan_file = _write_plan(tmp_path, _survey_plan())
+    out = tmp_path / "mission.yaml"
+
+    result = _runner.invoke(
+        app,
+        ["convert", str(plan_file), "--vehicle-profile", _VP, "--output", str(out)],
+    )
+
+    assert result.exit_code == int(CliExitCode.UNSUPPORTED)
+    assert not out.exists()
+    assert "unsupported mission item type" in result.stderr
+    assert "lossy conversion: 1 item(s) dropped" in result.stderr
+
+
+def test_convert_cli_survey_complex_item_allow_lossy_converts(tmp_path: Path) -> None:
+    plan_file = _write_plan(tmp_path, _survey_plan())
+    out = tmp_path / "mission.yaml"
+
+    result = _runner.invoke(
+        app,
+        [
+            "convert",
+            str(plan_file),
+            "--vehicle-profile",
+            _VP,
+            "--allow-lossy",
+            "--output",
+            str(out),
+        ],
+    )
+
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    assert "Warning: item 0 (command 16): unsupported mission item type" in result.stderr
+    assert "lossy conversion: 1 item(s) dropped" in result.stderr
+    parsed = yaml.safe_load(out.read_text(encoding="utf-8"))
+    assert [item["action"] for item in parsed["route"]] == ["waypoint"]
+
+
+def test_convert_cli_geofence_section_fails_closed(tmp_path: Path) -> None:
+    plan = _plan([_simple_item(16, coordinate=[52.001, 4.002, 120.0])])
+    plan["geoFence"] = {
+        "circles": [],
+        "polygons": [{"polygon": [[52.0, 4.0]]}],
+        "version": 2,
+    }
+    plan_file = _write_plan(tmp_path, plan)
+
+    result = _runner.invoke(app, ["convert", str(plan_file), "--vehicle-profile", _VP])
+
+    assert result.exit_code == int(CliExitCode.UNSUPPORTED)
+    assert "section geoFence" in result.stderr
+    assert "lossy conversion: 0 item(s) dropped, sections: geoFence" in result.stderr
+
+
+def test_convert_cli_geofence_section_allow_lossy_prints_summary(tmp_path: Path) -> None:
+    plan = _plan([_simple_item(16, coordinate=[52.001, 4.002, 120.0])])
+    plan["geoFence"] = {
+        "circles": [],
+        "polygons": [{"polygon": [[52.0, 4.0]]}],
+        "version": 2,
+    }
+    plan_file = _write_plan(tmp_path, plan)
+
+    result = _runner.invoke(
+        app, ["convert", str(plan_file), "--vehicle-profile", _VP, "--allow-lossy"]
+    )
+
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    assert "lossy conversion: 0 item(s) dropped, sections: geoFence" in result.stderr
+    parsed = yaml.safe_load(result.stdout)
+    assert [item["action"] for item in parsed["route"]] == ["waypoint"]
+
+
+def test_convert_cli_combined_losses_list_every_loss(tmp_path: Path) -> None:
+    plan = _survey_plan()
+    plan["geoFence"] = {
+        "circles": [],
+        "polygons": [{"polygon": [[52.0, 4.0]]}],
+        "version": 2,
+    }
+    plan["rallyPoints"] = {"points": [[52.0, 4.0, 20.0]], "version": 2}
+    plan_file = _write_plan(tmp_path, plan)
+
+    result = _runner.invoke(app, ["convert", str(plan_file), "--vehicle-profile", _VP])
+
+    assert result.exit_code == int(CliExitCode.UNSUPPORTED)
+    assert "Error: item 0 (command 16): unsupported mission item type" in result.stderr
+    assert "Error: section geoFence" in result.stderr
+    assert "Error: section rallyPoints" in result.stderr
+    assert (
+        "lossy conversion: 1 item(s) dropped, sections: geoFence, rallyPoints"
+        in result.stderr
+    )
+
+
+def test_convert_cli_frame_10_imports_terrain_reference(tmp_path: Path) -> None:
+    plan_file = _write_plan(
+        tmp_path,
+        _plan(
+            [
+                _simple_item(84, frame=10),
+                _simple_item(16, frame=10, coordinate=[52.001, 4.002, 120.0]),
+            ]
+        ),
+    )
+
+    result = _runner.invoke(app, ["convert", str(plan_file), "--vehicle-profile", _VP])
+
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    assert "lossy conversion" not in result.stderr
+    parsed = yaml.safe_load(result.stdout)
+    assert parsed["defaults"]["altitude_reference"] == "terrain"
+
+
+def test_convert_cli_unknown_frame_fails_closed(tmp_path: Path) -> None:
+    plan_file = _write_plan(
+        tmp_path, _plan([_simple_item(16, frame=5, coordinate=[52.001, 4.002, 120.0])])
+    )
+
+    result = _runner.invoke(app, ["convert", str(plan_file), "--vehicle-profile", _VP])
+
+    assert result.exit_code == int(CliExitCode.UNSUPPORTED)
+    assert "unsupported altitude frame 5" in result.stderr
+    assert "lossy conversion: 1 item(s) dropped" in result.stderr
+
+
+def test_convert_cli_validate_only_lossy_fails_closed(tmp_path: Path) -> None:
+    plan_file = _write_plan(tmp_path, _survey_plan())
+
+    result = _runner.invoke(
+        app, ["convert", str(plan_file), "--vehicle-profile", _VP, "--validate-only"]
+    )
+
+    assert result.exit_code == int(CliExitCode.UNSUPPORTED)
+    assert "lossy conversion: 1 item(s) dropped" in result.stderr
+
+
+def test_convert_cli_validate_only_allow_lossy_reports_and_passes(tmp_path: Path) -> None:
+    plan_file = _write_plan(tmp_path, _survey_plan())
+
+    result = _runner.invoke(
+        app,
+        [
+            "convert",
+            str(plan_file),
+            "--vehicle-profile",
+            _VP,
+            "--validate-only",
+            "--allow-lossy",
+        ],
+    )
+
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    assert "OK" in result.stdout
+    assert "lossy conversion: 1 item(s) dropped" in result.stderr

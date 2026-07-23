@@ -46,8 +46,16 @@ _MAV_CMD_NAV_VTOL_TAKEOFF = 84
 
 @dataclass(frozen=True)
 class ExportDiagnostic:
+    """An export warning.
+
+    ``route_item_id`` is set when the exporter rewrote the semantics of a
+    single route item (e.g. a terrain altitude falling back to frame 3);
+    ``sections`` names mission sections omitted wholesale from the .plan.
+    """
+
     route_item_id: str | None
     message: str
+    sections: tuple[str, ...] = ()
 
 
 def _frame_and_alt_mode(reference: AltitudeReference) -> tuple[int, int]:
@@ -105,6 +113,17 @@ class _PlanItemBuilder:
         return _frame_and_alt_mode(reference)
 
     def _build_takeoff(self, item: RouteItem, do_jump_id: int) -> dict[str, object]:
+        if item.action == MissionAction.TAKEOFF:
+            self.diagnostics.append(
+                ExportDiagnostic(
+                    route_item_id=item.id,
+                    message=(
+                        "action 'takeoff' exported as MAV_CMD_NAV_VTOL_TAKEOFF "
+                        "(84); the fixed-wing takeoff distinction is not "
+                        "preserved in the .plan."
+                    ),
+                )
+            )
         frame, altitude_mode = self._resolve_frame(item)
         altitude = item.altitude_m if item.altitude_m is not None else 0.0
         return _simple_item(
@@ -194,10 +213,13 @@ class _PlanItemBuilder:
         ]
 
 
-def _has_omitted_fields(mission: MissionPlan) -> bool:
-    constraints = mission.constraints.model_dump(exclude_none=True)
-    assets = mission.assets.model_dump(exclude_none=True)
-    return bool(constraints) or bool(assets)
+def _omitted_sections(mission: MissionPlan) -> tuple[str, ...]:
+    sections: list[str] = []
+    if mission.constraints.model_dump(exclude_none=True):
+        sections.append("constraints")
+    if mission.assets.model_dump(exclude_none=True):
+        sections.append("assets")
+    return tuple(sections)
 
 
 def _mission_block(
@@ -235,7 +257,8 @@ def build_qgc_plan(
     builder = _PlanItemBuilder(mission)
     items = builder.build_items()
     diagnostics = list(builder.diagnostics)
-    if _has_omitted_fields(mission):
+    omitted = _omitted_sections(mission)
+    if omitted:
         diagnostics.append(
             ExportDiagnostic(
                 route_item_id=None,
@@ -243,6 +266,7 @@ def build_qgc_plan(
                     "bvlos-sim constraints and assets have no QGC equivalent and "
                     "were omitted from the export; they remain in the source YAML."
                 ),
+                sections=omitted,
             )
         )
 
@@ -262,8 +286,30 @@ def render_qgc_plan(plan: dict[str, object]) -> str:
     return json.dumps(plan, indent=4, sort_keys=True) + "\n"
 
 
+def lossy_export_summary(diagnostics: list[ExportDiagnostic]) -> str | None:
+    """One-line summary of export rewrites and omissions, or None when clean.
+
+    Export never fails on these: the .plan format simply cannot represent the
+    rewritten or omitted content, so the summary makes the loss visible in CI
+    logs while the command still exits 0.
+    """
+    if not diagnostics:
+        return None
+    rewritten = sum(
+        1 for diagnostic in diagnostics if diagnostic.route_item_id is not None
+    )
+    sections = [
+        section for diagnostic in diagnostics for section in diagnostic.sections
+    ]
+    line = f"lossy conversion: {rewritten} item(s) rewritten"
+    if sections:
+        line += ", sections: " + ", ".join(sections)
+    return line
+
+
 __all__ = [
     "ExportDiagnostic",
     "build_qgc_plan",
+    "lossy_export_summary",
     "render_qgc_plan",
 ]

@@ -1,7 +1,12 @@
-"""QGroundControl .plan JSON to mission.v7 YAML converter."""
+"""QGroundControl .plan JSON to mission.v7 YAML converter.
+
+Every conversion loss (a dropped mission item or a dropped .plan section) is
+reported as a :class:`ConvertDiagnostic` with ``lossy=True`` so the CLI can
+fail closed instead of silently writing an incomplete mission.
+"""
 
 import json
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,6 +28,27 @@ _MAV_CMD_NAV_VTOL_TAKEOFF = 84
 _MAV_CMD_NAV_VTOL_LAND = 85
 _FRAME_GLOBAL = 0
 _FRAME_GLOBAL_RELATIVE_ALT = 3
+_FRAME_GLOBAL_TERRAIN_ALT = 10
+_FRAME_ALTITUDE_REFERENCES: dict[int, str] = {
+    _FRAME_GLOBAL: "amsl",
+    _FRAME_GLOBAL_RELATIVE_ALT: "relative_home",
+    _FRAME_GLOBAL_TERRAIN_ALT: "terrain",
+}
+_DEFAULT_ALTITUDE_REFERENCE = "relative_home"
+# Commands whose altitude value is interpreted through the item frame. RTL is
+# excluded: QGC writes it with the non-positional MAV_FRAME_MISSION (2).
+_ALTITUDE_BEARING_COMMANDS: set[int] = {
+    _MAV_CMD_NAV_WAYPOINT,
+    _MAV_CMD_NAV_LOITER_TIME,
+    _MAV_CMD_NAV_LAND,
+    _MAV_CMD_NAV_TAKEOFF,
+    _MAV_CMD_NAV_VTOL_TAKEOFF,
+    _MAV_CMD_NAV_VTOL_LAND,
+}
+_DROPPED_SECTIONS: tuple[tuple[str, tuple[str, ...], str], ...] = (
+    ("geoFence", ("circles", "polygons"), "fence geometry"),
+    ("rallyPoints", ("points",), "rally points"),
+)
 _PLAN_FILE_TYPE = "Plan"
 _ROUTE_ID_BASES: dict[RouteAction, str] = {
     "vtol_takeoff": "takeoff",
@@ -39,9 +65,20 @@ _CONVERTED_PLAN_NOTE = (
 
 @dataclass(frozen=True)
 class ConvertDiagnostic:
-    item_index: int
+    """A conversion warning or loss.
+
+    ``lossy`` is True when the diagnostic describes information dropped from
+    the converted mission (a skipped item or a dropped .plan section) and
+    False for advisory warnings about preserved-but-normalised items.
+    ``section`` names the dropped .plan section for section-level losses;
+    item-level diagnostics carry ``item_index``/``command`` instead.
+    """
+
+    item_index: int | None
     command: int | None
     message: str
+    section: str | None = None
+    lossy: bool = True
 
 
 @dataclass(frozen=True)
@@ -123,11 +160,13 @@ def _make_diagnostic(
     item_index: int,
     command: int | None,
     message: str,
+    lossy: bool = True,
 ) -> ConvertDiagnostic:
     return ConvertDiagnostic(
         item_index=item_index,
         command=command,
         message=message,
+        lossy=lossy,
     )
 
 
@@ -332,13 +371,31 @@ class _RouteConverter:
                 command=item.command,
                 message=f"unsupported MAVLink command {item.command}; item skipped",
             )
+        altitude_reference: str | None = None
+        if item.command in _ALTITUDE_BEARING_COMMANDS:
+            altitude_reference = (
+                _FRAME_ALTITUDE_REFERENCES.get(item.frame)
+                if item.frame is not None
+                else None
+            )
+            if altitude_reference is None:
+                return None, _make_diagnostic(
+                    item_index=item.item_index,
+                    command=item.command,
+                    message=(
+                        f"unsupported altitude frame {item.frame}; item skipped"
+                    ),
+                )
         route_item, message = handler(item)
         if route_item is not None:
+            if altitude_reference is not None:
+                route_item["altitude_reference"] = altitude_reference
             diag = (
                 _make_diagnostic(
                     item_index=item.item_index,
                     command=item.command,
                     message=message,
+                    lossy=False,
                 )
                 if message is not None
                 else None
@@ -383,18 +440,26 @@ class _MissionAssembler:
     """Builds the final mission.v7 dict from parsed plan components."""
 
     @staticmethod
-    def altitude_reference(items: list[object]) -> str:
-        frames: list[int | None] = []
-        for raw_item in items:
-            item = _mapping(raw_item)
-            if item is None:
-                continue
-            frames.append(_integer(item.get("frame")))
-        if any(frame == _FRAME_GLOBAL_RELATIVE_ALT for frame in frames):
-            return "relative_home"
-        if frames and all(frame == _FRAME_GLOBAL for frame in frames):
-            return "amsl"
-        return "relative_home"
+    def resolve_altitude_reference(route: list[RouteItemDict]) -> str:
+        """Pick the mission default reference and strip matching per-item keys.
+
+        The most common per-item reference becomes the mission default
+        (first-seen wins a tie); items that use it lose their redundant
+        override while items in another frame keep an explicit
+        ``altitude_reference``.
+        """
+        counts = Counter(
+            str(item["altitude_reference"])
+            for item in route
+            if "altitude_reference" in item
+        )
+        if not counts:
+            return _DEFAULT_ALTITUDE_REFERENCE
+        default = counts.most_common(1)[0][0]
+        for item in route:
+            if item.get("altitude_reference") == default:
+                del item["altitude_reference"]
+        return default
 
     @staticmethod
     def planned_home(mission: JsonObject) -> dict[str, float]:
@@ -406,10 +471,8 @@ class _MissionAssembler:
         return planned_home.planned_home_fields()
 
     @staticmethod
-    def defaults(mission: JsonObject, items: list[object]) -> JsonObject:
-        result: JsonObject = {
-            "altitude_reference": _MissionAssembler.altitude_reference(items)
-        }
+    def defaults(mission: JsonObject, altitude_reference: str) -> JsonObject:
+        result: JsonObject = {"altitude_reference": altitude_reference}
         cruise_speed_mps = _number(mission.get("cruiseSpeed"))
         if cruise_speed_mps is not None:
             result["cruise_speed_mps"] = cruise_speed_mps
@@ -424,19 +487,48 @@ class _MissionAssembler:
         mission_id: str,
         vehicle_profile: str,
         mission: JsonObject,
-        items: list[object],
         route: list[RouteItemDict],
+        altitude_reference: str,
     ) -> JsonObject:
         return {
             "schema_version": MISSION_SCHEMA_VERSION,
             "mission_id": mission_id,
             "vehicle_profile": vehicle_profile,
             "planned_home": _MissionAssembler.planned_home(mission),
-            "defaults": _MissionAssembler.defaults(mission, items),
+            "defaults": _MissionAssembler.defaults(mission, altitude_reference),
             "route": route,
             "constraints": {},
             "metadata": {"notes": _CONVERTED_PLAN_NOTE},
         }
+
+
+def _section_is_populated(value: object, list_keys: tuple[str, ...]) -> bool:
+    """True when a .plan section carries data that would be dropped."""
+    if value is None:
+        return False
+    section = _mapping(value)
+    if section is None:
+        # Unknown section shape: treat as populated so the loss is reported.
+        return True
+    return any(_sequence(section.get(key)) for key in list_keys)
+
+
+def _section_diagnostics(raw: JsonObject) -> list[ConvertDiagnostic]:
+    diagnostics: list[ConvertDiagnostic] = []
+    for section, list_keys, content in _DROPPED_SECTIONS:
+        if _section_is_populated(raw.get(section), list_keys):
+            diagnostics.append(
+                ConvertDiagnostic(
+                    item_index=None,
+                    command=None,
+                    message=(
+                        f"{section} section contains {content} with no "
+                        "mission.v7 equivalent; section dropped"
+                    ),
+                    section=section,
+                )
+            )
+    return diagnostics
 
 
 def parse_qgc_plan(
@@ -447,18 +539,22 @@ def parse_qgc_plan(
     """Parse a decoded QGC .plan dict and return a mission.v7 dict + diagnostics.
 
     The returned mission dict has no policy or assets. The caller is responsible
-    for filling operational values before use.
+    for filling operational values before use. Diagnostics with ``lossy=True``
+    describe dropped items and dropped ``geoFence``/``rallyPoints`` sections;
+    callers deciding whether the conversion is acceptable must inspect them.
     """
     _QgcPlanReader.validate_file_type(raw)
     mission = _QgcPlanReader.mission_mapping(raw)
     items = _QgcPlanReader.mission_items(mission)
     route, diagnostics = _RouteConverter().convert_items(items)
+    diagnostics = [*diagnostics, *_section_diagnostics(raw)]
+    altitude_reference = _MissionAssembler.resolve_altitude_reference(route)
     return _MissionAssembler.build(
         mission_id="imported",
         vehicle_profile=vehicle_profile,
         mission=mission,
-        items=items,
         route=route,
+        altitude_reference=altitude_reference,
     ), diagnostics
 
 

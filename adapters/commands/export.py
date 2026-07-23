@@ -5,10 +5,38 @@ from pathlib import Path
 import typer
 
 import adapters.cli as cli
-from adapters.cli_support import OutputWriteError, _write_output
+from adapters.cli_support import (
+    NO_CLOBBER_OPTION,
+    OutputWriteError,
+    _refuse_output_clobber,
+    _write_output,
+)
 from adapters.io import InputLoadError, load_mission
 from adapters.preflight import check_file, emit_preflight, is_json_format
-from adapters.qgc_export import build_qgc_plan, render_qgc_plan
+from adapters.qgc_export import (
+    ExportDiagnostic,
+    build_qgc_plan,
+    lossy_export_summary,
+    render_qgc_plan,
+)
+
+
+def _emit_export_diagnostics(diagnostics: list[ExportDiagnostic]) -> None:
+    """Print per-diagnostic warnings and the one-line lossy summary to stderr.
+
+    Export keeps exit 0 for these: the .plan format cannot represent the
+    rewritten or omitted content (a documented QGC limitation, not an error).
+    """
+    for diagnostic in diagnostics:
+        scope = (
+            f"item {diagnostic.route_item_id}"
+            if diagnostic.route_item_id is not None
+            else "mission"
+        )
+        typer.echo(f"Warning: {scope}: {diagnostic.message}", err=True)
+    summary = lossy_export_summary(diagnostics)
+    if summary is not None:
+        typer.echo(summary, err=True)
 
 
 def _run_export_preflight(*, mission: Path, as_json: bool) -> None:
@@ -27,13 +55,7 @@ def _run_export_preflight(*, mission: Path, as_json: bool) -> None:
     files.append(check)
     if check.ok and loaded is not None:
         mission_model, diagnostics = loaded
-        for diagnostic in diagnostics:
-            scope = (
-                f"item {diagnostic.route_item_id}"
-                if diagnostic.route_item_id is not None
-                else "mission"
-            )
-            typer.echo(f"Warning: {scope}: {diagnostic.message}", err=True)
+        _emit_export_diagnostics(diagnostics)
         text_lines.append(
             f"mission: {mission.name}: OK ({len(mission_model.route)} route items)"
         )
@@ -54,6 +76,7 @@ def export(
     output: Path | None = typer.Option(
         None, "--output", "-o", help="Write the .plan JSON to a file instead of stdout."
     ),
+    no_clobber: bool = NO_CLOBBER_OPTION,
     validate_only: bool = typer.Option(
         False,
         "--validate-only",
@@ -73,16 +96,12 @@ def export(
     if validate_only:
         _run_export_preflight(mission=mission, as_json=is_json_format(validate_format))
 
+    _refuse_output_clobber(output, no_clobber=no_clobber, command="export")
+
     try:
         mission_model, _document = load_mission(mission)
         plan, diagnostics = build_qgc_plan(mission_model)
-        for diagnostic in diagnostics:
-            scope = (
-                f"item {diagnostic.route_item_id}"
-                if diagnostic.route_item_id is not None
-                else "mission"
-            )
-            typer.echo(f"Warning: {scope}: {diagnostic.message}", err=True)
+        _emit_export_diagnostics(diagnostics)
         _write_output(render_qgc_plan(plan), output)
         raise typer.Exit(code=int(cli.CliExitCode.SUCCESS))
     except InputLoadError as exc:

@@ -5,7 +5,7 @@ import yaml
 from typer.testing import CliRunner
 
 from adapters.cli import CliExitCode, app
-from adapters.qgc_export import build_qgc_plan, render_qgc_plan
+from adapters.qgc_export import build_qgc_plan, lossy_export_summary, render_qgc_plan
 from adapters.qgc_plan import load_and_convert_plan
 from schemas.mission import MissionPlan
 from tests.helpers import make_mission_payload
@@ -177,3 +177,62 @@ def test_export_invalid_mission_exits_invalid_input(tmp_path: Path) -> None:
     result = _RUNNER.invoke(app, ["export", str(bad)])
 
     assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+
+
+def test_export_omission_note_carries_sections() -> None:
+    _, diagnostics = build_qgc_plan(_mission(make_mission_payload()))
+
+    omitted = next(d for d in diagnostics if d.route_item_id is None)
+    assert omitted.sections == ("constraints",)
+
+
+def test_export_takeoff_action_emits_normalisation_diagnostic() -> None:
+    payload = make_mission_payload()
+    payload["route"][0] = {"id": "takeoff", "action": "takeoff", "altitude_m": 80.0}
+
+    plan, diagnostics = build_qgc_plan(_mission(payload))
+
+    assert plan["mission"]["items"][0]["command"] == 84
+    assert any(
+        diagnostic.route_item_id == "takeoff"
+        and "MAV_CMD_NAV_VTOL_TAKEOFF" in diagnostic.message
+        for diagnostic in diagnostics
+    )
+
+
+def test_lossy_export_summary_is_none_without_diagnostics() -> None:
+    assert lossy_export_summary([]) is None
+
+
+def test_lossy_export_summary_counts_rewrites_and_sections() -> None:
+    payload = make_mission_payload()
+    payload["route"][1]["altitude_reference"] = "terrain"
+
+    _, diagnostics = build_qgc_plan(_mission(payload))
+
+    assert (
+        lossy_export_summary(diagnostics)
+        == "lossy conversion: 1 item(s) rewritten, sections: constraints"
+    )
+
+
+def test_export_terrain_mission_still_exits_zero_with_lossy_summary(
+    tmp_path: Path,
+) -> None:
+    payload = make_mission_payload()
+    payload["defaults"]["altitude_reference"] = "terrain"
+    mission_path = tmp_path / "mission.yaml"
+    mission_path.write_text(yaml.safe_dump(payload), encoding="utf-8")
+
+    result = _RUNNER.invoke(app, ["export", str(mission_path)])
+
+    # Exit stays 0: the .plan format cannot express terrain frames, which is a
+    # documented QGC limitation rather than an error.
+    assert result.exit_code == int(CliExitCode.SUCCESS)
+    assert "terrain" in result.stderr
+    # takeoff, wp1, and loiter fall back from terrain to frame 3.
+    assert (
+        "lossy conversion: 3 item(s) rewritten, sections: constraints"
+        in result.stderr
+    )
+    assert json.loads(result.stdout)["fileType"] == "Plan"
