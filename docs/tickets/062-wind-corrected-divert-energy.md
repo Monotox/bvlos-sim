@@ -48,3 +48,18 @@ there is no warning emitted and no machine-readable flag in the output.
 - Backwards compatibility: headwind cases will now show lower
   feasibility rates than before. Golden fixtures that involve divert
   scenario assertions may need regeneration.
+
+## Completion
+
+Scenario divert routing (`compute_divert_estimate`) and landing-zone
+reachability both apply the wind-triangle correction: reachability delegates
+to `estimate_emergency_path` in `energy.py`, which integrates the active wind
+provider per segment (ground speed, not TAS) and adds terminal vertical energy
+to the landing surface. Tests cover headwind, tailwind, crosswind, and no-wind
+for both paths. The envelope assumption for landing-zone reachability, which
+had still described the energy as TAS-only, now describes the wind-corrected
+behaviour; the affected golden fixtures were regenerated. `DivertRouteEstimate`
+records wind provenance negatively, through the presence of
+`DIVERT_ENERGY_TAS_ONLY` when no wind was applied; a positive `wind_speed_mps`
+field remains an optional future addition, deferred to avoid a
+`scenario-report.v3` contract change for a value the warning already implies.
