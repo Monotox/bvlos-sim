@@ -118,6 +118,9 @@ def test_batch_progress_file_records(tmp_path: Path) -> None:
     }
     records = _read_progress_records(progress_path)
     _assert_valid_progress(records, command="batch", total=3)
+    # Batch records name the run that just completed so a worker can
+    # attribute stalls.
+    assert all(isinstance(record.get("run_id"), str) for record in records)
     # stdout carries the table, never progress framing.
     assert '"event":"progress"' not in result.stdout
 

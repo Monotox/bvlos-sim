@@ -52,17 +52,19 @@ class ProgressReporter:
         self._last_emitted = 0
         self._final_emitted = False
 
-    def __call__(self, completed: int, total: int) -> None:
+    def __call__(
+        self, completed: int, total: int, label: str | None = None
+    ) -> None:
         if self._final_emitted:
             return
         step = self._interval if self._interval is not None else _emit_interval(total)
         is_final = completed >= total
         if is_final or completed - self._last_emitted >= step:
-            self._emit(completed, total)
+            self._emit(completed, total, label)
             self._last_emitted = completed
             self._final_emitted = is_final
 
-    def _emit(self, completed: int, total: int) -> None:
+    def _emit(self, completed: int, total: int, label: str | None) -> None:
         record = {
             "event": "progress",
             "command": self._command,
@@ -70,6 +72,10 @@ class ProgressReporter:
             "total": total,
             "elapsed_s": round(time.monotonic() - self._start, 3),
         }
+        if label is not None:
+            # For batch runs the label is the id of the run that just
+            # completed, so a worker tailing the stream can attribute stalls.
+            record["run_id"] = label
         self._sink.write(json.dumps(record, separators=(",", ":")) + "\n")
         self._sink.flush()
 
