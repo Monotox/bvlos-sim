@@ -162,6 +162,7 @@ def sora(
             mission_document=mission_document,
             vehicle_document=vehicle_document,
             population_document=mission_assets.population_document,
+            terrain_document=mission_assets.terrain_document,
         )
         if format == cli.SoraOutputFormat.JSON:
             rendered = render_sora_envelope_json(envelope)

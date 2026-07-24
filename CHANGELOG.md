@@ -37,6 +37,12 @@ and this project adheres to semantic versioning once public releases begin.
 
 ### Fixed
 
+- The SORA report now carries provenance. `render_sora_markdown` discarded
+  everything but the assessment, so the filed artifact named neither the tool
+  version, the SORA edition, the population data vintage, nor the input
+  digests. The SORA envelope also omitted the terrain asset that gates the
+  maximum-AGL verification, so the assessment was not reproducible from its own
+  provenance.
 - A batch no longer discards every completed run when one run cannot load.
   Missions are preloaded to enumerate their assets, so a single unreadable
   mission aborted the batch before any run executed. The failing run is now an

@@ -45,6 +45,7 @@ def build_sora_envelope(
     mission_document: InputDocument,
     vehicle_document: InputDocument,
     population_document: InputDocument | None = None,
+    terrain_document: InputDocument | None = None,
 ) -> SoraResultEnvelope:
     """Construct the canonical SORA assessment envelope."""
     inputs = {
@@ -53,6 +54,10 @@ def build_sora_envelope(
     }
     if population_document is not None:
         inputs["population"] = _provenance_input(population_document)
+    # Terrain gates the maximum-AGL verification, so an assessment is not
+    # reproducible without naming the elevation data it was proven against.
+    if terrain_document is not None:
+        inputs["terrain"] = _provenance_input(terrain_document)
 
     return SoraResultEnvelope(
         schema_version=SORA_ENVELOPE_SCHEMA_VERSION,

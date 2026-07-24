@@ -285,8 +285,45 @@ def render_sora_markdown_for_assessment(assessment: SoraAssessment) -> str:
     return "\n".join(lines)
 
 
+def _provenance_lines(envelope: SoraResultEnvelope) -> list[str]:
+    """State what produced the assessment and what it was proven against.
+
+    The report is the filed artifact, so it has to carry the tool version, the
+    SORA edition, the population data vintage and the input digests. Rendering
+    only the result left an auditor with none of them.
+    """
+
+    assessment = envelope.result
+    lines = [
+        "## Provenance",
+        "",
+        f"- Tool version: `{envelope.tool_version}`",
+        f"- SORA version: `{assessment.sora_version}`",
+        f"- Assessment schema: `{envelope.sora_schema_version}`",
+    ]
+    evidence = assessment.population_evidence
+    if evidence is not None:
+        lines.extend(
+            [
+                f"- Population source: `{evidence.source}`",
+                f"- Population year: `{evidence.population_year}`",
+                f"- Population resolution m: `{evidence.effective_resolution_m}`",
+            ]
+        )
+        if evidence.valid_from is not None or evidence.valid_until is not None:
+            lines.append(
+                f"- Population validity: `{evidence.valid_from}` to "
+                f"`{evidence.valid_until}`"
+            )
+    for name, entry in sorted(envelope.provenance.inputs.items()):
+        lines.append(f"- Input `{name}`: `{entry.format}` sha256 `{entry.sha256}`")
+    lines.append("")
+    return lines
+
+
 def render_sora_markdown(envelope: SoraResultEnvelope) -> str:
-    return render_sora_markdown_for_assessment(envelope.result)
+    body = render_sora_markdown_for_assessment(envelope.result)
+    return body.rstrip("\n") + "\n\n" + "\n".join(_provenance_lines(envelope))
 
 
 __all__ = [

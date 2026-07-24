@@ -698,3 +698,33 @@ def test_route_agl_check_covers_materialized_turn_arcs() -> None:
 
     assert any(leg.phase == LegPhase.TURN_ARC for leg in v2.legs)
     assert len(v2_provider.queried) > len(v1_provider.queried)
+
+
+def test_sora_markdown_carries_provenance(tmp_path: Path) -> None:
+    """The filed artifact must say what produced it and what it was proven on.
+
+    render_sora_markdown discarded everything but .result, so the report named
+    neither the tool version, the SORA edition, the population vintage, nor the
+    input digests, and the terrain that gates the AGL check was absent from
+    provenance entirely.
+    """
+
+    repo = Path(__file__).resolve().parents[1]
+    result = _RUNNER.invoke(
+        app,
+        [
+            "sora",
+            str(repo / "examples/missions/pipeline_demo_001_ground_risk.yaml"),
+            str(repo / "examples/vehicles/quadplane_v1_ground_risk.yaml"),
+            "--format",
+            "markdown",
+        ],
+    )
+
+    out = result.stdout
+    assert "## Provenance" in out
+    assert "Tool version:" in out
+    assert "SORA version:" in out
+    assert "Population year:" in out
+    assert "Input `terrain`:" in out
+    assert "Input `population`:" in out
