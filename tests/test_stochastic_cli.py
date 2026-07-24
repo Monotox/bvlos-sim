@@ -241,14 +241,15 @@ def test_propagate_controller_example_fails_closed() -> None:
     assert "does not support closed-loop controller" in result.output
 
 
-def test_legacy_stochastic_v1_is_rejected() -> None:
+def test_legacy_stochastic_v1_is_rejected(tmp_path: Path) -> None:
     payload = EXAMPLE_STOCHASTIC.read_text(encoding="utf-8").replace(
         "stochastic.v2", "stochastic.v1", 1
     )
-    with runner.isolated_filesystem():
-        path = Path("legacy.yaml")
-        path.write_text(payload, encoding="utf-8")
-        result = _run(["propagate", str(path.resolve())])
+    path = tmp_path / "legacy.yaml"
+    path.write_text(payload, encoding="utf-8")
+
+    result = _run(["propagate", str(path)])
+
     assert result.exit_code == int(CliExitCode.INVALID_INPUT)
 
 
