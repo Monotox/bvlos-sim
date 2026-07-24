@@ -72,8 +72,8 @@ sitl = [
 
 [dependency-groups]
 dev = [
-    "pytest>=9.0.3",
-    "ruff>=0.15.12",
+    "pytest>=9.1.1",
+    "ruff>=0.16.0",
 ]
 sitl = [
     "pymavlink==2.4.49",
