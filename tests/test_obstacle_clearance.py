@@ -580,3 +580,54 @@ def test_obstacle_outputs_surface_clearance_result(tmp_path: Path) -> None:
     ]
     assert obstacle_features
     assert obstacle_features[0]["properties"]["conflict"] is True
+
+
+def test_obstacle_uncertainty_widens_the_required_clearance() -> None:
+    """uncertainty_m must enlarge the keep-out radius, not be advisory.
+
+    Removing the term from the clearance sum left the whole suite green, so a
+    survey obstacle whose position is only known to +-30 m could be flown at
+    40 m with a 15 m clearance requirement and still report GO.
+    """
+
+    geod = Geod(ellps="WGS84")
+    offset_m = 40.0
+    obstacle_lon, obstacle_lat, _ = geod.fwd(4.01, 52.0, 0.0, offset_m)
+
+    def run(uncertainty_m: float):
+        mission = make_mission()
+        mission.constraints.require_rth_reserve = False
+        mission.constraints.min_obstacle_clearance_m = 15.0
+        mission.route = [
+            RouteItem(
+                id="east",
+                action=MissionAction.WAYPOINT,
+                lat=52.0,
+                lon=4.02,
+                altitude_m=120.0,
+            )
+        ]
+        obstacle = Obstacle.model_validate(
+            {
+                "id": "mast",
+                "geometry": {
+                    "type": "point",
+                    "points": [{"lat": obstacle_lat, "lon": obstacle_lon}],
+                },
+                "height_m": 200.0,
+                "radius_m": 10.0,
+                "uncertainty_m": uncertainty_m,
+            }
+        )
+        return try_estimate_mission_distance_time(
+            mission,
+            make_vehicle(),
+            obstacle_provider=ListObstacleProvider([obstacle]),
+        )
+
+    # radius 10 + clearance 15 = 25 m < 40 m offset: no violation on its own.
+    assert run(0.0).obstacle.is_feasible is True
+    # radius 10 + clearance 15 + uncertainty 30 = 55 m > 40 m offset.
+    breached = run(30.0)
+    assert breached.status == EstimateStatus.INFEASIBLE
+    assert breached.obstacle is not None and breached.obstacle.is_feasible is False

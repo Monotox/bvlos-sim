@@ -373,3 +373,59 @@ def _write_ground_risk_inputs(tmp_path: Path) -> tuple[Path, Path]:
     _write_yaml(mission_path, mission_payload)
     _write_yaml(vehicle_path, vehicle_payload)
     return mission_path, vehicle_path
+
+
+class _RadiusRecordingPopulationProvider:
+    """Wraps a grid provider and records every query radius it is asked for."""
+
+    provider_id = "recording"
+
+    def __init__(self, inner: GridPopulationProvider) -> None:
+        self._inner = inner
+        self.radii_m: list[float] = []
+
+    def conservative_max_density_in_radius(
+        self, lat: float, lon: float, radius_m: float, *, geod: Geod
+    ) -> float | None:
+        self.radii_m.append(radius_m)
+        return self._inner.conservative_max_density_in_radius(
+            lat, lon, radius_m, geod=geod
+        )
+
+
+def test_population_query_radius_covers_the_sampling_gap() -> None:
+    """Every sample must be queried with buffer + half the gap to its neighbour.
+
+    Population is only read at discrete samples, so the declared footprint of an
+    unsampled point between two samples is only covered if the query radius is
+    dilated by half the sample spacing. Dropping the term left CI green while
+    silently shrinking the assessed area, which can only lower iGRC.
+    """
+
+    inner = GridPopulationProvider(
+        origin_lat=51.995,
+        origin_lon=3.995,
+        step_lat_deg=0.001,
+        step_lon_deg=0.001,
+        density_ppl_km2=[[12.0] * 16 for _ in range(16)],
+    )
+    provider = _RadiusRecordingPopulationProvider(inner)
+    estimate = estimate_mission_distance_time(make_mission(), _vehicle_with_dimension())
+    buffer_m = 250.0
+
+    result, _ = compute_ground_risk(
+        estimate=estimate,
+        population_provider=provider,
+        characteristic_dimension_m=1.0,
+        max_speed_mps=25.0,
+        geod=Geod(ellps="WGS84"),
+        max_segment_length_m=100.0,
+        population_assessment_buffer_m=buffer_m,
+    )
+
+    assert result is not None
+    assert provider.radii_m
+    # No query may be narrower than the declared buffer ...
+    assert min(provider.radii_m) >= buffer_m
+    # ... and a multi-sample route must dilate at least one of them.
+    assert max(provider.radii_m) > buffer_m

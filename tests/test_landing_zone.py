@@ -470,3 +470,56 @@ def test_markdown_render_does_not_crash_when_max_allowed_distance_is_none() -> N
     )
     md = render_envelope_markdown(envelope)
     assert "Max allowed distance m: `none`" in md
+
+
+def test_landing_zone_distance_check_is_widened_by_the_sampling_half_gap() -> None:
+    """Reachability must budget for the gap between sampled route states.
+
+    The route is only evaluated at discrete samples, so a zone that is exactly
+    within the limit at every sample can still be out of range between them.
+    Dropping the half-gap term from the comparison left the suite green.
+    """
+
+    geod = Geod(ellps="WGS84")
+    zone_lon, zone_lat, _ = geod.fwd(4.01, 52.0, 0.0, 1000.0)
+    zone = LandingZone.model_validate(
+        {
+            "id": "LZ",
+            "altitude_amsl_m": 12.0,
+            "geometry": {"points": [{"lat": zone_lat, "lon": zone_lon}]},
+        }
+    )
+
+    def run(max_distance_m: float):
+        mission = make_mission()
+        mission.constraints.require_rth_reserve = False
+        mission.constraints.min_distance_to_landing_zone_m = max_distance_m
+        mission.route = [
+            RouteItem(
+                id="east",
+                action=MissionAction.WAYPOINT,
+                lat=52.0,
+                lon=4.02,
+                altitude_m=120.0,
+            )
+        ]
+        return try_estimate_mission_distance_time(
+            mission, make_vehicle(), landing_zones=[zone]
+        )
+
+    generous = run(2_000.0)
+    assert generous.landing_zone is not None
+    assert generous.landing_zone.is_feasible is True
+    worst_sampled_distance_m = max(
+        state.nearest_zone_distance_m
+        for state in generous.landing_zone.states
+        if state.nearest_zone_distance_m is not None
+    )
+
+    # Nominally satisfied at every sample by 5 m, but the ~25 m half-gap
+    # between samples means the aircraft can be further than that in between.
+    marginal = run(worst_sampled_distance_m + 5.0)
+
+    assert marginal.landing_zone is not None
+    assert marginal.landing_zone.is_feasible is False
+    assert marginal.status == EstimateStatus.INFEASIBLE

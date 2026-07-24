@@ -7,6 +7,18 @@ and this project adheres to semantic versioning once public releases begin.
 
 ## [Unreleased]
 
+### Added
+
+- Regression tests pinning four safety margins that no test previously
+  protected. Each was verified by deleting the term and confirming the whole
+  suite still passed: the obstacle `uncertainty_m` contribution to required
+  clearance, the half-sample-gap dilation of the ground-risk population query
+  radius, the half-sample-gap widening of the landing-zone distance check, and
+  the RTH abort when return groundspeed falls between zero and
+  `min_groundspeed_mps`. Every one of these only ever makes a verdict *more*
+  permissive when removed, so they were the likeliest source of a future silent
+  false `GO`.
+
 ### Fixed
 
 - Geofence checks now follow the flown path instead of a planar endpoint chord.

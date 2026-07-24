@@ -897,3 +897,40 @@ def test_rth_checks_crosswind_on_initial_dubins_turn() -> None:
     assert result.failure is not None
     assert result.failure.code == FailureCode.CRAB_ANGLE_LIMIT_EXCEEDED
     assert result.failure.context["segment_index"] == 0
+
+
+def test_rth_aborts_when_return_groundspeed_falls_below_the_minimum() -> None:
+    """The RTH min-groundspeed gate must fire between zero and the minimum.
+
+    Deleting the check left the suite green: only the non-positive-groundspeed
+    case was covered, so a return leg crawling at 2 m/s into a 16 m/s headwind
+    was accepted as a valid contingency.
+    """
+
+    mission = make_mission()
+    mission.constraints.max_wind_mps = None
+    mission.constraints.require_rth_reserve = False
+    mission.route = [
+        RouteItem(
+            id="east",
+            action=MissionAction.WAYPOINT,
+            lat=52.0,
+            lon=4.01,
+            altitude_m=120.0,
+        )
+    ]
+    vehicle = make_vehicle()
+    vehicle.performance.max_crab_angle_deg = 89.0
+
+    result = try_estimate_mission_distance_time(
+        mission, vehicle, wind_provider=ConstantWindProvider(16.0, 0.0)
+    )
+
+    assert result.status == EstimateStatus.INFEASIBLE
+    assert result.failure is not None
+    assert result.failure.code == FailureCode.GROUNDSPEED_BELOW_MIN
+    groundspeed_mps = result.failure.context["groundspeed_mps"]
+    minimum_mps = result.failure.context["min_groundspeed_mps"]
+    # Strictly positive, so this is the below-minimum gate and not the
+    # non-positive-groundspeed one.
+    assert 0.0 < groundspeed_mps < minimum_mps
