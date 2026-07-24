@@ -720,6 +720,8 @@ def test_batch_parses_shared_inputs_once(
 # ---------------------------------------------------------------------------
 
 _SCENARIO = REPO_ROOT / "examples/scenarios/pipeline_demo_001_scenario.yaml"
+_DEMO_MISSION = REPO_ROOT / "examples/missions/pipeline_demo_001.yaml"
+_DEMO_VEHICLE = REPO_ROOT / "examples/vehicles/quadplane_v1.yaml"
 _PLAN = REPO_ROOT / "examples/stochastic/pipeline_demo_001_stochastic.yaml"
 
 
@@ -924,3 +926,60 @@ def test_propagate_diagnostic_status_exits_zero() -> None:
         )
     ]
     assert _batch_exit_code(results) == int(CliExitCode.SUCCESS)
+
+
+def test_batch_completes_good_runs_when_one_run_cannot_load(tmp_path: Path) -> None:
+    """One bad run must not discard every run that already completed.
+
+    Missions are preloaded to enumerate their assets, so a single unreadable
+    mission aborted the whole batch before any run executed.
+    """
+
+    manifest = _write_manifest(
+        tmp_path,
+        'format_version: "batch.v1"\n'
+        "runs:\n"
+        f"  - {{id: good1, mission: {_DEMO_MISSION}, vehicle: {_DEMO_VEHICLE}}}\n"
+        f"  - {{id: bad, mission: /nonexistent/mission.yaml, vehicle: {_DEMO_VEHICLE}}}\n"
+        f"  - {{id: good2, mission: {_DEMO_MISSION}, vehicle: {_DEMO_VEHICLE}}}\n",
+    )
+
+    result = _runner.invoke(app, ["batch", str(manifest), "--engineering-only"])
+
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT), result.output
+    assert "good1" in result.output
+    assert "good2" in result.output
+    assert "2 feasible" in result.output
+    # The failing run is named along with the file that could not be read.
+    assert "bad" in result.output
+    assert "/nonexistent/mission.yaml" in result.output
+
+
+def test_batch_output_dir_tolerates_a_leftover_temp_file(tmp_path: Path) -> None:
+    """An interrupted run left a temp file that blocked the directory forever."""
+
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    (out_dir / ".e1.json.abc123.tmp").write_text("partial", encoding="utf-8")
+    manifest = _write_manifest(
+        tmp_path,
+        'format_version: "batch.v1"\n'
+        f"runs:\n  - {{id: e1, mission: {_DEMO_MISSION}, vehicle: {_DEMO_VEHICLE}}}\n",
+    )
+
+    result = _runner.invoke(
+        app,
+        [
+            "batch",
+            str(manifest),
+            "--format",
+            "json",
+            "--output-dir",
+            str(out_dir),
+            "--engineering-only",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert (out_dir / "e1.json").exists()
+    assert not (out_dir / ".e1.json.abc123.tmp").exists()

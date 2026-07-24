@@ -188,6 +188,11 @@ def migrate(
     except (OSError, ValueError) as exc:
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(code=int(cli.CliExitCode.INVALID_INPUT)) from exc
+    except typer.Exit:
+        raise
+    except Exception as exc:  # noqa: BLE001 - every other command has this net
+        typer.echo(f"Internal error: {type(exc).__name__}: {exc}", err=True)
+        raise typer.Exit(code=int(cli.CliExitCode.INTERNAL_ERROR)) from exc
 
 
 __all__ = ["migrate"]

@@ -14,6 +14,9 @@ from schemas.uncertainty import (
 )
 
 
+_MIN_DT_S = 0.001
+
+
 class StochasticPropagationPlan(BaseModel):
     """Inputs for a bounded, open-loop stochastic diagnostic.
 
@@ -32,7 +35,14 @@ class StochasticPropagationPlan(BaseModel):
     )
     mission_file: str = Field(min_length=1)
     vehicle_file: str = Field(min_length=1)
-    dt_s: float = Field(default=1.0, gt=0)
+    dt_s: float = Field(
+        default=1.0,
+        ge=_MIN_DT_S,
+        description=(
+            "Propagation step. Bounded below so a tiny value cannot make the "
+            "timeline consume unbounded time and memory."
+        ),
+    )
     samples: int = Field(ge=1, le=10_000)
     seed: int
     wind_process_noise_std_mps: Literal[0.0] = Field(

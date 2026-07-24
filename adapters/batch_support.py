@@ -258,6 +258,22 @@ def _run_scenario(
     )
 
 
+def _batch_run_error(run: BatchRun, run_type: RunType, message: str) -> BatchRunResult:
+    """Name the run and the file that failed, not just the error."""
+
+    source = run.mission or run.scenario or run.plan
+    where = f"{run.id} ({source})" if source is not None else run.id
+    return BatchRunResult(
+        id=run.id,
+        status="ERROR",
+        run_type=run_type,
+        reserve_margin_percent=None,
+        flight_time_s=None,
+        envelope=None,
+        error_message=f"{where}: {message}",
+    )
+
+
 def _scenario_status_label(
     result: ScenarioResult,
     *,
@@ -356,15 +372,12 @@ def run_batch_manifest(
                     )
                 )
         except _BATCH_RUN_INPUT_ERRORS as exc:
+            results.append(_batch_run_error(run, manifest.run_type, str(exc)))
+        except Exception as exc:  # noqa: BLE001
+            # One bad run must not discard every run that already completed.
             results.append(
-                BatchRunResult(
-                    id=run.id,
-                    status="ERROR",
-                    run_type=manifest.run_type,
-                    reserve_margin_percent=None,
-                    flight_time_s=None,
-                    envelope=None,
-                    error_message=str(exc),
+                _batch_run_error(
+                    run, manifest.run_type, f"{type(exc).__name__}: {exc}"
                 )
             )
         if progress is not None:

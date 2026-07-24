@@ -120,7 +120,14 @@ def _batch_protected_input_paths(
         protected.extend((mission_path, vehicle_path))
         mission_key = mission_path.resolve(strict=False)
         if mission_key not in preloaded:
-            preloaded[mission_key] = load_mission(mission_path)
+            try:
+                preloaded[mission_key] = load_mission(mission_path)
+            except InputLoadError:
+                # Let the run loop report this run as an ERROR row instead of
+                # aborting the batch and discarding every other run. The
+                # mission and vehicle paths are already protected above; its
+                # assets cannot be enumerated without a parsed mission.
+                continue
         mission_model, _mission_document = preloaded[mission_key]
         protected.extend(
             _mission_asset_paths(mission_model, mission_path=mission_path)
@@ -146,6 +153,19 @@ def _validate_batch_output_paths(
     if output_dir.exists():
         if not output_dir.is_dir():
             raise ValueError(f"Batch output directory is not a directory: {output_dir}")
+        # A run interrupted mid-write leaves ".<name>.<rand>.tmp" behind.
+        # Those are this tool's own scratch files, so treat them as removable
+        # rather than letting them block the directory forever.
+        leftovers = [
+            child
+            for child in output_dir.iterdir()
+            if child.name not in expected_names
+            and child.is_file()
+            and child.name.startswith(".")
+            and child.name.endswith(".tmp")
+        ]
+        for leftover in leftovers:
+            leftover.unlink(missing_ok=True)
         unexpected = sorted(
             child.name
             for child in output_dir.iterdir()

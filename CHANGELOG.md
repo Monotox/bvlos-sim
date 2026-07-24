@@ -37,6 +37,20 @@ and this project adheres to semantic versioning once public releases begin.
 
 ### Fixed
 
+- A batch no longer discards every completed run when one run cannot load.
+  Missions are preloaded to enumerate their assets, so a single unreadable
+  mission aborted the batch before any run executed. The failing run is now an
+  `ERROR` row naming both the run id and the file, and the exit code still
+  follows the documented contract.
+- A leftover atomic-write temp file no longer blocks a rerun into the same
+  `--output-dir`. An interrupted run left `.<name>.<rand>.tmp` behind, which the
+  directory guard treated as a foreign file forever; the tool's own scratch
+  files are now cleaned up.
+- `migrate` exits `13` with a message instead of a bare traceback on an
+  unexpected error, and rejects a non-string `airspace.class` as invalid input
+  (`11`) rather than raising `TypeError`.
+- `dt_s` is bounded below, so a tiny propagation step can no longer make the
+  timeline consume unbounded time and memory.
 - A centerline-only ground-risk assessment no longer satisfies the `GO` gate.
   The readiness check only rejected `mission_igrc > 7` and never looked at
   `population_assessment_buffer_m`, which is `0.0` whenever the mission omits

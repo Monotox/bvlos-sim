@@ -107,7 +107,10 @@ def migrate_mission_v6_to_v7(payload: dict[str, object]) -> dict[str, object]:
             raise ValueError(
                 "mission.v6 strategic_mitigation must be a boolean declaration"
             )
-        uncontrolled = airspace.get("class") in {"F", "G"}
+        airspace_class = airspace.get("class")
+        if airspace_class is not None and not isinstance(airspace_class, str):
+            raise ValueError("mission.v6 airspace.class must be a string")
+        uncontrolled = airspace_class in {"F", "G"}
         low_altitude = (
             _finite_number(
                 airspace.get("max_altitude_agl_m"),
