@@ -11,11 +11,19 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
 
+    # The package claims "Operating System :: OS Independent", so at least one
+    # non-Linux runner has to prove it. macOS covers the path, locale, and
+    # filesystem-ordering differences that break determinism first.
     strategy:
+      fail-fast: false
       matrix:
+        os: [ubuntu-latest]
         python-version: ["3.12", "3.13"]
+        include:
+          - os: macos-latest
+            python-version: "3.12"
 
     steps:
       - name: Checkout
@@ -42,11 +50,11 @@ jobs:
         run: uv run --locked python bvlos_sim/scripts/cli_batch_audit.py
 
       - name: Build distributions
-        if: matrix.python-version == '3.12'
+        if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
         run: uv build
 
       - name: Smoke-test installed wheel
-        if: matrix.python-version == '3.12'
+        if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
         run: |
           wheel_path="$(realpath dist/*.whl)"
           wheel_venv="$RUNNER_TEMP/bvlos-wheel-venv"
