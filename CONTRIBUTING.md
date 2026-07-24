@@ -76,12 +76,13 @@ Community profiles live in `examples/vehicles/community/`. A new profile
 needs: `vehicle_id`/`display_name`/`vehicle_class`; `mass.empty_kg` and
 `max_takeoff_kg`; `performance` cruise/hover speed, climb/descent rate, and
 `max_wind_mps`; `energy` capacity and hover/cruise/climb power;
-`capabilities`; and `metadata` with `calibration_status`
-(`manufacturer_derived` | `placeholder_values` | `log_calibrated`), `source`
-(spec URL, or `null` for placeholders), and `notes` stating which values are
-published and which are derived. Add a README entry in the same format as the
-existing ones. Review checks that no estimated value masquerades as
-manufacturer-sourced.
+`capabilities`; the typed `calibration_status` field
+(`manufacturer_derived` | `placeholder_values` | `log_calibrated`); and
+`metadata` with `source` (spec URL, or `null` for placeholders) and `notes`
+stating which values are published and which are derived. Add a README entry in
+the same format as the existing ones. Review checks that no estimated value
+masquerades as manufacturer-sourced — `calibration_status` is read by the
+estimator, so claiming `manufacturer_derived` silences a `GO`-blocking warning.
 
 ## Documentation style
 
