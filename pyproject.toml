@@ -79,7 +79,7 @@ sitl = [
     "pymavlink==2.4.49",
 ]
 docs = [
-    "mkdocs-material>=9.5",
+    "mkdocs-material>=9.7.7",
 ]
 
 [tool.setuptools.packages.find]
