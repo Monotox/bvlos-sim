@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from bvlos_sim.schemas.calibration import CalibrationProfile
 from bvlos_sim.schemas.vehicle import VehicleProfile
+from bvlos_sim.schemas.vehicle_enums import CalibrationStatus
 
 
 class CalibrationMismatchError(ValueError):
@@ -34,6 +35,12 @@ def apply_calibration(
     re-validated through ``VehicleProfile``, so an override that breaks an
     invariant (for example a calibrated cruise speed above ``max_speed_mps``)
     raises a ``ValidationError`` rather than producing an invalid vehicle.
+
+    Applying a profile that carries parameters also stamps
+    ``calibration_status`` as ``log_calibrated``: the coefficients now come from
+    a fitted flight trace, which is exactly what
+    ``ENERGY_MODEL_UNCALIBRATED`` asks for. An empty profile changes nothing,
+    so it must not clear the warning either.
     """
     if calibration.base_vehicle_id != vehicle.vehicle_id:
         raise CalibrationMismatchError(
@@ -48,6 +55,7 @@ def apply_calibration(
     performance = data["performance"]
     for record in calibration.parameters:
         performance[record.parameter.value] = record.fitted_value
+    data["calibration_status"] = CalibrationStatus.LOG_CALIBRATED
     return VehicleProfile.model_validate(data)
 
 

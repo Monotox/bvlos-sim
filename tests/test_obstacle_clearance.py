@@ -726,3 +726,116 @@ def test_zero_width_keep_out_volume_is_flagged() -> None:
     }
     assert configured.obstacle is not None
     assert configured.obstacle.is_feasible is False
+
+
+def _flat_terrain(elevation_m: float) -> GridTerrainProvider:
+    return GridTerrainProvider(
+        origin_lat=52.0,
+        origin_lon=4.0,
+        step_lat_deg=0.0005,
+        step_lon_deg=0.001,
+        elevations_m=[[elevation_m] * 5 for _ in range(5)],
+    )
+
+
+def _ground_level_mission(clearance_m: float) -> MissionPlan:
+    """Home sits on the terrain surface, as a real launch site does."""
+    payload = make_mission_payload()
+    payload["planned_home"]["altitude_amsl_m"] = 0.0
+    payload["constraints"]["min_terrain_clearance_m"] = clearance_m
+    return MissionPlan.model_validate(payload)
+
+
+@pytest.mark.parametrize("clearance_m", [5.0, 30.0, 50.0])
+def test_terrain_clearance_ignores_the_ground_legs_it_is_measured_from(
+    clearance_m: float,
+) -> None:
+    """A vertical takeoff starts on the surface, where clearance is zero.
+
+    Checking it made every mission INFEASIBLE at leg 0 for any clearance above
+    the home's height over terrain, so operators had to drop the constraint
+    entirely and lose it on the transit legs too.
+    """
+    result = try_estimate_mission_distance_time(
+        _ground_level_mission(clearance_m),
+        make_vehicle(),
+        terrain_provider=_flat_terrain(0.0),
+    )
+
+    assert result.status == EstimateStatus.SUCCESS
+    assert result.obstacle is not None
+    assert result.obstacle.is_feasible is True
+    assert result.obstacle.violations == []
+
+
+def test_terrain_clearance_still_fails_on_an_airborne_leg() -> None:
+    """The exemption is per-phase, not a blanket disable."""
+    result = try_estimate_mission_distance_time(
+        _ground_level_mission(30.0),
+        make_vehicle(),
+        terrain_provider=_ridge_provider(),
+    )
+
+    assert result.status == EstimateStatus.INFEASIBLE
+    assert result.failure is not None
+    assert result.failure.code == FailureCode.TERRAIN_CLEARANCE_VIOLATED
+    violated = result.obstacle.violations[0]
+    assert violated.leg_index is not None
+    phases = {leg.leg_index: leg.phase for leg in result.legs}
+    assert phases[violated.leg_index] not in (
+        LegPhase.VERTICAL_TAKEOFF,
+        LegPhase.LANDING_TRANSIT,
+    )
+
+
+def test_obstacle_clearance_is_not_exempt_on_ground_legs() -> None:
+    """A mast beside the pad is still a conflict during the vertical takeoff."""
+    payload = make_mission_payload()
+    payload["planned_home"] = {"lat": 52.0, "lon": 4.0, "altitude_amsl_m": 0.0}
+    payload["constraints"]["min_terrain_clearance_m"] = 30.0
+    payload["constraints"]["min_obstacle_clearance_m"] = 25.0
+    mission = MissionPlan.model_validate(payload)
+    mast = Obstacle.model_validate(
+        {
+            "id": "mast-beside-the-pad",
+            "geometry": {"type": "point", "points": [{"lat": 52.0, "lon": 4.0}]},
+            "height_m": 200.0,
+            "radius_m": 5.0,
+        }
+    )
+
+    result = try_estimate_mission_distance_time(
+        mission,
+        make_vehicle(),
+        terrain_provider=_flat_terrain(0.0),
+        obstacle_provider=ListObstacleProvider([mast]),
+    )
+
+    assert result.obstacle is not None
+    assert result.obstacle.is_feasible is False
+    assert any(
+        violation.code == FailureCode.OBSTACLE_CLEARANCE_VIOLATED
+        for violation in result.obstacle.violations
+    )
+
+
+def test_rtl_exemption_covers_only_the_touchdown_segment() -> None:
+    """Flying home into a hillside must still fail; only the landing is exempt."""
+    result = try_estimate_mission_distance_time(
+        _ground_level_mission(30.0),
+        make_vehicle(),
+        terrain_provider=_ridge_provider(),
+    )
+
+    phases = {leg.leg_index: leg.phase for leg in result.legs}
+    rtl_violations = [
+        violation
+        for violation in result.obstacle.violations
+        if phases[violation.leg_index] is LegPhase.RTL_TRANSIT
+    ]
+    assert rtl_violations, "the RTL cruise home must still be terrain-checked"
+    # The exempt segment is the descent to the surface, so no violation may be
+    # reported at ground level.
+    assert all(
+        violation.sample_alt_amsl_m > 0.0 for violation in rtl_violations
+    )

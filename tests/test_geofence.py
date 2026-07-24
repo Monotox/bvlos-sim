@@ -685,3 +685,68 @@ def test_antimeridian_leg_ignores_a_zone_on_the_far_side_of_the_globe() -> None:
     assert result.status == EstimateStatus.SUCCESS
     assert result.geofence is not None and result.geofence.is_feasible is True
     assert result.geofence.conflicts == []
+
+
+def _clear_zone(*, zone_id: str, floor_m: float | None, ceiling_m: float | None):
+    """A zone far from the demo route, so only the warning behavior is exercised."""
+    return _zone(
+        zone_id=zone_id,
+        kind=GeofenceKind.FORBIDDEN,
+        exterior=_box(lat_lo=51.0, lat_hi=51.001, lon_lo=3.0, lon_hi=3.001),
+        floor_m=floor_m,
+        ceiling_m=ceiling_m,
+    )
+
+
+def _warning_codes(result) -> set[str]:
+    return {str(warning.code) for warning in result.warnings}
+
+
+def test_zone_without_altitude_bounds_warns_that_evaluation_is_2d() -> None:
+    result = try_estimate_mission_distance_time(
+        make_mission(),
+        make_vehicle(),
+        geofences=[_clear_zone(zone_id="unbounded", floor_m=None, ceiling_m=None)],
+    )
+
+    assert "GEOFENCE_EVALUATED_2D_ONLY" in _warning_codes(result)
+
+
+@pytest.mark.parametrize(
+    ("floor_m", "ceiling_m"),
+    [(0.0, 300.0), (0.0, None), (None, 300.0)],
+)
+def test_zone_declaring_an_altitude_bound_does_not_warn(
+    floor_m: float | None, ceiling_m: float | None
+) -> None:
+    """A bounded zone is constrained by altitude, so the 2D caveat is untrue.
+
+    Emitting it unconditionally made every geofence mission NO-GO until the
+    operator waived a warning that did not apply.
+    """
+    result = try_estimate_mission_distance_time(
+        make_mission(),
+        make_vehicle(),
+        geofences=[
+            _clear_zone(zone_id="bounded", floor_m=floor_m, ceiling_m=ceiling_m)
+        ],
+    )
+
+    assert "GEOFENCE_EVALUATED_2D_ONLY" not in _warning_codes(result)
+
+
+def test_one_unbounded_zone_among_bounded_zones_still_warns() -> None:
+    result = try_estimate_mission_distance_time(
+        make_mission(),
+        make_vehicle(),
+        geofences=[
+            _clear_zone(zone_id="bounded", floor_m=0.0, ceiling_m=300.0),
+            _clear_zone(zone_id="unbounded", floor_m=None, ceiling_m=None),
+        ],
+    )
+
+    warning = next(
+        w for w in result.warnings if str(w.code) == "GEOFENCE_EVALUATED_2D_ONLY"
+    )
+    assert "1 zone(s)" in warning.message
+    assert "(unbounded)" in warning.message

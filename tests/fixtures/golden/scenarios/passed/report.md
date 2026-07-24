@@ -62,3 +62,4 @@
 ## Warnings
 
 - `LOITER_ASSUMED_ZERO_GROUND_DISTANCE`: Loiter dwell modeled as station-keep hold with zero ground-path distance in estimator v1.
+- `ENERGY_MODEL_UNCALIBRATED`: vehicle.calibration_status is not declared, so every energy figure below rests on unvalidated coefficients. Fit a calibration profile from a real flight trace (bvlos-sim calibrate) and pass it with --calibration, or set calibration_status to manufacturer_derived once the values come from published data.

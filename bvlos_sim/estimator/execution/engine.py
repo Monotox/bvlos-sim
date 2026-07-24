@@ -47,6 +47,13 @@ from bvlos_sim.estimator.execution.runtime.failure_translation import error_from
 from bvlos_sim.estimator.execution.totals import sum_totals
 from bvlos_sim.schemas.mission import MissionPlan
 from bvlos_sim.schemas.vehicle import VehicleProfile
+from bvlos_sim.schemas.vehicle_enums import CalibrationStatus
+
+# Coefficient provenance that counts as validated. Anything else, including an
+# undeclared status, raises ENERGY_MODEL_UNCALIBRATED.
+_CALIBRATED_STATUSES = frozenset(
+    {CalibrationStatus.MANUFACTURER_DERIVED, CalibrationStatus.LOG_CALIBRATED}
+)
 
 
 def _raise_feasibility_failure(
@@ -117,6 +124,7 @@ def run_estimation(
 
     totals = sum_totals(context.route_legs)
     _check_max_wind(context)
+    _check_energy_model_calibration(context)
     explicit_resource_systems = bool(context.vehicle.resource_systems)
     energy_evaluation = evaluate_energy_feasibility(
         context,
@@ -164,19 +172,27 @@ def run_estimation(
             )
         )
     if context.geofences:
-        context.warnings.append(
-            EstimatorWarning(
-                code=WarningCode.GEOFENCE_EVALUATED_2D_ONLY,
-                message=(
-                    "Geofence feasibility uses 2D lon/lat horizontal geometry. "
-                    "Zone floor_m/ceiling_m altitude bounds are checked when "
-                    "declared."
-                ),
-                leg_index=None,
-                route_item_index=None,
-                route_item_id=None,
+        unbounded = [
+            zone.id
+            for zone in context.geofences
+            if zone.floor_m is None and zone.ceiling_m is None
+        ]
+        if unbounded:
+            context.warnings.append(
+                EstimatorWarning(
+                    code=WarningCode.GEOFENCE_EVALUATED_2D_ONLY,
+                    message=(
+                        "Geofence feasibility uses 2D lon/lat horizontal "
+                        f"geometry for {len(unbounded)} zone(s) declaring "
+                        "neither floor_m nor ceiling_m "
+                        f"({', '.join(unbounded[:5])}). Zones declaring either "
+                        "bound are additionally constrained by altitude."
+                    ),
+                    leg_index=None,
+                    route_item_index=None,
+                    route_item_id=None,
+                )
             )
-        )
     geofence_evaluation = evaluate_geofence_feasibility(context)
     _raise_feasibility_failure(
         geofence_evaluation.failure,
@@ -291,6 +307,25 @@ def _warn_for_vacuous_obstacle_evidence(context: EstimationContext) -> None:
 
     provider = context.obstacle_provider
     if provider is None:
+        # A terrain-clearance constraint alone still builds an obstacle estimate,
+        # so the gate is satisfied with checked_obstacle_count == 0. Declaring a
+        # clearance minimum and consulting no obstacle database at all is a
+        # weaker claim than an empty file, not a stronger one.
+        if context.mission.constraints.min_obstacle_clearance_m is not None:
+            context.warnings.append(
+                EstimatorWarning(
+                    code=WarningCode.OBSTACLE_ZERO_FEATURES,
+                    message=(
+                        "constraints.min_obstacle_clearance_m is set but no "
+                        "obstacle source is configured, so the clearance check "
+                        "evaluated no vertical structure. Set "
+                        "assets.obstacles_file before trusting this PASS."
+                    ),
+                    leg_index=None,
+                    route_item_index=None,
+                    route_item_id=None,
+                )
+            )
         return
     obstacles = list(provider.obstacles())
     if not obstacles:
@@ -328,6 +363,30 @@ def _warn_for_vacuous_obstacle_evidence(context: EstimationContext) -> None:
                 route_item_id=None,
             )
         )
+
+
+def _check_energy_model_calibration(context: EstimationContext) -> None:
+    """Warn when the vehicle's power coefficients have no stated provenance."""
+    status = context.vehicle.calibration_status
+    if status in _CALIBRATED_STATUSES:
+        return
+    declared = str(status) if status is not None else "not declared"
+    context.warnings.append(
+        EstimatorWarning(
+            code=WarningCode.ENERGY_MODEL_UNCALIBRATED,
+            message=(
+                f"vehicle.calibration_status is {declared}, so every energy "
+                "figure below rests on unvalidated coefficients. Fit a "
+                "calibration profile from a real flight trace "
+                "(bvlos-sim calibrate) and pass it with --calibration, or set "
+                "calibration_status to manufacturer_derived once the values "
+                "come from published data."
+            ),
+            leg_index=None,
+            route_item_index=None,
+            route_item_id=None,
+        )
+    )
 
 
 def _check_max_wind(context: EstimationContext) -> None:

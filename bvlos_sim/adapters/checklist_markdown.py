@@ -223,10 +223,10 @@ def _ground_risk_row(ground_risk: GroundRiskEstimate | None) -> str:
 def _warnings_row(result: MissionEstimate) -> str:
     n = len(result.warnings)
     if n == 0:
-        return _row(" ", "Advisory warnings", "NONE", "")
+        return _row(" ", "Warnings", "NONE", "")
     codes = ", ".join(str(w.code) for w in result.warnings[:5])
     suffix = f" + {n - 5} more" if n > 5 else ""
-    return _row(" ", "Advisory warnings", str(n), f"{codes}{suffix}")
+    return _row(" ", "Warnings", str(n), f"{codes}{suffix}")
 
 
 def _departure_time_row(result: MissionEstimate) -> str | None:

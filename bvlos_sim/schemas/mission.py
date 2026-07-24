@@ -344,10 +344,12 @@ class MissionConstraints(BaseModel):
     accepted_warning_codes: list[str] = Field(
         default_factory=list,
         description=(
-            "Advisory warning codes the operator has reviewed and explicitly "
-            "accepts for this mission. Acknowledged warnings are still "
-            "reported in every artifact but no longer block the operational "
-            "GO verdict. Unlisted warnings keep blocking."
+            "Warning codes the operator has reviewed and explicitly accepts "
+            "for this mission. Acknowledged warnings are still reported in "
+            "every artifact but no longer block the operational GO verdict. "
+            "Unlisted warnings keep blocking. Codes reporting an exceedance "
+            "of a declared vehicle limit cannot be accepted here; fix the "
+            "mission or the vehicle profile instead."
         ),
     )
     min_landing_reserve_percent: FiniteFloat | None = Field(
@@ -441,7 +443,10 @@ class MissionConstraints(BaseModel):
     def _validate_accepted_warning_codes(self) -> "MissionConstraints":
         # Imported lazily: estimator.execution imports this module, so a
         # top-level estimator import would be circular.
-        from bvlos_sim.estimator.core.enums import WarningCode
+        from bvlos_sim.estimator.core.enums import (
+            NON_WAIVABLE_WARNING_CODES,
+            WarningCode,
+        )
 
         valid = {code.value for code in WarningCode}
         seen: set[str] = set()
@@ -450,6 +455,13 @@ class MissionConstraints(BaseModel):
                 raise ValueError(
                     f"accepted_warning_codes entry {code!r} is not a known "
                     f"warning code; valid codes: {', '.join(sorted(valid))}"
+                )
+            if code in NON_WAIVABLE_WARNING_CODES:
+                raise ValueError(
+                    f"accepted_warning_codes entry {code!r} reports an "
+                    "exceedance of a declared vehicle limit and cannot be "
+                    "accepted; non-waivable codes: "
+                    f"{', '.join(sorted(NON_WAIVABLE_WARNING_CODES))}"
                 )
             if code in seen:
                 raise ValueError(

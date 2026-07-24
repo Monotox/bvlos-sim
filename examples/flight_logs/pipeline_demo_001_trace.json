@@ -3,7 +3,7 @@
   "mission_file": "examples/missions/pipeline_demo_001.yaml",
   "mission_sha256": "5b129726fcf680a606b2c6e902599832b5615d94ed891791c7c1f8ca13571782",
   "vehicle_file": "examples/vehicles/quadplane_v1.yaml",
-  "vehicle_sha256": "10b240330f63b4109bab8d58d107e4816bebb30daae42a270a0c41ff9ba3f133"
+  "vehicle_sha256": "f9aa4fe8d18a3086e36edad2db8265e39547e02932be837344360837961eaa95"
  },
  "provenance": {
   "missing_fields": [],

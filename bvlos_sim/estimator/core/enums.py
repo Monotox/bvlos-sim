@@ -90,6 +90,19 @@ class WarningCode(StrEnum):
     ENERGY_REFERENCE_CONDITIONS_MISSING = "ENERGY_REFERENCE_CONDITIONS_MISSING"
     POPULATION_DENSITY_DIMENSION_MISSING = "POPULATION_DENSITY_DIMENSION_MISSING"
     GUST_DATA_UNAVAILABLE = "GUST_DATA_UNAVAILABLE"
+    ENERGY_MODEL_UNCALIBRATED = "ENERGY_MODEL_UNCALIBRATED"
+
+
+# Warnings that report an exceedance of a limit the vehicle profile itself
+# declares. Acknowledging one would let a mission file waive the aircraft's own
+# envelope, so mission.constraints.accepted_warning_codes rejects them and they
+# keep blocking the operational GO verdict.
+NON_WAIVABLE_WARNING_CODES = frozenset(
+    {
+        WarningCode.MAX_WIND_EXCEEDED.value,
+        WarningCode.RESERVE_BELOW_FAILSAFE_ABORT_THRESHOLD.value,
+    }
+)
 
 
 class LegPhase(StrEnum):

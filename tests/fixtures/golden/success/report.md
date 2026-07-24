@@ -14,6 +14,7 @@
 ## Diagnostics
 
 - `warning` `LOITER_ASSUMED_ZERO_GROUND_DISTANCE`: Loiter dwell modeled as station-keep hold with zero ground-path distance in estimator v1.
+- `warning` `ENERGY_MODEL_UNCALIBRATED`: vehicle.calibration_status is not declared, so every energy figure below rests on unvalidated coefficients. Fit a calibration profile from a real flight trace (bvlos-sim calibrate) and pass it with --calibration, or set calibration_status to manufacturer_derived once the values come from published data.
 
 ## Assumptions
 
@@ -30,6 +31,8 @@
 - Static geofence feasibility uses the materialized 2D lon/lat flown path, including fidelity-v2 turn arcs; zones declaring floor_m/ceiling_m additionally constrain the leg's altitude band, treated as AMSL.
 - Static landing-zone reachability uses geodesic-aware Dubins distance when entry heading and vehicle turn radius are known, otherwise straight-line geodesic distance; divert energy integrates the active wind provider through a per-segment wind-triangle ground speed and adds the terminal vertical energy to the landing-surface altitude.
 - Landing-zone v1 excludes terrain, obstacles, dynamic availability, suitability scoring, and comms dependency.
+- Minimum terrain clearance is evaluated on airborne legs only; vertical-takeoff and landing-transit legs touch the landing surface by definition and are exempt. Obstacle clearance is still evaluated on every leg, including those two.
+- Energy feasibility is only as good as the vehicle's power coefficients. A vehicle declaring calibration_status placeholder_values, or declaring nothing, raises ENERGY_MODEL_UNCALIBRATED, which blocks the operational GO until the operator supplies a calibration profile or acknowledges the code.
 - Dynamic landing-zone availability is a scenario-only feature; availability changes are resolved deterministically against the scenario timeline and do not affect the estimate CLI.
 - Divert route estimates use geodesic-aware Dubins path distance (bank-angle-constrained arc + straight sampled to target geometry boundary points) when entry heading and vehicle turn radius are known; otherwise straight-line geodesic distance. When a wind provider is configured, a wind-triangle correction is applied to the divert ground speed; without a wind provider, TAS is used and a DIVERT_ENERGY_TAS_ONLY warning is emitted.
 - Monte Carlo uncertainty sampling uses a seeded pseudo-random number generator; results are reproducible for a given seed, sample count, and uncertainty parameters. Wind sampling overrides any mission wind provider with a ConstantWindProvider per sample.
@@ -89,3 +92,4 @@
 ## Warnings
 
 - `LOITER_ASSUMED_ZERO_GROUND_DISTANCE` (leg 3): Loiter dwell modeled as station-keep hold with zero ground-path distance in estimator v1.
+- `ENERGY_MODEL_UNCALIBRATED`: vehicle.calibration_status is not declared, so every energy figure below rests on unvalidated coefficients. Fit a calibration profile from a real flight trace (bvlos-sim calibrate) and pass it with --calibration, or set calibration_status to manufacturer_derived once the values come from published data.

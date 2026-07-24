@@ -42,5 +42,6 @@ sitl:
   frame: quadplane
 
 metadata:
-  calibration_status: placeholder_values
   notes: Replace with manufacturer data or measured logs before real analysis.
+
+calibration_status: placeholder_values

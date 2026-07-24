@@ -4,9 +4,12 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
+from bvlos_sim.estimator.core.enums import NON_WAIVABLE_WARNING_CODES, WarningCode
 from bvlos_sim.schemas import MissionPlan, RouteItem, ScenarioPlan, VehicleProfile
 from bvlos_sim.schemas.vehicle_energy import EnergyModel, FailsafeProfile
 from bvlos_sim.schemas.vehicle_sensors import AirspeedModel, BatteryMeterModel, GpsModel, SensorProfile
+
+from tests.helpers import make_mission_payload
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -565,3 +568,35 @@ def test_energy_model_accepts_valid_values() -> None:
         cruise_power_w=450.0,
     )
     assert model.battery_capacity_wh == 900.0
+
+
+@pytest.mark.parametrize(
+    "code",
+    ["MAX_WIND_EXCEEDED", "RESERVE_BELOW_FAILSAFE_ABORT_THRESHOLD"],
+)
+def test_mission_cannot_waive_a_vehicle_limit_exceedance(code: str) -> None:
+    """A mission file must not be able to sign off the aircraft's own envelope.
+
+    Both codes report that a declared vehicle limit was exceeded, and the
+    checklist prints every warning under one heading, so accepting them turned a
+    real exceedance into a GO that read as routine.
+    """
+    payload = make_mission_payload()
+    payload["constraints"]["accepted_warning_codes"] = [code]
+
+    with pytest.raises(ValidationError, match="cannot be accepted"):
+        MissionPlan.model_validate(payload)
+
+
+def test_mission_can_still_waive_an_advisory_code() -> None:
+    payload = make_mission_payload()
+    payload["constraints"]["accepted_warning_codes"] = ["GEOFENCE_EVALUATED_2D_ONLY"]
+
+    mission = MissionPlan.model_validate(payload)
+
+    assert mission.constraints.accepted_warning_codes == ["GEOFENCE_EVALUATED_2D_ONLY"]
+
+
+def test_every_non_waivable_code_is_a_real_warning_code() -> None:
+    """Guards the frozenset against a typo that would silently allow a waiver."""
+    assert NON_WAIVABLE_WARNING_CODES <= {code.value for code in WarningCode}

@@ -31,10 +31,11 @@ failsafe:
   emergency_land_percent: 10
 
 metadata:
-  calibration_status: manufacturer_derived
   source: "https://wingtra.com/mapping-drone-wingtraone/"
   notes: >
     Cruise power derived from published 59-minute endurance at 16 m/s (97.2 Wh
     battery). Hover power is estimated; Wingtra does not publish VTOL-phase
     power separately. Turn radius estimated at 25 deg bank angle. Validate
     against observed logs before operational use.
+
+calibration_status: manufacturer_derived

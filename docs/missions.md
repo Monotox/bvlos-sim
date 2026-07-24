@@ -61,7 +61,7 @@ command — run `bvlos-sim migrate mission.yaml --dry-run` first.
 
 ```yaml
 constraints:
-  accepted_warning_codes: [GEOFENCE_EVALUATED_2D_ONLY]   # reviewed advisory warnings
+  accepted_warning_codes: [GEOFENCE_EVALUATED_2D_ONLY]   # reviewed and accepted
   min_landing_reserve_percent: 25.0   # % of battery that must survive landing
   require_rth_reserve: true           # hard per-leg return-to-home reserve gate
   max_wind_mps: 12.0                  # sustained-wind limit at every path sample
@@ -81,14 +81,22 @@ constraints:
     not raise it to "tighten" the constraint. The reserve-based divert check
     runs independently of this value and is unaffected by it.
 
-Advisory warnings block the operational `GO` verdict by default.
+Warnings block the operational `GO` verdict by default.
 `accepted_warning_codes` is the explicit, reviewable opt-out: codes listed
-there (validated against the [warning table](cli.md#advisory-warnings)) still
+there (validated against the [warning table](cli.md#warnings)) still
 appear in every artifact — including a checklist `Acknowledged warnings` row
 and the envelope's `operational_readiness.acknowledged_warning_codes` — but
 no longer force `NO-GO`. Unlisted warnings keep blocking. Because the
 acceptance lives in the mission file, it is versioned and reviewed with the
 mission, not slipped in on a command line.
+
+!!! warning "Two codes cannot be accepted"
+
+    `MAX_WIND_EXCEEDED` and `RESERVE_BELOW_FAILSAFE_ABORT_THRESHOLD` report that
+    a limit the **vehicle profile itself declares** was exceeded. Listing either
+    one is a schema error, because a mission file must not be able to sign off
+    the aircraft's own envelope. Fix the mission or correct the vehicle profile
+    instead.
 
 All constraints fail closed. `max_gust_mps`, `min_visibility_m`, and
 `max_precipitation_mm_h` are accepted, but no built-in provider supplies those
@@ -221,7 +229,7 @@ infeasible; `max_range_m` is checked against the maximum distance from home at
 leg endpoints. When any link is `required`, at least one required link must be
 feasible; the selected link is the feasible one with the lowest priority.
 
-## Vehicle (`vehicle.v4`)
+## Vehicle (`vehicle.v5`)
 
 ```yaml
 vehicle_id: quadplane_v1          # matched against mission.vehicle_profile
@@ -240,7 +248,7 @@ performance:
   climb_rate_mps: 3.0
   descent_rate_mps: 2.0
   turn_radius_m: 80.0
-  max_wind_mps: 10.0              # exceeding emits a GO-blocking advisory warning
+  max_wind_mps: 10.0              # exceeding emits a GO-blocking, non-waivable warning
   max_crab_angle_deg: 35.0
   max_station_keep_wind_mps: 8.0
 
@@ -261,11 +269,21 @@ capabilities:
   hover: true
   forward_flight: true
 
+# manufacturer_derived | placeholder_values | log_calibrated.
+# Anything but the first or last — including omitting the field — raises
+# ENERGY_MODEL_UNCALIBRATED, which blocks GO. `--calibration` stamps
+# log_calibrated for you when it applies a fitted profile.
+calibration_status: placeholder_values
+
 metadata:
-  calibration_status: placeholder_values   # manufacturer_derived | placeholder_values | log_calibrated
   source: null
   notes: Replace with manufacturer data or measured logs before real analysis.
 ```
+
+`calibration_status` is a typed top-level field, not free-form `metadata`. The
+estimator reads it, so a profile that never states where its power numbers came
+from cannot quietly produce a `GO`: every energy figure it yields is arithmetic
+on invented coefficients, and the verdict says so.
 
 How energy is computed: a leg that climbs or descends while covering ground is
 costed by phase time — the vertical part at climb or descent power, the rest at
@@ -425,7 +443,7 @@ GRB was fed back through Step 2; Annex E compliance is always
 
 ## Contracts and versioning
 
-Input schemas (`mission.v7`, `vehicle.v4`, `scenario.v1`, `uncertainty.v2`,
+Input schemas (`mission.v7`, `vehicle.v5`, `scenario.v1`, `uncertainty.v2`,
 `stochastic.v2`, `batch.v1`, the GeoJSON asset schemas, `population-grid.v2`)
 and output envelopes (`estimator-envelope.v10`, `scenario-report.v3`, and the
 rest printed by [`schema-versions`](cli.md#schema-versions)) are stable public

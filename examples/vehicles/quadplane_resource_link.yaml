@@ -53,5 +53,6 @@ sitl:
   frame: quadplane
 
 metadata:
-  calibration_status: placeholder_values
   notes: Demonstrates explicit resource systems while retaining legacy energy fields.
+
+calibration_status: placeholder_values

@@ -39,5 +39,6 @@ capabilities:
   forward_flight: true
 
 metadata:
-  calibration_status: placeholder_values
   notes: Battery-sizing variant with explicit pack mass inputs for MTOW feedback.
+
+calibration_status: placeholder_values

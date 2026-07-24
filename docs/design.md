@@ -39,9 +39,15 @@ permission.**
 Two explicit, auditable opt-outs exist — and only these. The
 `--engineering-only` flag trades the operational gate for a purely
 computational verdict, and `constraints.accepted_warning_codes` lets a
-mission accept named advisory warnings after review. In both cases the JSON
+mission accept named warnings after review. In both cases the JSON
 envelope still records the full structured readiness verdict, including what
 was acknowledged.
+
+The second opt-out has a floor. `MAX_WIND_EXCEEDED` and
+`RESERVE_BELOW_FAILSAFE_ABORT_THRESHOLD` report that a limit the vehicle
+profile itself declares was exceeded, and a mission file that could accept
+those would be waiving the aircraft's own envelope rather than a modeling
+caveat. The schema rejects them, so they always block.
 
 ## Scope — what a GO is and is not
 
