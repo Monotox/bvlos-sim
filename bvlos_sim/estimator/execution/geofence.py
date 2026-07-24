@@ -28,6 +28,24 @@ from bvlos_sim.estimator.execution.spatial_sampling import (
 )
 
 
+# A flown path is materialized by geodesic interpolation, so a sample meant to
+# land exactly on a zone boundary lands within a few ULP of it — measured at
+# ~5e-15 deg, and which side it falls on differs between platforms. Exact
+# predicates turn that noise into a verdict: a required zone reports a spurious
+# excursion, and a forbidden zone misses a real touch.
+#
+# Every zone is therefore grown by this much before any predicate runs, which is
+# fail-closed for both kinds: required coverage tolerates the noise, forbidden
+# intersection still catches it. At 1e-9 deg the widening is ~0.11 mm — five
+# orders of magnitude above the noise it absorbs, and far below any survey or
+# navigation accuracy that could make it operationally meaningful.
+_BOUNDARY_TOLERANCE_DEG = 1e-9
+
+# Mitred joins keep the vertex count flat; rounded corners at this scale would
+# only add points nothing can measure.
+_MITRE_JOIN_STYLE = 2
+
+
 @dataclass(frozen=True)
 class CompiledGeofence:
     zone: GeofenceZone
@@ -148,7 +166,15 @@ def _compile_zone(
             ),
         )
 
-    return CompiledGeofence(zone=zone, geometry=geometry), None
+    return (
+        CompiledGeofence(
+            zone=zone,
+            geometry=geometry.buffer(
+                _BOUNDARY_TOLERANCE_DEG, join_style=_MITRE_JOIN_STYLE
+            ),
+        ),
+        None,
+    )
 
 
 def _mission_departure_time(context: EstimationContext) -> datetime | None:

@@ -65,6 +65,12 @@ and this project adheres to semantic versioning once public releases begin.
 - `OBSTACLE_ZERO_FEATURES` now also fires when `min_obstacle_clearance_m` is set
   with no obstacle source configured at all. That path reported
   `Obstacle clearance PASS` with `checked_obstacle_count: 0` and no warning.
+- Geofence predicates no longer turn floating-point noise into a verdict. A
+  materialized path sample meant to land on a zone boundary lands within a few
+  ULP of it, and which side differs by platform, so a required zone could report
+  a spurious excursion and a forbidden zone could miss a real touch. Zones are
+  now grown by 1e-9 deg (~0.11 mm) before any predicate runs, which is
+  fail-closed for both kinds. Caught by the new macOS CI job.
 - `--format summary` names the offending file and reason on an input error
   instead of only `ERROR [INPUT_LOAD_ERROR: mission read]`.
 - Alpine demo figures in `README.md` and the getting-started tutorial, stale

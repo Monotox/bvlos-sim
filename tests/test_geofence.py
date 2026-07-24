@@ -750,3 +750,101 @@ def test_one_unbounded_zone_among_bounded_zones_still_warns() -> None:
     )
     assert "1 zone(s)" in warning.message
     assert "(unbounded)" in warning.message
+
+
+# Distances chosen either side of the tolerance: 1e-13 deg is ~1e-8 m, the
+# floating-point noise a materialized path carries; 1e-5 deg is ~1.1 m, an
+# excursion a real aircraft could fly.
+_NOISE_DEG = 1e-13
+_REAL_EXCURSION_DEG = 1e-5
+
+
+def _required_box_short_of(waypoint_lat: float, waypoint_lon: float, margin: float):
+    """A required zone whose corner falls `margin` short of the waypoint."""
+    return _zone(
+        zone_id="operations_area",
+        kind=GeofenceKind.REQUIRED,
+        exterior=_box(
+            lat_lo=51.999,
+            lat_hi=waypoint_lat - margin,
+            lon_lo=3.999,
+            lon_hi=waypoint_lon - margin,
+        ),
+    )
+
+
+def _single_waypoint_mission():
+    mission = make_mission()
+    mission.route = [mission.route[1]]
+    return mission
+
+
+def test_required_zone_tolerates_floating_point_noise_at_the_boundary() -> None:
+    """A path sample lands within a few ULP of a boundary it should sit on.
+
+    Which side it lands on is platform-dependent: this exact case passed on
+    Linux and reported a spurious excursion on macOS.
+    """
+    mission = _single_waypoint_mission()
+    result = try_estimate_mission_distance_time(
+        mission,
+        make_vehicle(),
+        geofences=[_required_box_short_of(52.001, 4.002, _NOISE_DEG)],
+    )
+
+    assert result.status == EstimateStatus.SUCCESS
+    assert result.geofence is not None and result.geofence.conflicts == []
+
+
+def test_required_zone_still_catches_a_real_excursion() -> None:
+    """The tolerance absorbs noise, not metres."""
+    mission = _single_waypoint_mission()
+    result = try_estimate_mission_distance_time(
+        mission,
+        make_vehicle(),
+        geofences=[_required_box_short_of(52.001, 4.002, _REAL_EXCURSION_DEG)],
+    )
+
+    assert result.status == EstimateStatus.INFEASIBLE
+    assert result.failure is not None
+    assert result.failure.code == FailureCode.ROUTE_EXITS_REQUIRED_ZONE
+
+
+def test_forbidden_zone_tolerance_points_the_fail_closed_way() -> None:
+    """Noise must not let a forbidden zone be missed by a nanometre."""
+    mission = _single_waypoint_mission()
+    zone = _zone(
+        zone_id="near_miss",
+        kind=GeofenceKind.FORBIDDEN,
+        exterior=_box(
+            lat_lo=52.001 + _NOISE_DEG,
+            lat_hi=52.002,
+            lon_lo=4.002 + _NOISE_DEG,
+            lon_hi=4.003,
+        ),
+    )
+
+    result = try_estimate_mission_distance_time(mission, make_vehicle(), geofences=[zone])
+
+    assert result.status == EstimateStatus.INFEASIBLE
+    assert result.failure is not None
+    assert result.failure.code == FailureCode.ROUTE_ENTERS_FORBIDDEN_ZONE
+
+
+def test_forbidden_zone_a_real_distance_away_is_not_a_conflict() -> None:
+    mission = _single_waypoint_mission()
+    zone = _zone(
+        zone_id="clear",
+        kind=GeofenceKind.FORBIDDEN,
+        exterior=_box(
+            lat_lo=52.001 + _REAL_EXCURSION_DEG,
+            lat_hi=52.002,
+            lon_lo=4.002 + _REAL_EXCURSION_DEG,
+            lon_hi=4.003,
+        ),
+    )
+
+    result = try_estimate_mission_distance_time(mission, make_vehicle(), geofences=[zone])
+
+    assert result.status == EstimateStatus.SUCCESS
+    assert result.geofence is not None and result.geofence.conflicts == []
