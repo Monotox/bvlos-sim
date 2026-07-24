@@ -28,6 +28,18 @@ and this project adheres to semantic versioning once public releases begin.
 
 ### Fixed
 
+- Divert feasibility now applies the gates and costs the rest of the estimator
+  already does. `compute_divert_estimate` was the only wind-aware solver that
+  never gated its wind triangle, so a divert needing a 70.8° crab against a 35°
+  vehicle limit, or crawling at 2 m/s against a 3 m/s minimum, was reported
+  feasible; both gates now fire. Divert energy also charged horizontal transit
+  only — the target zone's `altitude_amsl_m` was never read — so descending
+  400 m to the landing surface cost nothing; the terminal descent is now
+  budgeted, and an unknown surface altitude fails closed exactly as
+  landing-zone reachability already does. Finally the whole Dubins path was
+  charged at the single straight-line bearing's groundspeed, understating any
+  divert whose entry arc turns into wind; the path is now bounded by the
+  harshest heading the turn sweeps, which is conservative by construction.
 - Obstacle clearance no longer misses three whole categories of conflict.
   Proximity was decided by intersecting the route line with the obstacle
   footprint, which is empty unless the geometries actually cross: a zero-radius

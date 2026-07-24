@@ -8,6 +8,10 @@ from shapely.geometry import Point
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import nearest_points, unary_union
 
+from estimator.core.constants import (
+    DEFAULT_MAX_CRAB_ANGLE_DEG,
+    DEFAULT_MIN_GROUNDSPEED_MPS,
+)
 from estimator.core.enums import WarningCode
 from estimator.core.landing_zone import LandingZone
 from estimator.core.results import EnergyEstimate
@@ -15,7 +19,7 @@ from estimator.core.scenario import DivertRouteEstimate
 from estimator.execution.energy import adjusted_cruise_power_for_vehicle
 from estimator.execution.spatial import polygon_set_to_geometry_list
 from estimator.math.dubins import dubins_path_to_point_m
-from estimator.math.wind_triangle import solve_wind_triangle
+from estimator.math.wind_triangle import WindTriangleSolution, solve_wind_triangle
 from schemas.mission import MissionPlan
 from schemas.vehicle import VehicleProfile
 
@@ -24,6 +28,18 @@ _SECONDS_PER_HOUR = 3600.0
 _MIN_BOUNDARY_SAMPLES = 8
 _MAX_BOUNDARY_SAMPLES = 64
 _BOUNDARY_SAMPLES_PER_DEGREE = 2
+# Heading resolution used to bound the turn a Dubins divert flies.
+_SWEPT_HEADING_STEP_DEG = 5.0
+
+
+def _still_air_solution(tas_mps: float) -> WindTriangleSolution:
+    return WindTriangleSolution(
+        required_heading_deg=0.0,
+        crab_angle_deg=0.0,
+        groundspeed_mps=tas_mps,
+        wind_along_track_mps=0.0,
+        wind_cross_track_mps=0.0,
+    )
 
 
 def compute_divert_estimate(
@@ -94,7 +110,7 @@ def compute_divert_estimate(
             reason="No valid cruise TAS available for divert estimate.",
         )
 
-    gs_mps = _resolve_groundspeed(
+    solution = _resolve_groundspeed(
         action_lat,
         action_lon,
         geometry,
@@ -102,8 +118,9 @@ def compute_divert_estimate(
         wind_east_mps=wind_east_mps,
         wind_north_mps=wind_north_mps,
         wind_corrected=wind_corrected,
+        entry_heading_deg=entry_heading_deg,
     )
-    if gs_mps is None or gs_mps <= 0:
+    if solution is None or solution.groundspeed_mps <= 0:
         return _no_estimate(
             target_zone_id,
             energy=energy,
@@ -111,12 +128,63 @@ def compute_divert_estimate(
             reason="Headwind exceeds cruise TAS; divert groundspeed is zero or negative.",
         )
 
+    # A divert the aircraft cannot aerodynamically fly is not a divert. These
+    # are the same two gates the RTH and landing-zone paths already apply.
+    max_crab_deg = (
+        vehicle.performance.max_crab_angle_deg
+        if vehicle.performance.max_crab_angle_deg is not None
+        else DEFAULT_MAX_CRAB_ANGLE_DEG
+    )
+    if abs(solution.crab_angle_deg) > max_crab_deg:
+        return _no_estimate(
+            target_zone_id,
+            energy=energy,
+            action_at_timeline_index=action_at_timeline_index,
+            reason=(
+                f"Divert requires a {abs(solution.crab_angle_deg):.1f} deg crab "
+                f"angle, above the {max_crab_deg:.1f} deg vehicle limit."
+            ),
+        )
+    min_groundspeed_mps = (
+        mission.estimation.min_groundspeed_mps
+        if mission.estimation is not None
+        and mission.estimation.min_groundspeed_mps is not None
+        else DEFAULT_MIN_GROUNDSPEED_MPS
+    )
+    if solution.groundspeed_mps < min_groundspeed_mps:
+        return _no_estimate(
+            target_zone_id,
+            energy=energy,
+            action_at_timeline_index=action_at_timeline_index,
+            reason=(
+                f"Divert groundspeed {solution.groundspeed_mps:.2f} m/s is below "
+                f"the {min_groundspeed_mps:.2f} m/s minimum."
+            ),
+        )
+
+    gs_mps = solution.groundspeed_mps
     time_s = distance_m / gs_mps
     divert_power_w = adjusted_cruise_power_for_vehicle(
         vehicle,
         altitude_amsl_m=action_altitude_amsl_m,
     )
     divert_energy_wh = divert_power_w * time_s / _SECONDS_PER_HOUR
+    descent_energy_wh = _terminal_descent_energy_wh(
+        vehicle,
+        action_altitude_amsl_m=action_altitude_amsl_m,
+        surface_altitude_amsl_m=target_zone.altitude_amsl_m,
+    )
+    if descent_energy_wh is None:
+        return _no_estimate(
+            target_zone_id,
+            energy=energy,
+            action_at_timeline_index=action_at_timeline_index,
+            reason=(
+                "Descent rate and power are required to budget the terminal "
+                "descent to the divert zone."
+            ),
+        )
+    divert_energy_wh += descent_energy_wh
     energy_remaining_wh = _energy_remaining_at_index(energy, action_at_timeline_index)
     reserve_after_wh = energy_remaining_wh - divert_energy_wh
     reserve_after_percent = reserve_after_wh / energy.battery_capacity_wh * 100.0
@@ -267,7 +335,8 @@ def _resolve_groundspeed(
     wind_east_mps: float,
     wind_north_mps: float,
     wind_corrected: bool,
-) -> float | None:
+    entry_heading_deg: float | None = None,
+) -> WindTriangleSolution | None:
     """Return groundspeed for the divert leg.
 
     When wind_corrected=True, computes the track bearing to the nearest target
@@ -275,23 +344,100 @@ def _resolve_groundspeed(
     the headwind exceeds TAS (no valid triangle solution).
     """
     if not wind_corrected:
-        return tas_mps
+        return _still_air_solution(tas_mps)
 
     state_point = Point(action_lon, action_lat)
     if target_geometry.covers(state_point):
-        return tas_mps
+        return _still_air_solution(tas_mps)
 
     _, nearest = nearest_points(state_point, target_geometry)
     fwd_az, _, _ = _GEOD.inv(action_lon, action_lat, nearest.x, nearest.y)
-    solution = solve_wind_triangle(
-        track_deg=fwd_az,
+    return _worst_swept_solution(
+        fwd_az,
+        entry_heading_deg,
         tas_mps=tas_mps,
         wind_east_mps=wind_east_mps,
         wind_north_mps=wind_north_mps,
     )
-    if solution is None:
+
+
+def _swept_headings_deg(
+    track_deg: float,
+    entry_heading_deg: float | None,
+) -> list[float]:
+    """Headings the divert actually flies, entry heading through final track.
+
+    A Dubins divert turns from its entry heading onto the track to the zone, so
+    the whole path is not flown on the final bearing. Sampling the swept range
+    lets the wind triangle see the headings the turn passes through.
+    """
+
+    if entry_heading_deg is None:
+        return [track_deg]
+    delta_deg = (track_deg - entry_heading_deg + 180.0) % 360.0 - 180.0
+    steps = max(1, math.ceil(abs(delta_deg) / _SWEPT_HEADING_STEP_DEG))
+    return [
+        entry_heading_deg + delta_deg * index / steps for index in range(steps + 1)
+    ]
+
+
+def _worst_swept_solution(
+    track_deg: float,
+    entry_heading_deg: float | None,
+    *,
+    tas_mps: float,
+    wind_east_mps: float,
+    wind_north_mps: float,
+) -> WindTriangleSolution | None:
+    """Worst wind-triangle solution over the headings the divert sweeps.
+
+    Charging the whole Dubins path at the final bearing's groundspeed
+    understates time and energy whenever the entry arc turns into wind. This
+    bounds the path by its harshest heading, which is conservative by
+    construction: it can overstate the divert cost, never understate it.
+    """
+
+    worst: WindTriangleSolution | None = None
+    for heading_deg in _swept_headings_deg(track_deg, entry_heading_deg):
+        solution = solve_wind_triangle(
+            track_deg=heading_deg,
+            tas_mps=tas_mps,
+            wind_east_mps=wind_east_mps,
+            wind_north_mps=wind_north_mps,
+        )
+        if solution is None:
+            return None
+        if worst is None or solution.groundspeed_mps < worst.groundspeed_mps:
+            worst = solution
+    return worst
+
+
+def _terminal_descent_energy_wh(
+    vehicle: VehicleProfile,
+    *,
+    action_altitude_amsl_m: float,
+    surface_altitude_amsl_m: float | None,
+) -> float | None:
+    """Energy to descend from the divert altitude to the landing surface.
+
+    Omitting it budgeted a divert as pure horizontal transit, understating the
+    cost of the manoeuvre the reserve check is supposed to prove. Returns None
+    when the descent cannot be budgeted, so the caller fails closed the way
+    landing-zone reachability already does for an unknown surface altitude.
+    """
+
+    if surface_altitude_amsl_m is None or not math.isfinite(surface_altitude_amsl_m):
         return None
-    return solution.groundspeed_mps
+    drop_m = action_altitude_amsl_m - surface_altitude_amsl_m
+    if drop_m <= 0.0:
+        return 0.0
+    rate_mps = vehicle.performance.descent_rate_mps
+    if rate_mps is None or not math.isfinite(rate_mps) or rate_mps <= 0.0:
+        return None
+    power_w = vehicle.energy.descent_power_w or vehicle.energy.cruise_power_w
+    if power_w is None or not math.isfinite(power_w) or power_w <= 0.0:
+        return None
+    return power_w * (drop_m / rate_mps) / _SECONDS_PER_HOUR
 
 
 def _resolve_tas(mission: MissionPlan, vehicle: VehicleProfile) -> float | None:

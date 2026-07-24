@@ -297,6 +297,7 @@ def test_divert_estimate_distance_is_zero_when_inside_zone() -> None:
     zone = LandingZone.model_validate(
         {
             "id": "lz-polygon",
+            "altitude_amsl_m": 12.0,
             "geometry": {
                 "polygons": [
                     {
@@ -720,3 +721,115 @@ def test_divert_estimate_wind_corrected_via_scenario_runner() -> None:
     assert divert_with_wind is not None
     assert WarningCode.DIVERT_ENERGY_TAS_ONLY in divert_no_wind.warnings
     assert WarningCode.DIVERT_ENERGY_TAS_ONLY not in divert_with_wind.warnings
+
+
+def _divert_energy() -> EnergyEstimate:
+    return EnergyEstimate(
+        is_feasible=True,
+        total_energy_wh=10.0,
+        battery_capacity_wh=900.0,
+        usable_energy_wh=675.0,
+        reserve_threshold_percent=25.0,
+        reserve_threshold_wh=225.0,
+        reserve_at_landing_wh=890.0,
+        reserve_at_landing_percent=98.9,
+        legs=[],
+    )
+
+
+def _high_divert(**kwargs):
+    zone = LandingZone.model_validate(
+        {
+            "id": "lz",
+            "altitude_amsl_m": 12.0,
+            "geometry": {"points": [{"lat": 52.01, "lon": 4.0}]},
+        }
+    )
+    return compute_divert_estimate(
+        action_lat=52.0,
+        action_lon=4.0,
+        action_at_timeline_index=0,
+        target_zone_id="lz",
+        landing_zones=[zone],
+        energy=_divert_energy(),
+        mission=make_mission(),
+        vehicle=make_vehicle(),
+        action_altitude_amsl_m=412.0,
+        **kwargs,
+    )
+
+
+def test_divert_energy_includes_the_terminal_descent() -> None:
+    """A divert is not pure horizontal transit to a point in the air."""
+
+    result = _high_divert()
+
+    transit_only_wh = (
+        make_vehicle().energy.cruise_power_w * result.time_s / 3600.0
+    )
+    # 400 m of descent at 2 m/s on 450 W is ~25 Wh on top of the transit.
+    assert result.energy_wh > transit_only_wh
+    assert result.energy_wh == pytest.approx(transit_only_wh + 25.0, abs=1.0)
+
+
+def test_divert_rejects_a_crab_angle_the_vehicle_cannot_hold() -> None:
+    """The gate the RTH and landing-zone paths already apply."""
+
+    result = _high_divert(
+        wind_east_mps=17.0, wind_north_mps=0.0, wind_corrected=True
+    )
+
+    assert result.is_feasible is False
+    assert result.infeasible_reason is not None
+    assert "crab" in result.infeasible_reason
+
+
+def test_divert_rejects_a_groundspeed_below_the_minimum() -> None:
+    result = _high_divert(
+        wind_east_mps=0.0, wind_north_mps=-16.0, wind_corrected=True
+    )
+
+    assert result.is_feasible is False
+    assert result.infeasible_reason is not None
+    assert "groundspeed" in result.infeasible_reason
+
+
+def test_divert_turn_is_not_charged_at_the_straight_line_groundspeed() -> None:
+    """The entry arc turns into wind the final bearing never sees."""
+
+    with_arc = _high_divert(
+        entry_heading_deg=180.0,
+        wind_east_mps=0.0,
+        wind_north_mps=-8.0,
+        wind_corrected=True,
+    )
+    straight_only = _high_divert(
+        entry_heading_deg=None,
+        wind_east_mps=0.0,
+        wind_north_mps=-8.0,
+        wind_corrected=True,
+    )
+
+    assert with_arc.time_s > straight_only.time_s
+    assert with_arc.energy_wh > straight_only.energy_wh
+
+
+def test_divert_fails_closed_without_a_landing_surface_altitude() -> None:
+    zone = LandingZone.model_validate(
+        {"id": "lz", "geometry": {"points": [{"lat": 52.01, "lon": 4.0}]}}
+    )
+    result = compute_divert_estimate(
+        action_lat=52.0,
+        action_lon=4.0,
+        action_at_timeline_index=0,
+        target_zone_id="lz",
+        landing_zones=[zone],
+        energy=_divert_energy(),
+        mission=make_mission(),
+        vehicle=make_vehicle(),
+        action_altitude_amsl_m=412.0,
+    )
+
+    assert result.is_feasible is False
+    assert result.infeasible_reason is not None
+    assert "descent" in result.infeasible_reason.lower()
