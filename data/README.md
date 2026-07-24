@@ -6,6 +6,11 @@ Static GeoJSON assets used by the pipeline demo missions.
 |---|---|
 | `geofences/demo.geojson` | One forbidden no-fly zone polygon north-east of the demo route. |
 | `landing_zones/demo.geojson` | One grass landing zone point at the first waypoint. |
+| `obstacles/demo.geojson` | One 45 m communications mast, clear of the demo route. |
+
+All of it is synthetic and MIT-licensed. It describes no real airspace or
+structure and must never be flown against. Data you fetch yourself carries the
+third-party terms in [NOTICE.md](../NOTICE.md).
 
 These files are referenced from mission YAMLs via relative paths such as:
 

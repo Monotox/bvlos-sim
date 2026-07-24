@@ -19,6 +19,11 @@ try:
 except ImportError:
     import _overpass  # type: ignore[no-redef]  # executed as a script
 
+try:  # package import
+    from ._attribution import OPENSTREETMAP, print_attribution
+except ImportError:  # executed as a script
+    from _attribution import OPENSTREETMAP, print_attribution  # type: ignore[no-redef]
+
 _MISSING_REQUESTS = (
     "'requests' package not installed; run: pip install 'bvlos-sim[scripts]'"
 )
@@ -225,6 +230,7 @@ def _empty_features_error(source: str) -> str:
     return message + "--allow-empty if the area genuinely has no airspace."
 
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("lat_min", type=float)
@@ -293,6 +299,7 @@ def main() -> None:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(geojson, indent=2), encoding="utf-8")
     print(f"Wrote {out} ({len(features)} features)")
+    print_attribution(OPENSTREETMAP)
 
 
 if __name__ == "__main__":

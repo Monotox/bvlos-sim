@@ -141,11 +141,15 @@ coverage via OpenAIP before flying here.
 
 ## Area and data sources
 
-| Asset | Source | Coverage |
-|---|---|---|
-| `terrain.yaml` | SRTM via `srtm.py` | lat 46.9–47.2, lon 8.15–8.45, 31×31 grid |
-| `wind_grid.yaml` | Open-Meteo historical forecast (2025-06-15 14:00 UTC) | 4 altitude bands (AMSL), 4 hourly slices |
-| `landing_zones.geojson` | OpenStreetMap via Overpass | 13 helipads/aerodromes/runways |
+| Asset | Source | Licence | Coverage |
+|---|---|---|---|
+| `terrain.yaml` | SRTM via `srtm.py` | Public domain | lat 46.9–47.2, lon 8.15–8.45, 31×31 grid |
+| `wind_grid.yaml` | Open-Meteo historical forecast (2025-06-15 14:00 UTC) | CC BY 4.0 | 4 altitude bands (AMSL), 4 hourly slices |
+| `landing_zones.geojson` | OpenStreetMap via Overpass | ODbL 1.0 | 13 helipads/aerodromes/runways |
+
+These three are **not** covered by this repository's MIT licence. Redistributing
+them, or data you fetch yourself, carries the attribution and share-alike
+obligations in [NOTICE.md](../../NOTICE.md).
 
 The area covers the Lucerne basin and surrounding pre-Alps, including the
 Pilatus massif (peak elevation 2025 m in the SRTM grid). SRTM has voids over
