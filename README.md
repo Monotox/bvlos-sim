@@ -17,18 +17,38 @@ $ bvlos-sim estimate alpine_mission.yaml quadplane_v1.yaml --format checklist
 
 ## Pre-Flight Checklist: alpine_demo_001
 
-✓ Energy feasibility        PASS   reserve 573.05 Wh above threshold (798.05 Wh at landing, 225.00 Wh threshold)
+✓ Energy feasibility        PASS   reserve 603.56 Wh above threshold (828.56 Wh at landing, 225.00 Wh threshold)
 ◌ Geofence clearance        N/A    not evaluated
 ✓ Landing-zone coverage     PASS   reachable zone found at all 166 checked state(s)
 ◌ Resource availability     N/A    not evaluated
-✓ Weather limits            PASS   worst wind 0.00 m/s at leg 0 (takeoff)
+✓ Weather limits            PASS   worst wind 3.55 m/s at leg 3 (rtl)
 ✓ RTH reserve               PASS   reserve intact for RTH from all 4 leg(s)
+  Warnings                  1      ENERGY_MODEL_UNCALIBRATED
 
 Status: NO-GO
-Blocked by: missing evidence (geofence, resource, link, obstacle, ground_risk) — the checklist is fail-closed
+Blocked by: missing evidence (geofence, resource, link, obstacle, ground_risk); blocking warnings (ENERGY_MODEL_UNCALIBRATED) — the checklist is fail-closed
 
 $ bvlos-sim estimate alpine_infeasible.yaml small_battery.yaml --format summary
-INFEASIBLE   reserve −179.7 %   flight 7m 55s   RTH infeasible   [INSUFFICIENT_ENERGY]
+INFEASIBLE   reserve −36.2 %   flight 7m 58s   RTH infeasible   warnings 1   [RESERVE_BELOW_THRESHOLD]
+```
+
+A `GO` is reachable, and the repository ships the mission that earns one — every
+evidence category supplied, coefficients calibrated from a flight log, no
+warning waived:
+
+```text
+$ bvlos-sim estimate examples/missions/pipeline_demo_001_go.yaml \
+    examples/vehicles/quadplane_v1_complete.yaml \
+    --calibration examples/calibration/quadplane_v1_calibration.json \
+    --format checklist
+...
+✓ Obstacle clearance        PASS   0 violations across 3 leg(s) and 1 obstacle(s)
+✓ Weather limits            PASS   worst wind 2.72 m/s at leg 1 (wp1)
+✓ RTH feasibility           PASS   selected external resource covers RTH peak power
+  Ground risk class         INFO   mission iGRC 3
+  Warnings                  NONE
+
+Status: GO
 ```
 
 ## Quickstart
@@ -48,7 +68,8 @@ Expect `Status: NO-GO` and exit `10` — the demo deliberately omits
 geofence/resource/link/obstacle/ground-risk evidence, and the checklist is
 fail-closed.
 Add `--engineering-only` for the pure-physics verdict (`FEASIBLE`, exit `0`).
-The [getting-started tutorial](./docs/getting-started.md) walks through both.
+The [getting-started tutorial](./docs/getting-started.md) walks through both,
+then through the complete-evidence mission that earns a `GO`.
 
 ## Usage
 
@@ -125,4 +146,10 @@ warranty. A `GO` is only as current as your inputs. The reasoning is in
 
 ## License
 
-[MIT](./LICENSE)
+[MIT](./LICENSE) — for this project's own code, docs, and synthetic data.
+
+Some bundled example assets are derived from third-party databases with their
+own terms that MIT cannot override: OpenStreetMap landing zones and airspace
+(ODbL 1.0) and Open-Meteo wind (CC BY 4.0). If you redistribute them, or data
+you fetch yourself with the `bvlos-fetch-*` commands, the attribution and
+share-alike obligations in [NOTICE](./NOTICE.md) travel with you.
