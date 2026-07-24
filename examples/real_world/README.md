@@ -23,16 +23,10 @@ shell-success criterion.
 
 The output includes `terrain_provider_id: uniform_grid` and
 `wind_provider_id: spatiotemporal_grid` in result metadata, confirming which
-providers are wired up. Terrain elevations in this grid range from 393 to
-2025 m (Pilatus area), well above the flat polder used in the pipeline demo.
-
-> **The bundled wind grid is not representative.** Only its 10 m band holds
-> real forecast values; the 80/120/180 m bands are zero, and its `altitude_m`
-> axis is height above ground while the provider queries it as metres AMSL. The
-> route flies at roughly 550 m AMSL, so every sample clamps to the grid edge and
-> the demo reports `worst wind 0.00 m/s`. Re-fetch with `scripts/fetch_wind.py`
-> — which now emits an AMSL axis and a `vertical_reference` — before drawing any
-> conclusion about wind from this example.
+real terrain and spatiotemporal wind are active. Terrain elevations in this
+grid range from 393 to 2025 m (Pilatus area), well above the flat polder used
+in the pipeline demo, and the checklist reports a non-zero worst wind drawn
+from the forecast bands the route actually flies through.
 
 ## What a failing mission looks like
 
@@ -100,7 +94,8 @@ for terrain vs. landing zones, specific step size, etc.).
 ```bash
 uv sync --extra scripts   # installs srtm.py (once)
 
-uv run python scripts/fetch_terrain.py 46.9 47.2 8.1 8.4 0.01 \
+uv run python scripts/fetch_terrain.py 46.9 47.2 8.15 8.45 0.01 \
+  --void-policy interpolate \
   --output terrain.yaml
 
 uv run python scripts/fetch_wind.py 47.05 8.3 \
@@ -148,9 +143,11 @@ coverage via OpenAIP before flying here.
 
 | Asset | Source | Coverage |
 |---|---|---|
-| `terrain.yaml` | SRTM via `srtm.py` | lat 46.9–47.2, lon 8.1–8.4, 31×31 grid |
-| `wind_grid.yaml` | Open-Meteo archive (2025-06-15 14:00 UTC) | 4 altitude bands, 4 hourly slices |
+| `terrain.yaml` | SRTM via `srtm.py` | lat 46.9–47.2, lon 8.15–8.45, 31×31 grid |
+| `wind_grid.yaml` | Open-Meteo historical forecast (2025-06-15 14:00 UTC) | 4 altitude bands (AMSL), 4 hourly slices |
 | `landing_zones.geojson` | OpenStreetMap via Overpass | 13 helipads/aerodromes/runways |
 
 The area covers the Lucerne basin and surrounding pre-Alps, including the
-Pilatus massif (peak elevation 2025 m in the SRTM grid).
+Pilatus massif (peak elevation 2025 m in the SRTM grid). SRTM has voids over
+the lakes, so the grid is fetched with `--void-policy interpolate`; the wind
+grid's `altitude_m` axis is metres AMSL, matching the ~550 m the route flies.

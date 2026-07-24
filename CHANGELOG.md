@@ -52,11 +52,15 @@ and this project adheres to semantic versioning once public releases begin.
   area" command died on the project's own coordinates and left the output
   directory empty. `fetch_all` now also warns and continues instead of
   discarding the assets it already wrote.
-- The bundled Alpine terrain asset no longer claims sea level in the Alps: five
-  SRTM voids had been written as `0.0` and are now filled from the nearest
-  sampled elevation. The example README's terrain range is corrected, and its
-  claim that the bundled wind grid exercises spatiotemporal interpolation is
-  replaced with a warning that only the 10 m band holds real values.
+- The bundled Alpine demo assets were regenerated. The terrain grid had SRTM
+  voids over the lakes written as `0.0` — sea level in the Alps — and the wind
+  grid held real values only in its 10 m band, on an axis expressed above
+  ground while the provider queries metres AMSL. The route flies near 550 m
+  AMSL, so every sample clamped to the grid edge and the flagship example
+  demonstrated the wind model on a null input, reporting `worst wind
+  0.00 m/s`; it now reports `3.55 m/s`. The README's coverage table (the
+  terrain grid spans lon 8.15–8.45, not 8.1–8.4) and peak elevation are
+  corrected, and the reproduce commands match the shipped assets.
 - `population-grid.v2` evidence is emitted with a YAML serializer instead of
   Python `repr()`, so metadata containing quotes or other special characters no
   longer corrupts the file.
