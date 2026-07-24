@@ -5,7 +5,9 @@
       "type": "Feature",
       "id": "demo_no_fly_zone",
       "properties": {
-        "kind": "forbidden"
+        "kind": "forbidden",
+        "floor_m": 0.0,
+        "ceiling_m": 300.0
       },
       "geometry": {
         "type": "Polygon",

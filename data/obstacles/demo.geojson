@@ -1,0 +1,18 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "demo_comms_mast",
+      "properties": {
+        "height_m": 45.0,
+        "radius_m": 15.0,
+        "uncertainty_m": 5.0
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [4.05, 52.05]
+      }
+    }
+  ]
+}

@@ -1,0 +1,94 @@
+# Complete-evidence mission: the reference for what a GO actually requires.
+#
+# Every gated evidence category is supplied here. Remove any single asset or
+# block below and the verdict falls back to NO-GO, which is the point: the
+# checklist is fail-closed.
+schema_version: mission.v7
+mission_id: pipeline_demo_001_go
+vehicle_profile: quadplane_v1
+departure_time: 2026-07-21T12:00:00Z
+
+planned_home:
+  lat: 52.0
+  lon: 4.0
+  altitude_amsl_m: 12.0
+
+defaults:
+  cruise_speed_mps: 18.0
+  hover_speed_mps: 5.0
+  altitude_reference: relative_home
+
+route:
+  - id: takeoff
+    action: vtol_takeoff
+    altitude_m: 80.0
+
+  - id: wp1
+    action: waypoint
+    lat: 52.001
+    lon: 4.002
+    altitude_m: 120.0
+    acceptance_radius_m: 20.0
+
+  - id: rtl
+    action: rtl
+
+constraints:
+  min_landing_reserve_percent: 25.0
+  max_wind_mps: 10.0
+  min_distance_to_landing_zone_m: 2500.0
+  min_obstacle_clearance_m: 25.0
+  min_terrain_clearance_m: 30.0
+
+assets:
+  geofences_file: ../../data/geofences/demo.geojson
+  landing_zones_file: ../../data/landing_zones/demo.geojson
+  obstacles_file: ../../data/obstacles/demo.geojson
+  terrain_file: assets/pipeline_terrain_grid.yaml
+  population_grid_file: assets/pipeline_population_grid.yaml
+  wind_grid_file: ../wind/pipeline_wind_grid.yaml
+
+policy:
+  lost_link_policy: standard_lost_link_v1
+
+link_systems:
+  - link_id: mesh-primary
+    kind: mesh_network
+    priority: 0
+    max_range_m: 5000.0
+  - link_id: starlink-backup
+    kind: starlink
+    priority: 1
+    max_range_m: 100000.0
+
+airspace:
+  class: "G"
+  max_altitude_agl_m: 130.0
+  operational_and_contingency_volume_assessment_reference: Example airspace assessment AS-001, rev 1
+  worst_case_arc_declared: true
+  aerodrome_environment: false
+  atypical_or_segregated: false
+  over_urban_area: false
+  transponder_mandatory_zone: false
+  entirely_above_flight_level_600: false
+  strategic_mitigation: false
+
+sora:
+  version: "2.5"
+  ground_risk_footprint:
+    operational_volume_margin_m: 30.0
+    ground_risk_buffer_m: 130.0
+    vertical_contingency_margin_m: 10.0
+    maximum_height_agl_m: 130.0
+    buffer_method: initial_1_to_1
+    derivation: Example 30 m contingency margin plus initial 1:1 GRB, including 10 m vertical contingency
+  containment_evidence:
+    assessment_reference: Example adjacent-area assessment CONT-001, rev 1
+    average_population_density_ppl_km2: 12.0
+    largest_outdoor_assembly: below_40000
+    sheltering_applicable: true
+    ground_risk_buffer_revalidation_reference: Example GRC recheck GRC-002, rev 1
+
+metadata:
+  mission_type: complete_evidence_reference
+  notes: Reference mission demonstrating a GO verdict with every evidence category supplied.
