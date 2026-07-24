@@ -54,7 +54,7 @@ bvlos-fetch-terrain = "bvlos_sim.scripts.fetch_terrain:main"
 bvlos-fetch-wind = "bvlos_sim.scripts.fetch_wind:main"
 
 [build-system]
-requires = ["setuptools>=77"]
+requires = ["setuptools>=83.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project.optional-dependencies]
