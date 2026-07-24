@@ -30,6 +30,8 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+import yaml
+
 
 def _fail(message: str) -> None:
     print(f"Error: {message}", file=sys.stderr)
@@ -198,35 +200,33 @@ def main() -> None:
         math.cos(math.radians(centre_lat)), 0.1
     )
 
-    lines = [
-        "schema_version: population-grid.v2",
-        f"origin_lat: {args.lat_min}",
-        f"origin_lon: {args.lon_min}",
-        f"step_lat_deg: {args.step_deg}",
-        f"step_lon_deg: {args.step_deg}",
-        "density_ppl_km2:",
-    ]
-    for row_values in maxima:
-        rendered = ", ".join(f"{value:.1f}" for value in row_values)
-        lines.append(f"  - [{rendered}]")
-    lines += [
-        "metadata:",
-        f"  source: {args.source!r}",
-        f"  population_year: {args.population_year}",
-        f"  native_resolution_m: {args.native_resolution_m}",
-        f"  effective_resolution_m: {effective_resolution_m:.1f}",
-        "  value_semantics: conservative_cell_maximum",
-        f"  authority_assessment_reference: {args.authority_assessment_reference!r}",
-        f"  valid_from: {args.valid_from}",
-        f"  valid_until: {args.valid_until}",
-        "  transient_population_assessment_reference: "
-        f"{args.transient_population_assessment_reference!r}",
-        "  operational_footprint_assemblies_present: "
-        f"{'true' if args.assemblies_present else 'false'}",
-    ]
+    document = {
+        "schema_version": "population-grid.v2",
+        "origin_lat": args.lat_min,
+        "origin_lon": args.lon_min,
+        "step_lat_deg": args.step_deg,
+        "step_lon_deg": args.step_deg,
+        "density_ppl_km2": [
+            [round(value, 1) for value in row_values] for row_values in maxima
+        ],
+        "metadata": {
+            "source": args.source,
+            "population_year": args.population_year,
+            "native_resolution_m": args.native_resolution_m,
+            "effective_resolution_m": round(effective_resolution_m, 1),
+            "value_semantics": "conservative_cell_maximum",
+            "authority_assessment_reference": args.authority_assessment_reference,
+            "valid_from": args.valid_from,
+            "valid_until": args.valid_until,
+            "transient_population_assessment_reference": (
+                args.transient_population_assessment_reference
+            ),
+            "operational_footprint_assemblies_present": bool(args.assemblies_present),
+        },
+    }
     out = Path(args.output)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    out.write_text(yaml.safe_dump(document, sort_keys=False), encoding="utf-8")
     print(f"Wrote {out} ({rows}x{cols} cells, conservative per-cell maxima)")
     print(
         "Reminder: the format is now correct, but authority approval, "

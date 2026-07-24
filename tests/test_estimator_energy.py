@@ -934,3 +934,32 @@ def test_rth_aborts_when_return_groundspeed_falls_below_the_minimum() -> None:
     # Strictly positive, so this is the below-minimum gate and not the
     # non-positive-groundspeed one.
     assert 0.0 < groundspeed_mps < minimum_mps
+
+
+def test_cruise_mass_exponent_is_configurable() -> None:
+    """The hover exponent does not apply in forward flight.
+
+    Transit power scaled by a hardcoded 0.5, so induced_power_mass_exponent
+    had no effect on cruise and there was no way to set the forward-flight
+    exponent at all.
+    """
+
+    def transit_multiplier(exponent: float) -> float:
+        vehicle = make_vehicle()
+        vehicle.mass.operating_mass_kg = 12.0
+        vehicle.energy.reference_mass_kg = 8.0
+        vehicle.energy.cruise_power_mass_exponent = exponent
+        result = estimate_mission_distance_time(make_mission(), vehicle)
+        assert result.energy is not None
+        leg = next(
+            energy
+            for energy in result.energy.legs
+            if energy.power_source == EnergyPowerSource.CRUISE_POWER
+        )
+        assert leg.mass_multiplier is not None
+        return leg.mass_multiplier
+
+    # (12/8) ** exponent
+    assert transit_multiplier(0.5) == pytest.approx(1.5**0.5)
+    assert transit_multiplier(1.1) == pytest.approx(1.5**1.1)
+    assert transit_multiplier(1.1) > transit_multiplier(0.5)

@@ -88,6 +88,15 @@ class EnergyModel(BaseModel):
         gt=0,
         description="Mass-scaling exponent for induced hover and climb power.",
     )
+    cruise_power_mass_exponent: FiniteFloat = Field(
+        default=0.5,
+        gt=0,
+        description=(
+            "Mass-scaling exponent for cruise and transit power. The hover "
+            "exponent does not apply in forward flight, so it is configured "
+            "separately; the conservative default keeps existing results."
+        ),
+    )
     usable_capacity_curve: list[UsableCapacityPoint] | None = Field(
         default=None,
         min_length=1,

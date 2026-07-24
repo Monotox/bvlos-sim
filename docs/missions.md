@@ -267,10 +267,12 @@ metadata:
   notes: Replace with manufacturer data or measured logs before real analysis.
 ```
 
-How energy is computed: legs with positive vertical motion use climb power,
-negative use descent power, forward transit uses cruise power, hover loiter
-uses hover power. Optional fidelity fields — `energy.reference_mass_kg`,
-`energy.reference_density_kgm3`, `energy.induced_power_mass_exponent`, and
+How energy is computed: a leg that climbs or descends while covering ground is
+costed by phase time — the vertical part at climb or descent power, the rest at
+cruise power — and reports the resulting time-weighted power. Hover loiter uses
+hover power. Optional fidelity fields — `energy.reference_mass_kg`,
+`energy.reference_density_kgm3`, `energy.induced_power_mass_exponent` (hover and
+climb), `energy.cruise_power_mass_exponent` (forward flight, default `0.5`), and
 `energy.usable_capacity_curve` — add deterministic mass, ISA-density, and
 usable-state-of-charge scaling; they are closed-form pre-calibration aids, not
 a substitute for fitting against your own flight logs with

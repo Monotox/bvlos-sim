@@ -37,6 +37,14 @@ and this project adheres to semantic versioning once public releases begin.
 
 ### Fixed
 
+- `population-grid.v2` evidence is emitted with a YAML serializer instead of
+  Python `repr()`, so metadata containing quotes or other special characters no
+  longer corrupts the file.
+- Forward-flight mass scaling is configurable via
+  `energy.cruise_power_mass_exponent`. Transit power scaled by a hardcoded
+  `0.5`, so `induced_power_mass_exponent` never reached cruise and the
+  forward-flight exponent could not be set at all. The default preserves
+  existing results.
 - The SORA report now carries provenance. `render_sora_markdown` discarded
   everything but the assessment, so the filed artifact named neither the tool
   version, the SORA edition, the population data vintage, nor the input

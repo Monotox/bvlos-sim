@@ -49,7 +49,6 @@ _INDUCED_POWER_SOURCES = frozenset(
         EnergyPowerSource.DESCENT_POWER,
     }
 )
-_CRUISE_MASS_EXPONENT = 0.5
 # Upper bound on emergency/RTH path sample spacing, independent of the transit
 # sampling option so a coarse transit setting cannot coarsen contingency energy.
 _EMERGENCY_SAMPLE_LENGTH_M = 100.0
@@ -558,7 +557,7 @@ def _mass_power_multiplier(
     exponent = (
         vehicle.energy.induced_power_mass_exponent
         if source in _INDUCED_POWER_SOURCES
-        else _CRUISE_MASS_EXPONENT
+        else vehicle.energy.cruise_power_mass_exponent
     )
     return (operating_mass_kg / reference_mass_kg) ** exponent
 
