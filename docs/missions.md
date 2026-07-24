@@ -66,10 +66,20 @@ constraints:
   require_rth_reserve: true           # hard per-leg return-to-home reserve gate
   max_wind_mps: 12.0                  # sustained-wind limit at every path sample
   max_crosswind_mps: 8.0              # cross-track wind limit
-  min_distance_to_landing_zone_m: 2500.0
+  min_distance_to_landing_zone_m: 2500.0  # NOTE: this is a MAXIMUM (see below)
   min_obstacle_clearance_m: 15.0      # separation buffer around obstacles
   min_terrain_clearance_m: 30.0       # sampled terrain clearance (needs terrain asset)
 ```
+
+!!! warning "`min_distance_to_landing_zone_m` is an upper bound"
+
+    Despite the `min_` prefix, this is the **maximum tolerated** straight-line
+    distance from any route state to an emergency landing zone. **Raising it
+    makes the check more permissive, not stricter.** On the demo route, `500`
+    fails every sampled state, `2500` fails 69 of 166, and `8000` passes. Set it
+    to the furthest distance you are willing to be from a landing zone, and do
+    not raise it to "tighten" the constraint. The reserve-based divert check
+    runs independently of this value and is unaffected by it.
 
 Advisory warnings block the operational `GO` verdict by default.
 `accepted_warning_codes` is the explicit, reviewable opt-out: codes listed
@@ -105,9 +115,15 @@ estimation:
 Wind precedence, strongest first: CLI `--wind-layer` flags → mission
 `assets.wind_grid_file` → `estimation.wind_layers` → scalar
 `wind_east_mps`/`wind_north_mps`. Scenario `initial_conditions` override
-mission `estimation` for scenario runs. Fidelity v2 does *not* enable
-sub-segment sampling by itself — set `max_segment_length_m` separately (it
-also works in v1).
+mission `estimation` for scenario runs.
+
+`max_segment_length_m` defaults to `500.0` and works in both fidelity modes.
+Every straight leg is integrated in sub-segments of at most that length and
+sampled at each sub-segment's midpoint, so a leg crossing a wind gradient is
+never billed at the wind it departed in. Legs shorter than the interval still
+resolve to a single midpoint sample. Lower it for finer integration over long
+legs in strongly varying wind; the estimate reports
+`metadata.applied_default_max_segment_length_m` when the default was used.
 
 ### Assets
 
@@ -125,7 +141,7 @@ assets:
 Relative paths resolve from the mission file's directory. All assets are
 offline files — core execution performs no live lookups; data quality and
 freshness are the operator's responsibility. Fetch real data with the bundled
-scripts (`uv sync --extra scripts`, then `scripts/fetch_all.py <lat> <lon>` or
+scripts (`uv sync --extra scripts`, then `bvlos_sim/scripts/fetch_all.py <lat> <lon>` or
 the individual `fetch_terrain.py` / `fetch_wind.py` / `fetch_landing_zones.py`
 / `fetch_geofences.py` / `fetch_population.py`); see
 [`examples/real_world/`](https://github.com/Monotox/bvlos-sim/blob/main/examples/real_world/README.md) for a complete
@@ -182,7 +198,7 @@ route point violates when it is horizontally within
 `radius_m + min_obstacle_clearance_m + uncertainty_m` and clears the top by
 less than `min_obstacle_clearance_m + uncertainty_m`.
 
-**Population** — the diagnostic grid (`population-grid.v1`, or unversioned)
+**Population** — the diagnostic grid (`population-grid.v2`, or unversioned)
 feeds `estimate --format ground-risk` only. The operational `sora` command
 requires `population-grid.v2` with provenance metadata; see
 [SORA evidence](#sora-evidence).
@@ -192,7 +208,8 @@ requires `population-grid.v2` with provenance metadata; see
 ```yaml
 link_systems:
   - link_id: c2_primary
-    kind: direct          # direct | cellular | satellite | hybrid
+    kind: direct_radio    # direct_radio | mesh_network | cellular_lte_5g
+                          # | satellite | starlink | hybrid
     required: true
     priority: 1
     availability: available
@@ -250,10 +267,12 @@ metadata:
   notes: Replace with manufacturer data or measured logs before real analysis.
 ```
 
-How energy is computed: legs with positive vertical motion use climb power,
-negative use descent power, forward transit uses cruise power, hover loiter
-uses hover power. Optional fidelity fields — `energy.reference_mass_kg`,
-`energy.reference_density_kgm3`, `energy.induced_power_mass_exponent`, and
+How energy is computed: a leg that climbs or descends while covering ground is
+costed by phase time — the vertical part at climb or descent power, the rest at
+cruise power — and reports the resulting time-weighted power. Hover loiter uses
+hover power. Optional fidelity fields — `energy.reference_mass_kg`,
+`energy.reference_density_kgm3`, `energy.induced_power_mass_exponent` (hover and
+climb), `energy.cruise_power_mass_exponent` (forward flight, default `0.5`), and
 `energy.usable_capacity_curve` — add deterministic mass, ISA-density, and
 usable-state-of-charge scaling; they are closed-form pre-calibration aids, not
 a substitute for fitting against your own flight logs with
@@ -388,7 +407,7 @@ containing `departure_time`, and a transient-population/assemblies assessment.
 WorldPop point samples and legacy grids stay diagnostic-only.
 
 Produce the file from an authority-exported raster with
-`scripts/build_population_grid.py` (entry point
+`bvlos_sim/scripts/build_population_grid.py` (entry point
 `bvlos-build-population-grid`): it converts an ESRI ASCII grid or a
 lat/lon/density CSV using per-cell maxima, refuses uncovered cells, and
 requires every metadata field as a flag. The tool guarantees format and
@@ -408,7 +427,7 @@ GRB was fed back through Step 2; Annex E compliance is always
 
 Input schemas (`mission.v7`, `vehicle.v4`, `scenario.v1`, `uncertainty.v2`,
 `stochastic.v2`, `batch.v1`, the GeoJSON asset schemas, `population-grid.v2`)
-and output envelopes (`estimator-envelope.v9`, `scenario-report.v3`, and the
+and output envelopes (`estimator-envelope.v10`, `scenario-report.v3`, and the
 rest printed by [`schema-versions`](cli.md#schema-versions)) are stable public
 contracts. Within a published version, fields are not removed or renamed, enum
 and exit-code meanings do not change, and canonical JSON rendering stays

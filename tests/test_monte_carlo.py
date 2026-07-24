@@ -3,11 +3,11 @@
 import pytest
 from pydantic import ValidationError
 
-from estimator import run_monte_carlo
-from estimator.core.enums import EstimateStatus
-from estimator.core.results import WindVector
-from estimator.execution.monte_carlo import _build_sample_wind_provider, _stats
-from schemas.uncertainty import (
+from bvlos_sim.estimator import run_monte_carlo
+from bvlos_sim.estimator.core.enums import EstimateStatus
+from bvlos_sim.estimator.core.results import WindVector
+from bvlos_sim.estimator.execution.monte_carlo import _build_sample_wind_provider, _stats
+from bvlos_sim.schemas.uncertainty import (
     NormalDistribution,
     UniformDistribution,
     UncertaintyParameters,
@@ -253,7 +253,7 @@ def test_monte_carlo_baseline_is_deterministic() -> None:
 
 
 def test_monte_carlo_baseline_matches_direct_estimate() -> None:
-    from estimator import try_estimate_mission_distance_time
+    from bvlos_sim.estimator import try_estimate_mission_distance_time
 
     mission = make_mission()
     vehicle = make_vehicle()
@@ -294,7 +294,7 @@ def test_monte_carlo_modeled_pass_rate_between_zero_and_one() -> None:
 def test_monte_carlo_counts_infeasible_separately_from_modeled_pass(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from estimator import try_estimate_mission_distance_time
+    from bvlos_sim.estimator import try_estimate_mission_distance_time
 
     mission = make_mission()
     vehicle = make_vehicle()
@@ -305,7 +305,7 @@ def test_monte_carlo_counts_infeasible_separately_from_modeled_pass(
     results = iter([baseline, infeasible, baseline])
 
     monkeypatch.setattr(
-        "estimator.execution.monte_carlo.try_estimate_mission_distance_time",
+        "bvlos_sim.estimator.execution.monte_carlo.try_estimate_mission_distance_time",
         lambda *_args, **_kwargs: next(results),
     )
 
@@ -322,7 +322,7 @@ def test_monte_carlo_counts_infeasible_separately_from_modeled_pass(
 def test_monte_carlo_does_not_count_error_or_incomplete_success_as_pass(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from estimator import try_estimate_mission_distance_time
+    from bvlos_sim.estimator import try_estimate_mission_distance_time
 
     mission = make_mission()
     vehicle = make_vehicle()
@@ -331,7 +331,7 @@ def test_monte_carlo_does_not_count_error_or_incomplete_success_as_pass(
     incomplete = baseline.model_copy(update={"energy": None})
     results = iter([baseline, error, incomplete])
     monkeypatch.setattr(
-        "estimator.execution.monte_carlo.try_estimate_mission_distance_time",
+        "bvlos_sim.estimator.execution.monte_carlo.try_estimate_mission_distance_time",
         lambda *_args, **_kwargs: next(results),
     )
 
@@ -426,7 +426,7 @@ def test_monte_carlo_stats_min_le_p5_le_p50_le_p95_le_max() -> None:
 
 def test_monte_carlo_non_estimator_error_propagates() -> None:
     """Non-EstimatorError exceptions must not be silently swallowed."""
-    from estimator.execution.monte_carlo import run_monte_carlo as _run
+    from bvlos_sim.estimator.execution.monte_carlo import run_monte_carlo as _run
 
     class BrokenWindProvider:
         def wind_at(self, **_kwargs: object) -> object:

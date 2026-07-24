@@ -5,11 +5,11 @@ import math
 import pytest
 from pydantic import ValidationError
 
-from estimator.execution.ground_risk import (
+from bvlos_sim.estimator.execution.ground_risk import (
     apply_grc_mitigations,
     supported_sora_versions,
 )
-from schemas.sora import (
+from bvlos_sim.schemas.sora import (
     AirRiskMitigations,
     GrcMitigationCredit,
     GrcMitigationCreditStatus,

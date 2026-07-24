@@ -19,12 +19,12 @@ elevations_m:
 
 ## Real-world terrain
 
-Use `scripts/fetch_terrain.py` to download SRTM tiles for any bounding box:
+Use `bvlos_sim/scripts/fetch_terrain.py` to download SRTM tiles for any bounding box:
 
 ```bash
 uv sync --extra scripts   # installs srtm.py (once)
 
-uv run python scripts/fetch_terrain.py 51.9 52.1 3.9 4.1 0.001 \
+uv run python bvlos_sim/scripts/fetch_terrain.py 51.9 52.1 3.9 4.1 0.001 \
   --output examples/terrain/my_area.yaml
 ```
 

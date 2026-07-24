@@ -56,7 +56,7 @@ Fetch real terrain, wind, and landing zones for your own area:
 
 ```bash
 uv sync --extra scripts
-uv run python scripts/fetch_all.py <lat> <lon> --output-dir assets/
+uv run python bvlos_sim/scripts/fetch_all.py <lat> <lon> --output-dir assets/
 # prints the assets: block to paste into your mission YAML
 ```
 

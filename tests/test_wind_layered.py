@@ -2,8 +2,8 @@
 
 import pytest
 
-from estimator import LayeredWindProvider, WindLayer
-from estimator.environment.wind import (
+from bvlos_sim.estimator import LayeredWindProvider, WindLayer
+from bvlos_sim.estimator.environment.wind import (
     ConstantWindProvider,
     TimedWindChange,
     TimeVaryingWindProvider,

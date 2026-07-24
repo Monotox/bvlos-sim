@@ -4,15 +4,15 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from adapters.cli import CliExitCode, app
-from adapters.io import load_mission, load_vehicle
-from adapters.sensitivity import (
+from bvlos_sim.adapters.cli import CliExitCode, app
+from bvlos_sim.adapters.io import load_mission, load_vehicle
+from bvlos_sim.adapters.sensitivity import (
     SensitivityLevel,
     render_sensitivity_markdown,
     run_sensitivity_sweep,
 )
-from estimator import MissionEstimate, try_estimate_mission_distance_time
-from schemas import MissionPlan, VehicleProfile
+from bvlos_sim.estimator import MissionEstimate, try_estimate_mission_distance_time
+from bvlos_sim.schemas import MissionPlan, VehicleProfile
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MISSION_PATH = REPO_ROOT / "examples/missions/pipeline_demo_001.yaml"

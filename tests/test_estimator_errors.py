@@ -1,13 +1,13 @@
 import pytest
 
-from estimator import (
+from bvlos_sim.estimator import (
     EstimateStatus,
     FailureCode,
     estimate_mission_distance_time,
     try_estimate_mission_distance_time,
 )
-from estimator.core.errors import EstimatorError
-from schemas import AltitudeReference
+from bvlos_sim.estimator.core.errors import EstimatorError
+from bvlos_sim.schemas import AltitudeReference
 from tests.helpers import make_mission, make_vehicle
 
 

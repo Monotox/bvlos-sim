@@ -2,7 +2,7 @@
 
 import pytest
 
-from estimator import (
+from bvlos_sim.estimator import (
     ConstantElevationProvider,
     EstimateStatus,
     FailureCode,
@@ -10,8 +10,8 @@ from estimator import (
     estimate_mission_distance_time,
     try_estimate_mission_distance_time,
 )
-from estimator.environment.terrain import GridTerrainProvider, terrain_provider_id
-from schemas.mission import AltitudeReference
+from bvlos_sim.estimator.environment.terrain import GridTerrainProvider, terrain_provider_id
+from bvlos_sim.schemas.mission import AltitudeReference
 from tests.helpers import make_mission, make_vehicle
 
 
@@ -190,7 +190,7 @@ def test_try_api_terrain_without_provider_returns_error_status() -> None:
 
 
 def test_load_terrain_grid_from_yaml(tmp_path) -> None:
-    from adapters.terrain_grid import load_terrain_grid
+    from bvlos_sim.adapters.terrain_grid import load_terrain_grid
 
     grid_file = tmp_path / "terrain.yaml"
     grid_file.write_text(
@@ -208,7 +208,7 @@ def test_load_terrain_grid_from_yaml(tmp_path) -> None:
 
 
 def test_load_terrain_grid_missing_key_raises_load_error(tmp_path) -> None:
-    from adapters.terrain_grid import TerrainGridLoadError, load_terrain_grid
+    from bvlos_sim.adapters.terrain_grid import TerrainGridLoadError, load_terrain_grid
 
     grid_file = tmp_path / "terrain.yaml"
     grid_file.write_text("origin_lat: 52.0\n")  # missing required keys
@@ -217,7 +217,7 @@ def test_load_terrain_grid_missing_key_raises_load_error(tmp_path) -> None:
 
 
 def test_load_terrain_grid_non_mapping_raises_load_error(tmp_path) -> None:
-    from adapters.terrain_grid import TerrainGridLoadError, load_terrain_grid
+    from bvlos_sim.adapters.terrain_grid import TerrainGridLoadError, load_terrain_grid
 
     grid_file = tmp_path / "terrain.yaml"
     grid_file.write_text("- 1\n- 2\n")  # list, not mapping

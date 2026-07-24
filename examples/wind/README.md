@@ -23,12 +23,12 @@ Values are quadrilinearly interpolated in time, altitude, latitude, and longitud
 
 ## Real-world wind
 
-Use `scripts/fetch_wind.py` to download an Open-Meteo forecast:
+Use `bvlos_sim/scripts/fetch_wind.py` to download an Open-Meteo forecast:
 
 ```bash
 uv sync --extra scripts   # installs requests (once)
 
-uv run python scripts/fetch_wind.py 52.0 4.0 \
+uv run python bvlos_sim/scripts/fetch_wind.py 52.0 4.0 \
   --output examples/wind/forecast.yaml
 ```
 

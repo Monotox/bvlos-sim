@@ -4,9 +4,9 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from schemas import MissionPlan, RouteItem, ScenarioPlan, VehicleProfile
-from schemas.vehicle_energy import EnergyModel, FailsafeProfile
-from schemas.vehicle_sensors import AirspeedModel, BatteryMeterModel, GpsModel, SensorProfile
+from bvlos_sim.schemas import MissionPlan, RouteItem, ScenarioPlan, VehicleProfile
+from bvlos_sim.schemas.vehicle_energy import EnergyModel, FailsafeProfile
+from bvlos_sim.schemas.vehicle_sensors import AirspeedModel, BatteryMeterModel, GpsModel, SensorProfile
 
 ROOT = Path(__file__).resolve().parents[1]
 

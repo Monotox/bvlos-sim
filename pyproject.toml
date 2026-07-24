@@ -1,6 +1,6 @@
 [project]
 name = "bvlos-sim"
-version = "0.32.0"
+version = "0.33.0"
 description = "Open-source BVLOS mission validation and simulation tooling."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -43,15 +43,15 @@ Repository = "https://github.com/Monotox/bvlos-sim"
 Documentation = "https://github.com/Monotox/bvlos-sim/tree/main/docs"
 
 [project.scripts]
-bvlos-sim = "main:main"
-bvlos-fetch-all = "scripts.fetch_all:main"
-bvlos-fetch-geofences = "scripts.fetch_geofences:main"
-bvlos-fetch-landing-zones = "scripts.fetch_landing_zones:main"
-bvlos-fetch-obstacles = "scripts.fetch_obstacles:main"
-bvlos-fetch-population = "scripts.fetch_population:main"
-bvlos-build-population-grid = "scripts.build_population_grid:main"
-bvlos-fetch-terrain = "scripts.fetch_terrain:main"
-bvlos-fetch-wind = "scripts.fetch_wind:main"
+bvlos-sim = "bvlos_sim.__main__:main"
+bvlos-fetch-all = "bvlos_sim.scripts.fetch_all:main"
+bvlos-fetch-geofences = "bvlos_sim.scripts.fetch_geofences:main"
+bvlos-fetch-landing-zones = "bvlos_sim.scripts.fetch_landing_zones:main"
+bvlos-fetch-obstacles = "bvlos_sim.scripts.fetch_obstacles:main"
+bvlos-fetch-population = "bvlos_sim.scripts.fetch_population:main"
+bvlos-build-population-grid = "bvlos_sim.scripts.build_population_grid:main"
+bvlos-fetch-terrain = "bvlos_sim.scripts.fetch_terrain:main"
+bvlos-fetch-wind = "bvlos_sim.scripts.fetch_wind:main"
 
 [build-system]
 requires = ["setuptools>=77"]
@@ -82,14 +82,11 @@ docs = [
     "mkdocs-material>=9.5",
 ]
 
-[tool.setuptools]
-py-modules = ["main"]
-
 [tool.setuptools.packages.find]
-include = ["adapters*", "estimator*", "schemas*", "scripts*"]
+include = ["bvlos_sim*"]
 
 [tool.ruff]
-include = ["adapters/**/*.py", "estimator/**/*.py", "schemas/**/*.py", "tests/**/*.py", "scripts/**/*.py"]
+include = ["bvlos_sim/**/*.py", "tests/**/*.py"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

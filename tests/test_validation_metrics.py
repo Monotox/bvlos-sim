@@ -5,30 +5,31 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+import typer
 
-from adapters.flight_log import ingest_dataflash_log
-from adapters.phase_segmentation import segment_trace
-from adapters.validation import (
+from bvlos_sim.adapters.flight_log import ingest_dataflash_log
+from bvlos_sim.adapters.phase_segmentation import segment_trace
+from bvlos_sim.adapters.validation import (
     build_validation_report,
     load_validation_report,
     write_validation_report,
 )
-from estimator.core.enums import EstimateStatus, LegPhase
-from estimator.core.results import EnergyEstimate, LegEstimate, MissionEstimate
-from schemas import ValidationAcceptance as PublicValidationAcceptance
-from schemas.flight_log import (
+from bvlos_sim.estimator.core.enums import EstimateStatus, LegPhase
+from bvlos_sim.estimator.core.results import EnergyEstimate, LegEstimate, MissionEstimate
+from bvlos_sim.schemas import ValidationAcceptance as PublicValidationAcceptance
+from bvlos_sim.schemas.flight_log import (
     FlightTraceProvenance,
     FlightTraceRecord,
     NormalizedFlightTrace,
 )
-from schemas.phase_segment import (
+from bvlos_sim.schemas.phase_segment import (
     PHASE_SEGMENT_SCHEMA_VERSION,
     PhaseSegment,
     PhaseSegmentResult,
     SegmentationMetadata,
     TracePhase,
 )
-from schemas.validation import (
+from bvlos_sim.schemas.validation import (
     VALIDATION_REPORT_SCHEMA_VERSION,
     MetricComparison,
     ValidationAcceptance,
@@ -414,3 +415,32 @@ def test_full_path_from_example_log() -> None:
 
 
 __all__: list[str] = []
+
+
+def test_validate_refuses_a_calibration_fitted_from_the_same_trace() -> None:
+    """A model tuned on a flight reproduces that flight; that is not evidence."""
+
+    from bvlos_sim.adapters.commands.validate import _refuse_circular_validation
+    from bvlos_sim.schemas.calibration import CalibrationProfile
+
+    profile = CalibrationProfile.model_validate(
+        {
+            "schema_version": "calibration-profile.v1",
+            "calibration_id": "cal-1",
+            "base_vehicle_id": "quadplane_v1",
+            "provenance": {
+                "tool_version": "0.0.0-test",
+                "calibration_dataset_version": "d1",
+                "source_trace_ids": ["flight-a"],
+            },
+            "parameters": [],
+        }
+    )
+
+    # A different trace is fine.
+    _refuse_circular_validation(profile, "flight-b")
+    # No calibration at all is fine.
+    _refuse_circular_validation(None, "flight-a")
+
+    with pytest.raises(typer.BadParameter, match="circular"):
+        _refuse_circular_validation(profile, "flight-a")

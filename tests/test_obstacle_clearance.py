@@ -6,22 +6,23 @@ import yaml
 from pyproj import Geod
 from typer.testing import CliRunner
 
-from adapters.assets.obstacle_geojson import load_obstacles
-from adapters.cli import CliExitCode, app
-from estimator import (
+from bvlos_sim.adapters.assets.obstacle_geojson import load_obstacles
+from bvlos_sim.adapters.cli import CliExitCode, app
+from bvlos_sim.estimator import (
     EstimateStatus,
     EstimationOptions,
     FailureCode,
     FidelityMode,
     LegPhase,
+    WarningCode,
     estimate_mission_distance_time,
     try_estimate_mission_distance_time,
 )
-from estimator.core.obstacle import Obstacle
-from estimator.environment.obstacle import ListObstacleProvider
-from estimator.environment.terrain import GridTerrainProvider
-from estimator.execution.spatial_sampling import route_leg_samples
-from schemas.mission import MissionAction, MissionPlan, RouteItem
+from bvlos_sim.estimator.core.obstacle import Obstacle
+from bvlos_sim.estimator.environment.obstacle import ListObstacleProvider
+from bvlos_sim.estimator.environment.terrain import GridTerrainProvider
+from bvlos_sim.estimator.execution.spatial_sampling import route_leg_samples
+from bvlos_sim.schemas.mission import MissionAction, MissionPlan, RouteItem
 from tests.helpers import (
     make_mission,
     make_mission_payload,
@@ -580,3 +581,148 @@ def test_obstacle_outputs_surface_clearance_result(tmp_path: Path) -> None:
     ]
     assert obstacle_features
     assert obstacle_features[0]["properties"]["conflict"] is True
+
+
+def test_obstacle_uncertainty_widens_the_required_clearance() -> None:
+    """uncertainty_m must enlarge the keep-out radius, not be advisory.
+
+    Removing the term from the clearance sum left the whole suite green, so a
+    survey obstacle whose position is only known to +-30 m could be flown at
+    40 m with a 15 m clearance requirement and still report GO.
+    """
+
+    geod = Geod(ellps="WGS84")
+    offset_m = 40.0
+    obstacle_lon, obstacle_lat, _ = geod.fwd(4.01, 52.0, 0.0, offset_m)
+
+    def run(uncertainty_m: float):
+        mission = make_mission()
+        mission.constraints.require_rth_reserve = False
+        mission.constraints.min_obstacle_clearance_m = 15.0
+        mission.route = [
+            RouteItem(
+                id="east",
+                action=MissionAction.WAYPOINT,
+                lat=52.0,
+                lon=4.02,
+                altitude_m=120.0,
+            )
+        ]
+        obstacle = Obstacle.model_validate(
+            {
+                "id": "mast",
+                "geometry": {
+                    "type": "point",
+                    "points": [{"lat": obstacle_lat, "lon": obstacle_lon}],
+                },
+                "height_m": 200.0,
+                "radius_m": 10.0,
+                "uncertainty_m": uncertainty_m,
+            }
+        )
+        return try_estimate_mission_distance_time(
+            mission,
+            make_vehicle(),
+            obstacle_provider=ListObstacleProvider([obstacle]),
+        )
+
+    # radius 10 + clearance 15 = 25 m < 40 m offset: no violation on its own.
+    assert run(0.0).obstacle.is_feasible is True
+    # radius 10 + clearance 15 + uncertainty 30 = 55 m > 40 m offset.
+    breached = run(30.0)
+    assert breached.status == EstimateStatus.INFEASIBLE
+    assert breached.obstacle is not None and breached.obstacle.is_feasible is False
+
+
+def _mission_over(lon: float, *, clearance_m: float | None):
+    mission = make_mission()
+    mission.constraints.require_rth_reserve = False
+    mission.constraints.min_obstacle_clearance_m = clearance_m
+    mission.route = [
+        RouteItem(
+            id="east",
+            action=MissionAction.WAYPOINT,
+            lat=52.0,
+            lon=lon,
+            altitude_m=120.0,
+        )
+    ]
+    return mission
+
+
+def test_vertical_only_leg_is_checked_against_obstacles() -> None:
+    """A purely vertical leg is two samples at one lat/lon, not a line.
+
+    The segment branch built a zero-length LineString whose intersection with
+    the footprint is always empty, so take-off climbs and vertical landings
+    were never checked: a 75 m mast 18 m from the pad reported feasible.
+    """
+
+    geod = Geod(ellps="WGS84")
+    mast_lon, mast_lat, _ = geod.fwd(4.0, 52.0, 90.0, 18.0)
+    mast = Obstacle.model_validate(
+        {
+            "id": "pad-mast",
+            "geometry": {"type": "point", "points": [{"lat": mast_lat, "lon": mast_lon}]},
+            "height_m": 75.0,
+            "radius_m": 0.0,
+        }
+    )
+    mission = make_mission()
+    mission.constraints.require_rth_reserve = False
+    mission.constraints.min_obstacle_clearance_m = 20.0
+    mission.route = [
+        RouteItem(id="climb", action=MissionAction.VTOL_TAKEOFF, altitude_m=80.0)
+    ]
+
+    result = try_estimate_mission_distance_time(
+        mission, make_vehicle(), obstacle_provider=ListObstacleProvider([mast])
+    )
+
+    assert result.obstacle is not None
+    assert result.obstacle.is_feasible is False
+    assert result.status == EstimateStatus.INFEASIBLE
+
+
+def test_empty_obstacle_file_does_not_read_as_proven_clear() -> None:
+    """Zero obstacles satisfied the evidence gate and reported PASS."""
+
+    result = try_estimate_mission_distance_time(
+        _mission_over(4.02, clearance_m=15.0),
+        make_vehicle(),
+        obstacle_provider=ListObstacleProvider([]),
+    )
+
+    codes = {warning.code for warning in result.warnings}
+    assert WarningCode.OBSTACLE_ZERO_FEATURES in codes
+
+
+def test_zero_width_keep_out_volume_is_flagged() -> None:
+    """Zero radius, zero uncertainty and no configured clearance proves nothing."""
+
+    obstacle = Obstacle.model_validate(
+        {
+            "id": "mast",
+            "geometry": {"type": "point", "points": [{"lat": 52.0, "lon": 4.01}]},
+            "height_m": 200.0,
+            "radius_m": 0.0,
+        }
+    )
+    provider = ListObstacleProvider([obstacle])
+
+    vacuous = try_estimate_mission_distance_time(
+        _mission_over(4.02, clearance_m=None), make_vehicle(), obstacle_provider=provider
+    )
+    configured = try_estimate_mission_distance_time(
+        _mission_over(4.02, clearance_m=15.0), make_vehicle(), obstacle_provider=provider
+    )
+
+    assert WarningCode.OBSTACLE_KEEP_OUT_NOT_CONFIGURED in {
+        warning.code for warning in vacuous.warnings
+    }
+    # With a real clearance the obstacle is actually detected, not just warned about.
+    assert WarningCode.OBSTACLE_KEEP_OUT_NOT_CONFIGURED not in {
+        warning.code for warning in configured.warnings
+    }
+    assert configured.obstacle is not None
+    assert configured.obstacle.is_feasible is False

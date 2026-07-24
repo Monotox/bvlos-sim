@@ -1,27 +1,27 @@
 import json
 
-from adapters.geojson_export import build_geojson_export
-from adapters.kml_export import _route_style_id, build_kml_export
-from adapters.route_export_support import energy_margin_pct, landing_zone_point
-from estimator.core.enums import (
+from bvlos_sim.adapters.geojson_export import build_geojson_export
+from bvlos_sim.adapters.kml_export import _route_style_id, build_kml_export
+from bvlos_sim.adapters.route_export_support import energy_margin_pct, landing_zone_point
+from bvlos_sim.estimator.core.enums import (
     EnergyPowerSource,
     EstimateStatus,
     FailureCode,
     GeofenceKind,
     LegPhase,
 )
-from estimator.core.geofence import (
+from bvlos_sim.estimator.core.geofence import (
     GeofenceCoordinate,
     GeofenceGeometry,
     GeofencePolygon,
     GeofenceZone,
 )
-from estimator.core.landing_zone import (
+from bvlos_sim.estimator.core.landing_zone import (
     LandingZone,
     LandingZoneCoordinate,
     LandingZoneGeometry,
 )
-from estimator.core.results import (
+from bvlos_sim.estimator.core.results import (
     EnergyEstimate,
     EnergyLegEstimate,
     GeofenceConflict,
@@ -388,7 +388,7 @@ def test_landing_zone_point_returns_lon_lat_for_point_geometry() -> None:
 
 
 def test_landing_zone_point_falls_back_to_polygon_centroid() -> None:
-    from estimator.core.landing_zone import LandingZonePolygon
+    from bvlos_sim.estimator.core.landing_zone import LandingZonePolygon
     polygon = LandingZonePolygon(
         exterior=[
             LandingZoneCoordinate(lat=52.0, lon=4.0),

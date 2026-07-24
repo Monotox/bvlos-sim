@@ -7,6 +7,255 @@ and this project adheres to semantic versioning once public releases begin.
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-07-24
+
+### Changed
+
+- **Breaking:** everything moved under a single `bvlos_sim` package. The
+  distribution installed five generic top-level names — `main`, `adapters`,
+  `estimator`, `schemas`, `scripts` — and pip does not detect file conflicts,
+  so any co-installed distribution shipping one of them silently overwrote ours
+  and ours overwrote theirs. Installing a second package that ships `schemas/`
+  broke `bvlos-sim` outright, and uninstalling it did not repair the install.
+  Imports gain a prefix: `from estimator import …` becomes
+  `from bvlos_sim.estimator import …`, and the bundled scripts move to
+  `bvlos_sim/scripts/`. Console entrypoints are unchanged, and
+  `python -m bvlos_sim` now works. CI asserts the wheel exposes exactly one
+  top-level name.
+
+- Output envelopes are now `estimator-envelope.v10`. `provenance.inputs` gains
+  a `calibration` entry, so a run made under `--calibration` no longer has
+  byte-identical provenance to the base vehicle it overrode.
+  `input_schema_versions` gains `obstacles` and `calibration`, and `population`
+  is corrected to `population-grid.v2` — the only version the loader accepts.
+  `schema-versions` prints the same set.
+
+### Added
+
+- The ground-risk report now states its SORA version, the population assessment
+  buffer, and the numerical dilation that was applied. When the buffer is zero
+  the report carries an explicit **"Centerline-only figure — not a SORA iGRC"**
+  warning: density sampled along the centerline understates the operational
+  volume, and on the same route can report a materially lower iGRC than the
+  buffered assessment. Previously the unqualified number was rendered as
+  "Mission iGRC" with nothing to distinguish the two.
+- Regression tests pinning four safety margins that no test previously
+  protected. Each was verified by deleting the term and confirming the whole
+  suite still passed: the obstacle `uncertainty_m` contribution to required
+  clearance, the half-sample-gap dilation of the ground-risk population query
+  radius, the half-sample-gap widening of the landing-zone distance check, and
+  the RTH abort when return groundspeed falls between zero and
+  `min_groundspeed_mps`. Every one of these only ever makes a verdict *more*
+  permissive when removed, so they were the likeliest source of a future silent
+  false `GO`.
+
+### Fixed
+
+- Command modules can be imported on their own again. `adapters.cli` registers
+  every command at import time, so importing one command first left the module
+  half-initialised and raised `ImportError` — 18 command modules and
+  `adapters.preflight` were affected. The exit codes, output formats and error
+  helpers moved to a leaf `adapters.cli_contract`, which commands import
+  instead; `adapters.cli` re-exports them unchanged.
+- `validate` refuses a calibration that was fitted from the trace being
+  validated. A model tuned on a flight reproduces that flight, so reporting the
+  agreement as validation evidence proved nothing; the circular case is now an
+  explicit error instead of a silent pass.
+- `fetch_terrain.py` and `fetch_all.py` gain `--void-policy {fail,interpolate}`.
+  A single SRTM void aborted the whole fetch, so the documented "fetch your own
+  area" command died on the project's own coordinates and left the output
+  directory empty. `fetch_all` now also warns and continues instead of
+  discarding the assets it already wrote.
+- The bundled Alpine demo assets were regenerated. The terrain grid had SRTM
+  voids over the lakes written as `0.0` — sea level in the Alps — and the wind
+  grid held real values only in its 10 m band, on an axis expressed above
+  ground while the provider queries metres AMSL. The route flies near 550 m
+  AMSL, so every sample clamped to the grid edge and the flagship example
+  demonstrated the wind model on a null input, reporting `worst wind
+  0.00 m/s`; it now reports `3.55 m/s`. The README's coverage table (the
+  terrain grid spans lon 8.15–8.45, not 8.1–8.4) and peak elevation are
+  corrected, and the reproduce commands match the shipped assets.
+- `population-grid.v2` evidence is emitted with a YAML serializer instead of
+  Python `repr()`, so metadata containing quotes or other special characters no
+  longer corrupts the file.
+- Forward-flight mass scaling is configurable via
+  `energy.cruise_power_mass_exponent`. Transit power scaled by a hardcoded
+  `0.5`, so `induced_power_mass_exponent` never reached cruise and the
+  forward-flight exponent could not be set at all. The default preserves
+  existing results.
+- The SORA report now carries provenance. `render_sora_markdown` discarded
+  everything but the assessment, so the filed artifact named neither the tool
+  version, the SORA edition, the population data vintage, nor the input
+  digests. The SORA envelope also omitted the terrain asset that gates the
+  maximum-AGL verification, so the assessment was not reproducible from its own
+  provenance.
+- A batch no longer discards every completed run when one run cannot load.
+  Missions are preloaded to enumerate their assets, so a single unreadable
+  mission aborted the batch before any run executed. The failing run is now an
+  `ERROR` row naming both the run id and the file, and the exit code still
+  follows the documented contract.
+- A leftover atomic-write temp file no longer blocks a rerun into the same
+  `--output-dir`. An interrupted run left `.<name>.<rand>.tmp` behind, which the
+  directory guard treated as a foreign file forever; the tool's own scratch
+  files are now cleaned up.
+- `migrate` exits `13` with a message instead of a bare traceback on an
+  unexpected error, and rejects a non-string `airspace.class` as invalid input
+  (`11`) rather than raising `TypeError`.
+- `dt_s` is bounded below, so a tiny propagation step can no longer make the
+  timeline consume unbounded time and memory.
+- A centerline-only ground-risk assessment no longer satisfies the `GO` gate.
+  The readiness check only rejected `mission_igrc > 7` and never looked at
+  `population_assessment_buffer_m`, which is `0.0` whenever the mission omits
+  the optional footprint block — so a figure that says nothing about the
+  operational volume counted as ground-risk evidence. An unbuffered assessment
+  is now reported as `ground_risk_footprint` missing evidence, matching the
+  report warning added alongside it.
+- A `landing_zone_unavailable` event naming a zone that is not configured now
+  fails closed. The schedule was built from the declared ids without checking
+  them against the loaded zones, so a stale or misspelled id removed nothing:
+  the re-estimate came back bit-identical to the unperturbed mission, the
+  contingency was never exercised, and the report echoed the id back as taken
+  out of service. Unmatched ids now produce
+  `UNKNOWN_LANDING_ZONE_REFERENCE` on the estimate.
+- Divert feasibility now applies the gates and costs the rest of the estimator
+  already does. `compute_divert_estimate` was the only wind-aware solver that
+  never gated its wind triangle, so a divert needing a 70.8° crab against a 35°
+  vehicle limit, or crawling at 2 m/s against a 3 m/s minimum, was reported
+  feasible; both gates now fire. Divert energy also charged horizontal transit
+  only — the target zone's `altitude_amsl_m` was never read — so descending
+  400 m to the landing surface cost nothing; the terminal descent is now
+  budgeted, and an unknown surface altitude fails closed exactly as
+  landing-zone reachability already does. Finally the whole Dubins path was
+  charged at the single straight-line bearing's groundspeed, understating any
+  divert whose entry arc turns into wind; the path is now bounded by the
+  harshest heading the turn sweeps, which is conservative by construction.
+- Obstacle clearance no longer misses three whole categories of conflict.
+  Proximity was decided by intersecting the route line with the obstacle
+  footprint, which is empty unless the geometries actually cross: a zero-radius
+  point obstacle under the default (unset) `min_obstacle_clearance_m` was
+  invisible, and a purely vertical leg — every `vtol_takeoff`, vertical landing,
+  and vertical-completion tail — built a zero-length line that intersects
+  nothing, so a 75 m mast 18 m from the pad reported feasible. Proximity is now
+  a distance test. Vertical clearance also re-derived altitude linearly between
+  samples, which sits *above* the flown profile inside the segment holding the
+  climb/descent kink and overstated height by up to 25 m; it now takes the
+  conservative lower endpoint, as the terrain check already did.
+- Vacuous obstacle evidence no longer reads as proven-clear. Two new blocking
+  advisory warnings mirror `GEOFENCE_ZERO_ZONES`: `OBSTACLE_ZERO_FEATURES` when
+  a configured obstacle file yields no obstacles (exactly what
+  `scripts/fetch_obstacles.py` writes when Overpass returns nothing), and
+  `OBSTACLE_KEEP_OUT_NOT_CONFIGURED` when every obstacle has zero radius and
+  uncertainty and no clearance is configured, so the keep-out volume has no
+  width.
+- Declaring any resource system no longer voids `usable_capacity_curve`
+  derating. A non-empty `vehicle.resource_systems` hands both the battery gate
+  and the RTH gate to `resource_link.py`, which budgeted against the nameplate
+  pack — so the moment an operator declared a resource system, the derating
+  curve stopped derating anything. A 170 Wh pack that can only deliver 93.5 Wh
+  was budgeted at 170 Wh, turning `INFEASIBLE / RTH_RESERVE_BELOW_THRESHOLD`
+  into `SUCCESS` with RTH reported feasible. Resource capacity is now derated
+  (including a pack declared on the resource system itself), while the reserve
+  threshold stays sized on rated capacity so a derated aircraft is not easier to
+  clear than a healthy one.
+- Wind limits are now evaluated over each leg's full duration and altitude band.
+  A leg's stored wind comes from the horizontal integration, whose elapsed time
+  runs out early whenever the climb or descent outlasts the ground track — an
+  ordinary close-but-much-higher waypoint. The altitudes past that point were
+  never queried, and `_legs_with_weather_observations` trusted the stored value,
+  so `max_wind_mps` and `max_crosswind_mps` were checked against the
+  departure-end wind: a leg climbing into a 10 m/s band under an 8 m/s limit
+  reported `success` at `worst_wind 2.0`. Each leg is now sampled across its
+  whole span and the harsher of stored and sampled observation is used.
+- Every surface that grades a scenario now publishes the same operational
+  verdict, via a single `scenario_readiness()` helper. The verdict was computed
+  in the envelope but recomputed — or ignored — everywhere else, so the same run
+  could report `no_go` in JSON while the CLI exited `0` and the checklist printed
+  `Status: GO`. Three surfaces were fail-open: the `scenario` exit gate graded
+  `checklist_is_go(result.estimate)`, discarding the scenario's own evidence;
+  `render_checklist_markdown_from_scenario` recomputed readiness from the
+  estimate, so a **failed** assertion still printed `GO` on the card an operator
+  signs; and batch `run_type: scenario` graded only `ScenarioStatus`, never
+  consulting readiness at all — a mission the estimator called `INFEASIBLE` at
+  −305 % reserve reported `PASSED` and exited `0`. `--engineering-only` was also
+  never threaded into batch scenario/propagate dispatch, so those runs behaved as
+  if it were permanently on; it is now honoured as the documented escape hatch.
+- A scenario whose safety assertions never ran no longer reads as a verified
+  contingency. `determine_scenario_status` only returns `FAILED` when an
+  assertion actively fails, so `SKIPPED` and `UNSUPPORTED` outcomes left the
+  scenario `PASSED` and contributed nothing to the readiness verdict. A
+  `policy_divert_feasible` assertion — the tool's headline "inject a lost link
+  and assert the divert still lands with reserve" check — is skipped whenever the
+  event does not fire, the mission declares no `lost_link_policy`, or the policy
+  action is not `divert`. A mission with no `lost_link_policy` therefore reported
+  `PASSED` with the divert check silently unevaluated. Inconclusive assertions
+  are now reported as `scenario_assertions` **missing evidence**, which blocks
+  `GO` exactly like any other absent evidence. `evaluate_operational_readiness`
+  gains an `additional_missing_evidence` parameter; scenario status and the
+  result contract are unchanged.
+- Geofence checks now follow the flown path instead of a planar endpoint chord.
+  `_leg_geometry` built a two-point `LineString` in degree space with no
+  densification and no longitude normalisation, while every other spatial check
+  walks the leg geodesically via `route_leg_samples`. Three consequences, all
+  silent: a 40 km leg at 60 °N bows ~54 m poleward of its chord, so a forbidden
+  zone sitting in that gap was flown through and reported `conflicts: []`; a
+  route leaving a ±30 m **required** corridor was reported fully covered; and a
+  leg crossing the antimeridian produced a 359.98°-wide line that flagged a zone
+  16 000 km away while missing one 500 m along the actual path. The check now
+  builds each leg from the shared sampler — including materialized turn arcs —
+  unwraps longitudes so an antimeridian crossing stays continuous, and lifts
+  zones onto the same axis. A route that cannot be sampled now fails closed with
+  `INVALID_GEOMETRY` instead of silently passing.
+- Out-of-window required geofence zones no longer gate the verdict. The active
+  set was computed for the coverage union but the *unfiltered* list was passed to
+  the altitude check, so a night-only low-ceiling required zone forced
+  `ROUTE_EXITS_REQUIRED_ZONE` on a mid-afternoon flight. This was fail-safe in
+  direction (false NO-GO) but the only workaround was hand-editing the
+  authority's zone file, destroying the audit trail.
+- The SORA route-AGL check no longer transposes latitude and longitude on
+  materialized turn arcs. `path_coordinates` are stored `(lon, lat)` and consumed
+  in that order everywhere else, but `_conservative_route_max_agl_m` unpacked
+  them as `(lat, lon)`, matching only its fallback tuple. On a `fidelity: v2`
+  route with a real turn, 18 of 20 terrain queries went to a different continent
+  — aborting with "terrain coverage cannot prove maximum AGL" on a tight grid,
+  or verifying height over the wrong ground on a wide one.
+- Mixed climb/descent legs are no longer billed entirely at the vertical phase
+  power. A route action that changes altitude while covering ground is now
+  costed by phase time — the climb or descent portion at `climb_power_w` /
+  `descent_power_w`, the remainder at `cruise_power_w` — and the leg reports the
+  time-weighted effective power, so `energy_wh == power_w * time_s / 3600` still
+  holds. Previously the sign of `vertical_delta_m` alone selected one power for
+  the whole leg, which **understated** energy whenever `descent_power_w` was
+  below cruise: on a 10 km leg ending one metre lower, supplying the documented
+  optional `descent_power_w` cut reported mission energy by 36 % and turned
+  `INFEASIBLE reserve −64.2 %` into `FEASIBLE reserve 66.5 %` on otherwise
+  identical inputs. The same defect **overstated** energy on climb legs by up to
+  2.2×, rejecting missions that were in fact feasible. Both directions are now
+  correct; expect climb-heavy missions to report materially lower energy.
+- Return-to-home and landing-zone divert margins now budget against the derated
+  pack. `usable_capacity_curve` reached only the mission-level gate, leaving
+  every contingency margin computed against nameplate `battery_capacity_wh` — a
+  declared derating had literally no effect on the RTH timeline. A 300 Wh pack
+  with a `0.55` curve reported a `+59.5 Wh` worst-case RTH margin where the
+  derated arithmetic gives `−75.5 Wh`. Emergency-path sampling keeps its own
+  100 m bound, so a coarser transit setting cannot coarsen contingency energy.
+
+### Changed
+
+- `max_segment_length_m` now defaults to `500.0` instead of being unset, and
+  every straight leg is sampled at its sub-segment midpoints. Leaving it unset
+  previously selected a zeroth-order rule that sampled the leg once at its
+  **departure end**, so a leg flying into building wind was billed at the wind
+  it left home in: measured 30 % low in energy and 33 % low in time on a 13.7 km
+  leg through a routine gradient. Legs shorter than the interval still resolve
+  to a single midpoint sample, and the 500 m default tracks 100 m sampling
+  within 1 %. Estimates report `metadata.applied_default_max_segment_length_m`
+  when the default was applied, mirroring the existing minimum-groundspeed
+  metadata. This changes default numeric output: golden fixtures were
+  regenerated, and wind-triangle failures now name the sub-segment that failed
+  (`No wind-triangle solution in sub-segment 1/3`) with `segment_index` and
+  `n_segments` context. Set `max_segment_length_m` explicitly to pin the
+  integration interval.
+
 ### Added
 
 - Machine-readable preflight validation report (Ticket 107). Every command with

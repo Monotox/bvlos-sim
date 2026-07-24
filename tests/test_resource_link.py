@@ -4,20 +4,22 @@ from pathlib import Path
 import yaml
 from typer.testing import CliRunner
 
-from adapters.cli import CliExitCode, app
-from estimator import (
+from bvlos_sim.adapters.cli import CliExitCode, app
+from bvlos_sim.estimator import (
     EstimateStatus,
     FailureCode,
     try_estimate_mission_distance_time,
 )
-from estimator.core.scenario import ScenarioStatus
-from estimator.execution.scenario import run_scenario
-from schemas import (
+from bvlos_sim.estimator.core.scenario import ScenarioStatus
+from bvlos_sim.estimator.execution.scenario import run_scenario
+from bvlos_sim.schemas import (
     AltitudeReference,
     LinkSystemConfig,
     ResourceSystemConfig,
     ScenarioPlan,
+    UsableCapacityPoint,
 )
+from bvlos_sim.schemas.mission import MissionAction, RouteItem
 from tests.helpers import (
     make_mission,
     make_mission_payload,
@@ -98,6 +100,9 @@ def test_external_power_must_cover_rth_peak_power() -> None:
 def test_external_power_reports_rth_shortfall_when_gate_is_disabled() -> None:
     mission = _one_way_mission()
     mission.constraints.require_rth_reserve = False
+    # Keep the leg short enough that the descent dominates it, so the route
+    # really does draw descent power while the RTH cruise peak does not fit.
+    mission.route[0].lon = mission.planned_home.lon + 0.001
     mission.route[0].altitude_reference = AltitudeReference.AMSL
     mission.route[0].altitude_m = 0.0
     vehicle = make_vehicle()
@@ -149,7 +154,7 @@ def test_onboard_resource_fails_when_only_rth_reserve_is_insufficient() -> None:
             {
                 "resource_id": "small-pack",
                 "kind": "onboard_battery",
-                "battery_capacity_wh": 120.0,
+                "battery_capacity_wh": 80.0,
             }
         )
     ]
@@ -173,7 +178,7 @@ def test_hybrid_resource_accounts_for_residual_rth_energy() -> None:
             {
                 "resource_id": "small-hybrid",
                 "kind": "hybrid",
-                "battery_capacity_wh": 80.0,
+                "battery_capacity_wh": 20.0,
                 "continuous_power_w": 400.0,
             }
         )
@@ -308,3 +313,51 @@ def test_scenario_link_systems_override_mission_link_systems() -> None:
     assert result.estimate is not None
     assert result.estimate.link is not None
     assert result.estimate.link.selected_link_id == "satcom"
+
+
+def test_declaring_a_resource_system_does_not_void_capacity_derating() -> None:
+    """A resource system replaces the battery and RTH gates, not the derating.
+
+    engine.py hands both gates to the resource path whenever any resource
+    system is declared, and that path budgeted against the nameplate pack, so
+    declaring one silently voided usable_capacity_curve: an INFEASIBLE mission
+    became SUCCESS with RTH reported feasible.
+    """
+
+    def run(*, with_resource: bool, derated: bool):
+        mission = make_mission()
+        mission.constraints.require_rth_reserve = True
+        mission.constraints.min_landing_reserve_percent = 25.0
+        mission.route = [
+            RouteItem(
+                id="far",
+                action=MissionAction.WAYPOINT,
+                lat=mission.planned_home.lat,
+                lon=mission.planned_home.lon + 0.05,
+                altitude_m=120.0,
+            )
+        ]
+        vehicle = make_vehicle()
+        vehicle.energy.battery_capacity_wh = 170.0
+        if derated:
+            vehicle.energy.usable_capacity_curve = [
+                UsableCapacityPoint(soc=0.0, usable_fraction=0.0),
+                UsableCapacityPoint(soc=1.0, usable_fraction=0.55),
+            ]
+        if with_resource:
+            vehicle.resource_systems = [
+                ResourceSystemConfig.model_validate(
+                    {"resource_id": "pack", "kind": "onboard_battery"}
+                )
+            ]
+        return try_estimate_mission_distance_time(mission, vehicle)
+
+    # Derated: infeasible either way. Declaring the resource system must not
+    # buy back the 76.5 Wh the curve removed.
+    assert run(with_resource=False, derated=True).status == EstimateStatus.INFEASIBLE
+    assert run(with_resource=True, derated=True).status == EstimateStatus.INFEASIBLE
+
+    # Control: with no curve the same mission is feasible on both paths, so the
+    # gate above is the derating and not a blanket tightening.
+    assert run(with_resource=False, derated=False).status == EstimateStatus.SUCCESS
+    assert run(with_resource=True, derated=False).status == EstimateStatus.SUCCESS

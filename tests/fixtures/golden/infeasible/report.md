@@ -1,7 +1,7 @@
 # Estimator Report
 
 - Status: `infeasible`
-- Envelope schema: `estimator-envelope.v9`
+- Envelope schema: `estimator-envelope.v10`
 - Tool version: `0.0.0-test`
 
 ## Result Validity
@@ -20,7 +20,7 @@
 
 ## Diagnostics
 
-- `error` `WIND_TRIANGLE_NO_SOLUTION`: No wind-triangle solution exists for required crosswind correction.
+- `error` `WIND_TRIANGLE_NO_SOLUTION`: No wind-triangle solution in sub-segment 1/3.
 
 ## Assumptions
 

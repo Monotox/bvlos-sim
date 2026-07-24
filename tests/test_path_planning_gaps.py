@@ -11,8 +11,8 @@ import math
 import pytest
 from pyproj import Geod
 
-from estimator.core.enums import WarningCode
-from estimator import (
+from bvlos_sim.estimator.core.enums import WarningCode
+from bvlos_sim.estimator import (
     DivertRouteEstimate,
     EstimationOptions,
     EstimateStatus,
@@ -23,9 +23,9 @@ from estimator import (
     estimate_mission_distance_time,
     try_estimate_mission_distance_time,
 )
-from estimator.core.results import EnergyEstimate
-from estimator.execution.divert import compute_divert_estimate
-from schemas.mission import MissionAction, RouteItem
+from bvlos_sim.estimator.core.results import EnergyEstimate
+from bvlos_sim.estimator.execution.divert import compute_divert_estimate
+from bvlos_sim.schemas.mission import MissionAction, RouteItem
 from tests.helpers import make_mission, make_vehicle
 
 

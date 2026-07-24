@@ -3,9 +3,10 @@
 from pathlib import Path
 
 import pytest
+import yaml
 
-from adapters.assets.population_grid import load_population_grid
-from scripts import build_population_grid
+from bvlos_sim.adapters.assets.population_grid import load_population_grid
+from bvlos_sim.scripts import build_population_grid
 
 
 _METADATA_ARGS = [
@@ -155,3 +156,55 @@ def test_missing_metadata_flag_fails(
             ],
             monkeypatch,
         )
+
+
+def test_metadata_with_quotes_survives_the_round_trip(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Evidence metadata was emitted with repr(), which is Python, not YAML."""
+
+    source_csv = tmp_path / "pop.csv"
+    rows = ["lat,lon,density_ppl_km2"]
+    for i in range(5):
+        for j in range(5):
+            rows.append(f"{52.0 + 0.0005 * i},{4.0 + 0.0005 * j},{10.0 + i + j}")
+    source_csv.write_text("\n".join(rows) + "\n", encoding="utf-8")
+    out = tmp_path / "population.yaml"
+
+    _run(
+        [
+            "52.0",
+            "52.002",
+            "4.0",
+            "4.002",
+            "--step-deg",
+            "0.001",
+            "--input",
+            str(source_csv),
+            "--output",
+            str(out),
+            "--source",
+            'Agency "official" map, v2',
+            "--population-year",
+            "2026",
+            "--native-resolution-m",
+            "100",
+            "--authority-assessment-reference",
+            "REF-1: it's fine",
+            "--valid-from",
+            "2026-01-01T00:00:00Z",
+            "--valid-until",
+            "2026-12-31T23:59:59Z",
+            "--transient-population-assessment-reference",
+            "TR-1",
+            "--assemblies-present",
+            "false",
+        ],
+        monkeypatch,
+    )
+
+    document = yaml.safe_load(out.read_text(encoding="utf-8"))
+    assert document["metadata"]["source"] == 'Agency "official" map, v2'
+    assert document["metadata"]["authority_assessment_reference"] == "REF-1: it's fine"
+    # And the emitted evidence still loads through the real asset loader.
+    load_population_grid(out)

@@ -5,7 +5,7 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from adapters.cli import CliExitCode, VerifyExitCode, app
+from bvlos_sim.adapters.cli import CliExitCode, VerifyExitCode, app
 
 FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "golden"
 

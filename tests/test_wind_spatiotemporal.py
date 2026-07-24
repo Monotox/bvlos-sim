@@ -2,11 +2,11 @@
 
 import pytest
 
-from estimator import (
+from bvlos_sim.estimator import (
     SpatiotemporalWindProvider,
     estimate_mission_distance_time,
 )
-from estimator.environment.wind import wind_provider_id
+from bvlos_sim.estimator.environment.wind import wind_provider_id
 from tests.helpers import make_mission, make_vehicle
 
 
@@ -229,7 +229,7 @@ def _minimal_grid_yaml() -> str:
 
 
 def test_load_wind_grid_from_yaml(tmp_path) -> None:
-    from adapters.wind_grid import load_wind_grid
+    from bvlos_sim.adapters.wind_grid import load_wind_grid
 
     grid_file = tmp_path / "wind.yaml"
     grid_file.write_text(_minimal_grid_yaml())
@@ -242,7 +242,7 @@ def test_load_wind_grid_from_yaml(tmp_path) -> None:
 
 
 def test_load_wind_grid_non_mapping_raises(tmp_path) -> None:
-    from adapters.wind_grid import WindGridLoadError, load_wind_grid
+    from bvlos_sim.adapters.wind_grid import WindGridLoadError, load_wind_grid
 
     f = tmp_path / "wind.yaml"
     f.write_text("- 1\n- 2\n")
@@ -251,7 +251,7 @@ def test_load_wind_grid_non_mapping_raises(tmp_path) -> None:
 
 
 def test_load_wind_grid_missing_axes_raises(tmp_path) -> None:
-    from adapters.wind_grid import WindGridLoadError, load_wind_grid
+    from bvlos_sim.adapters.wind_grid import WindGridLoadError, load_wind_grid
 
     f = tmp_path / "wind.yaml"
     f.write_text("values: []\n")
@@ -260,7 +260,7 @@ def test_load_wind_grid_missing_axes_raises(tmp_path) -> None:
 
 
 def test_load_wind_grid_non_monotonic_axis_raises(tmp_path) -> None:
-    from adapters.wind_grid import WindGridLoadError, load_wind_grid
+    from bvlos_sim.adapters.wind_grid import WindGridLoadError, load_wind_grid
 
     f = tmp_path / "wind.yaml"
     f.write_text(
@@ -276,7 +276,7 @@ def test_load_wind_grid_non_monotonic_axis_raises(tmp_path) -> None:
 
 
 def test_load_wind_grid_wrong_values_shape_raises(tmp_path) -> None:
-    from adapters.wind_grid import WindGridLoadError, load_wind_grid
+    from bvlos_sim.adapters.wind_grid import WindGridLoadError, load_wind_grid
 
     f = tmp_path / "wind.yaml"
     f.write_text(
@@ -294,7 +294,7 @@ def test_load_wind_grid_wrong_values_shape_raises(tmp_path) -> None:
 
 
 def test_load_wind_grid_single_element_axis_raises(tmp_path) -> None:
-    from adapters.wind_grid import WindGridLoadError, load_wind_grid
+    from bvlos_sim.adapters.wind_grid import WindGridLoadError, load_wind_grid
 
     f = tmp_path / "wind.yaml"
     f.write_text(
@@ -313,7 +313,7 @@ def test_load_wind_grid_single_element_axis_raises(tmp_path) -> None:
 def test_load_wind_grid_rejects_non_numeric_or_non_finite_axes(
     tmp_path, time_axis: str
 ) -> None:
-    from adapters.wind_grid import WindGridLoadError, load_wind_grid
+    from bvlos_sim.adapters.wind_grid import WindGridLoadError, load_wind_grid
 
     f = tmp_path / "wind.yaml"
     f.write_text(

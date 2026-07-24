@@ -104,7 +104,7 @@ imports are confined to `adapters/`. The stable Python surface is the
 ## Contracts
 
 Every input schema and output envelope is versioned (`mission.v7`,
-`estimator-envelope.v9`, …; `bvlos-sim schema-versions` prints the full set).
+`estimator-envelope.v10`, …; `bvlos-sim schema-versions` prints the full set).
 Within a published version: no field removals or renames, no enum or
 exit-code meaning changes, no renderer-dependent verdicts, byte-stable
 canonical JSON. Strict models reject unknown fields except in documented

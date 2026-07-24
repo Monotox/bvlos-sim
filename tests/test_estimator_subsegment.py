@@ -5,7 +5,7 @@ import math
 import pytest
 from pyproj import Geod
 
-from estimator import (
+from bvlos_sim.estimator import (
     ConstantWindProvider,
     EstimationOptions,
     EstimateStatus,
@@ -16,8 +16,8 @@ from estimator import (
     estimate_mission_distance_time,
     try_estimate_mission_distance_time,
 )
-from estimator.environment.wind import TimedWindChange, TimeVaryingWindProvider
-from schemas import AltitudeReference, MissionPlan
+from bvlos_sim.estimator.environment.wind import TimedWindChange, TimeVaryingWindProvider
+from bvlos_sim.schemas import AltitudeReference, MissionPlan
 from tests.helpers import make_mission, make_vehicle
 
 
@@ -129,12 +129,16 @@ def test_layered_wind_tailwind_faster_than_headwind() -> None:
     assert r_tail.total_time_s < r_head.total_time_s
 
 
-def test_layered_wind_sub_segment_changes_time_vs_constant_start_sample() -> None:
-    """A leg climbing through a wind boundary should differ from single-sample.
+def test_layered_wind_sub_segment_changes_time_vs_single_segment() -> None:
+    """A leg climbing through a wind boundary must be sampled along its length.
 
     Home at 12m amsl, waypoint at 200m amsl (188m climb → ~63s).
     Horizontal leg ~5km east → ~417s at gs=12 (headwind) or ~333s mixed.
     Horizontal time dominates so wind sampling materially affects the result.
+
+    One sample for the whole leg puts the aircraft in the lower headwind band
+    for its entire length; sub-segmenting lets the later segments see the calm
+    air the climb has reached.
     """
     mission = make_mission()
     wp = mission.route[1]
@@ -154,16 +158,27 @@ def test_layered_wind_sub_segment_changes_time_vs_constant_start_sample() -> Non
             WindLayer(altitude_m=100.0, wind_east_mps=0.0, wind_north_mps=0.0),
         ]
     )
-    # v1: single sample at start (alt=12m, strong headwind) → gs≈12 m/s whole leg
-    r_v1 = estimate_mission_distance_time(mission, vehicle, wind_provider=provider)
-    # v2: sub-segments capture upper-half calm air → gs=20 m/s for later segments
-    r_v2 = estimate_mission_distance_time(
+    # One segment for the whole leg: sampled at its midpoint, still low enough
+    # to sit in the headwind band for the entire crossing.
+    r_single = estimate_mission_distance_time(
+        mission,
+        vehicle,
+        options=EstimationOptions(max_segment_length_m=1_000_000.0),
+        wind_provider=provider,
+    )
+    # Sub-segments capture the upper-half calm air → gs=20 m/s for later segments.
+    r_split = estimate_mission_distance_time(
         mission,
         vehicle,
         options=EstimationOptions(max_segment_length_m=500.0),
         wind_provider=provider,
     )
-    assert r_v2.total_time_s < r_v1.total_time_s
+    assert r_split.total_time_s < r_single.total_time_s
+    # The shipped default must already give the sub-segmented answer.
+    r_default = estimate_mission_distance_time(
+        mission, vehicle, wind_provider=provider
+    )
+    assert r_default.total_time_s == pytest.approx(r_split.total_time_s, rel=1e-9)
 
 
 def test_later_subsegment_sustained_wind_limit_is_enforced() -> None:
@@ -228,23 +243,77 @@ def test_later_subsegment_minimum_groundspeed_is_enforced() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_leg_shorter_than_max_segment_still_samples_its_midpoint() -> None:
-    """A configured sampling interval applies even when it yields one segment."""
+def test_default_samples_along_the_leg_not_at_its_departure_end() -> None:
+    """The shipped default must not bill a leg at the wind it departed in.
+
+    The provider is calm at and before lon 4.001 and gives a 5 m/s tailwind
+    beyond it. The leg starts at lon 4.0, so sampling at the departure end
+    would reproduce the calm-air time exactly; any sampling along the leg
+    picks up the tailwind and finishes sooner.
+    """
+
     mission = _flat_waypoint_mission()
     vehicle = make_vehicle()
     provider = _LongitudeStepWindProvider(east_mps=5.0, north_mps=0.0)
-    r_midpoint = estimate_mission_distance_time(
+
+    r_default = estimate_mission_distance_time(mission, vehicle, wind_provider=provider)
+    r_calm = estimate_mission_distance_time(
+        mission,
+        vehicle,
+        wind_provider=ConstantWindProvider(wind_east_mps=0.0, wind_north_mps=0.0),
+    )
+    assert r_default.total_time_s < r_calm.total_time_s
+
+    # A single segment spanning the whole leg still samples its midpoint.
+    r_single = estimate_mission_distance_time(
         mission,
         vehicle,
         options=EstimationOptions(max_segment_length_m=1_000_000.0),
         wind_provider=provider,
     )
-    r_start = estimate_mission_distance_time(
+    assert r_single.total_time_s < r_calm.total_time_s
+
+
+def test_default_sampling_converges_with_fine_sub_segmentation() -> None:
+    """The shipped default must track a much finer integration.
+
+    A leg crossing a wind gradient is the case that used to be billed at its
+    departure-end wind; the default now has to land close to the 100 m answer
+    rather than needing the option to be set by hand.
+    """
+
+    mission = make_mission()
+    wp = mission.route[1]
+    wp.lat = 52.0
+    wp.lon = 4.2  # ~13.7 km east of home
+    wp.altitude_reference = AltitudeReference.AMSL
+    wp.altitude_m = 200.0
+    mission.route = [wp]
+    mission.defaults.cruise_speed_mps = 20.0
+    mission.constraints.max_wind_mps = 40.0
+    mission.constraints.require_rth_reserve = False
+    vehicle = make_vehicle()
+    vehicle.performance.max_crab_angle_deg = 80.0
+    provider = LayeredWindProvider(
+        [
+            WindLayer(altitude_m=0.0, wind_east_mps=-3.0, wind_north_mps=0.0),
+            WindLayer(altitude_m=200.0, wind_east_mps=-9.0, wind_north_mps=0.0),
+        ]
+    )
+
+    r_default = estimate_mission_distance_time(mission, vehicle, wind_provider=provider)
+    r_fine = estimate_mission_distance_time(
         mission,
         vehicle,
+        options=EstimationOptions(max_segment_length_m=100.0),
         wind_provider=provider,
     )
-    assert r_midpoint.total_time_s < r_start.total_time_s
+
+    assert r_default.energy is not None and r_fine.energy is not None
+    assert r_default.total_time_s == pytest.approx(r_fine.total_time_s, rel=0.05)
+    assert r_default.energy.total_energy_wh == pytest.approx(
+        r_fine.energy.total_energy_wh, rel=0.05
+    )
 
 
 def test_two_runs_with_same_inputs_produce_identical_results_v2() -> None:

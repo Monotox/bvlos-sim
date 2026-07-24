@@ -7,21 +7,21 @@ import pytest
 from pydantic import ValidationError
 from typer.testing import CliRunner
 
-from adapters.cli import CliExitCode, app
-from adapters.cli_sitl_support import (
+from bvlos_sim.adapters.cli import CliExitCode, app
+from bvlos_sim.adapters.cli_sitl_support import (
     _build_sitl_evidence_from_context,
     _load_sitl_scenario_context,
 )
-from adapters.io import InputDocument, load_mission, load_vehicle
-from adapters.scenario_envelope import build_scenario_envelope
-from adapters.scenario_io import load_scenario, resolve_scenario_asset_path
-from adapters.sitl.evidence import (
+from bvlos_sim.adapters.io import InputDocument, load_mission, load_vehicle
+from bvlos_sim.adapters.scenario_envelope import build_scenario_envelope
+from bvlos_sim.adapters.scenario_io import load_scenario, resolve_scenario_asset_path
+from bvlos_sim.adapters.sitl.evidence import (
     SITL_EVIDENCE_SCHEMA_VERSION,
     build_sitl_evidence_bundle,
     render_sitl_evidence_json,
 )
-from estimator.execution.scenario import run_scenario
-from schemas import (
+from bvlos_sim.estimator.execution.scenario import run_scenario
+from bvlos_sim.schemas import (
     SitlArtifactReference,
     SitlArtifactRole,
     SitlComparisonSummary,

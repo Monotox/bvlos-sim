@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from adapters.cli import app
-from adapters.release import (
+from bvlos_sim.adapters.cli import app
+from bvlos_sim.adapters.release import (
     BumpPart,
     ReleaseError,
     apply_bump,
@@ -20,7 +20,7 @@ from adapters.release import (
     roll_changelog,
     set_pyproject_version,
 )
-from adapters.version import resolved_package_version, tool_version
+from bvlos_sim.adapters.version import resolved_package_version, tool_version
 
 runner = CliRunner()
 
@@ -179,7 +179,7 @@ def test_apply_bump_rolls_back_when_second_write_fails(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    import adapters.release as release_module
+    import bvlos_sim.adapters.release as release_module
 
     pyproject, changelog = _write_fixtures(tmp_path)
     real_write = release_module.atomic_write_text

@@ -10,9 +10,9 @@ import pytest
 from pydantic import ValidationError
 from typer.testing import CliRunner
 
-from adapters.cli import app
+from bvlos_sim.adapters.cli import app
 
-from adapters.calibration import (
+from bvlos_sim.adapters.calibration import (
     CalibrationInput,
     CalibrationMismatchError,
     apply_calibration,
@@ -21,23 +21,23 @@ from adapters.calibration import (
     load_calibration_profile,
     write_calibration_profile,
 )
-from adapters.canonical_json import render_canonical_json
-from adapters.flight_log import ingest_dataflash_log
-from adapters.io import InputLoadError, load_vehicle
-from adapters.phase_segmentation import segment_trace
-from schemas.calibration import (
+from bvlos_sim.adapters.canonical_json import render_canonical_json
+from bvlos_sim.adapters.flight_log import ingest_dataflash_log
+from bvlos_sim.adapters.io import InputLoadError, load_vehicle
+from bvlos_sim.adapters.phase_segmentation import segment_trace
+from bvlos_sim.schemas.calibration import (
     CALIBRATION_PROFILE_SCHEMA_VERSION,
     CalibratedParameter,
     CalibratedParameterName,
     CalibrationProfile,
     CalibrationProvenance,
 )
-from schemas.flight_log import (
+from bvlos_sim.schemas.flight_log import (
     FlightTraceProvenance,
     FlightTraceRecord,
     NormalizedFlightTrace,
 )
-from schemas.phase_segment import (
+from bvlos_sim.schemas.phase_segment import (
     PHASE_SEGMENT_SCHEMA_VERSION,
     PhaseSegment,
     PhaseSegmentResult,
@@ -676,3 +676,44 @@ def test_cli_estimate_with_mismatched_calibration_is_invalid_input(
 
 
 __all__: list[str] = []
+
+
+def test_calibration_is_recorded_in_envelope_provenance(tmp_path: Path) -> None:
+    """A run made under a calibration is not the base vehicle's run.
+
+    Provenance enumerated a fixed set of inputs, so two runs differing in
+    flight time and landing reserve had byte-identical provenance naming the
+    base vehicle hash.
+    """
+
+    runner = CliRunner()
+    repo = Path(__file__).resolve().parents[1]
+    args = [
+        "estimate",
+        str(repo / "examples/missions/pipeline_demo_001.yaml"),
+        str(repo / "examples/vehicles/quadplane_v1.yaml"),
+        "--format",
+        "json",
+    ]
+
+    plain = json.loads(runner.invoke(app, args).stdout)
+    calibrated = json.loads(
+        runner.invoke(
+            app,
+            [
+                *args,
+                "--calibration",
+                str(repo / "examples/calibration/quadplane_v1_calibration.json"),
+            ],
+        ).stdout
+    )
+
+    assert "calibration" not in plain["provenance"]["inputs"]
+    calibration = calibrated["provenance"]["inputs"]["calibration"]
+    assert len(calibration["sha256"]) == 64
+    # The base vehicle hash is unchanged, which is exactly why the calibration
+    # needs its own entry.
+    assert (
+        calibrated["provenance"]["inputs"]["vehicle"]["sha256"]
+        == plain["provenance"]["inputs"]["vehicle"]["sha256"]
+    )

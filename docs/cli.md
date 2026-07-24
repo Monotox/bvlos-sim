@@ -62,9 +62,12 @@ Two rules hold everywhere:
 
 ### Preflight validation
 
-Every input-loading command supports `--validate-only`: load and
-schema-check all inputs — including referenced mission assets — and exit
-without running anything. Exit `0` on success, `11` otherwise.
+`estimate`, `scenario`, `sample`, `propagate`, `batch`, `sora`, `convert`,
+`export`, `calibrate`, `compare` and `size-battery` support
+`--validate-only`: load and schema-check all inputs — including referenced
+mission assets — and exit without running anything. Exit `0` on success,
+`11` otherwise. `ingest-log`, `migrate`, `verify-evidence` and `sitl` do
+not offer it.
 
 ```bash
 uv run bvlos-sim estimate mission.yaml vehicle.yaml --validate-only
@@ -102,7 +105,7 @@ uv run bvlos-sim estimate \
 
 Formats:
 
-- `json` — canonical `estimator-envelope.v9`: provenance, diagnostics, route
+- `json` — canonical `estimator-envelope.v10`: provenance, diagnostics, route
   legs, totals, energy/geofence/landing-zone/resource/link/obstacle/weather/
   ground-risk blocks, RTH reserve timeline, and `operational_readiness`.
 - `markdown` — human-readable report of the same result.
@@ -193,7 +196,7 @@ when any estimate run is infeasible/NO-GO or any scenario run fails; propagate
 runs are diagnostic and never exit `10`.
 
 `--output-dir` writes one file per run id, in that run type's envelope
-(`estimator-envelope.v9`, `scenario-report.v3`, or `stochastic-envelope.v2`).
+(`estimator-envelope.v10`, `scenario-report.v3`, or `stochastic-envelope.v2`).
 `--format` selects `json`, `markdown`, or `summary` for any run type; the
 route-shaped formats `geojson`, `kml`, `checklist`, and `profile` are
 estimate-only. `--format csv` emits a comma-separated table to stdout, with
@@ -471,10 +474,13 @@ every artifact but stop blocking `GO`; any unlisted warning still blocks.
 | `RESERVE_BELOW_FAILSAFE_WARN_THRESHOLD` | Predicted landing reserve is below the low-battery warning threshold. |
 | `GEOFENCE_EVALUATED_2D_ONLY` | Geofence intersection is 2D; declared `floor_m`/`ceiling_m` bounds are checked, per-zone AGL is not modeled. |
 | `GEOFENCE_ZERO_ZONES` | A geofence file is configured but contains zero zones — the clearance check evaluated no airspace. |
+| `OBSTACLE_ZERO_FEATURES` | An obstacle file is configured but contains zero obstacles — the clearance check evaluated no vertical structure. |
+| `OBSTACLE_KEEP_OUT_NOT_CONFIGURED` | Every obstacle has zero radius and uncertainty and `min_obstacle_clearance_m` is unset, so the keep-out volume has no width. |
 | `DEPARTURE_TIME_MISSING` | A geofence has a time window but the mission has no `departure_time`; the zone is treated as always active. |
 | `DIVERT_ENERGY_TAS_ONLY` | A scenario divert estimate used TAS without wind correction. |
 | `POPULATION_DENSITY_DIMENSION_MISSING` | Population grid present but the vehicle omits `characteristic_dimension_m`; iGRC cannot be computed. |
 | `GUST_DATA_UNAVAILABLE` | `max_gust_mps` is set but no provider supplies gust data. |
+| `ENERGY_REFERENCE_CONDITIONS_MISSING` | The vehicle declares `operating_mass_kg` without `reference_mass_kg` (or a reference density), so mass/density scaling is inert. |
 | `ROUTE_ACTIONS_AFTER_RTL` | Route items after an RTL are estimated but unreachable. |
 | `LOITER_RADIUS_IGNORED` | `loiter_radius_m` is ignored; loiter is modeled as station-keep. |
 | `LOITER_ASSUMED_ZERO_GROUND_DISTANCE` | Loiter dwell is modeled with zero ground-path distance. |
@@ -484,10 +490,10 @@ every artifact but stop blocking `GO`; any unlisted warning still blocks.
 
 ## Python API
 
-The stable Python surface is the package root:
+The stable Python surface is `bvlos_sim.estimator`:
 
 ```python
-from estimator import (
+from bvlos_sim.estimator import (
     EstimationOptions, FidelityMode, LayeredWindProvider, WindLayer,
     estimate_mission_distance_time, try_estimate_mission_distance_time,
     run_scenario, run_monte_carlo,
@@ -503,5 +509,5 @@ result = estimate_mission_distance_time(
 )
 ```
 
-Symbols exported from `estimator.__all__` are the supported surface; internal
+Symbols exported from `bvlos_sim.estimator.__all__` are the supported surface; internal
 module layout is not a contract.

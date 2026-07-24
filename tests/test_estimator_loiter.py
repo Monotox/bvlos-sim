@@ -1,17 +1,17 @@
 import pytest
 
-from estimator import (
+from bvlos_sim.estimator import (
     EstimationOptions,
     FailureCode,
     SpeedSource,
     WarningCode,
     estimate_mission_distance_time,
 )
-from estimator.core.errors import (
+from bvlos_sim.estimator.core.errors import (
     EstimatorInfeasibleError,
     UnsupportedEstimatorFeatureError,
 )
-from schemas import VehicleClass
+from bvlos_sim.schemas import VehicleClass
 from tests.helpers import make_fw_vehicle, make_mission, make_vehicle
 
 

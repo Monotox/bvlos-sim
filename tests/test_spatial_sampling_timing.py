@@ -3,9 +3,9 @@
 import pytest
 from pyproj import Geod
 
-from estimator import EstimationOptions, LegEstimate, estimate_mission_distance_time
-from estimator.execution.spatial_sampling import SpatialSamplingError, route_leg_samples
-from schemas import AltitudeReference, MissionPlan
+from bvlos_sim.estimator import EstimationOptions, LegEstimate, estimate_mission_distance_time
+from bvlos_sim.estimator.execution.spatial_sampling import SpatialSamplingError, route_leg_samples
+from bvlos_sim.schemas import AltitudeReference, MissionPlan
 from tests.helpers import make_mission, make_vehicle
 
 _GEOD = Geod(ellps="WGS84")

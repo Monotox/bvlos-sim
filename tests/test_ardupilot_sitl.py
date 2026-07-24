@@ -8,19 +8,19 @@ from pathlib import Path
 
 import pytest
 
-from adapters.sitl.ardupilot import (
+from bvlos_sim.adapters.sitl.ardupilot import (
     ArduPilotAdapterError,
     ArduPilotSitlAdapter,
     MissionUploadResult,
     altitude_reference_to_mavlink_frame,
     mission_action_to_mavlink_cmd,
 )
-from adapters.sitl.ardupilot_types import ArduPilotSitlConfig
-from adapters.io import InputDocument, load_vehicle
-from adapters.scenario_envelope import ScenarioResultEnvelope, build_scenario_envelope
-from adapters.sitl.evidence import build_sitl_evidence_bundle
-from estimator.core.scenario import ScenarioResult, ScenarioStatus
-from schemas import (
+from bvlos_sim.adapters.sitl.ardupilot_types import ArduPilotSitlConfig
+from bvlos_sim.adapters.io import InputDocument, load_vehicle
+from bvlos_sim.adapters.scenario_envelope import ScenarioResultEnvelope, build_scenario_envelope
+from bvlos_sim.adapters.sitl.evidence import build_sitl_evidence_bundle
+from bvlos_sim.estimator.core.scenario import ScenarioResult, ScenarioStatus
+from bvlos_sim.schemas import (
     AltitudeReference,
     MissionAction,
     MissionConstraints,

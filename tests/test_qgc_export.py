@@ -4,10 +4,10 @@ from pathlib import Path
 import yaml
 from typer.testing import CliRunner
 
-from adapters.cli import CliExitCode, app
-from adapters.qgc_export import build_qgc_plan, lossy_export_summary, render_qgc_plan
-from adapters.qgc_plan import load_and_convert_plan
-from schemas.mission import MissionPlan
+from bvlos_sim.adapters.cli import CliExitCode, app
+from bvlos_sim.adapters.qgc_export import build_qgc_plan, lossy_export_summary, render_qgc_plan
+from bvlos_sim.adapters.qgc_plan import load_and_convert_plan
+from bvlos_sim.schemas.mission import MissionPlan
 from tests.helpers import make_mission_payload
 
 _RUNNER = CliRunner()

@@ -2,11 +2,11 @@
 
 from pathlib import Path
 
-from adapters.io import load_mission, load_vehicle
-from estimator.execution.propagator import run_stochastic_propagation
-from schemas.stochastic import StochasticPropagationPlan
-from schemas.uncertainty import UncertaintyParameters, UniformDistribution
-from schemas.vehicle_sensors import BatteryMeterModel, GpsModel, SensorProfile
+from bvlos_sim.adapters.io import load_mission, load_vehicle
+from bvlos_sim.estimator.execution.propagator import run_stochastic_propagation
+from bvlos_sim.schemas.stochastic import StochasticPropagationPlan
+from bvlos_sim.schemas.uncertainty import UncertaintyParameters, UniformDistribution
+from bvlos_sim.schemas.vehicle_sensors import BatteryMeterModel, GpsModel, SensorProfile
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MISSION_PATH = REPO_ROOT / "examples/missions/pipeline_demo_001.yaml"

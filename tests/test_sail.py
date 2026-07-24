@@ -1,7 +1,7 @@
 import pytest
 
-from estimator.execution.sail import applicable_osos, determine_sail
-from schemas.sora import AirRiskClass, RobustnessLevel, Sail
+from bvlos_sim.estimator.execution.sail import applicable_osos, determine_sail
+from bvlos_sim.schemas.sora import AirRiskClass, RobustnessLevel, Sail
 
 # Independent transcription of the SORA SAIL determination table, rows = final
 # GRC, columns = residual ARC (a, b, c, d). Every cell is asserted below.

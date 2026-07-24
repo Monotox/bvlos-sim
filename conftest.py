@@ -8,7 +8,7 @@ separately in ``tests/test_bump_version.py``.
 
 import os
 
-from adapters.version import TOOL_VERSION_ENV
+from bvlos_sim.adapters.version import TOOL_VERSION_ENV
 
 # Set before any test imports an adapter that renders tool_version().
 os.environ.setdefault(TOOL_VERSION_ENV, "0.0.0-test")

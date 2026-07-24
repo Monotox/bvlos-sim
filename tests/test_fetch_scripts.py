@@ -6,9 +6,11 @@ from pathlib import Path
 import sys
 from types import ModuleType
 
+from types import SimpleNamespace
+
 import pytest
 
-from scripts import (
+from bvlos_sim.scripts import (
     _overpass,
     fetch_all,
     fetch_geofences,
@@ -534,3 +536,30 @@ def test_obstacles_base_altitude_flag_is_required(
 
     assert exc_info.value.code == 2
     assert "--base-altitude-amsl-m" in capsys.readouterr().err
+
+
+def test_terrain_void_policy_interpolates_instead_of_aborting(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A single SRTM void aborted the whole fetch and left nothing behind."""
+
+    class _Voids:
+        def get_elevation(self, lat: float, lon: float):
+            # One hole in the middle of otherwise good coverage.
+            if abs(lat - 52.001) < 1e-9 and abs(lon - 4.001) < 1e-9:
+                return None
+            return 100.0
+
+    monkeypatch.setattr(fetch_terrain, "srtm", SimpleNamespace(get_data=_Voids))
+
+    with pytest.raises(ValueError, match="SRTM coverage missing"):
+        fetch_terrain._sample_grid(52.0, 52.002, 4.0, 4.002, 0.001)
+
+    _lats, _lons, rows = fetch_terrain._sample_grid(
+        52.0, 52.002, 4.0, 4.002, 0.001, void_policy="interpolate"
+    )
+
+    values = [value for row in rows for value in row]
+    assert all(value == 100.0 for value in values)
+    # A void must never be written as sea level.
+    assert 0.0 not in values

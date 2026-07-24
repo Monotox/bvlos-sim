@@ -5,14 +5,14 @@ import math
 import pytest
 from pyproj import Geod
 
-from estimator.math.dubins import (
+from bvlos_sim.estimator.math.dubins import (
     _ls_path_length,
     _rs_path_length,
     dubins_path_to_point_m,
 )
-from estimator.execution.divert import compute_divert_estimate
-from estimator.core.results import EnergyEstimate
-from estimator.core.landing_zone import LandingZone
+from bvlos_sim.estimator.execution.divert import compute_divert_estimate
+from bvlos_sim.estimator.core.results import EnergyEstimate
+from bvlos_sim.estimator.core.landing_zone import LandingZone
 from tests.helpers import make_mission, make_vehicle
 
 _GEOD = Geod(ellps="WGS84")
@@ -542,8 +542,8 @@ def test_geodesic_dubins_heading_toward_target_approximates_geodesic() -> None:
 
 def test_scenario_divert_at_route_item_uses_entry_heading() -> None:
     """Lost-link at a non-start waypoint: divert uses Dubins path (distance >= straight)."""
-    from estimator.execution.scenario import run_scenario
-    from schemas.scenario import ScenarioPlan
+    from bvlos_sim.estimator.execution.scenario import run_scenario
+    from bvlos_sim.schemas.scenario import ScenarioPlan
 
     mission = make_mission()
     vehicle = make_vehicle()
@@ -594,8 +594,8 @@ def test_scenario_divert_at_route_item_uses_entry_heading() -> None:
 
 def test_scenario_divert_at_mission_start_no_heading_available() -> None:
     """At mission start, no prior leg exists — falls back to straight-line distance."""
-    from estimator.execution.scenario import run_scenario
-    from schemas.scenario import ScenarioPlan
+    from bvlos_sim.estimator.execution.scenario import run_scenario
+    from bvlos_sim.schemas.scenario import ScenarioPlan
 
     mission = make_mission()
     vehicle = make_vehicle()

@@ -6,21 +6,25 @@ import yaml
 from pyproj import Geod
 from typer.testing import CliRunner
 
-from adapters.cli import CliExitCode, app
-from estimator import (
+from bvlos_sim.adapters.cli import CliExitCode, app
+from bvlos_sim.adapters.operational_readiness import evaluate_operational_readiness
+from bvlos_sim.adapters.ground_risk_markdown import (
+    render_ground_risk_markdown_for_estimate,
+)
+from bvlos_sim.estimator import (
     EstimateStatus,
     FailureCode,
     WarningCode,
     estimate_mission_distance_time,
     try_estimate_mission_distance_time,
 )
-from estimator.environment.population import GridPopulationProvider
-from estimator.execution.ground_risk import (
+from bvlos_sim.estimator.environment.population import GridPopulationProvider
+from bvlos_sim.estimator.execution.ground_risk import (
     compute_ground_risk,
     controlled_ground_area_igrc,
     intrinsic_ground_risk_class,
 )
-from schemas.vehicle import VehicleProfile
+from bvlos_sim.schemas.vehicle import VehicleProfile
 from tests.helpers import (
     make_mission,
     make_mission_payload,
@@ -373,3 +377,142 @@ def _write_ground_risk_inputs(tmp_path: Path) -> tuple[Path, Path]:
     _write_yaml(mission_path, mission_payload)
     _write_yaml(vehicle_path, vehicle_payload)
     return mission_path, vehicle_path
+
+
+class _RadiusRecordingPopulationProvider:
+    """Wraps a grid provider and records every query radius it is asked for."""
+
+    provider_id = "recording"
+
+    def __init__(self, inner: GridPopulationProvider) -> None:
+        self._inner = inner
+        self.radii_m: list[float] = []
+
+    def conservative_max_density_in_radius(
+        self, lat: float, lon: float, radius_m: float, *, geod: Geod
+    ) -> float | None:
+        self.radii_m.append(radius_m)
+        return self._inner.conservative_max_density_in_radius(
+            lat, lon, radius_m, geod=geod
+        )
+
+
+def test_population_query_radius_covers_the_sampling_gap() -> None:
+    """Every sample must be queried with buffer + half the gap to its neighbour.
+
+    Population is only read at discrete samples, so the declared footprint of an
+    unsampled point between two samples is only covered if the query radius is
+    dilated by half the sample spacing. Dropping the term left CI green while
+    silently shrinking the assessed area, which can only lower iGRC.
+    """
+
+    inner = GridPopulationProvider(
+        origin_lat=51.995,
+        origin_lon=3.995,
+        step_lat_deg=0.001,
+        step_lon_deg=0.001,
+        density_ppl_km2=[[12.0] * 16 for _ in range(16)],
+    )
+    provider = _RadiusRecordingPopulationProvider(inner)
+    estimate = estimate_mission_distance_time(make_mission(), _vehicle_with_dimension())
+    buffer_m = 250.0
+
+    result, _ = compute_ground_risk(
+        estimate=estimate,
+        population_provider=provider,
+        characteristic_dimension_m=1.0,
+        max_speed_mps=25.0,
+        geod=Geod(ellps="WGS84"),
+        max_segment_length_m=100.0,
+        population_assessment_buffer_m=buffer_m,
+    )
+
+    assert result is not None
+    assert provider.radii_m
+    # No query may be narrower than the declared buffer ...
+    assert min(provider.radii_m) >= buffer_m
+    # ... and a multi-sample route must dilate at least one of them.
+    assert max(provider.radii_m) > buffer_m
+
+
+def _ground_risk_markdown(buffer_m: float) -> str:
+    provider = GridPopulationProvider(
+        origin_lat=51.995,
+        origin_lon=3.995,
+        step_lat_deg=0.001,
+        step_lon_deg=0.001,
+        density_ppl_km2=[[12.0] * 16 for _ in range(16)],
+    )
+    estimate = estimate_mission_distance_time(make_mission(), _vehicle_with_dimension())
+    ground_risk, _ = compute_ground_risk(
+        estimate=estimate,
+        population_provider=provider,
+        characteristic_dimension_m=1.0,
+        max_speed_mps=25.0,
+        geod=Geod(ellps="WGS84"),
+        max_segment_length_m=100.0,
+        population_assessment_buffer_m=buffer_m,
+    )
+    return render_ground_risk_markdown_for_estimate(
+        estimate.model_copy(update={"ground_risk": ground_risk})
+    )
+
+
+def test_centerline_ground_risk_report_is_labelled_as_not_a_sora_igrc() -> None:
+    """An unbuffered iGRC must not read as an authoritative SORA figure.
+
+    Without a population assessment buffer the density is sampled along the
+    route centerline only, which understates the operational volume and can
+    report a lower iGRC than the buffered assessment for the same route.
+    """
+
+    markdown = _ground_risk_markdown(0.0)
+
+    assert "not a SORA iGRC" in markdown
+    assert "Population assessment buffer m: `0.00`" in markdown
+
+
+def test_buffered_ground_risk_report_states_its_buffer_and_drops_the_caveat() -> None:
+    markdown = _ground_risk_markdown(250.0)
+
+    assert "not a SORA iGRC" not in markdown
+    assert "Population assessment buffer m: `250.00`" in markdown
+    assert "SORA version:" in markdown
+
+
+def test_centerline_ground_risk_does_not_satisfy_the_go_gate() -> None:
+    """An unbuffered iGRC is a diagnostic, not ground-risk evidence.
+
+    The readiness gate only rejected iGRC > 7, never inspecting whether the
+    assessment covered the operational volume, so a centerline-only figure
+    satisfied the fail-closed ground-risk evidence requirement.
+    """
+
+    def readiness_for(buffer_m: float):
+        estimate = estimate_mission_distance_time(
+            make_mission(), _vehicle_with_dimension()
+        )
+        ground_risk, _ = compute_ground_risk(
+            estimate=estimate,
+            population_provider=GridPopulationProvider(
+                origin_lat=51.995,
+                origin_lon=3.995,
+                step_lat_deg=0.001,
+                step_lon_deg=0.001,
+                density_ppl_km2=[[12.0] * 16 for _ in range(16)],
+            ),
+            characteristic_dimension_m=1.0,
+            max_speed_mps=25.0,
+            geod=Geod(ellps="WGS84"),
+            max_segment_length_m=100.0,
+            population_assessment_buffer_m=buffer_m,
+        )
+        return evaluate_operational_readiness(
+            estimate.model_copy(update={"ground_risk": ground_risk})
+        )
+
+    centerline = readiness_for(0.0)
+    buffered = readiness_for(250.0)
+
+    assert "ground_risk_footprint" in centerline.missing_evidence
+    assert "ground_risk_footprint" not in buffered.missing_evidence

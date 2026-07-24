@@ -1,4 +1,4 @@
-from schemas import MissionPlan, VehicleClass, VehicleProfile
+from bvlos_sim.schemas import MissionPlan, VehicleClass, VehicleProfile
 
 
 def make_vehicle_payload() -> dict:

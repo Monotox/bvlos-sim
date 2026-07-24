@@ -22,10 +22,11 @@ result but exits `10`; `--engineering-only` makes computational feasibility the
 shell-success criterion.
 
 The output includes `terrain_provider_id: uniform_grid` and
-`wind_provider_id: spatiotemporal_grid` in result metadata, confirming that
+`wind_provider_id: spatiotemporal_grid` in result metadata, confirming which
 real terrain and spatiotemporal wind are active. Terrain elevations in this
-grid range from 0 to 1943 m (Pilatus area), well above the flat polder used
-in the pipeline demo.
+grid range from 393 to 2025 m (Pilatus area), well above the flat polder used
+in the pipeline demo, and the checklist reports a non-zero worst wind drawn
+from the forecast bands the route actually flies through.
 
 ## What a failing mission looks like
 
@@ -62,7 +63,7 @@ geofences" section below).
 
 ```bash
 uv sync --extra scripts   # installs srtm.py (once)
-uv run python scripts/fetch_all.py 47.05 8.30 \
+uv run python bvlos_sim/scripts/fetch_all.py 47.05 8.30 \
   --departure-time 14:00 --date 2025-06-15 \
   --output-dir examples/real_world/assets
 ```
@@ -93,14 +94,15 @@ for terrain vs. landing zones, specific step size, etc.).
 ```bash
 uv sync --extra scripts   # installs srtm.py (once)
 
-uv run python scripts/fetch_terrain.py 46.9 47.2 8.1 8.4 0.01 \
+uv run python bvlos_sim/scripts/fetch_terrain.py 46.9 47.2 8.15 8.45 0.01 \
+  --void-policy interpolate \
   --output terrain.yaml
 
-uv run python scripts/fetch_wind.py 47.05 8.3 \
+uv run python bvlos_sim/scripts/fetch_wind.py 47.05 8.3 \
   --departure-time 14:00 --date 2025-06-15 --window-hours 4 \
   --output wind_grid.yaml
 
-uv run python scripts/fetch_landing_zones.py 46.9 47.2 8.1 8.4 \
+uv run python bvlos_sim/scripts/fetch_landing_zones.py 46.9 47.2 8.1 8.4 \
   --output landing_zones.geojson
 ```
 
@@ -113,7 +115,7 @@ OpenAIP is the primary source for complete airspace coverage and requires a
 free account at https://www.openaip.net.
 
 ```bash
-uv run python scripts/fetch_geofences.py 46.9 47.2 8.1 8.4 \
+uv run python bvlos_sim/scripts/fetch_geofences.py 46.9 47.2 8.1 8.4 \
   --source openaip \
   --api-key $OPENAIP_KEY \
   --output geofences.geojson
@@ -126,7 +128,7 @@ refuses to write the file and exits with an error; pass `--allow-empty` to
 write an empty `geofences.geojson` for an area that genuinely has no airspace.
 
 ```bash
-uv run python scripts/fetch_geofences.py 46.9 47.2 8.1 8.4 \
+uv run python bvlos_sim/scripts/fetch_geofences.py 46.9 47.2 8.1 8.4 \
   --source overpass \
   --output geofences.geojson
 ```
@@ -141,11 +143,11 @@ coverage via OpenAIP before flying here.
 
 | Asset | Source | Coverage |
 |---|---|---|
-| `terrain.yaml` | SRTM via `srtm.py` | lat 46.9–47.2, lon 8.1–8.4, 31×31 grid |
-| `wind_grid.yaml` | Open-Meteo archive (2025-06-15 14:00 UTC) | 4 altitude bands, 4 hourly slices |
+| `terrain.yaml` | SRTM via `srtm.py` | lat 46.9–47.2, lon 8.15–8.45, 31×31 grid |
+| `wind_grid.yaml` | Open-Meteo historical forecast (2025-06-15 14:00 UTC) | 4 altitude bands (AMSL), 4 hourly slices |
 | `landing_zones.geojson` | OpenStreetMap via Overpass | 13 helipads/aerodromes/runways |
 
 The area covers the Lucerne basin and surrounding pre-Alps, including the
-Pilatus massif (peak elevation 1943 m in the SRTM grid). Wind at 10 m vs.
-180 m altitude diverges meaningfully in the forecast, exercising quadrilinear
-interpolation in `SpatiotemporalWindProvider`.
+Pilatus massif (peak elevation 2025 m in the SRTM grid). SRTM has voids over
+the lakes, so the grid is fetched with `--void-policy interpolate`; the wind
+grid's `altitude_m` axis is metres AMSL, matching the ~550 m the route flies.

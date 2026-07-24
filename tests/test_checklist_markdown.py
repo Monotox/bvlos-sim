@@ -2,20 +2,20 @@
 
 from pathlib import Path
 
-from adapters.checklist_markdown import (
+from bvlos_sim.adapters.checklist_markdown import (
     render_checklist_markdown,
     render_checklist_markdown_from_scenario,
 )
-from adapters.cli import CliExitCode, app
-from adapters.envelope import (
+from bvlos_sim.adapters.cli import CliExitCode, app
+from bvlos_sim.adapters.envelope import (
     DeterminismMetadata,
     EnvelopeInputs,
     EstimatorResultEnvelope,
     ProvenanceInput,
     build_estimator_envelope,
 )
-from adapters.io import InputDocument, InputLoadError, InputLoadStage
-from estimator.core.enums import (
+from bvlos_sim.adapters.io import InputDocument, InputLoadError, InputLoadStage
+from bvlos_sim.estimator.core.enums import (
     EnergyPowerSource,
     EstimateStatus,
     FailureCode,
@@ -23,7 +23,7 @@ from estimator.core.enums import (
     ScenarioStatus,
     WarningCode,
 )
-from estimator.core.results import (
+from bvlos_sim.estimator.core.results import (
     EnergyEstimate,
     EnergyLegEstimate,
     EstimatorWarning,
@@ -124,7 +124,7 @@ def _energy(
 
 
 def _geofence(*, is_feasible: bool = True, conflicts: int = 0) -> GeofenceEstimate:
-    from estimator.core.results import GeofenceConflict
+    from bvlos_sim.estimator.core.results import GeofenceConflict
 
     conflict_list = [
         GeofenceConflict(
@@ -365,7 +365,7 @@ def test_checklist_missing_operational_evidence_blocks_go() -> None:
 
 
 def test_checklist_no_result_shows_no_go() -> None:
-    from adapters.envelope import build_invalid_input_envelope
+    from bvlos_sim.adapters.envelope import build_invalid_input_envelope
 
     error = InputLoadError(
         "Mission file not found",
@@ -512,6 +512,9 @@ def _complete_estimate(
                 characteristic_dimension_m=2.0,
                 max_speed_mps=25.0,
                 sora_version="2.5",
+                # A centerline-only assessment is a diagnostic, not evidence,
+                # so a GO-eligible fixture must declare an assessed footprint.
+                population_assessment_buffer_m=250.0,
                 mission_igrc=3,
                 legs=[
                     GroundRiskLegEstimate(
@@ -680,8 +683,8 @@ def test_checklist_ends_with_newline() -> None:
 
 
 def test_checklist_from_scenario_uses_scenario_id() -> None:
-    from adapters.scenario_envelope import build_scenario_envelope
-    from estimator.core.scenario import ScenarioResult
+    from bvlos_sim.adapters.scenario_envelope import build_scenario_envelope
+    from bvlos_sim.estimator.core.scenario import ScenarioResult
 
     result = ScenarioResult(
         scenario_id="my_scenario_001",

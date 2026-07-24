@@ -5,8 +5,8 @@ import pytest
 import yaml
 from typer.testing import CliRunner
 
-from adapters.cli import CliExitCode, app
-from adapters.qgc_plan import load_and_convert_plan, parse_qgc_plan
+from bvlos_sim.adapters.cli import CliExitCode, app
+from bvlos_sim.adapters.qgc_plan import load_and_convert_plan, parse_qgc_plan
 
 _runner = CliRunner()
 
@@ -229,7 +229,7 @@ def test_missing_planned_home_raises_value_error() -> None:
 
 
 def test_vehicle_profile_is_threaded_into_converted_mission() -> None:
-    from schemas.mission import MissionPlan
+    from bvlos_sim.schemas.mission import MissionPlan
 
     mission, _ = parse_qgc_plan(
         _plan([_simple_item(16, coordinate=[52.001, 4.002, 120.0])]),

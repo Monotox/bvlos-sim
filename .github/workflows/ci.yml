@@ -39,7 +39,7 @@ jobs:
         run: uv run --locked pytest
 
       - name: Run CLI audit
-        run: uv run --locked python scripts/cli_batch_audit.py
+        run: uv run --locked python bvlos_sim/scripts/cli_batch_audit.py
 
       - name: Build distributions
         if: matrix.python-version == '3.12'
@@ -68,6 +68,15 @@ jobs:
           done
           if "$wheel_venv/bin/bvlos-sim" --help | grep -q 'bump'; then
             echo 'developer-only bump command leaked into wheel' >&2
+            exit 1
+          fi
+          # The distribution must own exactly one top-level import name.
+          # Shipping generic ones (adapters, schemas, scripts, main) silently
+          # collides with any co-installed package using them, both ways.
+          tops="$("$wheel_venv/bin/python" -c 'import sys, zipfile; print(" ".join(sorted({n.split("/")[0] for n in zipfile.ZipFile(sys.argv[1]).namelist() if not n.split("/")[0].endswith(".dist-info")})))' "$wheel_path")"
+          echo "wheel top-level: $tops"
+          if [ "$tops" != "bvlos_sim" ]; then
+            echo "unexpected top-level names in wheel: $tops" >&2
             exit 1
           fi
           uv venv "$extras_venv" --python 3.12

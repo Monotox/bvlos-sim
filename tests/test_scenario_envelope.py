@@ -5,26 +5,29 @@ from pathlib import Path
 
 import pytest
 
-from adapters.envelope import DeterminismMetadata, ProvenanceInput
-from adapters.io import load_mission, load_vehicle
-from adapters.operational_readiness import evaluate_operational_readiness
-from adapters.scenario_envelope import (
+from bvlos_sim.adapters.envelope import DeterminismMetadata, ProvenanceInput
+from bvlos_sim.adapters.io import load_mission, load_vehicle
+from bvlos_sim.adapters.operational_readiness import evaluate_operational_readiness
+from bvlos_sim.adapters.scenario_envelope import (
     SCENARIO_REPORT_SCHEMA_VERSION,
     ScenarioProvenance,
     ScenarioResultEnvelope,
+    _inconclusive_assertion_evidence,
     build_scenario_envelope,
     render_scenario_envelope_json,
 )
-from adapters.scenario_io import load_scenario, resolve_scenario_asset_path
-from adapters.scenario_markdown import render_scenario_markdown
-from estimator.core.enums import WarningCode
-from estimator.core.scenario import (
+from bvlos_sim.adapters.scenario_io import load_scenario, resolve_scenario_asset_path
+from bvlos_sim.adapters.scenario_markdown import render_scenario_markdown
+from bvlos_sim.estimator.core.enums import AssertionOutcome, WarningCode
+from bvlos_sim.estimator.core.scenario import (
     CommsLinkPolicyOutcome,
     DivertRouteEstimate,
+    ScenarioAssertionResult,
     ScenarioEventOutcome,
+    ScenarioResult,
     ScenarioStatus,
 )
-from estimator.execution.scenario import run_scenario
+from bvlos_sim.estimator.execution.scenario import run_scenario
 
 FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "golden" / "scenarios"
 
@@ -311,3 +314,60 @@ def test_scenario_markdown_divert_warnings_are_shown() -> None:
     output = render_scenario_markdown(_minimal_envelope([outcome]))
     assert "Divert warning" in output
     assert "DIVERT_ENERGY_TAS_ONLY" in output
+
+
+# ---------------------------------------------------------------------------
+# Inconclusive assertions must not read as a verified contingency
+# ---------------------------------------------------------------------------
+
+
+def _result_with_assertion(outcome: AssertionOutcome) -> ScenarioResult:
+    return ScenarioResult(
+        scenario_id="lost-link-divert-check",
+        status=ScenarioStatus.PASSED,
+        estimate=None,
+        timeline=[],
+        event_outcomes=[],
+        assertion_results=[
+            ScenarioAssertionResult(
+                assertion_id="divert-must-be-feasible",
+                kind="policy_divert_feasible",
+                outcome=outcome,
+                message="",
+            )
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+    "outcome", [AssertionOutcome.SKIPPED, AssertionOutcome.UNSUPPORTED]
+)
+def test_inconclusive_assertion_is_reported_as_missing_evidence(
+    outcome: AssertionOutcome,
+) -> None:
+    """A safety assertion that never ran must block GO.
+
+    A scenario is only FAILED when an assertion actively fails, so a lost-link
+    divert check on a mission with no lost_link_policy was SKIPPED, the scenario
+    reported PASSED, and the readiness verdict saw a clean scenario.
+    """
+
+    evidence = _inconclusive_assertion_evidence(_result_with_assertion(outcome))
+
+    assert evidence == ("scenario_assertions",)
+    readiness = evaluate_operational_readiness(
+        None, additional_missing_evidence=evidence
+    )
+    assert readiness.is_go is False
+    assert "scenario_assertions" in readiness.missing_evidence
+
+
+@pytest.mark.parametrize(
+    "outcome", [AssertionOutcome.PASSED, AssertionOutcome.FAILED]
+)
+def test_conclusive_assertions_do_not_add_missing_evidence(
+    outcome: AssertionOutcome,
+) -> None:
+    """A decided assertion is evidence; only FAILED blocks, via scenario status."""
+
+    assert _inconclusive_assertion_evidence(_result_with_assertion(outcome)) == ()

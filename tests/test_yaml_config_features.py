@@ -10,15 +10,15 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from adapters.io import load_mission, load_vehicle
-from adapters.scenario_io import load_scenario, resolve_scenario_asset_path
-from estimator import (
+from bvlos_sim.adapters.io import load_mission, load_vehicle
+from bvlos_sim.adapters.scenario_io import load_scenario, resolve_scenario_asset_path
+from bvlos_sim.estimator import (
     LegPhase,
     estimate_mission_distance_time,
     run_scenario,
 )
-from schemas import MissionEstimation
-from schemas.scenario import ScenarioInitialConditions, ScenarioPlan
+from bvlos_sim.schemas import MissionEstimation
+from bvlos_sim.schemas.scenario import ScenarioInitialConditions, ScenarioPlan
 from tests.helpers import make_mission, make_vehicle
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -141,7 +141,7 @@ def test_scenario_ic_wind_layers_none_by_default() -> None:
 
 def test_mission_yaml_fidelity_v2_activates_turn_arcs() -> None:
     """fidelity: v2 in mission estimation YAML must produce TURN_ARC legs."""
-    from schemas.mission import MissionAction, RouteItem
+    from bvlos_sim.schemas.mission import MissionAction, RouteItem
 
     mission = make_mission()
     mission.estimation = MissionEstimation.model_validate({"fidelity": "v2"})
@@ -202,7 +202,7 @@ def test_mission_yaml_wind_layers_change_leg_wind_fields() -> None:
 
 def test_mission_yaml_wind_layers_runtime_options_override() -> None:
     """Runtime options (CLI) must override mission YAML wind_layers."""
-    from estimator import ConstantWindProvider
+    from bvlos_sim.estimator import ConstantWindProvider
 
     mission = make_mission()
     mission.estimation = MissionEstimation.model_validate(
@@ -231,7 +231,7 @@ def test_mission_yaml_wind_layers_runtime_options_override() -> None:
 
 def test_scenario_yaml_fidelity_v2_activates_turn_arcs() -> None:
     """fidelity: v2 in scenario initial_conditions must produce TURN_ARC legs."""
-    from schemas.mission import MissionAction, RouteItem
+    from bvlos_sim.schemas.mission import MissionAction, RouteItem
 
     mission = make_mission()
     wp1 = RouteItem(
@@ -301,7 +301,7 @@ def test_mission_yaml_max_segment_length_m_propagated() -> None:
     A long leg climbing through a wind shear boundary will yield a different
     total_time_s when sampled at 100 m intervals vs. at a single midpoint.
     """
-    from schemas.mission import AltitudeReference, RouteItem, MissionAction
+    from bvlos_sim.schemas.mission import AltitudeReference, RouteItem, MissionAction
 
     mission_coarse = make_mission()
     mission_fine = make_mission()

@@ -3,8 +3,8 @@ from dataclasses import replace
 
 import pytest
 
-from adapters.batch_io import load_batch_manifest
-from adapters.batch_support import (
+from bvlos_sim.adapters.batch_io import load_batch_manifest
+from bvlos_sim.adapters.batch_support import (
     BatchRunResult,
     format_flight_time,
     format_reserve_margin,
@@ -12,11 +12,11 @@ from adapters.batch_support import (
     render_batch_table,
     run_batch_manifest,
 )
-from adapters.cli import CliExitCode, app
-from adapters.cli_batch_support import _batch_output_extension, write_batch_outputs
-from adapters.envelope import OutputFormat
-from adapters.io import InputLoadError
-from schemas.batch import BatchManifest, BatchRun
+from bvlos_sim.adapters.cli import CliExitCode, app
+from bvlos_sim.adapters.cli_batch_support import _batch_output_extension, write_batch_outputs
+from bvlos_sim.adapters.envelope import OutputFormat
+from bvlos_sim.adapters.io import InputLoadError
+from bvlos_sim.schemas.batch import BatchManifest, BatchRun
 from typer.testing import CliRunner
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -685,8 +685,8 @@ def test_batch_parses_shared_inputs_once(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Runs sharing mission/vehicle/asset files must not re-parse them."""
-    import adapters.cli_support as cli_support
-    from adapters.batch_support import run_batch_manifest as run_manifest
+    import bvlos_sim.adapters.cli_support as cli_support
+    from bvlos_sim.adapters.batch_support import run_batch_manifest as run_manifest
 
     fixture = Path(__file__).parent / "fixtures" / "golden" / "terrain"
     calls = {"terrain": 0}
@@ -720,6 +720,8 @@ def test_batch_parses_shared_inputs_once(
 # ---------------------------------------------------------------------------
 
 _SCENARIO = REPO_ROOT / "examples/scenarios/pipeline_demo_001_scenario.yaml"
+_DEMO_MISSION = REPO_ROOT / "examples/missions/pipeline_demo_001.yaml"
+_DEMO_VEHICLE = REPO_ROOT / "examples/vehicles/quadplane_v1.yaml"
 _PLAN = REPO_ROOT / "examples/stochastic/pipeline_demo_001_stochastic.yaml"
 
 
@@ -778,10 +780,34 @@ def test_batch_cli_scenario_run_type(tmp_path: Path) -> None:
         f"  - {{id: s1, scenario: {_SCENARIO}}}\n"
         f"  - {{id: s2, scenario: {_SCENARIO}}}\n",
     )
-    result = _runner.invoke(app, ["batch", str(manifest)])
+    # The demo scenario passes its assertions but the mission is NO-GO on
+    # missing evidence, so the operational gate applies unless it is waived.
+    result = _runner.invoke(app, ["batch", str(manifest), "--engineering-only"])
     assert result.exit_code == 0, result.output
     assert "assertions" in result.output
     assert "PASSED" in result.output
+
+
+def test_batch_scenario_runs_apply_the_operational_gate(tmp_path: Path) -> None:
+    """A batch must grade a scenario exactly as the scenario command does."""
+
+    manifest = _write_manifest(
+        tmp_path,
+        'format_version: "batch.v1"\n'
+        "run_type: scenario\n"
+        "runs:\n"
+        f"  - {{id: s1, scenario: {_SCENARIO}}}\n",
+    )
+
+    gated = _runner.invoke(app, ["batch", str(manifest)])
+    waived = _runner.invoke(app, ["batch", str(manifest), "--engineering-only"])
+    direct = _runner.invoke(app, ["scenario", str(_SCENARIO)])
+
+    assert gated.exit_code == int(CliExitCode.INFEASIBLE), gated.output
+    assert "FAILED" in gated.output
+    assert waived.exit_code == 0, waived.output
+    # Same run, same verdict, whichever command graded it.
+    assert gated.exit_code == direct.exit_code
 
 
 def test_batch_cli_scenario_writes_per_run_envelopes(tmp_path: Path) -> None:
@@ -793,7 +819,16 @@ def test_batch_cli_scenario_writes_per_run_envelopes(tmp_path: Path) -> None:
         f"runs:\n  - {{id: s1, scenario: {_SCENARIO}}}\n",
     )
     result = _runner.invoke(
-        app, ["batch", str(manifest), "--format", "json", "--output-dir", str(out_dir)]
+        app,
+        [
+            "batch",
+            str(manifest),
+            "--format",
+            "json",
+            "--output-dir",
+            str(out_dir),
+            "--engineering-only",
+        ],
     )
     assert result.exit_code == 0, result.output
     import json
@@ -862,7 +897,7 @@ def test_batch_cli_scenario_validate_only(tmp_path: Path) -> None:
 
 
 def test_scenario_failed_status_exits_infeasible() -> None:
-    from adapters.cli_batch_support import _batch_exit_code
+    from bvlos_sim.adapters.cli_batch_support import _batch_exit_code
 
     results = [
         BatchRunResult(
@@ -878,7 +913,7 @@ def test_scenario_failed_status_exits_infeasible() -> None:
 
 
 def test_propagate_diagnostic_status_exits_zero() -> None:
-    from adapters.cli_batch_support import _batch_exit_code
+    from bvlos_sim.adapters.cli_batch_support import _batch_exit_code
 
     results = [
         BatchRunResult(
@@ -891,3 +926,60 @@ def test_propagate_diagnostic_status_exits_zero() -> None:
         )
     ]
     assert _batch_exit_code(results) == int(CliExitCode.SUCCESS)
+
+
+def test_batch_completes_good_runs_when_one_run_cannot_load(tmp_path: Path) -> None:
+    """One bad run must not discard every run that already completed.
+
+    Missions are preloaded to enumerate their assets, so a single unreadable
+    mission aborted the whole batch before any run executed.
+    """
+
+    manifest = _write_manifest(
+        tmp_path,
+        'format_version: "batch.v1"\n'
+        "runs:\n"
+        f"  - {{id: good1, mission: {_DEMO_MISSION}, vehicle: {_DEMO_VEHICLE}}}\n"
+        f"  - {{id: bad, mission: /nonexistent/mission.yaml, vehicle: {_DEMO_VEHICLE}}}\n"
+        f"  - {{id: good2, mission: {_DEMO_MISSION}, vehicle: {_DEMO_VEHICLE}}}\n",
+    )
+
+    result = _runner.invoke(app, ["batch", str(manifest), "--engineering-only"])
+
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT), result.output
+    assert "good1" in result.output
+    assert "good2" in result.output
+    assert "2 feasible" in result.output
+    # The failing run is named along with the file that could not be read.
+    assert "bad" in result.output
+    assert "/nonexistent/mission.yaml" in result.output
+
+
+def test_batch_output_dir_tolerates_a_leftover_temp_file(tmp_path: Path) -> None:
+    """An interrupted run left a temp file that blocked the directory forever."""
+
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    (out_dir / ".e1.json.abc123.tmp").write_text("partial", encoding="utf-8")
+    manifest = _write_manifest(
+        tmp_path,
+        'format_version: "batch.v1"\n'
+        f"runs:\n  - {{id: e1, mission: {_DEMO_MISSION}, vehicle: {_DEMO_VEHICLE}}}\n",
+    )
+
+    result = _runner.invoke(
+        app,
+        [
+            "batch",
+            str(manifest),
+            "--format",
+            "json",
+            "--output-dir",
+            str(out_dir),
+            "--engineering-only",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert (out_dir / "e1.json").exists()
+    assert not (out_dir / ".e1.json.abc123.tmp").exists()

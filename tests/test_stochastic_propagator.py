@@ -5,14 +5,14 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from adapters.io import load_mission, load_vehicle
-from estimator import LandingZone
-from estimator.core.enums import EstimateStatus
-from estimator.execution.propagator import run_stochastic_propagation
-from estimator.execution.propagation.curves import PositionInterpolator
-from estimator.execution.propagation.timeline import _geographic_mean
-from schemas.stochastic import StochasticPropagationPlan
-from schemas.uncertainty import (
+from bvlos_sim.adapters.io import load_mission, load_vehicle
+from bvlos_sim.estimator import LandingZone
+from bvlos_sim.estimator.core.enums import EstimateStatus
+from bvlos_sim.estimator.execution.propagator import run_stochastic_propagation
+from bvlos_sim.estimator.execution.propagation.curves import PositionInterpolator
+from bvlos_sim.estimator.execution.propagation.timeline import _geographic_mean
+from bvlos_sim.schemas.stochastic import StochasticPropagationPlan
+from bvlos_sim.schemas.uncertainty import (
     NormalDistribution,
     UncertaintyParameters,
     UniformDistribution,
@@ -115,7 +115,7 @@ def test_same_seed_produces_identical_results() -> None:
 def test_each_sample_uses_its_own_route_timing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from estimator import try_estimate_mission_distance_time
+    from bvlos_sim.estimator import try_estimate_mission_distance_time
 
     mission, vehicle = _mission_vehicle()
     baseline = try_estimate_mission_distance_time(mission, vehicle)
@@ -133,7 +133,7 @@ def test_each_sample_uses_its_own_route_timing(
     )
     results = iter([baseline, fast, slow])
     monkeypatch.setattr(
-        "estimator.execution.propagation.sampling.try_estimate_mission_distance_time",
+        "bvlos_sim.estimator.execution.propagation.sampling.try_estimate_mission_distance_time",
         lambda *_args, **_kwargs: next(results),
     )
     sample_time_s = baseline.total_time_s * 0.75
@@ -243,14 +243,14 @@ def test_nonspatial_infeasible_samples_count_against_feasibility() -> None:
 def test_error_samples_remain_failed_and_outside_completed_denominator(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from estimator import try_estimate_mission_distance_time
+    from bvlos_sim.estimator import try_estimate_mission_distance_time
 
     mission, vehicle = _mission_vehicle()
     baseline = try_estimate_mission_distance_time(mission, vehicle)
     error = baseline.model_copy(update={"status": EstimateStatus.ERROR, "energy": None})
     results = iter([baseline, error, error, error, error])
     monkeypatch.setattr(
-        "estimator.execution.propagation.sampling.try_estimate_mission_distance_time",
+        "bvlos_sim.estimator.execution.propagation.sampling.try_estimate_mission_distance_time",
         lambda *_args, **_kwargs: next(results),
     )
     plan = _plan(samples=4, seed=2, wind_process_noise_std_mps=0.0)
