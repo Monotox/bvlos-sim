@@ -9,6 +9,165 @@ and this project adheres to semantic versioning once public releases begin.
 
 ## [0.33.0] - 2026-07-24
 
+### Added
+
+- The ground-risk report now states its SORA version, the population assessment
+  buffer, and the numerical dilation that was applied. When the buffer is zero
+  the report carries an explicit **"Centerline-only figure — not a SORA iGRC"**
+  warning: density sampled along the centerline understates the operational
+  volume, and on the same route can report a materially lower iGRC than the
+  buffered assessment. Previously the unqualified number was rendered as
+  "Mission iGRC" with nothing to distinguish the two.
+- Regression tests pinning four safety margins that no test previously
+  protected. Each was verified by deleting the term and confirming the whole
+  suite still passed: the obstacle `uncertainty_m` contribution to required
+  clearance, the half-sample-gap dilation of the ground-risk population query
+  radius, the half-sample-gap widening of the landing-zone distance check, and
+  the RTH abort when return groundspeed falls between zero and
+  `min_groundspeed_mps`. Every one of these only ever makes a verdict *more*
+  permissive when removed, so they were the likeliest source of a future silent
+  false `GO`.
+
+- Machine-readable preflight validation report (Ticket 107). Every command with
+  `--validate-only` (`estimate`, `scenario`, `sample`, `propagate`, `batch`,
+  `sora`, `convert`, `export`) gains a `--validate-format json` opt-in that emits
+  a `preflight-validation.v1` envelope: per-file ok/error with a stable failure
+  `stage` (`schema`/`asset-load`/`reference`) and `code`, plus an overall `ok`
+  flag, exiting `0` (all valid) or `11` (any failure). Validate-only now also
+  loads referenced mission assets (geofence, landing-zone, terrain, population,
+  obstacle, wind-grid), so a broken asset path fails preflight instead of at run
+  time, and all asset failures are collected in one pass. `calibrate`, `compare`,
+  and `size-battery` gain `--validate-only` for parity. Plain-text output stays
+  the default; the envelope carries no wall clock and is deterministic.
+- Machine-readable run progress for long commands (Ticket 106). `sample`,
+  `propagate`, and `batch` can now stream structured JSONL progress so a
+  non-interactive worker can show live progress instead of a flat "running"
+  until exit. Two opt-in flags select it: `--progress-format jsonl` writes one
+  compact JSON record per interval to stderr, and `--progress-file PATH` writes
+  the same stream to a sidecar file. Each record is
+  `{"event":"progress","command":...,"completed":...,"total":...,"elapsed_s":...}`
+  with monotonically increasing `completed` and a guaranteed final record where
+  `completed == total` (sample count for `sample`/`propagate`, run count for
+  `batch`); `elapsed_s` is monotonic wall-clock. Progress is a stderr/sidecar
+  side-channel only — it never appears in the `--output` stream, adds no schema
+  or envelope version, and leaves the result envelope, deterministic results,
+  and exit codes unchanged. Off by default: a run with no progress flag behaves
+  byte-for-byte as before. A progress callback is threaded through
+  `run_monte_carlo`, `run_stochastic_propagation`, and `run_batch_manifest`.
+- Contract-version discovery command (Ticket 105). A new read-only `bvlos-sim
+  schema-versions` command (alias `contracts`) prints the resolved `tool_version`
+  plus every supported output-envelope and input-schema version as canonical JSON
+  and exits `0` without loading any mission, vehicle, or asset file. A backend can
+  call it at startup to pin and check contract compatibility instead of running a
+  full job to read versions off an envelope. Every printed version is sourced from
+  the same module constant the envelopes emit (a drift test asserts this), so the
+  map cannot silently diverge from a real run. `--version` is unchanged.
+- Atomic output writes and clean cancellation (Ticket 104). Every `--output`
+  write and every on-disk artifact writer (flight trace, phase segments,
+  validation report, calibration profile, SITL artifacts) now writes to a sibling
+  temp file, `fsync`s, and `os.replace`s it onto the target, so a killed or
+  interrupted run never leaves a truncated file — the destination is either the
+  prior content or absent. A new `CliExitCode.CANCELLED` (`14`) is returned when a
+  run receives `SIGTERM`/`SIGINT`, installed by the console-script entrypoint, in
+  place of the shell defaults (`143`/`130`). The cancellation contract is
+  documented in `docs/CLI_EXIT_CODES.md` and `docs/VERSIONING_POLICY.md`.
+- Calibration profiles and parameter fitting (Ticket 083). A new `bvlos-sim
+  calibrate VEHICLE TRACE [TRACE ...]` command fits a narrow set of vehicle
+  performance parameters from observed flights and emits a versioned,
+  deterministic `calibration-profile.v1` artifact that *layers on* a base vehicle
+  (it references `base_vehicle_id`, never replacing the profile). It fits
+  `cruise_speed_mps` (mean transit-phase groundspeed), `climb_rate_mps` /
+  `descent_rate_mps` (mean vertical rate over climbing/descending records), and
+  `max_station_keep_wind_mps` (strongest wind held against in loiter dwell),
+  reusing Ticket 081 segmentation as the phase bridge and touching no core
+  estimator formula. Each fitted record carries the value, observed range, sample
+  spread, sample count, applicable conditions, and provenance (source trace IDs,
+  validation-report links, tool version); parameters with no samples are reported
+  in `notes`, never fabricated. Calibrations are opt-in everywhere via
+  `--calibration PATH` on `estimate`, `scenario`, and `validate`: the apply seam
+  overrides only the fitted fields on a re-validated vehicle copy, leaves behaviour
+  unchanged when absent, and rejects a `base_vehicle_id` mismatch as invalid input.
+  Output is a Markdown report or the `calibration-profile.v1` envelope
+  (`--format json`); the fit is deterministic. New public API:
+  `adapters.calibration.fit_calibration_profile`, `apply_calibration`,
+  `load_and_apply_calibration`, `write_calibration_profile`,
+  `load_calibration_profile`, `CalibrationInput`, `CalibrationMismatchError`. New
+  schemas exported from `schemas`: `CalibrationProfile`, `CalibratedParameter`,
+  `CalibratedParameterName`, `CalibrationProvenance`,
+  `CALIBRATION_PROFILE_SCHEMA_VERSION`. Adds a worked example under
+  `examples/calibration/`. Energy-coefficient fitting and online auto-tuning remain
+  out of scope.
+
+- Version bump and release tooling (Ticket 098). A new `bvlos-sim bump
+  <major|minor|patch>` command performs a release-ready version bump atomically:
+  it updates `pyproject.toml` and rolls `CHANGELOG.md` (renaming `[Unreleased]`
+  to the dated release section and opening a fresh `[Unreleased]`), then prints
+  the suggested `git tag`/`push` follow-ups without ever tagging, pushing, or
+  publishing. `--dry-run` previews the edits without writing; `--check` (for CI)
+  fails when `pyproject.toml` is behind the latest git tag, preventing the
+  version drift seen before v0.32.0. Golden fixtures are now version-agnostic:
+  `tool_version()` honours a `BVLOS_SIM_TOOL_VERSION` override that `conftest.py`
+  pins to `0.0.0-test`, so a version bump no longer churns the 16 golden fixtures
+  and a release can no longer break the golden suite. New module
+  `adapters.release` exposes the reusable semver/changelog/consistency helpers.
+
+- Predicted-vs-observed validation metrics (Ticket 082). The new `bvlos-sim
+  validate MISSION VEHICLE TRACE` command compares a deterministic mission
+  estimate against an observed flight trace (`flight-trace.v1` from flight-log
+  ingestion). It segments the trace into flight phases and lines predicted legs
+  up with observed segments on their shared estimator leg-phase, then reports
+  predicted-vs-observed time, horizontal distance (WGS-84 geodesic), mean
+  groundspeed, and reserve at landing — at mission and per-phase level, each with
+  absolute and percent error. Observed phases with no estimator counterpart and
+  missing observed fields are reported in `notes`, never silently dropped. Output
+  is a Markdown report or the versioned `validation-report.v1` envelope
+  (`--format json`); the comparison is deterministic. New public API:
+  `adapters.validation.build_validation_report`, `write_validation_report`,
+  `load_validation_report`. New schemas exported from `schemas`: `ValidationReport`,
+  `MissionValidationMetrics`, `PhaseValidation`, `MetricComparison`,
+  `VALIDATION_REPORT_SCHEMA_VERSION`. Adds an example flight log and ingested trace
+  under `examples/flight_logs/`. No changes to existing estimate, scenario, SITL,
+  or SORA surfaces.
+
+- Flight phase segmentation (Ticket 081). A `NormalizedFlightTrace` can now be
+  deterministically segmented into contiguous `PhaseSegment` blocks using a
+  mode-first algorithm: ArduPilot flight mode strings (TAKEOFF, RTL, LAND, LOITER,
+  etc.) are mapped directly to `TracePhase` values; records in AUTO/GUIDED mode or
+  without mode data fall back to kinematic rules derived from vertical rate and
+  groundspeed. A single-record smoothing pass absorbs sensor-noise blips. Each segment
+  carries the nearest estimator `LegPhase` string where a mapping exists (takeoff →
+  `vertical_takeoff`, transit → `transit`, loiter → `loiter_dwell`, landing →
+  `landing_transit`, rtl → `rtl_transit`). Climb, descent, divert, and unknown have no
+  estimator counterpart and report `estimator_leg_phase: null`. Segmentation metadata
+  records the algorithm identifier, which trace fields were available, and how many
+  records could not be classified. Public API:
+  `adapters.phase_segmentation.segment_trace`, `write_phase_segments`,
+  `load_phase_segments`. Kinematic thresholds
+  (`CLIMB_VERT_RATE_MPS`, `LOITER_SPEED_MPS`, `TRANSIT_SPEED_MPS`) are exported for
+  downstream calibration use. New schemas exported from `schemas` package root:
+  `TracePhase`, `PhaseSegment`, `PhaseSegmentResult`, `SegmentationMetadata`,
+  `PHASE_SEGMENT_SCHEMA_VERSION`. No changes to existing estimate, scenario, or SITL
+  surfaces.
+
+- Flight log ingestion and trace normalization (Ticket 080). ArduPilot DataFlash text
+  (`.log`) files can now be ingested into a versioned `NormalizedFlightTrace` artifact
+  (`flight-trace.v1`). The adapter extracts GPS position, groundspeed, ground course,
+  battery voltage/current/remaining, flight mode, and EKF wind estimate (NKF6/XKF6),
+  merges auxiliary channels into GPS records by carry-forward timestamp, and records
+  parsing assumptions and missing fields in a `FlightTraceProvenance` block. Traces can
+  optionally reference a paired mission and vehicle YAML via `FlightTraceMissionRef`.
+  Public API: `adapters.flight_log.ingest_dataflash_log`, `write_flight_trace`,
+  `load_flight_trace`. New schemas exported from `schemas` package root:
+  `NormalizedFlightTrace`, `FlightTraceRecord`, `FlightTraceProvenance`,
+  `FlightTraceMissionRef`, `FLIGHT_TRACE_SCHEMA_VERSION`. No changes to existing
+  estimate, scenario, or SITL surfaces.
+
+- SORA mitigation depth: the `sora` command now applies operator-declared ground-risk mitigations (M1 strategic, M2 impact reduction, M3 ERP) and a tactical air-risk mitigation, declared in an optional `sora` block on the mission. The assessment reports the full credit ladder (iGRC → credits → final GRC), the residual ARC, and both the intrinsic and mitigated SAIL. Mitigation/credit tables are versioned data keyed by SORA revision; an unrecognised version is reported with a `MITIGATION_VERSION_UNSUPPORTED` advisory and no credits are applied. With no `sora` block the result is unchanged. The output remains a pre-assessment aid, not a certified determination.
+
+- Opt-in return-to-home reserve gate via `constraints.require_rth_reserve`, returning `RTH_RESERVE_BELOW_THRESHOLD` and a checklist `NO-GO` when a route leg cannot preserve reserve after RTH.
+
+- Altitude-aware geofence bounds via GeoJSON `floor_m` and `ceiling_m` properties. Forbidden zones now require both horizontal intersection and altitude-band overlap, while required zones must contain the full leg altitude band.
+
 ### Changed
 
 - **Breaking:** everything moved under a single `bvlos_sim` package. The
@@ -30,24 +189,20 @@ and this project adheres to semantic versioning once public releases begin.
   is corrected to `population-grid.v2` — the only version the loader accepts.
   `schema-versions` prints the same set.
 
-### Added
-
-- The ground-risk report now states its SORA version, the population assessment
-  buffer, and the numerical dilation that was applied. When the buffer is zero
-  the report carries an explicit **"Centerline-only figure — not a SORA iGRC"**
-  warning: density sampled along the centerline understates the operational
-  volume, and on the same route can report a materially lower iGRC than the
-  buffered assessment. Previously the unqualified number was rendered as
-  "Mission iGRC" with nothing to distinguish the two.
-- Regression tests pinning four safety margins that no test previously
-  protected. Each was verified by deleting the term and confirming the whole
-  suite still passed: the obstacle `uncertainty_m` contribution to required
-  clearance, the half-sample-gap dilation of the ground-risk population query
-  radius, the half-sample-gap widening of the landing-zone distance check, and
-  the RTH abort when return groundspeed falls between zero and
-  `min_groundspeed_mps`. Every one of these only ever makes a verdict *more*
-  permissive when removed, so they were the likeliest source of a future silent
-  false `GO`.
+- `max_segment_length_m` now defaults to `500.0` instead of being unset, and
+  every straight leg is sampled at its sub-segment midpoints. Leaving it unset
+  previously selected a zeroth-order rule that sampled the leg once at its
+  **departure end**, so a leg flying into building wind was billed at the wind
+  it left home in: measured 30 % low in energy and 33 % low in time on a 13.7 km
+  leg through a routine gradient. Legs shorter than the interval still resolve
+  to a single midpoint sample, and the 500 m default tracks 100 m sampling
+  within 1 %. Estimates report `metadata.applied_default_max_segment_length_m`
+  when the default was applied, mirroring the existing minimum-groundspeed
+  metadata. This changes default numeric output: golden fixtures were
+  regenerated, and wind-triangle failures now name the sub-segment that failed
+  (`No wind-triangle solution in sub-segment 1/3`) with `segment_index` and
+  `n_segments` context. Set `max_segment_length_m` explicitly to pin the
+  integration interval.
 
 ### Fixed
 
@@ -238,165 +393,6 @@ and this project adheres to semantic versioning once public releases begin.
   with a `0.55` curve reported a `+59.5 Wh` worst-case RTH margin where the
   derated arithmetic gives `−75.5 Wh`. Emergency-path sampling keeps its own
   100 m bound, so a coarser transit setting cannot coarsen contingency energy.
-
-### Changed
-
-- `max_segment_length_m` now defaults to `500.0` instead of being unset, and
-  every straight leg is sampled at its sub-segment midpoints. Leaving it unset
-  previously selected a zeroth-order rule that sampled the leg once at its
-  **departure end**, so a leg flying into building wind was billed at the wind
-  it left home in: measured 30 % low in energy and 33 % low in time on a 13.7 km
-  leg through a routine gradient. Legs shorter than the interval still resolve
-  to a single midpoint sample, and the 500 m default tracks 100 m sampling
-  within 1 %. Estimates report `metadata.applied_default_max_segment_length_m`
-  when the default was applied, mirroring the existing minimum-groundspeed
-  metadata. This changes default numeric output: golden fixtures were
-  regenerated, and wind-triangle failures now name the sub-segment that failed
-  (`No wind-triangle solution in sub-segment 1/3`) with `segment_index` and
-  `n_segments` context. Set `max_segment_length_m` explicitly to pin the
-  integration interval.
-
-### Added
-
-- Machine-readable preflight validation report (Ticket 107). Every command with
-  `--validate-only` (`estimate`, `scenario`, `sample`, `propagate`, `batch`,
-  `sora`, `convert`, `export`) gains a `--validate-format json` opt-in that emits
-  a `preflight-validation.v1` envelope: per-file ok/error with a stable failure
-  `stage` (`schema`/`asset-load`/`reference`) and `code`, plus an overall `ok`
-  flag, exiting `0` (all valid) or `11` (any failure). Validate-only now also
-  loads referenced mission assets (geofence, landing-zone, terrain, population,
-  obstacle, wind-grid), so a broken asset path fails preflight instead of at run
-  time, and all asset failures are collected in one pass. `calibrate`, `compare`,
-  and `size-battery` gain `--validate-only` for parity. Plain-text output stays
-  the default; the envelope carries no wall clock and is deterministic.
-- Machine-readable run progress for long commands (Ticket 106). `sample`,
-  `propagate`, and `batch` can now stream structured JSONL progress so a
-  non-interactive worker can show live progress instead of a flat "running"
-  until exit. Two opt-in flags select it: `--progress-format jsonl` writes one
-  compact JSON record per interval to stderr, and `--progress-file PATH` writes
-  the same stream to a sidecar file. Each record is
-  `{"event":"progress","command":...,"completed":...,"total":...,"elapsed_s":...}`
-  with monotonically increasing `completed` and a guaranteed final record where
-  `completed == total` (sample count for `sample`/`propagate`, run count for
-  `batch`); `elapsed_s` is monotonic wall-clock. Progress is a stderr/sidecar
-  side-channel only — it never appears in the `--output` stream, adds no schema
-  or envelope version, and leaves the result envelope, deterministic results,
-  and exit codes unchanged. Off by default: a run with no progress flag behaves
-  byte-for-byte as before. A progress callback is threaded through
-  `run_monte_carlo`, `run_stochastic_propagation`, and `run_batch_manifest`.
-- Contract-version discovery command (Ticket 105). A new read-only `bvlos-sim
-  schema-versions` command (alias `contracts`) prints the resolved `tool_version`
-  plus every supported output-envelope and input-schema version as canonical JSON
-  and exits `0` without loading any mission, vehicle, or asset file. A backend can
-  call it at startup to pin and check contract compatibility instead of running a
-  full job to read versions off an envelope. Every printed version is sourced from
-  the same module constant the envelopes emit (a drift test asserts this), so the
-  map cannot silently diverge from a real run. `--version` is unchanged.
-- Atomic output writes and clean cancellation (Ticket 104). Every `--output`
-  write and every on-disk artifact writer (flight trace, phase segments,
-  validation report, calibration profile, SITL artifacts) now writes to a sibling
-  temp file, `fsync`s, and `os.replace`s it onto the target, so a killed or
-  interrupted run never leaves a truncated file — the destination is either the
-  prior content or absent. A new `CliExitCode.CANCELLED` (`14`) is returned when a
-  run receives `SIGTERM`/`SIGINT`, installed by the console-script entrypoint, in
-  place of the shell defaults (`143`/`130`). The cancellation contract is
-  documented in `docs/CLI_EXIT_CODES.md` and `docs/VERSIONING_POLICY.md`.
-- Calibration profiles and parameter fitting (Ticket 083). A new `bvlos-sim
-  calibrate VEHICLE TRACE [TRACE ...]` command fits a narrow set of vehicle
-  performance parameters from observed flights and emits a versioned,
-  deterministic `calibration-profile.v1` artifact that *layers on* a base vehicle
-  (it references `base_vehicle_id`, never replacing the profile). It fits
-  `cruise_speed_mps` (mean transit-phase groundspeed), `climb_rate_mps` /
-  `descent_rate_mps` (mean vertical rate over climbing/descending records), and
-  `max_station_keep_wind_mps` (strongest wind held against in loiter dwell),
-  reusing Ticket 081 segmentation as the phase bridge and touching no core
-  estimator formula. Each fitted record carries the value, observed range, sample
-  spread, sample count, applicable conditions, and provenance (source trace IDs,
-  validation-report links, tool version); parameters with no samples are reported
-  in `notes`, never fabricated. Calibrations are opt-in everywhere via
-  `--calibration PATH` on `estimate`, `scenario`, and `validate`: the apply seam
-  overrides only the fitted fields on a re-validated vehicle copy, leaves behaviour
-  unchanged when absent, and rejects a `base_vehicle_id` mismatch as invalid input.
-  Output is a Markdown report or the `calibration-profile.v1` envelope
-  (`--format json`); the fit is deterministic. New public API:
-  `adapters.calibration.fit_calibration_profile`, `apply_calibration`,
-  `load_and_apply_calibration`, `write_calibration_profile`,
-  `load_calibration_profile`, `CalibrationInput`, `CalibrationMismatchError`. New
-  schemas exported from `schemas`: `CalibrationProfile`, `CalibratedParameter`,
-  `CalibratedParameterName`, `CalibrationProvenance`,
-  `CALIBRATION_PROFILE_SCHEMA_VERSION`. Adds a worked example under
-  `examples/calibration/`. Energy-coefficient fitting and online auto-tuning remain
-  out of scope.
-
-- Version bump and release tooling (Ticket 098). A new `bvlos-sim bump
-  <major|minor|patch>` command performs a release-ready version bump atomically:
-  it updates `pyproject.toml` and rolls `CHANGELOG.md` (renaming `[Unreleased]`
-  to the dated release section and opening a fresh `[Unreleased]`), then prints
-  the suggested `git tag`/`push` follow-ups without ever tagging, pushing, or
-  publishing. `--dry-run` previews the edits without writing; `--check` (for CI)
-  fails when `pyproject.toml` is behind the latest git tag, preventing the
-  version drift seen before v0.32.0. Golden fixtures are now version-agnostic:
-  `tool_version()` honours a `BVLOS_SIM_TOOL_VERSION` override that `conftest.py`
-  pins to `0.0.0-test`, so a version bump no longer churns the 16 golden fixtures
-  and a release can no longer break the golden suite. New module
-  `adapters.release` exposes the reusable semver/changelog/consistency helpers.
-
-- Predicted-vs-observed validation metrics (Ticket 082). The new `bvlos-sim
-  validate MISSION VEHICLE TRACE` command compares a deterministic mission
-  estimate against an observed flight trace (`flight-trace.v1` from flight-log
-  ingestion). It segments the trace into flight phases and lines predicted legs
-  up with observed segments on their shared estimator leg-phase, then reports
-  predicted-vs-observed time, horizontal distance (WGS-84 geodesic), mean
-  groundspeed, and reserve at landing — at mission and per-phase level, each with
-  absolute and percent error. Observed phases with no estimator counterpart and
-  missing observed fields are reported in `notes`, never silently dropped. Output
-  is a Markdown report or the versioned `validation-report.v1` envelope
-  (`--format json`); the comparison is deterministic. New public API:
-  `adapters.validation.build_validation_report`, `write_validation_report`,
-  `load_validation_report`. New schemas exported from `schemas`: `ValidationReport`,
-  `MissionValidationMetrics`, `PhaseValidation`, `MetricComparison`,
-  `VALIDATION_REPORT_SCHEMA_VERSION`. Adds an example flight log and ingested trace
-  under `examples/flight_logs/`. No changes to existing estimate, scenario, SITL,
-  or SORA surfaces.
-
-- Flight phase segmentation (Ticket 081). A `NormalizedFlightTrace` can now be
-  deterministically segmented into contiguous `PhaseSegment` blocks using a
-  mode-first algorithm: ArduPilot flight mode strings (TAKEOFF, RTL, LAND, LOITER,
-  etc.) are mapped directly to `TracePhase` values; records in AUTO/GUIDED mode or
-  without mode data fall back to kinematic rules derived from vertical rate and
-  groundspeed. A single-record smoothing pass absorbs sensor-noise blips. Each segment
-  carries the nearest estimator `LegPhase` string where a mapping exists (takeoff →
-  `vertical_takeoff`, transit → `transit`, loiter → `loiter_dwell`, landing →
-  `landing_transit`, rtl → `rtl_transit`). Climb, descent, divert, and unknown have no
-  estimator counterpart and report `estimator_leg_phase: null`. Segmentation metadata
-  records the algorithm identifier, which trace fields were available, and how many
-  records could not be classified. Public API:
-  `adapters.phase_segmentation.segment_trace`, `write_phase_segments`,
-  `load_phase_segments`. Kinematic thresholds
-  (`CLIMB_VERT_RATE_MPS`, `LOITER_SPEED_MPS`, `TRANSIT_SPEED_MPS`) are exported for
-  downstream calibration use. New schemas exported from `schemas` package root:
-  `TracePhase`, `PhaseSegment`, `PhaseSegmentResult`, `SegmentationMetadata`,
-  `PHASE_SEGMENT_SCHEMA_VERSION`. No changes to existing estimate, scenario, or SITL
-  surfaces.
-
-- Flight log ingestion and trace normalization (Ticket 080). ArduPilot DataFlash text
-  (`.log`) files can now be ingested into a versioned `NormalizedFlightTrace` artifact
-  (`flight-trace.v1`). The adapter extracts GPS position, groundspeed, ground course,
-  battery voltage/current/remaining, flight mode, and EKF wind estimate (NKF6/XKF6),
-  merges auxiliary channels into GPS records by carry-forward timestamp, and records
-  parsing assumptions and missing fields in a `FlightTraceProvenance` block. Traces can
-  optionally reference a paired mission and vehicle YAML via `FlightTraceMissionRef`.
-  Public API: `adapters.flight_log.ingest_dataflash_log`, `write_flight_trace`,
-  `load_flight_trace`. New schemas exported from `schemas` package root:
-  `NormalizedFlightTrace`, `FlightTraceRecord`, `FlightTraceProvenance`,
-  `FlightTraceMissionRef`, `FLIGHT_TRACE_SCHEMA_VERSION`. No changes to existing
-  estimate, scenario, or SITL surfaces.
-
-- SORA mitigation depth: the `sora` command now applies operator-declared ground-risk mitigations (M1 strategic, M2 impact reduction, M3 ERP) and a tactical air-risk mitigation, declared in an optional `sora` block on the mission. The assessment reports the full credit ladder (iGRC → credits → final GRC), the residual ARC, and both the intrinsic and mitigated SAIL. Mitigation/credit tables are versioned data keyed by SORA revision; an unrecognised version is reported with a `MITIGATION_VERSION_UNSUPPORTED` advisory and no credits are applied. With no `sora` block the result is unchanged. The output remains a pre-assessment aid, not a certified determination.
-
-- Opt-in return-to-home reserve gate via `constraints.require_rth_reserve`, returning `RTH_RESERVE_BELOW_THRESHOLD` and a checklist `NO-GO` when a route leg cannot preserve reserve after RTH.
-
-- Altitude-aware geofence bounds via GeoJSON `floor_m` and `ceiling_m` properties. Forbidden zones now require both horizontal intersection and altitude-band overlap, while required zones must contain the full leg altitude band.
 
 ## [0.32.0] - 2026-05-29
 
