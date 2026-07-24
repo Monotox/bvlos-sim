@@ -2,9 +2,9 @@ import math
 
 import pytest
 
-from estimator.environment.population import GridPopulationProvider
-from estimator.environment.population import _conservative_radius_bounds
-from estimator.environment.terrain import ConstantElevationProvider, GridTerrainProvider
+from bvlos_sim.estimator.environment.population import GridPopulationProvider
+from bvlos_sim.estimator.environment.population import _conservative_radius_bounds
+from bvlos_sim.estimator.environment.terrain import ConstantElevationProvider, GridTerrainProvider
 
 
 def _terrain() -> GridTerrainProvider:

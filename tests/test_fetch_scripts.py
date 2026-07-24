@@ -10,7 +10,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from scripts import (
+from bvlos_sim.scripts import (
     _overpass,
     fetch_all,
     fetch_geofences,

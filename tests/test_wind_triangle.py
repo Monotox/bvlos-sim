@@ -1,6 +1,6 @@
 import math
 
-from estimator.math.wind_triangle import solve_wind_triangle
+from bvlos_sim.estimator.math.wind_triangle import solve_wind_triangle
 
 
 def test_no_wind_matches_track_and_tas() -> None:

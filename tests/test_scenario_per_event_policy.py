@@ -6,10 +6,10 @@ import pytest
 from pydantic import ValidationError
 from typer.testing import CliRunner
 
-from adapters.cli import ScenarioExitCode, app
-from estimator import LandingZone
-from estimator.execution.scenario import run_scenario
-from schemas.scenario import ScenarioEvent, ScenarioPlan
+from bvlos_sim.adapters.cli import ScenarioExitCode, app
+from bvlos_sim.estimator import LandingZone
+from bvlos_sim.estimator.execution.scenario import run_scenario
+from bvlos_sim.schemas.scenario import ScenarioEvent, ScenarioPlan
 from tests.helpers import make_mission, make_vehicle
 
 REPO_ROOT = Path(__file__).resolve().parents[1]

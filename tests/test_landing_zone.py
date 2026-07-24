@@ -5,9 +5,9 @@ import pytest
 from pydantic import ValidationError
 from pyproj import Geod
 
-from adapters.landing_zone_geojson import LandingZoneLoadError, load_landing_zones
-from adapters.markdown import render_envelope_markdown
-from estimator import (
+from bvlos_sim.adapters.landing_zone_geojson import LandingZoneLoadError, load_landing_zones
+from bvlos_sim.adapters.markdown import render_envelope_markdown
+from bvlos_sim.estimator import (
     ConstantWindProvider,
     EstimateStatus,
     FailureCode,
@@ -15,9 +15,9 @@ from estimator import (
     LandingZone,
     try_estimate_mission_distance_time,
 )
-from schemas import AltitudeReference
+from bvlos_sim.schemas import AltitudeReference
 from tests.helpers import make_mission, make_vehicle
-from schemas.mission import MissionAction, RouteItem
+from bvlos_sim.schemas.mission import MissionAction, RouteItem
 
 
 def _point_zone(
@@ -451,8 +451,8 @@ def test_markdown_render_does_not_crash_when_max_allowed_distance_is_none() -> N
     """Regression: _fmt(None) caused TypeError when max_allowed_distance_m was unset."""
     from pathlib import Path as _Path
 
-    from adapters.envelope import EnvelopeInputs, build_estimator_envelope
-    from adapters.io import InputDocument
+    from bvlos_sim.adapters.envelope import EnvelopeInputs, build_estimator_envelope
+    from bvlos_sim.adapters.io import InputDocument
 
     mission = make_mission()
     mission.constraints.min_distance_to_landing_zone_m = None

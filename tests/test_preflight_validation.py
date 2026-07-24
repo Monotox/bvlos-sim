@@ -8,8 +8,8 @@ import yaml
 from pydantic import ValidationError
 from typer.testing import CliRunner
 
-from adapters.cli import CliExitCode, app
-from schemas.preflight_validation import (
+from bvlos_sim.adapters.cli import CliExitCode, app
+from bvlos_sim.schemas.preflight_validation import (
     PREFLIGHT_VALIDATION_SCHEMA_VERSION,
     FileCheck,
     PreflightError,

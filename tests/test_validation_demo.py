@@ -9,7 +9,7 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from adapters.cli import app
+from bvlos_sim.adapters.cli import app
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _MISSION = _REPO_ROOT / "examples" / "missions" / "pipeline_demo_001.yaml"

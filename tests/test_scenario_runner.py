@@ -3,11 +3,11 @@
 import pytest
 from pydantic import ValidationError
 
-from estimator import LandingZone
-from estimator.core.scenario import AssertionOutcome, ScenarioStatus
-from estimator.environment.wind import LayeredWindProvider, WindLayer
-from estimator.execution.scenario import run_scenario
-from schemas.scenario import (
+from bvlos_sim.estimator import LandingZone
+from bvlos_sim.estimator.core.scenario import AssertionOutcome, ScenarioStatus
+from bvlos_sim.estimator.environment.wind import LayeredWindProvider, WindLayer
+from bvlos_sim.estimator.execution.scenario import run_scenario
+from bvlos_sim.schemas.scenario import (
     ScenarioPlan,
 )
 from tests.helpers import make_mission, make_vehicle
@@ -877,7 +877,7 @@ def test_at_route_item_trigger_matches_first_occurrence() -> None:
 def test_field_resolvers_and_supported_paths_are_in_sync() -> None:
     # Guards against the private API drifting out of sync. Adding a new
     # assertion kind with a field_path requires updating both dicts.
-    from estimator.execution.scenario_assertions import (
+    from bvlos_sim.estimator.execution.scenario_assertions import (
         _FIELD_RESOLVERS,
         _SUPPORTED_FIELD_PATHS,
     )
@@ -917,13 +917,13 @@ def test_weather_and_ground_risk_field_paths_accepted_at_schema_load() -> None:
 
 
 def test_weather_and_ground_risk_field_resolvers_read_estimate_blocks() -> None:
-    from estimator.core.enums import EstimateStatus
-    from estimator.core.results import (
+    from bvlos_sim.estimator.core.enums import EstimateStatus
+    from bvlos_sim.estimator.core.results import (
         GroundRiskEstimate,
         MissionEstimate,
         WeatherEstimate,
     )
-    from estimator.execution.scenario_assertions import resolve_field_value
+    from bvlos_sim.estimator.execution.scenario_assertions import resolve_field_value
 
     estimate = MissionEstimate(
         status=EstimateStatus.SUCCESS,
@@ -971,9 +971,9 @@ def test_rth_feasibility_field_is_assertable_from_scenario() -> None:
 
 
 def test_weather_field_resolver_returns_none_without_weather_block() -> None:
-    from estimator.core.enums import EstimateStatus
-    from estimator.core.results import MissionEstimate
-    from estimator.execution.scenario_assertions import resolve_field_value
+    from bvlos_sim.estimator.core.enums import EstimateStatus
+    from bvlos_sim.estimator.core.results import MissionEstimate
+    from bvlos_sim.estimator.execution.scenario_assertions import resolve_field_value
 
     estimate = MissionEstimate(
         status=EstimateStatus.SUCCESS,
@@ -988,7 +988,7 @@ def test_weather_field_resolver_returns_none_without_weather_block() -> None:
 
 def _make_turning_mission():
     """Mission with a ~90° heading change needed to produce v2 turn arcs."""
-    from schemas.mission import MissionAction, RouteItem
+    from bvlos_sim.schemas.mission import MissionAction, RouteItem
 
     mission = make_mission()
     wp_north = RouteItem(
@@ -1003,8 +1003,8 @@ def _make_turning_mission():
 
 
 def test_scenario_without_explicit_fidelity_inherits_mission_fidelity_v2() -> None:
-    from estimator.core.enums import LegPhase
-    from schemas.mission import MissionEstimation
+    from bvlos_sim.estimator.core.enums import LegPhase
+    from bvlos_sim.schemas.mission import MissionEstimation
 
     mission = _make_turning_mission()
     mission.estimation = MissionEstimation(fidelity="v2")
@@ -1034,8 +1034,8 @@ def test_scenario_without_explicit_fidelity_inherits_mission_fidelity_v2() -> No
 
 
 def test_scenario_with_explicit_fidelity_v1_overrides_mission_v2() -> None:
-    from estimator.core.enums import LegPhase
-    from schemas.mission import MissionEstimation
+    from bvlos_sim.estimator.core.enums import LegPhase
+    from bvlos_sim.schemas.mission import MissionEstimation
 
     mission = _make_turning_mission()
     mission.estimation = MissionEstimation(fidelity="v2")

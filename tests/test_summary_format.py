@@ -1,6 +1,6 @@
 import pytest
 
-from estimator.core.enums import (
+from bvlos_sim.estimator.core.enums import (
     AssertionOutcome,
     EstimateStatus,
     FailureCode,
@@ -8,39 +8,39 @@ from estimator.core.enums import (
     ScenarioStatus,
     WarningCode,
 )
-from estimator.core.results import (
+from bvlos_sim.estimator.core.results import (
     EnergyEstimate,
     EstimatorFailure,
     EstimatorWarning,
     MissionEstimate,
 )
-from estimator.core.scenario import (
+from bvlos_sim.estimator.core.scenario import (
     CommsLinkPolicyOutcome,
     ScenarioAssertionResult,
     ScenarioEventOutcome,
     ScenarioResult,
 )
-from estimator.core.uncertainty import MonteCarloResult, SampledOutputStats
-from schemas.stochastic import (
+from bvlos_sim.estimator.core.uncertainty import MonteCarloResult, SampledOutputStats
+from bvlos_sim.schemas.stochastic import (
     CrossTrackStats,
     EstimationErrorTimelinePoint,
     PropagationTimelinePoint,
     StochasticPropagationResult,
 )
-from adapters.envelope import DeterminismMetadata, ProvenanceInput
-from adapters.stochastic_envelope import StochasticProvenance, StochasticResultEnvelope
-from adapters.stochastic_markdown import render_stochastic_markdown
-from adapters.summary import (
+from bvlos_sim.adapters.envelope import DeterminismMetadata, ProvenanceInput
+from bvlos_sim.adapters.stochastic_envelope import StochasticProvenance, StochasticResultEnvelope
+from bvlos_sim.adapters.stochastic_markdown import render_stochastic_markdown
+from bvlos_sim.adapters.summary import (
     format_estimate_summary,
     format_scenario_summary,
     format_stochastic_summary,
     format_uncertainty_summary,
 )
-from adapters.uncertainty_envelope import (
+from bvlos_sim.adapters.uncertainty_envelope import (
     UncertaintyProvenance,
     UncertaintyResultEnvelope,
 )
-from adapters.uncertainty_markdown import render_uncertainty_markdown
+from bvlos_sim.adapters.uncertainty_markdown import render_uncertainty_markdown
 
 
 def _energy(

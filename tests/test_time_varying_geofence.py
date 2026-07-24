@@ -7,9 +7,9 @@ from pathlib import Path
 import yaml
 from typer.testing import CliRunner
 
-from adapters.assets.geofence_geojson import load_geofences
-from adapters.cli import CliExitCode, app
-from estimator import (
+from bvlos_sim.adapters.assets.geofence_geojson import load_geofences
+from bvlos_sim.adapters.cli import CliExitCode, app
+from bvlos_sim.estimator import (
     EstimateStatus,
     FailureCode,
     GeofenceKind,
@@ -18,8 +18,8 @@ from estimator import (
     WarningCode,
     try_estimate_mission_distance_time,
 )
-from schemas import MissionPlan
-from schemas.mission import MissionAction, RouteItem
+from bvlos_sim.schemas import MissionPlan
+from bvlos_sim.schemas.mission import MissionAction, RouteItem
 from tests.helpers import (
     make_mission,
     make_mission_payload,

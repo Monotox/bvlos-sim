@@ -6,25 +6,25 @@ import yaml
 from pyproj import Geod
 from typer.testing import CliRunner
 
-from adapters.cli import CliExitCode, app
-from adapters.operational_readiness import evaluate_operational_readiness
-from adapters.ground_risk_markdown import (
+from bvlos_sim.adapters.cli import CliExitCode, app
+from bvlos_sim.adapters.operational_readiness import evaluate_operational_readiness
+from bvlos_sim.adapters.ground_risk_markdown import (
     render_ground_risk_markdown_for_estimate,
 )
-from estimator import (
+from bvlos_sim.estimator import (
     EstimateStatus,
     FailureCode,
     WarningCode,
     estimate_mission_distance_time,
     try_estimate_mission_distance_time,
 )
-from estimator.environment.population import GridPopulationProvider
-from estimator.execution.ground_risk import (
+from bvlos_sim.estimator.environment.population import GridPopulationProvider
+from bvlos_sim.estimator.execution.ground_risk import (
     compute_ground_risk,
     controlled_ground_area_igrc,
     intrinsic_ground_risk_class,
 )
-from schemas.vehicle import VehicleProfile
+from bvlos_sim.schemas.vehicle import VehicleProfile
 from tests.helpers import (
     make_mission,
     make_mission_payload,

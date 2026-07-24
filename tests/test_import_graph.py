@@ -9,8 +9,8 @@ import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _COMMAND_MODULES = sorted(
-    f"adapters.commands.{path.stem}"
-    for path in (_REPO_ROOT / "adapters" / "commands").glob("*.py")
+    f"bvlos_sim.adapters.commands.{path.stem}"
+    for path in (_REPO_ROOT / "bvlos_sim" / "adapters" / "commands").glob("*.py")
     if path.stem != "__init__"
 )
 
@@ -19,7 +19,7 @@ def test_command_modules_are_discovered() -> None:
     assert len(_COMMAND_MODULES) >= 15
 
 
-@pytest.mark.parametrize("module", [*_COMMAND_MODULES, "adapters.preflight"])
+@pytest.mark.parametrize("module", [*_COMMAND_MODULES, "bvlos_sim.adapters.preflight"])
 def test_module_imports_standalone(module: str) -> None:
     """Importing one command must not pull in every other command.
 
@@ -42,7 +42,30 @@ def test_module_imports_standalone(module: str) -> None:
 def test_cli_contract_does_not_import_commands() -> None:
     """The leaf must stay a leaf, or the cycle comes straight back."""
 
-    source = (_REPO_ROOT / "adapters" / "cli_contract.py").read_text(encoding="utf-8")
-    assert "adapters.commands" not in source
-    assert "adapters.cli " not in source
-    importlib.import_module("adapters.cli_contract")
+    source = (_REPO_ROOT / "bvlos_sim" / "adapters" / "cli_contract.py").read_text(encoding="utf-8")
+    assert "bvlos_sim.adapters.commands" not in source
+    assert "bvlos_sim.adapters.cli " not in source
+    importlib.import_module("bvlos_sim.adapters.cli_contract")
+
+
+def test_distribution_declares_one_top_level_package() -> None:
+    """Generic top-level names collide silently with co-installed packages.
+
+    pip does not detect file conflicts, so shipping ``adapters``/``schemas``/
+    ``scripts``/``main`` let any other distribution using those names overwrite
+    ours, and ours overwrite theirs, with no warning either way.
+    """
+
+    import tomllib
+
+    pyproject = tomllib.loads(
+        (_REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    )
+    setuptools_config = pyproject["tool"]["setuptools"]
+
+    assert setuptools_config["packages"]["find"]["include"] == ["bvlos_sim*"]
+    # A bare top-level module is the same hazard as a bare top-level package.
+    assert "py-modules" not in setuptools_config
+
+    for entry_point in pyproject["project"]["scripts"].values():
+        assert entry_point.startswith("bvlos_sim."), entry_point

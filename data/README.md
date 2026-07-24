@@ -20,8 +20,8 @@ assets:
 For real-world operations use the fetch scripts to download live data:
 
 ```bash
-uv run python scripts/fetch_geofences.py --lat 52.0 --lon 4.0 --radius-km 20 --output data/geofences/my_area.geojson
-uv run python scripts/fetch_landing_zones.py --lat 52.0 --lon 4.0 --radius-km 20 --output data/landing_zones/my_area.geojson
+uv run python bvlos_sim/scripts/fetch_geofences.py --lat 52.0 --lon 4.0 --radius-km 20 --output data/geofences/my_area.geojson
+uv run python bvlos_sim/scripts/fetch_landing_zones.py --lat 52.0 --lon 4.0 --radius-km 20 --output data/landing_zones/my_area.geojson
 ```
 
 See `examples/real_world/` for a pre-fetched Alpine example.

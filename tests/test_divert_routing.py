@@ -2,13 +2,13 @@
 
 import pytest
 
-from estimator import DivertRouteEstimate, LandingZone
-from estimator.core.enums import EnergyPowerSource, LegPhase, WarningCode
-from estimator.core.results import EnergyEstimate, EnergyLegEstimate
-from estimator.environment.wind import ConstantWindProvider
-from estimator.execution.divert import compute_divert_estimate
-from estimator.execution.scenario import run_scenario
-from schemas.scenario import ScenarioPlan
+from bvlos_sim.estimator import DivertRouteEstimate, LandingZone
+from bvlos_sim.estimator.core.enums import EnergyPowerSource, LegPhase, WarningCode
+from bvlos_sim.estimator.core.results import EnergyEstimate, EnergyLegEstimate
+from bvlos_sim.estimator.environment.wind import ConstantWindProvider
+from bvlos_sim.estimator.execution.divert import compute_divert_estimate
+from bvlos_sim.estimator.execution.scenario import run_scenario
+from bvlos_sim.schemas.scenario import ScenarioPlan
 from tests.helpers import make_mission, make_vehicle
 
 

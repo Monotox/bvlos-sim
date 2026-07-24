@@ -5,13 +5,13 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from adapters.assets.population_grid import (
+from bvlos_sim.adapters.assets.population_grid import (
     PopulationGridLoadError,
     load_population_grid,
 )
-from schemas.mission import MissionPlan
-from schemas.sora import GroundRiskFootprint
-from schemas.vehicle import VehicleProfile
+from bvlos_sim.schemas.mission import MissionPlan
+from bvlos_sim.schemas.sora import GroundRiskFootprint
+from bvlos_sim.schemas.vehicle import VehicleProfile
 from tests.helpers import make_mission_payload, make_vehicle_payload
 
 

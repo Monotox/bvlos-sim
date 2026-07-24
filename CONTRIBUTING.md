@@ -12,7 +12,7 @@ Before every pull request, run and report:
 ```bash
 uv run ruff check .
 uv run pytest
-uv run python scripts/cli_batch_audit.py   # exercises the CLI end to end
+uv run python bvlos_sim/scripts/cli_batch_audit.py   # exercises the CLI end to end
 ```
 
 Optional extras: `--extra flight-logs` (binary log readers), `--extra sitl`

@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from schemas.scenario import (
+from bvlos_sim.schemas.scenario import (
     LostLinkPolicy,
     ScenarioAssertion,
     ScenarioAssertionKind,

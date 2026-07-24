@@ -1,13 +1,13 @@
 """Tests for engine-level advisory warnings: max_wind, failsafe thresholds, and route structure."""
 
-from estimator import (
+from bvlos_sim.estimator import (
     EstimationOptions,
     GeofenceZone,
     LandingZone,
     WarningCode,
     estimate_mission_distance_time,
 )
-from schemas.mission import MissionPlan
+from bvlos_sim.schemas.mission import MissionPlan
 from tests.helpers import make_mission, make_vehicle
 
 

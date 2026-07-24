@@ -6,9 +6,9 @@ import yaml
 from pyproj import Geod
 from typer.testing import CliRunner
 
-from adapters.assets.obstacle_geojson import load_obstacles
-from adapters.cli import CliExitCode, app
-from estimator import (
+from bvlos_sim.adapters.assets.obstacle_geojson import load_obstacles
+from bvlos_sim.adapters.cli import CliExitCode, app
+from bvlos_sim.estimator import (
     EstimateStatus,
     EstimationOptions,
     FailureCode,
@@ -18,11 +18,11 @@ from estimator import (
     estimate_mission_distance_time,
     try_estimate_mission_distance_time,
 )
-from estimator.core.obstacle import Obstacle
-from estimator.environment.obstacle import ListObstacleProvider
-from estimator.environment.terrain import GridTerrainProvider
-from estimator.execution.spatial_sampling import route_leg_samples
-from schemas.mission import MissionAction, MissionPlan, RouteItem
+from bvlos_sim.estimator.core.obstacle import Obstacle
+from bvlos_sim.estimator.environment.obstacle import ListObstacleProvider
+from bvlos_sim.estimator.environment.terrain import GridTerrainProvider
+from bvlos_sim.estimator.execution.spatial_sampling import route_leg_samples
+from bvlos_sim.schemas.mission import MissionAction, MissionPlan, RouteItem
 from tests.helpers import (
     make_mission,
     make_mission_payload,

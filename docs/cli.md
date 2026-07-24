@@ -490,10 +490,10 @@ every artifact but stop blocking `GO`; any unlisted warning still blocks.
 
 ## Python API
 
-The stable Python surface is the package root:
+The stable Python surface is `bvlos_sim.estimator`:
 
 ```python
-from estimator import (
+from bvlos_sim.estimator import (
     EstimationOptions, FidelityMode, LayeredWindProvider, WindLayer,
     estimate_mission_distance_time, try_estimate_mission_distance_time,
     run_scenario, run_monte_carlo,
@@ -509,5 +509,5 @@ result = estimate_mission_distance_time(
 )
 ```
 
-Symbols exported from `estimator.__all__` are the supported surface; internal
+Symbols exported from `bvlos_sim.estimator.__all__` are the supported surface; internal
 module layout is not a contract.

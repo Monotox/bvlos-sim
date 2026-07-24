@@ -9,6 +9,18 @@ and this project adheres to semantic versioning once public releases begin.
 
 ### Changed
 
+- **Breaking:** everything moved under a single `bvlos_sim` package. The
+  distribution installed five generic top-level names — `main`, `adapters`,
+  `estimator`, `schemas`, `scripts` — and pip does not detect file conflicts,
+  so any co-installed distribution shipping one of them silently overwrote ours
+  and ours overwrote theirs. Installing a second package that ships `schemas/`
+  broke `bvlos-sim` outright, and uninstalling it did not repair the install.
+  Imports gain a prefix: `from estimator import …` becomes
+  `from bvlos_sim.estimator import …`, and the bundled scripts move to
+  `bvlos_sim/scripts/`. Console entrypoints are unchanged, and
+  `python -m bvlos_sim` now works. CI asserts the wheel exposes exactly one
+  top-level name.
+
 - Output envelopes are now `estimator-envelope.v10`. `provenance.inputs` gains
   a `calibration` entry, so a run made under `--calibration` no longer has
   byte-identical provenance to the base vehicle it overrode.

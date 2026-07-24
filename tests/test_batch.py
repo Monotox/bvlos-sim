@@ -3,8 +3,8 @@ from dataclasses import replace
 
 import pytest
 
-from adapters.batch_io import load_batch_manifest
-from adapters.batch_support import (
+from bvlos_sim.adapters.batch_io import load_batch_manifest
+from bvlos_sim.adapters.batch_support import (
     BatchRunResult,
     format_flight_time,
     format_reserve_margin,
@@ -12,11 +12,11 @@ from adapters.batch_support import (
     render_batch_table,
     run_batch_manifest,
 )
-from adapters.cli import CliExitCode, app
-from adapters.cli_batch_support import _batch_output_extension, write_batch_outputs
-from adapters.envelope import OutputFormat
-from adapters.io import InputLoadError
-from schemas.batch import BatchManifest, BatchRun
+from bvlos_sim.adapters.cli import CliExitCode, app
+from bvlos_sim.adapters.cli_batch_support import _batch_output_extension, write_batch_outputs
+from bvlos_sim.adapters.envelope import OutputFormat
+from bvlos_sim.adapters.io import InputLoadError
+from bvlos_sim.schemas.batch import BatchManifest, BatchRun
 from typer.testing import CliRunner
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -685,8 +685,8 @@ def test_batch_parses_shared_inputs_once(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Runs sharing mission/vehicle/asset files must not re-parse them."""
-    import adapters.cli_support as cli_support
-    from adapters.batch_support import run_batch_manifest as run_manifest
+    import bvlos_sim.adapters.cli_support as cli_support
+    from bvlos_sim.adapters.batch_support import run_batch_manifest as run_manifest
 
     fixture = Path(__file__).parent / "fixtures" / "golden" / "terrain"
     calls = {"terrain": 0}
@@ -897,7 +897,7 @@ def test_batch_cli_scenario_validate_only(tmp_path: Path) -> None:
 
 
 def test_scenario_failed_status_exits_infeasible() -> None:
-    from adapters.cli_batch_support import _batch_exit_code
+    from bvlos_sim.adapters.cli_batch_support import _batch_exit_code
 
     results = [
         BatchRunResult(
@@ -913,7 +913,7 @@ def test_scenario_failed_status_exits_infeasible() -> None:
 
 
 def test_propagate_diagnostic_status_exits_zero() -> None:
-    from adapters.cli_batch_support import _batch_exit_code
+    from bvlos_sim.adapters.cli_batch_support import _batch_exit_code
 
     results = [
         BatchRunResult(

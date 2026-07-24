@@ -3,10 +3,10 @@ from pathlib import Path
 
 import pytest
 
-from adapters.envelope import EnvelopeInputs, build_estimator_envelope
-from adapters.io import InputDocument
-from adapters.markdown import render_envelope_markdown
-from estimator import (
+from bvlos_sim.adapters.envelope import EnvelopeInputs, build_estimator_envelope
+from bvlos_sim.adapters.io import InputDocument
+from bvlos_sim.adapters.markdown import render_envelope_markdown
+from bvlos_sim.estimator import (
     ConstantWindProvider,
     EnergyPowerSource,
     EstimateStatus,
@@ -19,14 +19,14 @@ from estimator import (
     estimate_mission_distance_time,
     try_estimate_mission_distance_time,
 )
-from estimator.execution.context_builder import build_estimation_context
-from estimator.execution.energy import evaluate_energy_feasibility
-from estimator.execution.executors import execute_route_item
-from estimator.math.atmosphere import isa_air_density_kgm3
-from estimator.math.dubins import geodesic_dubins_path_to_point_m
-from estimator.environment.wind import TimedWindChange, TimeVaryingWindProvider
+from bvlos_sim.estimator.execution.context_builder import build_estimation_context
+from bvlos_sim.estimator.execution.energy import evaluate_energy_feasibility
+from bvlos_sim.estimator.execution.executors import execute_route_item
+from bvlos_sim.estimator.math.atmosphere import isa_air_density_kgm3
+from bvlos_sim.estimator.math.dubins import geodesic_dubins_path_to_point_m
+from bvlos_sim.estimator.environment.wind import TimedWindChange, TimeVaryingWindProvider
 from pyproj import Geod
-from schemas import MissionAction, RouteItem, UsableCapacityPoint, VehicleProfile
+from bvlos_sim.schemas import MissionAction, RouteItem, UsableCapacityPoint, VehicleProfile
 from tests.helpers import make_mission, make_vehicle
 
 

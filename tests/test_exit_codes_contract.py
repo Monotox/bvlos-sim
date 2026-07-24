@@ -15,10 +15,10 @@ from typer.testing import CliRunner
 
 # Import the CLI app first so adapters.cli finishes registering every command
 # before we grab the individual command modules (avoids a circular import).
-from adapters.cli import CliExitCode, app
-import adapters.commands.calibrate as calibrate_cmd
-import adapters.commands.sora as sora_cmd
-import adapters.commands.validate as validate_cmd
+from bvlos_sim.adapters.cli import CliExitCode, app
+import bvlos_sim.adapters.commands.calibrate as calibrate_cmd
+import bvlos_sim.adapters.commands.sora as sora_cmd
+import bvlos_sim.adapters.commands.validate as validate_cmd
 
 runner = CliRunner()
 

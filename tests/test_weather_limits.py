@@ -4,21 +4,21 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from adapters.cli import CliExitCode, app
-from estimator import (
+from bvlos_sim.adapters.cli import CliExitCode, app
+from bvlos_sim.estimator import (
     EstimateStatus,
     FailureCode,
     estimate_mission_distance_time,
     try_estimate_mission_distance_time,
 )
-from estimator.environment.wind import (
+from bvlos_sim.estimator.environment.wind import (
     ConstantWindProvider,
     LayeredWindProvider,
     TimedWindChange,
     TimeVaryingWindProvider,
     WindLayer,
 )
-from schemas.mission import AltitudeReference, MissionAction, MissionPlan, RouteItem
+from bvlos_sim.schemas.mission import AltitudeReference, MissionAction, MissionPlan, RouteItem
 from tests.helpers import (
     make_mission,
     make_mission_payload,

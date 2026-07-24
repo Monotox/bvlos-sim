@@ -6,7 +6,7 @@ from pathlib import Path
 import yaml
 from typer.testing import CliRunner
 
-from adapters.cli import CliExitCode, app
+from bvlos_sim.adapters.cli import CliExitCode, app
 from tests.helpers import make_mission_payload, make_vehicle_payload
 
 FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "golden" / "scenarios"

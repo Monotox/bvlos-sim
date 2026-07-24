@@ -1,9 +1,9 @@
 import pytest
 from pydantic import ValidationError
 
-from estimator.execution.air_risk import compute_air_risk, initial_air_risk_class
-from schemas.mission import Airspace
-from schemas.sora import AirRiskClass, GroundRiskMitigation, MitigationRobustness
+from bvlos_sim.estimator.execution.air_risk import compute_air_risk, initial_air_risk_class
+from bvlos_sim.schemas.mission import Airspace
+from bvlos_sim.schemas.sora import AirRiskClass, GroundRiskMitigation, MitigationRobustness
 
 
 def _airspace(**overrides) -> Airspace:

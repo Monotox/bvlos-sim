@@ -8,13 +8,13 @@ import pytest
 from pydantic import ValidationError
 from pyproj import Geod
 
-from adapters.sitl.comparison import (
+from bvlos_sim.adapters.sitl.comparison import (
     build_sitl_comparison_report,
     render_sitl_comparison_json,
 )
-from adapters.sitl.comparison_markdown import render_sitl_comparison_markdown
-from adapters.sitl.evidence import compare_sitl_evidence_bundle
-from schemas import (
+from bvlos_sim.adapters.sitl.comparison_markdown import render_sitl_comparison_markdown
+from bvlos_sim.adapters.sitl.evidence import compare_sitl_evidence_bundle
+from bvlos_sim.schemas import (
     SitlAdapterKind,
     SitlArtifactReference,
     SitlArtifactRole,
@@ -27,7 +27,7 @@ from schemas import (
     SitlObservedArtifacts,
     SitlSimulatorMetadata,
 )
-from schemas.sitl import SitlJsonValue
+from bvlos_sim.schemas.sitl import SitlJsonValue
 
 type JsonObject = dict[str, SitlJsonValue]
 
@@ -489,7 +489,7 @@ def test_sitl_comparison_report_rejects_unknown_fields(tmp_path: Path) -> None:
 def test_contract_only_bundle_skipped_dimensions_cover_telemetry_dependent_list() -> (
     None
 ):
-    from adapters.sitl.comparison_dimensions import _TELEMETRY_DEPENDENT_DIMENSIONS
+    from bvlos_sim.adapters.sitl.comparison_dimensions import _TELEMETRY_DEPENDENT_DIMENSIONS
 
     report = build_sitl_comparison_report(
         comparison_id="comparison-report",
@@ -507,7 +507,7 @@ def test_contract_only_bundle_skipped_dimensions_cover_telemetry_dependent_list(
 def test_bundle_completeness_not_in_telemetry_dependent_dimensions() -> None:
     # bundle_completeness is SKIPPED via comparison_expected logic, not via
     # _skipped_telemetry_items(), so it must not appear in the list.
-    from adapters.sitl.comparison_dimensions import _TELEMETRY_DEPENDENT_DIMENSIONS
+    from bvlos_sim.adapters.sitl.comparison_dimensions import _TELEMETRY_DEPENDENT_DIMENSIONS
 
     assert "bundle_completeness" not in _TELEMETRY_DEPENDENT_DIMENSIONS
 

@@ -1,11 +1,11 @@
 import pytest
 from pydantic import ValidationError
 
-from estimator.execution.containment import (
+from bvlos_sim.estimator.execution.containment import (
     adjacent_area_outer_limit_m,
     derive_containment_requirement,
 )
-from schemas.sora import (
+from bvlos_sim.schemas.sora import (
     AdjacentAreaContainmentEvidence,
     ContainmentMethod,
     ContainmentRequirement,

@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 import yaml
 
-from adapters.assets.population_grid import load_population_grid
-from scripts import build_population_grid
+from bvlos_sim.adapters.assets.population_grid import load_population_grid
+from bvlos_sim.scripts import build_population_grid
 
 
 _METADATA_ARGS = [

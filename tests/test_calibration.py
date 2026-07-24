@@ -10,9 +10,9 @@ import pytest
 from pydantic import ValidationError
 from typer.testing import CliRunner
 
-from adapters.cli import app
+from bvlos_sim.adapters.cli import app
 
-from adapters.calibration import (
+from bvlos_sim.adapters.calibration import (
     CalibrationInput,
     CalibrationMismatchError,
     apply_calibration,
@@ -21,23 +21,23 @@ from adapters.calibration import (
     load_calibration_profile,
     write_calibration_profile,
 )
-from adapters.canonical_json import render_canonical_json
-from adapters.flight_log import ingest_dataflash_log
-from adapters.io import InputLoadError, load_vehicle
-from adapters.phase_segmentation import segment_trace
-from schemas.calibration import (
+from bvlos_sim.adapters.canonical_json import render_canonical_json
+from bvlos_sim.adapters.flight_log import ingest_dataflash_log
+from bvlos_sim.adapters.io import InputLoadError, load_vehicle
+from bvlos_sim.adapters.phase_segmentation import segment_trace
+from bvlos_sim.schemas.calibration import (
     CALIBRATION_PROFILE_SCHEMA_VERSION,
     CalibratedParameter,
     CalibratedParameterName,
     CalibrationProfile,
     CalibrationProvenance,
 )
-from schemas.flight_log import (
+from bvlos_sim.schemas.flight_log import (
     FlightTraceProvenance,
     FlightTraceRecord,
     NormalizedFlightTrace,
 )
-from schemas.phase_segment import (
+from bvlos_sim.schemas.phase_segment import (
     PHASE_SEGMENT_SCHEMA_VERSION,
     PhaseSegment,
     PhaseSegmentResult,

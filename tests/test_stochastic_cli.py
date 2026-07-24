@@ -5,8 +5,8 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from adapters.cli import CliExitCode, app
-from adapters.stochastic_envelope import STOCHASTIC_ENVELOPE_SCHEMA_VERSION
+from bvlos_sim.adapters.cli import CliExitCode, app
+from bvlos_sim.adapters.stochastic_envelope import STOCHASTIC_ENVELOPE_SCHEMA_VERSION
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 EXAMPLE_STOCHASTIC = REPO_ROOT / "examples/stochastic/pipeline_demo_001_stochastic.yaml"

@@ -5,10 +5,10 @@ from pathlib import Path
 
 import pytest
 
-from adapters.envelope import DeterminismMetadata, ProvenanceInput
-from adapters.io import load_mission, load_vehicle
-from adapters.operational_readiness import evaluate_operational_readiness
-from adapters.scenario_envelope import (
+from bvlos_sim.adapters.envelope import DeterminismMetadata, ProvenanceInput
+from bvlos_sim.adapters.io import load_mission, load_vehicle
+from bvlos_sim.adapters.operational_readiness import evaluate_operational_readiness
+from bvlos_sim.adapters.scenario_envelope import (
     SCENARIO_REPORT_SCHEMA_VERSION,
     ScenarioProvenance,
     ScenarioResultEnvelope,
@@ -16,10 +16,10 @@ from adapters.scenario_envelope import (
     build_scenario_envelope,
     render_scenario_envelope_json,
 )
-from adapters.scenario_io import load_scenario, resolve_scenario_asset_path
-from adapters.scenario_markdown import render_scenario_markdown
-from estimator.core.enums import AssertionOutcome, WarningCode
-from estimator.core.scenario import (
+from bvlos_sim.adapters.scenario_io import load_scenario, resolve_scenario_asset_path
+from bvlos_sim.adapters.scenario_markdown import render_scenario_markdown
+from bvlos_sim.estimator.core.enums import AssertionOutcome, WarningCode
+from bvlos_sim.estimator.core.scenario import (
     CommsLinkPolicyOutcome,
     DivertRouteEstimate,
     ScenarioAssertionResult,
@@ -27,7 +27,7 @@ from estimator.core.scenario import (
     ScenarioResult,
     ScenarioStatus,
 )
-from estimator.execution.scenario import run_scenario
+from bvlos_sim.estimator.execution.scenario import run_scenario
 
 FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "golden" / "scenarios"
 

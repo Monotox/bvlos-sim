@@ -4,10 +4,10 @@ import pytest
 import yaml
 from typer.testing import CliRunner
 
-from adapters.cli import CliExitCode, app
-from adapters.io import load_mission
-from adapters.migration import MISSION_V6, migrate_mission_v6_to_v7
-from schemas.mission import MISSION_SCHEMA_VERSION
+from bvlos_sim.adapters.cli import CliExitCode, app
+from bvlos_sim.adapters.io import load_mission
+from bvlos_sim.adapters.migration import MISSION_V6, migrate_mission_v6_to_v7
+from bvlos_sim.schemas.mission import MISSION_SCHEMA_VERSION
 from tests.helpers import make_mission_payload
 
 _RUNNER = CliRunner()

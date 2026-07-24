@@ -5,14 +5,14 @@ import pytest
 import yaml
 from typer.testing import CliRunner
 
-from adapters.cli import CliExitCode, app
-from estimator import (
+from bvlos_sim.adapters.cli import CliExitCode, app
+from bvlos_sim.estimator import (
     EstimationOptions,
     LegPhase,
     estimate_mission_distance_time,
 )
-from estimator.execution.sora import _conservative_route_max_agl_m
-from schemas.mission import MissionAction, RouteItem
+from bvlos_sim.estimator.execution.sora import _conservative_route_max_agl_m
+from bvlos_sim.schemas.mission import MissionAction, RouteItem
 from tests.helpers import make_mission, make_mission_payload, make_vehicle, make_vehicle_payload
 
 _RUNNER = CliRunner()

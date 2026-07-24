@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-import adapters.atomic_write as atomic_write_module
-from adapters.atomic_write import AtomicWriteDurabilityError, atomic_write_text
-from adapters.cli import (
+import bvlos_sim.adapters.atomic_write as atomic_write_module
+from bvlos_sim.adapters.atomic_write import AtomicWriteDurabilityError, atomic_write_text
+from bvlos_sim.adapters.cli import (
     CliExitCode,
     _handle_cancellation_signal,
     install_cancellation_handlers,

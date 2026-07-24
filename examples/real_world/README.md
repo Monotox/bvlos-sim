@@ -63,7 +63,7 @@ geofences" section below).
 
 ```bash
 uv sync --extra scripts   # installs srtm.py (once)
-uv run python scripts/fetch_all.py 47.05 8.30 \
+uv run python bvlos_sim/scripts/fetch_all.py 47.05 8.30 \
   --departure-time 14:00 --date 2025-06-15 \
   --output-dir examples/real_world/assets
 ```
@@ -94,15 +94,15 @@ for terrain vs. landing zones, specific step size, etc.).
 ```bash
 uv sync --extra scripts   # installs srtm.py (once)
 
-uv run python scripts/fetch_terrain.py 46.9 47.2 8.15 8.45 0.01 \
+uv run python bvlos_sim/scripts/fetch_terrain.py 46.9 47.2 8.15 8.45 0.01 \
   --void-policy interpolate \
   --output terrain.yaml
 
-uv run python scripts/fetch_wind.py 47.05 8.3 \
+uv run python bvlos_sim/scripts/fetch_wind.py 47.05 8.3 \
   --departure-time 14:00 --date 2025-06-15 --window-hours 4 \
   --output wind_grid.yaml
 
-uv run python scripts/fetch_landing_zones.py 46.9 47.2 8.1 8.4 \
+uv run python bvlos_sim/scripts/fetch_landing_zones.py 46.9 47.2 8.1 8.4 \
   --output landing_zones.geojson
 ```
 
@@ -115,7 +115,7 @@ OpenAIP is the primary source for complete airspace coverage and requires a
 free account at https://www.openaip.net.
 
 ```bash
-uv run python scripts/fetch_geofences.py 46.9 47.2 8.1 8.4 \
+uv run python bvlos_sim/scripts/fetch_geofences.py 46.9 47.2 8.1 8.4 \
   --source openaip \
   --api-key $OPENAIP_KEY \
   --output geofences.geojson
@@ -128,7 +128,7 @@ refuses to write the file and exits with an error; pass `--allow-empty` to
 write an empty `geofences.geojson` for an area that genuinely has no airspace.
 
 ```bash
-uv run python scripts/fetch_geofences.py 46.9 47.2 8.1 8.4 \
+uv run python bvlos_sim/scripts/fetch_geofences.py 46.9 47.2 8.1 8.4 \
   --source overpass \
   --output geofences.geojson
 ```

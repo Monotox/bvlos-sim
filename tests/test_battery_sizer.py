@@ -5,15 +5,15 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from adapters.battery_sizer import (
+from bvlos_sim.adapters.battery_sizer import (
     _vehicle_with_capacity as _sized_vehicle,
     battery_capacity_recommendations,
     compute_minimum_battery_capacity,
     render_battery_sizing_markdown,
 )
-from adapters.cli import CliExitCode, app
-from adapters.io import load_mission, load_vehicle
-from estimator import (
+from bvlos_sim.adapters.cli import CliExitCode, app
+from bvlos_sim.adapters.io import load_mission, load_vehicle
+from bvlos_sim.estimator import (
     EstimateStatus,
     EstimatorFailure,
     FailureCode,
@@ -23,9 +23,9 @@ from estimator import (
     MissionEstimate,
     try_estimate_mission_distance_time,
 )
-from estimator.core.obstacle import Obstacle
-from estimator.environment.obstacle import ListObstacleProvider
-from schemas import VehicleProfile
+from bvlos_sim.estimator.core.obstacle import Obstacle
+from bvlos_sim.estimator.environment.obstacle import ListObstacleProvider
+from bvlos_sim.schemas import VehicleProfile
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MISSION_PATH = REPO_ROOT / "examples" / "missions" / "pipeline_demo_001.yaml"
@@ -229,7 +229,7 @@ def test_battery_sizing_finds_narrow_non_monotone_feasible_window(
         )
 
     monkeypatch.setattr(
-        "adapters.battery_sizer._estimate_at_capacity",
+        "bvlos_sim.adapters.battery_sizer._estimate_at_capacity",
         fake_estimate_at_capacity,
     )
 

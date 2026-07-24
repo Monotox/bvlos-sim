@@ -6,8 +6,8 @@ from pathlib import Path
 import yaml
 from typer.testing import CliRunner
 
-from adapters.cli import CliExitCode, app
-from adapters.uncertainty_envelope import UNCERTAINTY_REPORT_SCHEMA_VERSION
+from bvlos_sim.adapters.cli import CliExitCode, app
+from bvlos_sim.adapters.uncertainty_envelope import UNCERTAINTY_REPORT_SCHEMA_VERSION
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 EXAMPLE_UNCERTAINTY = (
@@ -226,7 +226,7 @@ def test_sample_validate_only_exits_zero_for_valid_inputs() -> None:
 
 
 def test_sample_validate_only_does_not_run_sampler(monkeypatch) -> None:
-    from adapters import cli_contract as cli_mod
+    from bvlos_sim.adapters import cli_contract as cli_mod
 
     def _fail(*args, **kwargs):
         raise AssertionError("sampler must not be called with --validate-only")

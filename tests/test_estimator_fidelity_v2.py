@@ -4,7 +4,7 @@ import math
 
 import pytest
 
-from estimator import (
+from bvlos_sim.estimator import (
     EstimationOptions,
     FailureCode,
     FidelityMode,
@@ -13,9 +13,9 @@ from estimator import (
     estimate_mission_distance_time,
     try_estimate_mission_distance_time,
 )
-from estimator.core.errors import UnsupportedEstimatorFeatureError
-from estimator.math.turn_arc import compute_turn_arc_geometry
-from schemas.mission import MissionAction, RouteItem
+from bvlos_sim.estimator.core.errors import UnsupportedEstimatorFeatureError
+from bvlos_sim.estimator.math.turn_arc import compute_turn_arc_geometry
+from bvlos_sim.schemas.mission import MissionAction, RouteItem
 from tests.helpers import make_fw_vehicle, make_mission, make_vehicle
 
 
@@ -433,7 +433,7 @@ def test_no_turn_arc_injected_after_loiter_dwell() -> None:
 
 
 def test_fw_circular_loiter_dwell_uses_cruise_power_in_energy() -> None:
-    from estimator import EnergyPowerSource, try_estimate_mission_distance_time
+    from bvlos_sim.estimator import EnergyPowerSource, try_estimate_mission_distance_time
 
     mission = make_mission()
     mission.route = [mission.route[2]]
@@ -462,7 +462,7 @@ def test_collinear_waypoints_produce_no_turn_arc() -> None:
     # Place both waypoints due north of home so the bearing is constant ~0°
     wp.lat = 52.01
     wp.lon = 4.0
-    from schemas.mission import MissionAction, RouteItem
+    from bvlos_sim.schemas.mission import MissionAction, RouteItem
 
     wp2 = RouteItem(
         id="wp2",
@@ -487,7 +487,7 @@ def test_collinear_waypoints_produce_no_turn_arc() -> None:
 
 def test_fw_circular_loiter_energy_equals_cruise_power_times_time() -> None:
     """FW loiter dwell energy = cruise_power_w × loiter_time_s / 3600."""
-    from estimator import EnergyPowerSource, try_estimate_mission_distance_time
+    from bvlos_sim.estimator import EnergyPowerSource, try_estimate_mission_distance_time
 
     loiter_time_s = 90.0
     mission = make_mission()

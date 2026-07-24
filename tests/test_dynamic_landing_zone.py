@@ -2,15 +2,15 @@
 
 import pytest
 
-from estimator import (
+from bvlos_sim.estimator import (
     EstimateStatus,
     FailureCode,
     LandingZone,
     try_estimate_mission_distance_time,
 )
-from adapters.scenario_envelope import scenario_readiness
-from estimator.execution.scenario import run_scenario
-from schemas.scenario import ScenarioPlan
+from bvlos_sim.adapters.scenario_envelope import scenario_readiness
+from bvlos_sim.estimator.execution.scenario import run_scenario
+from bvlos_sim.schemas.scenario import ScenarioPlan
 from tests.helpers import make_mission, make_vehicle
 
 
@@ -230,8 +230,8 @@ def test_lz_unavailability_partial_schedule_affects_only_later_states() -> None:
 def test_result_validity_scope_full_mission_when_all_zones_unavailable() -> None:
     from pathlib import Path as _Path
 
-    from adapters.envelope import EnvelopeInputs, build_estimator_envelope
-    from adapters.io import InputDocument
+    from bvlos_sim.adapters.envelope import EnvelopeInputs, build_estimator_envelope
+    from bvlos_sim.adapters.io import InputDocument
 
     mission = make_mission()
     mission.route = [mission.route[1]]

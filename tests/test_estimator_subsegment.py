@@ -5,7 +5,7 @@ import math
 import pytest
 from pyproj import Geod
 
-from estimator import (
+from bvlos_sim.estimator import (
     ConstantWindProvider,
     EstimationOptions,
     EstimateStatus,
@@ -16,8 +16,8 @@ from estimator import (
     estimate_mission_distance_time,
     try_estimate_mission_distance_time,
 )
-from estimator.environment.wind import TimedWindChange, TimeVaryingWindProvider
-from schemas import AltitudeReference, MissionPlan
+from bvlos_sim.estimator.environment.wind import TimedWindChange, TimeVaryingWindProvider
+from bvlos_sim.schemas import AltitudeReference, MissionPlan
 from tests.helpers import make_mission, make_vehicle
 
 

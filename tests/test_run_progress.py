@@ -13,13 +13,13 @@ from pathlib import Path
 import yaml
 from typer.testing import CliRunner
 
-from adapters.cli import CliExitCode, app
-from adapters.io import load_mission, load_vehicle
-from adapters.uncertainty_io import (
+from bvlos_sim.adapters.cli import CliExitCode, app
+from bvlos_sim.adapters.io import load_mission, load_vehicle
+from bvlos_sim.adapters.uncertainty_io import (
     load_uncertainty_plan,
     resolve_uncertainty_asset_path,
 )
-from estimator.execution.monte_carlo import run_monte_carlo
+from bvlos_sim.estimator.execution.monte_carlo import run_monte_carlo
 from tests.helpers import make_mission_payload
 
 REPO_ROOT = Path(__file__).resolve().parents[1]

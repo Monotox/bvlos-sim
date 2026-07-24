@@ -9,9 +9,9 @@ from typing import get_args
 
 from typer.testing import CliRunner
 
-from adapters.battery_sizing_envelope import BATTERY_SIZING_REPORT_SCHEMA_VERSION
-from adapters.cli import CliExitCode, app
-from adapters.envelope import (
+from bvlos_sim.adapters.battery_sizing_envelope import BATTERY_SIZING_REPORT_SCHEMA_VERSION
+from bvlos_sim.adapters.cli import CliExitCode, app
+from bvlos_sim.adapters.envelope import (
     GEOFENCE_SCHEMA_VERSION,
     LANDING_ZONE_SCHEMA_VERSION,
     MISSION_SCHEMA_VERSION,
@@ -23,28 +23,28 @@ from adapters.envelope import (
     VEHICLE_SCHEMA_VERSION,
     WIND_GRID_SCHEMA_VERSION,
 )
-from adapters.scenario_envelope import (
+from bvlos_sim.adapters.scenario_envelope import (
     SCENARIO_INPUT_SCHEMA_VERSION,
     SCENARIO_REPORT_SCHEMA_VERSION,
 )
-from adapters.sitl.evidence import SITL_EVIDENCE_SCHEMA_VERSION
-from adapters.stochastic_envelope import (
+from bvlos_sim.adapters.sitl.evidence import SITL_EVIDENCE_SCHEMA_VERSION
+from bvlos_sim.adapters.stochastic_envelope import (
     STOCHASTIC_ENVELOPE_SCHEMA_VERSION,
     STOCHASTIC_INPUT_SCHEMA_VERSION,
 )
-from adapters.sora_envelope import SORA_ENVELOPE_SCHEMA_VERSION
-from adapters.uncertainty_envelope import (
+from bvlos_sim.adapters.sora_envelope import SORA_ENVELOPE_SCHEMA_VERSION
+from bvlos_sim.adapters.uncertainty_envelope import (
     UNCERTAINTY_INPUT_SCHEMA_VERSION,
     UNCERTAINTY_REPORT_SCHEMA_VERSION,
 )
-from adapters.version import tool_version
-from schemas.batch import BatchManifest
-from schemas.calibration import CALIBRATION_PROFILE_SCHEMA_VERSION
-from schemas.flight_log import FLIGHT_TRACE_SCHEMA_VERSION
-from schemas.phase_segment import PHASE_SEGMENT_SCHEMA_VERSION
-from schemas.sitl_comparison import SITL_COMPARISON_SCHEMA_VERSION
-from schemas.sora import SORA_ASSESSMENT_SCHEMA_VERSION
-from schemas.validation import VALIDATION_REPORT_SCHEMA_VERSION
+from bvlos_sim.adapters.version import tool_version
+from bvlos_sim.schemas.batch import BatchManifest
+from bvlos_sim.schemas.calibration import CALIBRATION_PROFILE_SCHEMA_VERSION
+from bvlos_sim.schemas.flight_log import FLIGHT_TRACE_SCHEMA_VERSION
+from bvlos_sim.schemas.phase_segment import PHASE_SEGMENT_SCHEMA_VERSION
+from bvlos_sim.schemas.sitl_comparison import SITL_COMPARISON_SCHEMA_VERSION
+from bvlos_sim.schemas.sora import SORA_ASSESSMENT_SCHEMA_VERSION
+from bvlos_sim.schemas.validation import VALIDATION_REPORT_SCHEMA_VERSION
 
 runner = CliRunner()
 
@@ -139,7 +139,7 @@ def test_population_schema_version_matches_the_loader() -> None:
 
     import pytest
 
-    from adapters.assets.population_grid import (
+    from bvlos_sim.adapters.assets.population_grid import (
         PopulationGridLoadError,
         load_population_grid,
     )

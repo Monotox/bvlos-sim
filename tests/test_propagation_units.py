@@ -4,13 +4,13 @@ import random
 
 import pytest
 
-from estimator.execution.propagation.curves import (
+from bvlos_sim.estimator.execution.propagation.curves import (
     EnergyDrainCurve,
     EnergyLegDrain,
     PositionInterpolator,
     timeline_steps,
 )
-from estimator.execution.propagation.stats import (
+from bvlos_sim.estimator.execution.propagation.stats import (
     compute_stats,
     conditional_reserve_violation_rate,
     modeled_constraint_pass_rate,
@@ -18,8 +18,8 @@ from estimator.execution.propagation.stats import (
     sample_optional,
     sample_positive_optional,
 )
-from estimator.execution.propagation.timeline import _geographic_mean
-from schemas.uncertainty import NormalDistribution, UniformDistribution
+from bvlos_sim.estimator.execution.propagation.timeline import _geographic_mean
+from bvlos_sim.schemas.uncertainty import NormalDistribution, UniformDistribution
 
 
 # ---------------------------------------------------------------------------
@@ -205,8 +205,8 @@ def test_energy_drain_curve_zero_duration_leg_returns_full_energy() -> None:
 def _make_leg(
     start_lat: float, start_lon: float, end_lat: float, end_lon: float, time_s: float
 ) -> object:
-    from estimator.core.results import LegEstimate
-    from estimator.core.enums import LegPhase
+    from bvlos_sim.estimator.core.results import LegEstimate
+    from bvlos_sim.estimator.core.enums import LegPhase
 
     return LegEstimate(
         leg_index=0,

@@ -4,22 +4,22 @@ from pathlib import Path
 import yaml
 from typer.testing import CliRunner
 
-from adapters.cli import CliExitCode, app
-from estimator import (
+from bvlos_sim.adapters.cli import CliExitCode, app
+from bvlos_sim.estimator import (
     EstimateStatus,
     FailureCode,
     try_estimate_mission_distance_time,
 )
-from estimator.core.scenario import ScenarioStatus
-from estimator.execution.scenario import run_scenario
-from schemas import (
+from bvlos_sim.estimator.core.scenario import ScenarioStatus
+from bvlos_sim.estimator.execution.scenario import run_scenario
+from bvlos_sim.schemas import (
     AltitudeReference,
     LinkSystemConfig,
     ResourceSystemConfig,
     ScenarioPlan,
     UsableCapacityPoint,
 )
-from schemas.mission import MissionAction, RouteItem
+from bvlos_sim.schemas.mission import MissionAction, RouteItem
 from tests.helpers import (
     make_mission,
     make_mission_payload,

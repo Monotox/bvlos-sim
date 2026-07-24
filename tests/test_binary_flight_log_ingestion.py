@@ -13,19 +13,19 @@ import struct
 import pytest
 from typer.testing import CliRunner
 
-from adapters.cli import CliExitCode, app
-from adapters.flight_log import (
+from bvlos_sim.adapters.cli import CliExitCode, app
+from bvlos_sim.adapters.flight_log import (
     ARDUPILOT_DATAFLASH_BINARY_FORMAT,
     MAX_FLIGHT_LOG_BYTES,
     PX4_ULOG_FORMAT,
     FlightLogIngestionError,
     ingest_flight_log,
 )
-from adapters.flight_log.dataflash import ingest_dataflash_log
-from adapters.flight_log.dataflash_binary import ingest_dataflash_binary
-from adapters.flight_log.ulog import ULOG_MAGIC, _battery_rows, _mode_rows, ingest_ulog
-from adapters.phase_segmentation import segment_trace
-from schemas.phase_segment import TracePhase
+from bvlos_sim.adapters.flight_log.dataflash import ingest_dataflash_log
+from bvlos_sim.adapters.flight_log.dataflash_binary import ingest_dataflash_binary
+from bvlos_sim.adapters.flight_log.ulog import ULOG_MAGIC, _battery_rows, _mode_rows, ingest_ulog
+from bvlos_sim.adapters.phase_segmentation import segment_trace
+from bvlos_sim.schemas.phase_segment import TracePhase
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 runner = CliRunner()
@@ -192,7 +192,7 @@ def test_dataflash_binary_reader_closes_after_exhaustion(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    module = importlib.import_module("adapters.flight_log.dataflash_binary")
+    module = importlib.import_module("bvlos_sim.adapters.flight_log.dataflash_binary")
     from pymavlink import DFReader
 
     class FakeReader:
@@ -216,7 +216,7 @@ def test_dataflash_binary_reader_closes_when_iteration_is_abandoned(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    module = importlib.import_module("adapters.flight_log.dataflash_binary")
+    module = importlib.import_module("bvlos_sim.adapters.flight_log.dataflash_binary")
     from pymavlink import DFReader
 
     class FakeMessage:
@@ -281,7 +281,7 @@ def test_dataflash_binary_maps_controller_messages(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    module = importlib.import_module("adapters.flight_log.dataflash_binary")
+    module = importlib.import_module("bvlos_sim.adapters.flight_log.dataflash_binary")
     path = tmp_path / "flight.bin"
     path.write_bytes(b"\xa3\x95synthetic")
     messages = [
@@ -332,7 +332,7 @@ def test_ulog_maps_px4_topics_deterministically(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    module = importlib.import_module("adapters.flight_log.ulog")
+    module = importlib.import_module("bvlos_sim.adapters.flight_log.ulog")
     path = tmp_path / "flight.ulg"
     path.write_bytes(ULOG_MAGIC + b"synthetic")
     datasets = {
@@ -400,7 +400,7 @@ def test_ulog_trace_segments_into_flight_phases(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A PX4 takeoff/mission/RTL/land trace segments into real phases, not UNKNOWN."""
-    module = importlib.import_module("adapters.flight_log.ulog")
+    module = importlib.import_module("bvlos_sim.adapters.flight_log.ulog")
     path = tmp_path / "flight.ulg"
     path.write_bytes(ULOG_MAGIC + b"synthetic")
     count = 9
@@ -439,7 +439,7 @@ def test_ulog_manual_nav_state_segments_fail_closed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Nav states outside the phase vocabulary stay UNKNOWN, never guessed."""
-    module = importlib.import_module("adapters.flight_log.ulog")
+    module = importlib.import_module("bvlos_sim.adapters.flight_log.ulog")
     path = tmp_path / "flight.ulg"
     path.write_bytes(ULOG_MAGIC + b"synthetic")
     datasets = {

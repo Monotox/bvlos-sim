@@ -1,6 +1,6 @@
 import math
 
-from estimator import (
+from bvlos_sim.estimator import (
     EstimationOptions,
     EstimateStatus,
     FailureCode,
@@ -10,8 +10,8 @@ from estimator import (
     estimate_mission_distance_time,
     try_estimate_mission_distance_time,
 )
-from estimator.core.results import LegEstimate
-from schemas import AltitudeReference, MissionEstimation
+from bvlos_sim.estimator.core.results import LegEstimate
+from bvlos_sim.schemas import AltitudeReference, MissionEstimation
 from tests.helpers import make_mission, make_vehicle
 
 

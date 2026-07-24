@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from adapters.phase_segmentation import (
+from bvlos_sim.adapters.phase_segmentation import (
     LOITER_SPEED_MPS,
     SEGMENTATION_METHOD,
     TRANSIT_SPEED_MPS,
@@ -15,8 +15,8 @@ from adapters.phase_segmentation import (
     segment_trace,
     write_phase_segments,
 )
-from schemas.flight_log import FlightTraceProvenance, FlightTraceRecord, NormalizedFlightTrace
-from schemas.phase_segment import (
+from bvlos_sim.schemas.flight_log import FlightTraceProvenance, FlightTraceRecord, NormalizedFlightTrace
+from bvlos_sim.schemas.phase_segment import (
     PHASE_SEGMENT_SCHEMA_VERSION,
     PhaseSegmentResult,
     TracePhase,
@@ -444,7 +444,7 @@ def test_phase_segments_write_read_roundtrip(tmp_path: Path) -> None:
 
 
 def test_segment_ingested_dataflash_trace_produces_transit() -> None:
-    from adapters.flight_log import ingest_dataflash_log
+    from bvlos_sim.adapters.flight_log import ingest_dataflash_log
 
     repo_root = Path(__file__).resolve().parents[1]
     log = repo_root / "tests" / "fixtures" / "synthetic_dataflash.log"
@@ -466,9 +466,9 @@ def test_estimator_mapping_values_are_valid_legphases() -> None:
     # The segmenter hard-codes LegPhase string values to avoid coupling adapters to
     # the estimator. Guard against drift: every mapped value must be a real LegPhase
     # member (there is, deliberately, no estimator leg for climb/descent).
-    from estimator.core.enums import LegPhase
+    from bvlos_sim.estimator.core.enums import LegPhase
 
-    from adapters.phase_segmentation.segmenter import _ESTIMATOR_PHASE_MAP
+    from bvlos_sim.adapters.phase_segmentation.segmenter import _ESTIMATOR_PHASE_MAP
 
     valid_values = {phase.value for phase in LegPhase}
     assert set(_ESTIMATOR_PHASE_MAP.values()) <= valid_values

@@ -5,12 +5,12 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from adapters.canonical_json import (
+from bvlos_sim.adapters.canonical_json import (
     canonical_float,
     canonical_json_value,
     render_canonical_json,
 )
-from adapters.envelope import (
+from bvlos_sim.adapters.envelope import (
     EnvelopeInputs,
     EstimatorResultEnvelope,
     build_estimator_envelope,
@@ -18,13 +18,13 @@ from adapters.envelope import (
     build_invalid_input_envelope,
     render_envelope_json,
 )
-from adapters.io import InputDocument, InputLoadError, load_mission, load_vehicle
-from adapters.markdown import render_envelope_markdown
-from adapters.terrain_grid import load_terrain_grid
-from adapters.wind_grid import load_wind_grid
-from estimator import EstimateStatus, try_estimate_mission_distance_time
-from estimator.core.enums import FailureCode, GeofenceKind, WarningCode
-from estimator.core.results import (
+from bvlos_sim.adapters.io import InputDocument, InputLoadError, load_mission, load_vehicle
+from bvlos_sim.adapters.markdown import render_envelope_markdown
+from bvlos_sim.adapters.terrain_grid import load_terrain_grid
+from bvlos_sim.adapters.wind_grid import load_wind_grid
+from bvlos_sim.estimator import EstimateStatus, try_estimate_mission_distance_time
+from bvlos_sim.estimator.core.enums import FailureCode, GeofenceKind, WarningCode
+from bvlos_sim.estimator.core.results import (
     EnergyEstimate,
     EstimatorWarning,
     GeofenceConflict,
@@ -34,7 +34,7 @@ from estimator.core.results import (
     ResourceEstimate,
     RthReserveTimelinePoint,
 )
-from schemas import MissionPlan, VehicleProfile
+from bvlos_sim.schemas import MissionPlan, VehicleProfile
 from tests.helpers import make_mission_payload, make_vehicle_payload
 
 FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "golden"

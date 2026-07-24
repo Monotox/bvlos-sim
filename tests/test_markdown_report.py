@@ -1,8 +1,8 @@
 """Focused tests for weather and ground-risk sections of the Markdown report."""
 
-from adapters.markdown import _render_ground_risk, _render_weather_feasibility
-from estimator.core.enums import FailureCode
-from estimator.core.results import (
+from bvlos_sim.adapters.markdown import _render_ground_risk, _render_weather_feasibility
+from bvlos_sim.estimator.core.enums import FailureCode
+from bvlos_sim.estimator.core.results import (
     GroundRiskEstimate,
     GroundRiskLegEstimate,
     WeatherEstimate,

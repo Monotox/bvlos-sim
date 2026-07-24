@@ -3,13 +3,13 @@
 from pathlib import Path
 
 
-from adapters.cli import CliExitCode, app
-from adapters.envelope import EnvelopeInputs, build_estimator_envelope
-from adapters.io import InputDocument
-from adapters.profile_markdown import render_profile_markdown
-from estimator.core.enums import EstimateStatus, LegPhase
-from estimator.core.results import LegEstimate, MissionEstimate
-from estimator.environment.terrain import ConstantElevationProvider, GridTerrainProvider
+from bvlos_sim.adapters.cli import CliExitCode, app
+from bvlos_sim.adapters.envelope import EnvelopeInputs, build_estimator_envelope
+from bvlos_sim.adapters.io import InputDocument
+from bvlos_sim.adapters.profile_markdown import render_profile_markdown
+from bvlos_sim.estimator.core.enums import EstimateStatus, LegPhase
+from bvlos_sim.estimator.core.results import LegEstimate, MissionEstimate
+from bvlos_sim.estimator.environment.terrain import ConstantElevationProvider, GridTerrainProvider
 from typer.testing import CliRunner
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -173,8 +173,8 @@ def test_profile_with_grid_provider_outside_coverage_shows_dashes() -> None:
 
 
 def test_profile_no_result_shows_no_legs_message() -> None:
-    from adapters.envelope import build_invalid_input_envelope
-    from adapters.io import InputLoadError, InputLoadStage
+    from bvlos_sim.adapters.envelope import build_invalid_input_envelope
+    from bvlos_sim.adapters.io import InputLoadError, InputLoadStage
 
     error = InputLoadError(
         "file not found",

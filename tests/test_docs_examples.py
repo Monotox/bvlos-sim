@@ -12,8 +12,8 @@ from pathlib import Path
 
 import yaml
 
-from schemas.mission import MissionPlan
-from schemas.vehicle import VehicleProfile
+from bvlos_sim.schemas.mission import MissionPlan
+from bvlos_sim.schemas.vehicle import VehicleProfile
 
 _DOC = Path(__file__).resolve().parents[1] / "docs" / "missions.md"
 
@@ -97,7 +97,7 @@ def test_alpine_demo_reports_non_zero_wind() -> None:
 
     from typer.testing import CliRunner
 
-    from adapters.cli import app
+    from bvlos_sim.adapters.cli import app
 
     repo = Path(__file__).resolve().parents[1]
     result = CliRunner().invoke(

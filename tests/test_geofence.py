@@ -5,8 +5,8 @@ import pytest
 from pydantic import ValidationError
 from pyproj import Geod
 
-from adapters.geofence_geojson import GeofenceLoadError, load_geofences
-from estimator import (
+from bvlos_sim.adapters.geofence_geojson import GeofenceLoadError, load_geofences
+from bvlos_sim.estimator import (
     EstimationOptions,
     EstimateStatus,
     FailureCode,
@@ -18,7 +18,7 @@ from estimator import (
     try_estimate_mission_distance_time,
 )
 from tests.helpers import make_mission, make_vehicle
-from schemas.mission import MissionAction, RouteItem
+from bvlos_sim.schemas.mission import MissionAction, RouteItem
 
 
 def _zone(

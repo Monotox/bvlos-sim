@@ -2,14 +2,14 @@ import math
 
 import pytest
 
-from estimator import (
+from bvlos_sim.estimator import (
     EstimationOptions,
     FailureCode,
     WarningCode,
     estimate_mission_distance_time,
 )
-from estimator.core.errors import UnsupportedEstimatorFeatureError
-from schemas import AltitudeReference
+from bvlos_sim.estimator.core.errors import UnsupportedEstimatorFeatureError
+from bvlos_sim.schemas import AltitudeReference
 from tests.helpers import make_mission, make_vehicle
 
 

@@ -141,7 +141,7 @@ assets:
 Relative paths resolve from the mission file's directory. All assets are
 offline files — core execution performs no live lookups; data quality and
 freshness are the operator's responsibility. Fetch real data with the bundled
-scripts (`uv sync --extra scripts`, then `scripts/fetch_all.py <lat> <lon>` or
+scripts (`uv sync --extra scripts`, then `bvlos_sim/scripts/fetch_all.py <lat> <lon>` or
 the individual `fetch_terrain.py` / `fetch_wind.py` / `fetch_landing_zones.py`
 / `fetch_geofences.py` / `fetch_population.py`); see
 [`examples/real_world/`](https://github.com/Monotox/bvlos-sim/blob/main/examples/real_world/README.md) for a complete
@@ -407,7 +407,7 @@ containing `departure_time`, and a transient-population/assemblies assessment.
 WorldPop point samples and legacy grids stay diagnostic-only.
 
 Produce the file from an authority-exported raster with
-`scripts/build_population_grid.py` (entry point
+`bvlos_sim/scripts/build_population_grid.py` (entry point
 `bvlos-build-population-grid`): it converts an ESRI ASCII grid or a
 lat/lon/density CSV using per-cell maxima, refuses uncovered cells, and
 requires every metadata field as a flag. The tool guarantees format and

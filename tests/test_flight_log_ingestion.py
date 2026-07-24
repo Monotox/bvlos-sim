@@ -9,14 +9,14 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from adapters.flight_log import (
+from bvlos_sim.adapters.flight_log import (
     ARDUPILOT_DATAFLASH_TEXT_FORMAT,
     FlightLogIngestionError,
     ingest_dataflash_log,
     load_flight_trace,
     write_flight_trace,
 )
-from schemas.flight_log import (
+from bvlos_sim.schemas.flight_log import (
     FLIGHT_TRACE_SCHEMA_VERSION,
     FlightTraceMissionRef,
     FlightTraceRecord,

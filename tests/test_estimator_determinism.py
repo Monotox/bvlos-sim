@@ -1,11 +1,11 @@
-from estimator import (
+from bvlos_sim.estimator import (
     ConstantElevationProvider,
     LayeredWindProvider,
     WindLayer,
     estimate_mission_distance_time,
 )
-from estimator.core.enums import FidelityMode
-from estimator.core.options import EstimationOptions
+from bvlos_sim.estimator.core.enums import FidelityMode
+from bvlos_sim.estimator.core.options import EstimationOptions
 from tests.helpers import make_mission, make_vehicle
 
 
@@ -36,7 +36,7 @@ def test_estimator_is_deterministic_with_wind_provider() -> None:
 
 
 def test_estimator_is_deterministic_with_terrain_provider() -> None:
-    from schemas.mission import AltitudeReference
+    from bvlos_sim.schemas.mission import AltitudeReference
 
     mission = make_mission()
     mission.defaults.altitude_reference = AltitudeReference.TERRAIN
@@ -50,7 +50,7 @@ def test_estimator_is_deterministic_with_terrain_provider() -> None:
 
 
 def test_estimator_v2_is_deterministic() -> None:
-    from schemas.mission import MissionAction, RouteItem
+    from bvlos_sim.schemas.mission import MissionAction, RouteItem
 
     mission = make_mission()
     wp1 = RouteItem(
