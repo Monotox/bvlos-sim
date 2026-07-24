@@ -6,7 +6,7 @@ import yaml
 import pytest
 from typer.testing import CliRunner
 
-import adapters.cli as cli_module
+import adapters.cli_contract as cli_module
 from adapters.cli import CliExitCode, app
 from adapters.envelope import RESULT_ENVELOPE_SCHEMA_VERSION
 from adapters.version import tool_version

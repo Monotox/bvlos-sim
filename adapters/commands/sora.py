@@ -4,7 +4,7 @@ from pathlib import Path
 
 import typer
 
-import adapters.cli as cli
+import adapters.cli_contract as cli
 from adapters.assets.geofence_geojson import GeofenceLoadError
 from adapters.assets.landing_zone_geojson import LandingZoneLoadError
 from adapters.assets.obstacle_geojson import ObstacleLoadError

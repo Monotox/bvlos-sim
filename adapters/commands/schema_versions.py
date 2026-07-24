@@ -10,7 +10,7 @@ from typing import get_args
 
 import typer
 
-import adapters.cli as cli
+import adapters.cli_contract as cli
 from adapters.battery_sizing_envelope import BATTERY_SIZING_REPORT_SCHEMA_VERSION
 from adapters.canonical_json import render_canonical_json
 from adapters.envelope import (

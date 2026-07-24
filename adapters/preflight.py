@@ -27,7 +27,7 @@ from adapters.assets.obstacle_geojson import ObstacleLoadError, load_obstacles
 from adapters.assets.population_grid import load_population_grid
 from adapters.assets.terrain_grid import load_terrain_grid
 from adapters.assets.wind_grid import load_wind_grid
-from adapters.cli import CliExitCode, PreflightFormat
+from adapters.cli_contract import CliExitCode, PreflightFormat
 from adapters.io import InputLoadError, InputLoadStage
 from adapters.preflight_envelope import render_preflight_report
 from schemas.mission import MissionPlan

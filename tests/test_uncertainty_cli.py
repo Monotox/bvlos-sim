@@ -226,7 +226,7 @@ def test_sample_validate_only_exits_zero_for_valid_inputs() -> None:
 
 
 def test_sample_validate_only_does_not_run_sampler(monkeypatch) -> None:
-    from adapters import cli as cli_mod
+    from adapters import cli_contract as cli_mod
 
     def _fail(*args, **kwargs):
         raise AssertionError("sampler must not be called with --validate-only")

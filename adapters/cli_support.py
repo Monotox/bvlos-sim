@@ -608,7 +608,7 @@ def _refuse_output_clobber(
     """Exit INVALID_INPUT when --no-clobber is set and the output file exists."""
     if not no_clobber or output is None or not output.exists():
         return
-    import adapters.cli as cli
+    import adapters.cli_contract as cli
 
     cli._exit_with_cli_error(
         f"--no-clobber: refusing to overwrite existing output file: {output}",

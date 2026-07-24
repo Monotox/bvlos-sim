@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+import typer
 
 from adapters.flight_log import ingest_dataflash_log
 from adapters.phase_segmentation import segment_trace
@@ -414,3 +415,32 @@ def test_full_path_from_example_log() -> None:
 
 
 __all__: list[str] = []
+
+
+def test_validate_refuses_a_calibration_fitted_from_the_same_trace() -> None:
+    """A model tuned on a flight reproduces that flight; that is not evidence."""
+
+    from adapters.commands.validate import _refuse_circular_validation
+    from schemas.calibration import CalibrationProfile
+
+    profile = CalibrationProfile.model_validate(
+        {
+            "schema_version": "calibration-profile.v1",
+            "calibration_id": "cal-1",
+            "base_vehicle_id": "quadplane_v1",
+            "provenance": {
+                "tool_version": "0.0.0-test",
+                "calibration_dataset_version": "d1",
+                "source_trace_ids": ["flight-a"],
+            },
+            "parameters": [],
+        }
+    )
+
+    # A different trace is fine.
+    _refuse_circular_validation(profile, "flight-b")
+    # No calibration at all is fine.
+    _refuse_circular_validation(None, "flight-a")
+
+    with pytest.raises(typer.BadParameter, match="circular"):
+        _refuse_circular_validation(profile, "flight-a")

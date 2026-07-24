@@ -5,7 +5,7 @@ from pathlib import Path
 import typer
 from pydantic import ValidationError
 
-import adapters.cli as cli
+import adapters.cli_contract as cli
 from adapters.calibration import CalibrationInput, fit_calibration_profile
 from adapters.calibration_markdown import render_calibration_markdown
 from adapters.canonical_json import render_canonical_json

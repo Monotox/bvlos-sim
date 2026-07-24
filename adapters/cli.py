@@ -1,109 +1,34 @@
 """Typer CLI adapter for estimator execution."""
 
-import json
 import signal
-from enum import IntEnum, StrEnum
 from pathlib import Path
 from types import FrameType
 from typing import NoReturn
 
 import typer
 
-from adapters.cli_batch_support import BatchOutputFormat
-from adapters.envelope import OutputFormat
 from adapters.version import tool_version
-from estimator import try_estimate_mission_distance_time
-from estimator.execution.monte_carlo import run_monte_carlo
-from estimator.execution.propagator import run_stochastic_propagation
+
+from adapters.cli_contract import __all__ as _contract_all
+from adapters.cli_contract import (  # noqa: F401
+    BatterySizingOutputFormat,
+    CliExitCode,
+    DocumentOutputFormat,
+    PreflightFormat,
+    ProgressFormat,
+    ScenarioExitCode,
+    SoraOutputFormat,
+    SummaryOutputFormat,
+    VerifyExitCode,
+    _document_output_format,
+    _exit_with_cli_error,
+    _render_cli_error,
+    _summary_output_format,
+)
+
+__all__ = [*_contract_all, "app", "install_cancellation_handlers"]
 
 app = typer.Typer(name="bvlos-sim", add_completion=False, no_args_is_help=True)
-
-
-class CliExitCode(IntEnum):
-    SUCCESS = 0
-    INFEASIBLE = 10
-    INVALID_INPUT = 11
-    UNSUPPORTED = 12
-    INTERNAL_ERROR = 13
-    CANCELLED = 14
-
-
-class ScenarioExitCode(IntEnum):
-    PASSED = 0
-    FAILED = 10
-    INVALID_INPUT = 11
-    INTERNAL_ERROR = 13
-
-
-class VerifyExitCode(IntEnum):
-    PASSED = 0
-    FAILED = 10
-    INVALID_INPUT = 11
-    INTERNAL_ERROR = 13
-
-
-class DocumentOutputFormat(StrEnum):
-    JSON = "json"
-    MARKDOWN = "markdown"
-
-
-class SummaryOutputFormat(StrEnum):
-    JSON = "json"
-    MARKDOWN = "markdown"
-    SUMMARY = "summary"
-
-
-class BatterySizingOutputFormat(StrEnum):
-    JSON = "json"
-    MARKDOWN = "markdown"
-    SUMMARY = "summary"
-
-
-class SoraOutputFormat(StrEnum):
-    JSON = "json"
-    MARKDOWN = "markdown"
-
-
-class ProgressFormat(StrEnum):
-    NONE = "none"
-    JSONL = "jsonl"
-
-
-class PreflightFormat(StrEnum):
-    TEXT = "text"
-    JSON = "json"
-
-
-_DOCUMENT_OUTPUT_FORMATS: dict[DocumentOutputFormat, OutputFormat] = {
-    DocumentOutputFormat.JSON: OutputFormat.JSON,
-    DocumentOutputFormat.MARKDOWN: OutputFormat.MARKDOWN,
-}
-
-_SUMMARY_OUTPUT_FORMATS: dict[SummaryOutputFormat, OutputFormat] = {
-    SummaryOutputFormat.JSON: OutputFormat.JSON,
-    SummaryOutputFormat.MARKDOWN: OutputFormat.MARKDOWN,
-    SummaryOutputFormat.SUMMARY: OutputFormat.SUMMARY,
-}
-
-
-__all__ = [
-    "app",
-    "BatterySizingOutputFormat",
-    "BatchOutputFormat",
-    "CliExitCode",
-    "DocumentOutputFormat",
-    "PreflightFormat",
-    "ProgressFormat",
-    "ScenarioExitCode",
-    "SoraOutputFormat",
-    "SummaryOutputFormat",
-    "VerifyExitCode",
-    "install_cancellation_handlers",
-    "run_monte_carlo",
-    "run_stochastic_propagation",
-    "try_estimate_mission_distance_time",
-]
-
 
 def _handle_cancellation_signal(signum: int, _frame: FrameType | None) -> NoReturn:
     """Exit with the documented CANCELLED code on SIGTERM/SIGINT.
@@ -145,37 +70,6 @@ def main(
     ),
 ) -> None:
     """BVLOS simulator command group."""
-
-
-def _render_cli_error(
-    message: str,
-    command: str,
-    *,
-    details: dict | None = None,
-) -> str:
-    payload: dict = {"command": command, "status": "error", "message": message}
-    if details:
-        payload["details"] = details
-    return json.dumps(payload, indent=2) + "\n"
-
-
-def _exit_with_cli_error(
-    message: str,
-    *,
-    command: str,
-    code: CliExitCode,
-    details: dict | None = None,
-) -> NoReturn:
-    typer.echo(_render_cli_error(message, command, details=details), nl=False)
-    raise typer.Exit(code=int(code))
-
-
-def _document_output_format(output_format: DocumentOutputFormat) -> OutputFormat:
-    return _DOCUMENT_OUTPUT_FORMATS[output_format]
-
-
-def _summary_output_format(output_format: SummaryOutputFormat) -> OutputFormat:
-    return _SUMMARY_OUTPUT_FORMATS[output_format]
 
 
 def _register_commands() -> None:

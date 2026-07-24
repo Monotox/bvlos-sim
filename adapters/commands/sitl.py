@@ -4,7 +4,7 @@ from pathlib import Path
 
 import typer
 
-import adapters.cli as cli
+import adapters.cli_contract as cli
 from adapters.cli_sitl_support import (
     SitlLiveOptions,
     SitlScenarioContext,

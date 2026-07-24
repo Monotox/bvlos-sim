@@ -5,7 +5,7 @@ from pathlib import Path
 
 import typer
 
-import adapters.cli as cli
+import adapters.cli_contract as cli
 from adapters.calibration import load_and_apply_calibration, load_calibration_profile
 from adapters.checklist_markdown import checklist_is_go
 from adapters.cli_support import (

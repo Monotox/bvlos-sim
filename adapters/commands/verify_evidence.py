@@ -7,7 +7,7 @@ from pathlib import Path
 
 import typer
 
-import adapters.cli as cli
+import adapters.cli_contract as cli
 from adapters.io import InputLoadError
 from adapters.sitl.evidence_io import load_sitl_evidence_bundle
 from schemas import SitlArtifactReference, SitlEvidenceBundle

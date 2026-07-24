@@ -37,6 +37,16 @@ and this project adheres to semantic versioning once public releases begin.
 
 ### Fixed
 
+- Command modules can be imported on their own again. `adapters.cli` registers
+  every command at import time, so importing one command first left the module
+  half-initialised and raised `ImportError` — 18 command modules and
+  `adapters.preflight` were affected. The exit codes, output formats and error
+  helpers moved to a leaf `adapters.cli_contract`, which commands import
+  instead; `adapters.cli` re-exports them unchanged.
+- `validate` refuses a calibration that was fitted from the trace being
+  validated. A model tuned on a flight reproduces that flight, so reporting the
+  agreement as validation evidence proved nothing; the circular case is now an
+  explicit error instead of a silent pass.
 - `fetch_terrain.py` and `fetch_all.py` gain `--void-policy {fail,interpolate}`.
   A single SRTM void aborted the whole fetch, so the documented "fetch your own
   area" command died on the project's own coordinates and left the output

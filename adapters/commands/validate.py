@@ -5,12 +5,16 @@ from pathlib import Path
 import typer
 from pydantic import ValidationError
 
-import adapters.cli as cli
-from adapters.calibration import load_and_apply_calibration
+import adapters.cli_contract as cli
+from adapters.calibration import (
+    load_and_apply_calibration,
+    load_calibration_profile,
+)
 from adapters.assets.geofence_geojson import GeofenceLoadError
 from adapters.assets.landing_zone_geojson import LandingZoneLoadError
 from adapters.assets.obstacle_geojson import ObstacleLoadError
 from adapters.canonical_json import render_canonical_json
+from schemas.calibration import CalibrationProfile
 from adapters.cli_support import (
     NO_CLOBBER_OPTION,
     MissionAssetBundle,
@@ -26,6 +30,29 @@ from adapters.validation import build_validation_report
 from adapters.validation_markdown import render_validation_markdown
 from adapters.version import tool_version
 from schemas.flight_log import FlightTraceMissionRef
+
+
+def _refuse_circular_validation(
+    calibration_profile: CalibrationProfile | None,
+    trace_id: str,
+) -> None:
+    """Refuse to validate a model against the trace it was fitted from.
+
+    A calibration tuned on a flight will reproduce that flight; reporting the
+    agreement as validation evidence proves nothing about the model.
+    """
+
+    if calibration_profile is None:
+        return
+    source_trace_ids = calibration_profile.provenance.source_trace_ids
+    if trace_id in source_trace_ids:
+        raise typer.BadParameter(
+            f"Calibration '{calibration_profile.calibration_id}' was fitted from "
+            f"trace '{trace_id}', so validating against that same trace is "
+            "circular and is not validation evidence. Validate against a trace "
+            "the calibration did not see.",
+            param_hint="--calibration",
+        )
 
 
 def validate(
@@ -90,11 +117,14 @@ def validate(
     try:
         mission_model, mission_document = load_mission(mission)
         vehicle_model, vehicle_document = load_vehicle(vehicle)
+        calibration_profile = None
         if calibration is not None:
+            calibration_profile, _ = load_calibration_profile(calibration)
             vehicle_model, _ = load_and_apply_calibration(
                 vehicle_model, calibration
             )
         normalized_trace, _trace_document = load_flight_trace(trace)
+        _refuse_circular_validation(calibration_profile, normalized_trace.trace_id)
         _validate_trace_references(
             normalized_trace.mission_ref,
             mission_document=mission_document,

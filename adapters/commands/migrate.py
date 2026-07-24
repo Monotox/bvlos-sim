@@ -9,7 +9,7 @@ import typer
 import yaml
 from pydantic import ValidationError
 
-import adapters.cli as cli
+import adapters.cli_contract as cli
 from adapters.atomic_write import atomic_write_text
 from adapters.cli_support import NO_CLOBBER_OPTION, _refuse_output_clobber
 from adapters.migration import detect_mission_version, migrate_payload

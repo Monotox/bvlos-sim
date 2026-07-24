@@ -13,7 +13,7 @@ from pathlib import Path
 import typer
 import yaml
 
-import adapters.cli as cli
+import adapters.cli_contract as cli
 from adapters.cli_support import (
     NO_CLOBBER_OPTION,
     OutputWriteError,

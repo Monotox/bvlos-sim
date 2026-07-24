@@ -5,7 +5,7 @@ from pathlib import Path
 
 import typer
 
-import adapters.cli as cli
+import adapters.cli_contract as cli
 from adapters.batch_io import load_batch_manifest
 from adapters.batch_support import (
     BatchRunResult,

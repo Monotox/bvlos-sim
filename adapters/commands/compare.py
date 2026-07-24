@@ -5,7 +5,7 @@ from pathlib import Path
 import typer
 from pydantic import ValidationError
 
-import adapters.cli as cli
+import adapters.cli_contract as cli
 from adapters.cli_support import (
     NO_CLOBBER_OPTION,
     OutputWriteError,
