@@ -9,6 +9,13 @@ and this project adheres to semantic versioning once public releases begin.
 
 ### Added
 
+- The ground-risk report now states its SORA version, the population assessment
+  buffer, and the numerical dilation that was applied. When the buffer is zero
+  the report carries an explicit **"Centerline-only figure — not a SORA iGRC"**
+  warning: density sampled along the centerline understates the operational
+  volume, and on the same route can report a materially lower iGRC than the
+  buffered assessment. Previously the unqualified number was rendered as
+  "Mission iGRC" with nothing to distinguish the two.
 - Regression tests pinning four safety margins that no test previously
   protected. Each was verified by deleting the term and confirming the whole
   suite still passed: the obstacle `uncertainty_m` contribution to required

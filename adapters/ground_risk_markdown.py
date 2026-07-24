@@ -26,11 +26,32 @@ def _ground_risk_lines(ground_risk: GroundRiskEstimate | None) -> list[str]:
         lines.append("")
         return lines
 
+    buffer_m = ground_risk.population_assessment_buffer_m
     lines.extend(
         [
             f"- Characteristic dimension m: `{_fmt(ground_risk.characteristic_dimension_m)}`",
+            f"- SORA version: `{ground_risk.sora_version or _MISSING}`",
+            f"- Population assessment buffer m: `{_fmt(buffer_m)}`",
+            f"- Population numerical dilation m: "
+            f"`{_fmt(ground_risk.population_numerical_dilation_m)}`",
             f"- Mission iGRC: `{_igrc_label(ground_risk.mission_igrc)}`",
             "",
+        ]
+    )
+    if buffer_m <= 0.0:
+        lines.extend(
+            [
+                "> **Centerline-only figure — not a SORA iGRC.** Population was "
+                "sampled along the route centerline with no assessment buffer, so "
+                "this understates the ground risk of the operational volume and "
+                "any adjacent area. Re-run with a population assessment buffer "
+                "covering the operational volume plus ground-risk buffer before "
+                "using this number in a SORA submission.",
+                "",
+            ]
+        )
+    lines.extend(
+        [
             "| Leg | Route Item ID | Max Density (ppl/km^2) | iGRC |",
             "|----:|---------------|------------------------:|------|",
         ]

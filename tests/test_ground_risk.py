@@ -7,6 +7,9 @@ from pyproj import Geod
 from typer.testing import CliRunner
 
 from adapters.cli import CliExitCode, app
+from adapters.ground_risk_markdown import (
+    render_ground_risk_markdown_for_estimate,
+)
 from estimator import (
     EstimateStatus,
     FailureCode,
@@ -429,3 +432,48 @@ def test_population_query_radius_covers_the_sampling_gap() -> None:
     assert min(provider.radii_m) >= buffer_m
     # ... and a multi-sample route must dilate at least one of them.
     assert max(provider.radii_m) > buffer_m
+
+
+def _ground_risk_markdown(buffer_m: float) -> str:
+    provider = GridPopulationProvider(
+        origin_lat=51.995,
+        origin_lon=3.995,
+        step_lat_deg=0.001,
+        step_lon_deg=0.001,
+        density_ppl_km2=[[12.0] * 16 for _ in range(16)],
+    )
+    estimate = estimate_mission_distance_time(make_mission(), _vehicle_with_dimension())
+    ground_risk, _ = compute_ground_risk(
+        estimate=estimate,
+        population_provider=provider,
+        characteristic_dimension_m=1.0,
+        max_speed_mps=25.0,
+        geod=Geod(ellps="WGS84"),
+        max_segment_length_m=100.0,
+        population_assessment_buffer_m=buffer_m,
+    )
+    return render_ground_risk_markdown_for_estimate(
+        estimate.model_copy(update={"ground_risk": ground_risk})
+    )
+
+
+def test_centerline_ground_risk_report_is_labelled_as_not_a_sora_igrc() -> None:
+    """An unbuffered iGRC must not read as an authoritative SORA figure.
+
+    Without a population assessment buffer the density is sampled along the
+    route centerline only, which understates the operational volume and can
+    report a lower iGRC than the buffered assessment for the same route.
+    """
+
+    markdown = _ground_risk_markdown(0.0)
+
+    assert "not a SORA iGRC" in markdown
+    assert "Population assessment buffer m: `0.00`" in markdown
+
+
+def test_buffered_ground_risk_report_states_its_buffer_and_drops_the_caveat() -> None:
+    markdown = _ground_risk_markdown(250.0)
+
+    assert "not a SORA iGRC" not in markdown
+    assert "Population assessment buffer m: `250.00`" in markdown
+    assert "SORA version:" in markdown
