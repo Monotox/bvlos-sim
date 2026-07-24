@@ -88,6 +88,15 @@ include = ["bvlos_sim*"]
 [tool.ruff]
 include = ["bvlos_sim/**/*.py", "tests/**/*.py"]
 
+[tool.ruff.lint]
+# Pinned rather than inherited. Ruff's default selection widens between
+# releases, so leaving it implicit means a routine version bump silently
+# changes what "lint passes" means: 0.16.0 added ten rule families and 354
+# findings to an unchanged tree, including B008 against the typer.Option
+# defaults the CLI is required to use. Adopting a new family is a deliberate
+# edit here, not a side effect of a dependency update.
+select = ["E4", "E7", "E9", "F"]
+
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
