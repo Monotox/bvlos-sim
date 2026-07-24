@@ -202,6 +202,7 @@ def run_estimation(
         landing_zone=landing_zone_evaluation.landing_zone,
     )
 
+    _warn_for_vacuous_obstacle_evidence(context)
     obstacle_evaluation = evaluate_obstacle_clearance(context)
     _raise_feasibility_failure(
         obstacle_evaluation.failure,
@@ -277,6 +278,56 @@ def run_estimation(
     return result.model_copy(
         update={"ground_risk": ground_risk, "warnings": context.warnings}
     )
+
+
+def _warn_for_vacuous_obstacle_evidence(context: EstimationContext) -> None:
+    """Refuse to let an empty or zero-width obstacle check read as proven-clear.
+
+    An obstacle provider that yields nothing, or obstacles whose whole keep-out
+    volume is zero wide, produces `is_feasible=True` and satisfies the
+    checklist's obstacle-evidence gate while proving nothing about masts, towers
+    or power lines on the route.
+    """
+
+    provider = context.obstacle_provider
+    if provider is None:
+        return
+    obstacles = list(provider.obstacles())
+    if not obstacles:
+        context.warnings.append(
+            EstimatorWarning(
+                code=WarningCode.OBSTACLE_ZERO_FEATURES,
+                message=(
+                    "An obstacle file is configured but contains zero obstacles; "
+                    "the clearance check evaluated no vertical structure. Verify "
+                    "the fetch produced real coverage before trusting this PASS."
+                ),
+                leg_index=None,
+                route_item_index=None,
+                route_item_id=None,
+            )
+        )
+        return
+    clearance_m = context.mission.constraints.min_obstacle_clearance_m or 0.0
+    if clearance_m > 0.0:
+        return
+    if all(
+        (obstacle.radius_m + obstacle.uncertainty_m) <= 0.0 for obstacle in obstacles
+    ):
+        context.warnings.append(
+            EstimatorWarning(
+                code=WarningCode.OBSTACLE_KEEP_OUT_NOT_CONFIGURED,
+                message=(
+                    "Every obstacle has zero radius and zero uncertainty and "
+                    "constraints.min_obstacle_clearance_m is unset, so the "
+                    "keep-out volume has no width and only an exact overflight "
+                    "could be detected. Set min_obstacle_clearance_m."
+                ),
+                leg_index=None,
+                route_item_index=None,
+                route_item_id=None,
+            )
+        )
 
 
 def _check_max_wind(context: EstimationContext) -> None:

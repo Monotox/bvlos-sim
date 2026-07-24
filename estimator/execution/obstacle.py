@@ -24,6 +24,10 @@ from estimator.execution.spatial_sampling import (
     route_leg_samples,
 )
 
+# Buffer used only to locate where a conflict starts and ends. Proximity itself
+# is decided by a distance test, so this never widens the keep-out volume.
+_MIN_FOOTPRINT_BUFFER_M = 1e-6
+
 
 @dataclass(frozen=True)
 class CompiledObstacle:
@@ -358,35 +362,31 @@ def _segment_obstacle_conflict(
         ]
     )
     metric_geometry = transform_geometry(forward.transform, compiled.geometry)
-    footprint = (
-        metric_geometry
-        if horizontal_limit_m == 0.0
-        else metric_geometry.buffer(horizontal_limit_m, quad_segs=128)
-    )
-    intersection = metric_route.intersection(footprint)
-    if intersection.is_empty:
+    # Proximity is a distance test, not an intersection test. Intersecting a
+    # route line with an unbuffered Point is empty unless the coordinates are
+    # bit-identical, so a zero-radius obstacle under the default (absent)
+    # clearance was invisible. A zero-length route line - any purely vertical
+    # leg - likewise never intersects a footprint that contains it.
+    if metric_route.distance(metric_geometry) > horizontal_limit_m:
         return None
 
+    footprint = metric_geometry.buffer(
+        max(horizontal_limit_m, _MIN_FOOTPRINT_BUFFER_M), quad_segs=128
+    )
+    intersection = metric_route.intersection(footprint)
     fractions = [
         metric_route.project(Point(x, y), normalized=True)
         for x, y in _intersection_coordinates(intersection)
     ]
-    if not fractions:
-        return None
-    # Altitude is linear between stored spatial samples, so its minimum over
-    # every footprint-intersection interval occurs at one of the endpoints.
-    fraction = min(
-        fractions,
-        key=lambda value: (
-            start.altitude_amsl_m
-            + value * (end.altitude_amsl_m - start.altitude_amsl_m)
-        ),
-    )
-    altitude_m = start.altitude_amsl_m + fraction * (
-        end.altitude_amsl_m - start.altitude_amsl_m
-    )
+    # The flown altitude profile is piecewise linear with a kink where the
+    # climb or descent completes, and it never sits above the straight line
+    # between the sample endpoints. Take the conservative lower endpoint, as
+    # the terrain check already does, rather than re-deriving a line that can
+    # overstate height by tens of metres inside the segment holding the kink.
+    altitude_m = min(start.altitude_amsl_m, end.altitude_amsl_m)
     if altitude_m - compiled.obstacle.height_m >= required_vertical_clearance_m:
         return None
+    fraction = min(fractions, default=0.0)
     metric_point = metric_route.interpolate(fraction, normalized=True)
     horizontal_distance_m = metric_point.distance(metric_geometry)
     lon, lat = inverse.transform(metric_point.x, metric_point.y)

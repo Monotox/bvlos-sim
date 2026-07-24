@@ -28,6 +28,24 @@ and this project adheres to semantic versioning once public releases begin.
 
 ### Fixed
 
+- Obstacle clearance no longer misses three whole categories of conflict.
+  Proximity was decided by intersecting the route line with the obstacle
+  footprint, which is empty unless the geometries actually cross: a zero-radius
+  point obstacle under the default (unset) `min_obstacle_clearance_m` was
+  invisible, and a purely vertical leg — every `vtol_takeoff`, vertical landing,
+  and vertical-completion tail — built a zero-length line that intersects
+  nothing, so a 75 m mast 18 m from the pad reported feasible. Proximity is now
+  a distance test. Vertical clearance also re-derived altitude linearly between
+  samples, which sits *above* the flown profile inside the segment holding the
+  climb/descent kink and overstated height by up to 25 m; it now takes the
+  conservative lower endpoint, as the terrain check already did.
+- Vacuous obstacle evidence no longer reads as proven-clear. Two new blocking
+  advisory warnings mirror `GEOFENCE_ZERO_ZONES`: `OBSTACLE_ZERO_FEATURES` when
+  a configured obstacle file yields no obstacles (exactly what
+  `scripts/fetch_obstacles.py` writes when Overpass returns nothing), and
+  `OBSTACLE_KEEP_OUT_NOT_CONFIGURED` when every obstacle has zero radius and
+  uncertainty and no clearance is configured, so the keep-out volume has no
+  width.
 - Declaring any resource system no longer voids `usable_capacity_curve`
   derating. A non-empty `vehicle.resource_systems` hands both the battery gate
   and the RTH gate to `resource_link.py`, which budgeted against the nameplate

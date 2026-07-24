@@ -471,6 +471,8 @@ every artifact but stop blocking `GO`; any unlisted warning still blocks.
 | `RESERVE_BELOW_FAILSAFE_WARN_THRESHOLD` | Predicted landing reserve is below the low-battery warning threshold. |
 | `GEOFENCE_EVALUATED_2D_ONLY` | Geofence intersection is 2D; declared `floor_m`/`ceiling_m` bounds are checked, per-zone AGL is not modeled. |
 | `GEOFENCE_ZERO_ZONES` | A geofence file is configured but contains zero zones — the clearance check evaluated no airspace. |
+| `OBSTACLE_ZERO_FEATURES` | An obstacle file is configured but contains zero obstacles — the clearance check evaluated no vertical structure. |
+| `OBSTACLE_KEEP_OUT_NOT_CONFIGURED` | Every obstacle has zero radius and uncertainty and `min_obstacle_clearance_m` is unset, so the keep-out volume has no width. |
 | `DEPARTURE_TIME_MISSING` | A geofence has a time window but the mission has no `departure_time`; the zone is treated as always active. |
 | `DIVERT_ENERGY_TAS_ONLY` | A scenario divert estimate used TAS without wind correction. |
 | `POPULATION_DENSITY_DIMENSION_MISSING` | Population grid present but the vehicle omits `characteristic_dimension_m`; iGRC cannot be computed. |

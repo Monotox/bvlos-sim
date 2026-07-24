@@ -14,6 +14,7 @@ from estimator import (
     FailureCode,
     FidelityMode,
     LegPhase,
+    WarningCode,
     estimate_mission_distance_time,
     try_estimate_mission_distance_time,
 )
@@ -631,3 +632,97 @@ def test_obstacle_uncertainty_widens_the_required_clearance() -> None:
     breached = run(30.0)
     assert breached.status == EstimateStatus.INFEASIBLE
     assert breached.obstacle is not None and breached.obstacle.is_feasible is False
+
+
+def _mission_over(lon: float, *, clearance_m: float | None):
+    mission = make_mission()
+    mission.constraints.require_rth_reserve = False
+    mission.constraints.min_obstacle_clearance_m = clearance_m
+    mission.route = [
+        RouteItem(
+            id="east",
+            action=MissionAction.WAYPOINT,
+            lat=52.0,
+            lon=lon,
+            altitude_m=120.0,
+        )
+    ]
+    return mission
+
+
+def test_vertical_only_leg_is_checked_against_obstacles() -> None:
+    """A purely vertical leg is two samples at one lat/lon, not a line.
+
+    The segment branch built a zero-length LineString whose intersection with
+    the footprint is always empty, so take-off climbs and vertical landings
+    were never checked: a 75 m mast 18 m from the pad reported feasible.
+    """
+
+    geod = Geod(ellps="WGS84")
+    mast_lon, mast_lat, _ = geod.fwd(4.0, 52.0, 90.0, 18.0)
+    mast = Obstacle.model_validate(
+        {
+            "id": "pad-mast",
+            "geometry": {"type": "point", "points": [{"lat": mast_lat, "lon": mast_lon}]},
+            "height_m": 75.0,
+            "radius_m": 0.0,
+        }
+    )
+    mission = make_mission()
+    mission.constraints.require_rth_reserve = False
+    mission.constraints.min_obstacle_clearance_m = 20.0
+    mission.route = [
+        RouteItem(id="climb", action=MissionAction.VTOL_TAKEOFF, altitude_m=80.0)
+    ]
+
+    result = try_estimate_mission_distance_time(
+        mission, make_vehicle(), obstacle_provider=ListObstacleProvider([mast])
+    )
+
+    assert result.obstacle is not None
+    assert result.obstacle.is_feasible is False
+    assert result.status == EstimateStatus.INFEASIBLE
+
+
+def test_empty_obstacle_file_does_not_read_as_proven_clear() -> None:
+    """Zero obstacles satisfied the evidence gate and reported PASS."""
+
+    result = try_estimate_mission_distance_time(
+        _mission_over(4.02, clearance_m=15.0),
+        make_vehicle(),
+        obstacle_provider=ListObstacleProvider([]),
+    )
+
+    codes = {warning.code for warning in result.warnings}
+    assert WarningCode.OBSTACLE_ZERO_FEATURES in codes
+
+
+def test_zero_width_keep_out_volume_is_flagged() -> None:
+    """Zero radius, zero uncertainty and no configured clearance proves nothing."""
+
+    obstacle = Obstacle.model_validate(
+        {
+            "id": "mast",
+            "geometry": {"type": "point", "points": [{"lat": 52.0, "lon": 4.01}]},
+            "height_m": 200.0,
+            "radius_m": 0.0,
+        }
+    )
+    provider = ListObstacleProvider([obstacle])
+
+    vacuous = try_estimate_mission_distance_time(
+        _mission_over(4.02, clearance_m=None), make_vehicle(), obstacle_provider=provider
+    )
+    configured = try_estimate_mission_distance_time(
+        _mission_over(4.02, clearance_m=15.0), make_vehicle(), obstacle_provider=provider
+    )
+
+    assert WarningCode.OBSTACLE_KEEP_OUT_NOT_CONFIGURED in {
+        warning.code for warning in vacuous.warnings
+    }
+    # With a real clearance the obstacle is actually detected, not just warned about.
+    assert WarningCode.OBSTACLE_KEEP_OUT_NOT_CONFIGURED not in {
+        warning.code for warning in configured.warnings
+    }
+    assert configured.obstacle is not None
+    assert configured.obstacle.is_feasible is False
