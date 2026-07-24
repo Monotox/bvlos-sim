@@ -28,6 +28,19 @@ and this project adheres to semantic versioning once public releases begin.
 
 ### Fixed
 
+- A scenario whose safety assertions never ran no longer reads as a verified
+  contingency. `determine_scenario_status` only returns `FAILED` when an
+  assertion actively fails, so `SKIPPED` and `UNSUPPORTED` outcomes left the
+  scenario `PASSED` and contributed nothing to the readiness verdict. A
+  `policy_divert_feasible` assertion — the tool's headline "inject a lost link
+  and assert the divert still lands with reserve" check — is skipped whenever the
+  event does not fire, the mission declares no `lost_link_policy`, or the policy
+  action is not `divert`. A mission with no `lost_link_policy` therefore reported
+  `PASSED` with the divert check silently unevaluated. Inconclusive assertions
+  are now reported as `scenario_assertions` **missing evidence**, which blocks
+  `GO` exactly like any other absent evidence. `evaluate_operational_readiness`
+  gains an `additional_missing_evidence` parameter; scenario status and the
+  result contract are unchanged.
 - Geofence checks now follow the flown path instead of a planar endpoint chord.
   `_leg_geometry` built a two-point `LineString` in degree space with no
   densification and no longitude normalisation, while every other spatial check

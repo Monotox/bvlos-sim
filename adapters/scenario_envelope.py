@@ -13,6 +13,7 @@ from adapters.operational_readiness import (
     evaluate_operational_readiness,
 )
 from estimator.core.results import MissionEstimate
+from estimator.core.enums import AssertionOutcome
 from estimator.core.scenario import (
     ScenarioAssertionResult,
     ScenarioEventOutcome,
@@ -131,6 +132,29 @@ def _partial_provenance(
 # ---------------------------------------------------------------------------
 
 
+def _inconclusive_assertion_evidence(
+    result: ScenarioResult | None,
+) -> tuple[str, ...]:
+    """Report skipped or unsupported assertions as missing evidence.
+
+    A scenario is only FAILED when an assertion actively fails, so a run whose
+    safety assertions were all skipped - a lost-link divert check on a mission
+    with no lost_link_policy, say - reported PASSED and contributed nothing to
+    the readiness verdict. An assertion that could not be evaluated proves
+    nothing, so it must block GO exactly like any other absent evidence.
+    """
+
+    if result is None:
+        return ()
+    if any(
+        assertion.outcome
+        in (AssertionOutcome.SKIPPED, AssertionOutcome.UNSUPPORTED)
+        for assertion in result.assertion_results
+    ):
+        return ("scenario_assertions",)
+    return ()
+
+
 def _base_envelope(
     *,
     scenario_id: str,
@@ -154,6 +178,7 @@ def _base_envelope(
             additional_failed_checks=("scenario",)
             if status != ScenarioStatus.PASSED
             else (),
+            additional_missing_evidence=_inconclusive_assertion_evidence(result),
         ),
         estimate=result.estimate if result is not None else None,
     )

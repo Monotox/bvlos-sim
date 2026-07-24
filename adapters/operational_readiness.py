@@ -34,9 +34,10 @@ def evaluate_operational_readiness(
     result: MissionEstimate | None,
     *,
     additional_failed_checks: Iterable[str] = (),
+    additional_missing_evidence: Iterable[str] = (),
 ) -> OperationalReadiness:
     """Evaluate all mandatory GO checks without depending on output rendering."""
-    missing: list[str] = []
+    missing: list[str] = list(additional_missing_evidence)
     failed = list(additional_failed_checks)
     warning_codes: list[str] = []
     acknowledged: list[str] = []

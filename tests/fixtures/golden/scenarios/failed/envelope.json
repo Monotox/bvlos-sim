@@ -394,6 +394,7 @@
     ],
     "is_go": false,
     "missing_evidence": [
+      "scenario_assertions",
       "geofence",
       "landing_zone",
       "resource",
