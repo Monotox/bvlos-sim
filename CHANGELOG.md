@@ -28,6 +28,19 @@ and this project adheres to semantic versioning once public releases begin.
 
 ### Fixed
 
+- Every surface that grades a scenario now publishes the same operational
+  verdict, via a single `scenario_readiness()` helper. The verdict was computed
+  in the envelope but recomputed — or ignored — everywhere else, so the same run
+  could report `no_go` in JSON while the CLI exited `0` and the checklist printed
+  `Status: GO`. Three surfaces were fail-open: the `scenario` exit gate graded
+  `checklist_is_go(result.estimate)`, discarding the scenario's own evidence;
+  `render_checklist_markdown_from_scenario` recomputed readiness from the
+  estimate, so a **failed** assertion still printed `GO` on the card an operator
+  signs; and batch `run_type: scenario` graded only `ScenarioStatus`, never
+  consulting readiness at all — a mission the estimator called `INFEASIBLE` at
+  −305 % reserve reported `PASSED` and exited `0`. `--engineering-only` was also
+  never threaded into batch scenario/propagate dispatch, so those runs behaved as
+  if it were permanently on; it is now honoured as the documented escape hatch.
 - A scenario whose safety assertions never ran no longer reads as a verified
   contingency. `determine_scenario_status` only returns `FAILED` when an
   assertion actively fails, so `SKIPPED` and `UNSUPPORTED` outcomes left the

@@ -245,6 +245,7 @@ def _render_checklist(
     result: MissionEstimate | None,
     mission_id: str,
     diagnostics: Sequence[EnvelopeDiagnostic] = (),
+    readiness: OperationalReadiness | None = None,
 ) -> str:
     lines: list[str] = [f"## Pre-Flight Checklist: {mission_id}", ""]
     if result is None:
@@ -274,7 +275,8 @@ def _render_checklist(
         lines.append(departure_row)
     lines.append(_warnings_row(result))
     lines.append("")
-    readiness = evaluate_operational_readiness(result)
+    if readiness is None:
+        readiness = evaluate_operational_readiness(result)
     if readiness.acknowledged_warning_codes:
         lines.insert(
             len(lines) - 1,
@@ -325,8 +327,18 @@ def render_checklist_markdown(
 
 
 def render_checklist_markdown_from_scenario(envelope: ScenarioResultEnvelope) -> str:
-    """Render a pre-flight go/no-go checklist from a scenario envelope."""
-    return _render_checklist(envelope.estimate, envelope.scenario_id)
+    """Render a pre-flight go/no-go checklist from a scenario envelope.
+
+    Renders the readiness the envelope already carries rather than recomputing
+    it from the estimate, so a failed or unevaluated assertion reaches the card
+    an operator actually signs off on.
+    """
+
+    return _render_checklist(
+        envelope.estimate,
+        envelope.scenario_id,
+        readiness=envelope.operational_readiness,
+    )
 
 
 __all__ = [

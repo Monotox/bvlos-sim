@@ -778,10 +778,34 @@ def test_batch_cli_scenario_run_type(tmp_path: Path) -> None:
         f"  - {{id: s1, scenario: {_SCENARIO}}}\n"
         f"  - {{id: s2, scenario: {_SCENARIO}}}\n",
     )
-    result = _runner.invoke(app, ["batch", str(manifest)])
+    # The demo scenario passes its assertions but the mission is NO-GO on
+    # missing evidence, so the operational gate applies unless it is waived.
+    result = _runner.invoke(app, ["batch", str(manifest), "--engineering-only"])
     assert result.exit_code == 0, result.output
     assert "assertions" in result.output
     assert "PASSED" in result.output
+
+
+def test_batch_scenario_runs_apply_the_operational_gate(tmp_path: Path) -> None:
+    """A batch must grade a scenario exactly as the scenario command does."""
+
+    manifest = _write_manifest(
+        tmp_path,
+        'format_version: "batch.v1"\n'
+        "run_type: scenario\n"
+        "runs:\n"
+        f"  - {{id: s1, scenario: {_SCENARIO}}}\n",
+    )
+
+    gated = _runner.invoke(app, ["batch", str(manifest)])
+    waived = _runner.invoke(app, ["batch", str(manifest), "--engineering-only"])
+    direct = _runner.invoke(app, ["scenario", str(_SCENARIO)])
+
+    assert gated.exit_code == int(CliExitCode.INFEASIBLE), gated.output
+    assert "FAILED" in gated.output
+    assert waived.exit_code == 0, waived.output
+    # Same run, same verdict, whichever command graded it.
+    assert gated.exit_code == direct.exit_code
 
 
 def test_batch_cli_scenario_writes_per_run_envelopes(tmp_path: Path) -> None:
@@ -793,7 +817,16 @@ def test_batch_cli_scenario_writes_per_run_envelopes(tmp_path: Path) -> None:
         f"runs:\n  - {{id: s1, scenario: {_SCENARIO}}}\n",
     )
     result = _runner.invoke(
-        app, ["batch", str(manifest), "--format", "json", "--output-dir", str(out_dir)]
+        app,
+        [
+            "batch",
+            str(manifest),
+            "--format",
+            "json",
+            "--output-dir",
+            str(out_dir),
+            "--engineering-only",
+        ],
     )
     assert result.exit_code == 0, result.output
     import json

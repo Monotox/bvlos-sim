@@ -155,6 +155,31 @@ def _inconclusive_assertion_evidence(
     return ()
 
 
+def scenario_readiness(
+    result: ScenarioResult | None,
+    *,
+    status: ScenarioStatus | None = None,
+) -> OperationalReadiness:
+    """The single operational verdict for a scenario run.
+
+    Every surface that grades a scenario - the envelope, the CLI exit code, the
+    checklist card, and the batch run label - must use this. Grading the
+    underlying estimate alone silently discards the scenario's own evidence: a
+    failed assertion, or one that could not be evaluated at all.
+    """
+
+    resolved_status = status if status is not None else (
+        result.status if result is not None else ScenarioStatus.FAILED
+    )
+    return evaluate_operational_readiness(
+        result.estimate if result is not None else None,
+        additional_failed_checks=("scenario",)
+        if resolved_status != ScenarioStatus.PASSED
+        else (),
+        additional_missing_evidence=_inconclusive_assertion_evidence(result),
+    )
+
+
 def _base_envelope(
     *,
     scenario_id: str,
@@ -173,13 +198,7 @@ def _base_envelope(
         timeline=result.timeline if result is not None else [],
         event_outcomes=result.event_outcomes if result is not None else [],
         assertion_results=result.assertion_results if result is not None else [],
-        operational_readiness=evaluate_operational_readiness(
-            result.estimate if result is not None else None,
-            additional_failed_checks=("scenario",)
-            if status != ScenarioStatus.PASSED
-            else (),
-            additional_missing_evidence=_inconclusive_assertion_evidence(result),
-        ),
+        operational_readiness=scenario_readiness(result, status=status),
         estimate=result.estimate if result is not None else None,
     )
 

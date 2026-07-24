@@ -8,7 +8,6 @@ import typer
 
 import adapters.cli as cli
 from adapters.calibration import load_and_apply_calibration, load_calibration_profile
-from adapters.checklist_markdown import checklist_is_go
 from adapters.cli_support import (
     GENERATED_AT_OPTION,
     NO_CLOBBER_OPTION,
@@ -46,6 +45,7 @@ from adapters.scenario_envelope import (
     ScenarioResultEnvelope,
     build_scenario_internal_error_envelope,
     build_scenario_invalid_input_envelope,
+    scenario_readiness,
 )
 from adapters.scenario_io import load_scenario
 from estimator import (
@@ -175,9 +175,9 @@ def _scenario_exit_code_for_result(
     engineering_only: bool = False,
 ) -> cli.ScenarioExitCode:
     if result.status == ScenarioStatus.PASSED:
-        if not engineering_only and (
-            result.estimate is None or not checklist_is_go(result.estimate)
-        ):
+        # Grade on the same readiness the envelope publishes: the estimate alone
+        # does not know whether the scenario's own assertions were evaluated.
+        if not engineering_only and not scenario_readiness(result).is_go:
             return cli.ScenarioExitCode.FAILED
         return cli.ScenarioExitCode.PASSED
     return cli.ScenarioExitCode.FAILED

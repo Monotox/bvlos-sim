@@ -3,9 +3,11 @@
 import json
 from pathlib import Path
 
+import yaml
 from typer.testing import CliRunner
 
 from adapters.cli import CliExitCode, app
+from tests.helpers import make_mission_payload, make_vehicle_payload
 
 FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "golden" / "scenarios"
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -323,3 +325,89 @@ def test_scenario_validate_only_output_is_not_json() -> None:
         assert False, "output should not be JSON when --validate-only is used"
     except (json.JSONDecodeError, ValueError):
         pass
+
+
+# ---------------------------------------------------------------------------
+# Every scenario surface must publish the same operational verdict
+# ---------------------------------------------------------------------------
+
+
+def _dump_yaml(path: Path, payload: dict) -> None:
+    path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+
+
+def _skipped_assertion_scenario(tmp_path: Path) -> Path:
+    """A lost-link divert assertion that cannot run: no lost_link_policy."""
+
+    mission_payload = make_mission_payload()
+    mission_payload.pop("policy", None)
+    mission_path = tmp_path / "mission.yaml"
+    vehicle_path = tmp_path / "vehicle.yaml"
+    _dump_yaml(mission_path, mission_payload)
+    _dump_yaml(vehicle_path, make_vehicle_payload())
+
+    scenario_path = tmp_path / "scenario.yaml"
+    _dump_yaml(
+        scenario_path,
+        {
+            "schema_version": "scenario.v1",
+            "scenario_id": "lost-link-divert",
+            "mission_file": str(mission_path),
+            "vehicle_file": str(vehicle_path),
+            "events": [
+                {
+                    "event_id": "link-loss",
+                    "kind": "lost_link",
+                    "trigger": "at_mission_start",
+                }
+            ],
+            "assertions": [
+                {
+                    "assertion_id": "divert-must-be-feasible",
+                    "kind": "policy_divert_feasible",
+                    "event_id": "link-loss",
+                    "expected": True,
+                }
+            ],
+        },
+    )
+    return scenario_path
+
+
+def test_scenario_exit_code_and_checklist_agree_with_the_envelope_verdict(
+    tmp_path: Path,
+) -> None:
+    """An unevaluated safety assertion must block on every surface.
+
+    The readiness fix originally reached the JSON envelope only: the exit code
+    was chosen from the estimate alone and the checklist recomputed its own
+    verdict, so both still reported GO while the envelope said no_go.
+    """
+
+    scenario_path = _skipped_assertion_scenario(tmp_path)
+
+    as_json = runner.invoke(app, ["scenario", str(scenario_path), "--format", "json"])
+    payload = json.loads(as_json.stdout)
+    readiness = payload["operational_readiness"]
+    outcomes = {a["assertion_id"]: a["outcome"] for a in payload["assertion_results"]}
+
+    assert outcomes["divert-must-be-feasible"] == "skipped"
+    assert payload["status"] == "passed"
+    assert readiness["is_go"] is False
+    assert "scenario_assertions" in readiness["missing_evidence"]
+
+    checklist = runner.invoke(
+        app, ["scenario", str(scenario_path), "--format", "checklist"]
+    )
+    assert "Status: NO-GO" in checklist.stdout
+    assert "scenario_assertions" in checklist.stdout
+
+    summary = runner.invoke(
+        app, ["scenario", str(scenario_path), "--format", "summary"]
+    )
+    assert summary.exit_code == int(CliExitCode.INFEASIBLE)
+
+    waived = runner.invoke(
+        app, ["scenario", str(scenario_path), "--engineering-only"]
+    )
+    assert waived.exit_code == 0

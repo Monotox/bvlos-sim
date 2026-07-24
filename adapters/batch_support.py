@@ -25,7 +25,10 @@ from adapters.io import InputDocument, InputLoadError, load_mission, load_vehicl
 from adapters.assets.landing_zone_geojson import LandingZoneLoadError
 from adapters.assets.terrain_grid import TerrainGridLoadError
 from adapters.assets.wind_grid import WindGridLoadError
-from adapters.scenario_envelope import ScenarioResultEnvelope
+from adapters.scenario_envelope import (
+    ScenarioResultEnvelope,
+    scenario_readiness,
+)
 from adapters.scenario_io import load_scenario
 from adapters.stochastic_envelope import (
     StochasticResultEnvelope,
@@ -207,7 +210,12 @@ def _load_run_mission_vehicle(
     return mission_model, mission_document, vehicle_model, vehicle_document, mission_assets
 
 
-def _run_scenario(run: BatchRun, *, caches: _BatchLoadCaches) -> BatchRunResult:
+def _run_scenario(
+    run: BatchRun,
+    *,
+    caches: _BatchLoadCaches,
+    engineering_only: bool = False,
+) -> BatchRunResult:
     assert run.scenario is not None
     scenario_plan, scenario_document = load_scenario(run.scenario)
     mission_path, vehicle_path = _resolve_scenario_input_paths(
@@ -236,7 +244,7 @@ def _run_scenario(run: BatchRun, *, caches: _BatchLoadCaches) -> BatchRunResult:
     warnings = result.estimate.warnings if result.estimate is not None else []
     return BatchRunResult(
         id=run.id,
-        status=_scenario_status_label(result),
+        status=_scenario_status_label(result, engineering_only=engineering_only),
         run_type="scenario",
         reserve_margin_percent=None,
         flight_time_s=result.estimate.total_time_s
@@ -250,15 +258,31 @@ def _run_scenario(run: BatchRun, *, caches: _BatchLoadCaches) -> BatchRunResult:
     )
 
 
-def _scenario_status_label(result: ScenarioResult) -> str:
+def _scenario_status_label(
+    result: ScenarioResult,
+    *,
+    engineering_only: bool = False,
+) -> str:
     if result.status == ScenarioStatus.PASSED:
+        # Mirror the scenario command: passing assertions alone is not a GO.
+        # Without this a batch grades only whether an assertion actively
+        # failed, so a mission the estimator calls INFEASIBLE still reads
+        # PASSED and the batch exits 0.
+        if not engineering_only and not scenario_readiness(result).is_go:
+            return "FAILED"
         return "PASSED"
     if result.status == ScenarioStatus.FAILED:
         return "FAILED"
     return "ERROR"
 
 
-def _run_propagate(run: BatchRun, *, caches: _BatchLoadCaches) -> BatchRunResult:
+def _run_propagate(
+    run: BatchRun,
+    *,
+    caches: _BatchLoadCaches,
+    engineering_only: bool = False,
+) -> BatchRunResult:
+    del engineering_only  # propagation has no operational GO gate
     assert run.plan is not None
     plan, stochastic_document = load_stochastic_plan(run.plan)
     mission_path = resolve_stochastic_asset_path(
@@ -326,7 +350,11 @@ def run_batch_manifest(
                     )
                 )
             else:
-                results.append(_RUN_DISPATCH[manifest.run_type](run, caches=caches))
+                results.append(
+                    _RUN_DISPATCH[manifest.run_type](
+                        run, caches=caches, engineering_only=engineering_only
+                    )
+                )
         except _BATCH_RUN_INPUT_ERRORS as exc:
             results.append(
                 BatchRunResult(
