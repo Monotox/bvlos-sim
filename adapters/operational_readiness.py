@@ -95,6 +95,11 @@ def evaluate_operational_readiness(
             failed.append("rth")
         if result.ground_risk is None:
             missing.append("ground_risk")
+        elif result.ground_risk.population_assessment_buffer_m <= 0.0:
+            # Density sampled along the route centerline says nothing about the
+            # operational volume, and can report a lower iGRC than the buffered
+            # assessment of the same route. It is a diagnostic, not evidence.
+            missing.append("ground_risk_footprint")
         elif result.ground_risk.mission_igrc > 7:
             failed.append("ground_risk")
         if result.legs:

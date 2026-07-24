@@ -28,6 +28,20 @@ and this project adheres to semantic versioning once public releases begin.
 
 ### Fixed
 
+- A centerline-only ground-risk assessment no longer satisfies the `GO` gate.
+  The readiness check only rejected `mission_igrc > 7` and never looked at
+  `population_assessment_buffer_m`, which is `0.0` whenever the mission omits
+  the optional footprint block — so a figure that says nothing about the
+  operational volume counted as ground-risk evidence. An unbuffered assessment
+  is now reported as `ground_risk_footprint` missing evidence, matching the
+  report warning added alongside it.
+- A `landing_zone_unavailable` event naming a zone that is not configured now
+  fails closed. The schedule was built from the declared ids without checking
+  them against the loaded zones, so a stale or misspelled id removed nothing:
+  the re-estimate came back bit-identical to the unperturbed mission, the
+  contingency was never exercised, and the report echoed the id back as taken
+  out of service. Unmatched ids now produce
+  `UNKNOWN_LANDING_ZONE_REFERENCE` on the estimate.
 - Divert feasibility now applies the gates and costs the rest of the estimator
   already does. `compute_divert_estimate` was the only wind-aware solver that
   never gated its wind triangle, so a divert needing a 70.8° crab against a 35°

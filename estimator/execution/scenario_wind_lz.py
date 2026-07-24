@@ -3,10 +3,11 @@
 from collections.abc import Sequence
 from typing import cast
 
+from estimator.core.enums import EstimateStatus, FailureCode, FailureKind
 from estimator.core.geofence import GeofenceZone
 from estimator.core.landing_zone import LandingZone
 from estimator.core.options import EstimationOptions
-from estimator.core.results import LegEstimate, MissionEstimate
+from estimator.core.results import EstimatorFailure, LegEstimate, MissionEstimate
 from estimator.core.scenario import TimelinePoint
 from estimator.environment.obstacle import ObstacleProvider
 from estimator.environment.population import GridPopulationProvider
@@ -417,6 +418,36 @@ def apply_lz_unavailability(
     lz_events = _lz_unavailable_events(scenario.events)
     if not lz_events or not landing_zones:
         return estimate
+
+    # A zone id that matches nothing removes nothing, so the run comes back
+    # bit-identical to the unperturbed mission and the scenario reports PASSED
+    # while the report echoes the id back as taken out of service. The
+    # contingency was never exercised, so fail closed on the typo.
+    known_zone_ids = {zone.id for zone in landing_zones}
+    unknown_zone_ids = sorted(
+        {
+            zone_id
+            for event in lz_events
+            for zone_id in (event.unavailable_zone_ids or [])
+        }
+        - known_zone_ids
+    )
+    if unknown_zone_ids:
+        return estimate.model_copy(
+            update={
+                "status": EstimateStatus.ERROR,
+                "failure": EstimatorFailure(
+                    kind=FailureKind.INVALID_INPUT,
+                    code=FailureCode.UNKNOWN_LANDING_ZONE_REFERENCE,
+                    message=(
+                        "landing_zone_unavailable references zone id(s) that are "
+                        "not configured for this mission: "
+                        f"{', '.join(unknown_zone_ids)}."
+                    ),
+                    context={"unknown_zone_ids": ",".join(unknown_zone_ids)},
+                ),
+            }
+        )
 
     timeline = build_timeline(mission, estimate)
     schedule = _build_lz_unavailability_schedule(

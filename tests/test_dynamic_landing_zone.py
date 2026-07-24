@@ -8,6 +8,7 @@ from estimator import (
     LandingZone,
     try_estimate_mission_distance_time,
 )
+from adapters.scenario_envelope import scenario_readiness
 from estimator.execution.scenario import run_scenario
 from schemas.scenario import ScenarioPlan
 from tests.helpers import make_mission, make_vehicle
@@ -435,4 +436,75 @@ def test_lz_unavailability_rerun_uses_effective_wind_not_base_wind() -> None:
     # If the bug existed, combined would use base wind (0 m/s) giving shorter time.
     assert result_combined.estimate.total_time_s == pytest.approx(
         result_wind_only.estimate.total_time_s, rel=1e-6
+    )
+
+
+def test_unknown_unavailable_zone_id_fails_closed() -> None:
+    """A misspelled zone id must not silently exercise nothing.
+
+    The schedule was built from the declared ids without checking them against
+    the loaded zones, so a stale or misspelled id removed nothing, the run came
+    back identical to the unperturbed mission, and the scenario reported PASSED
+    while the report echoed the id back as taken out of service.
+    """
+
+    mission = make_mission()
+    mission.route = [mission.route[1]]
+    zone = _point_zone("lz-real", lat=52.001, lon=4.002)
+    scenario = _scenario(
+        events=[
+            {
+                "event_id": "close-lz",
+                "kind": "landing_zone_unavailable",
+                "trigger": "at_mission_start",
+                "unavailable_zone_ids": ["lz-typo"],
+            }
+        ]
+    )
+
+    result = run_scenario(
+        scenario,
+        mission,
+        make_vehicle(),
+        landing_zones=[zone],
+    )
+
+    assert result.estimate is not None
+    assert result.estimate.status == EstimateStatus.ERROR
+    assert result.estimate.failure is not None
+    assert (
+        result.estimate.failure.code == FailureCode.UNKNOWN_LANDING_ZONE_REFERENCE
+    )
+    # The unexercised contingency must not be able to reach GO.
+    assert scenario_readiness(result).is_go is False
+
+
+def test_known_unavailable_zone_id_still_perturbs_the_run() -> None:
+    mission = make_mission()
+    mission.route = [mission.route[1]]
+    zone = _point_zone("lz-real", lat=52.001, lon=4.002)
+    scenario = _scenario(
+        events=[
+            {
+                "event_id": "close-lz",
+                "kind": "landing_zone_unavailable",
+                "trigger": "at_mission_start",
+                "unavailable_zone_ids": ["lz-real"],
+            }
+        ]
+    )
+
+    result = run_scenario(
+        scenario,
+        mission,
+        make_vehicle(),
+        landing_zones=[zone],
+    )
+
+    # Removing the only zone really does close it: the run is perturbed, and
+    # the failure is about reachability, not an unknown reference.
+    assert result.estimate is not None
+    assert result.estimate.failure is not None
+    assert (
+        result.estimate.failure.code == FailureCode.ALL_LANDING_ZONES_UNAVAILABLE
     )

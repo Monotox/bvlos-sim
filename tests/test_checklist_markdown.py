@@ -512,6 +512,9 @@ def _complete_estimate(
                 characteristic_dimension_m=2.0,
                 max_speed_mps=25.0,
                 sora_version="2.5",
+                # A centerline-only assessment is a diagnostic, not evidence,
+                # so a GO-eligible fixture must declare an assessed footprint.
+                population_assessment_buffer_m=250.0,
                 mission_igrc=3,
                 legs=[
                     GroundRiskLegEstimate(

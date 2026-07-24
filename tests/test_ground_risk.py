@@ -7,6 +7,7 @@ from pyproj import Geod
 from typer.testing import CliRunner
 
 from adapters.cli import CliExitCode, app
+from adapters.operational_readiness import evaluate_operational_readiness
 from adapters.ground_risk_markdown import (
     render_ground_risk_markdown_for_estimate,
 )
@@ -477,3 +478,41 @@ def test_buffered_ground_risk_report_states_its_buffer_and_drops_the_caveat() ->
     assert "not a SORA iGRC" not in markdown
     assert "Population assessment buffer m: `250.00`" in markdown
     assert "SORA version:" in markdown
+
+
+def test_centerline_ground_risk_does_not_satisfy_the_go_gate() -> None:
+    """An unbuffered iGRC is a diagnostic, not ground-risk evidence.
+
+    The readiness gate only rejected iGRC > 7, never inspecting whether the
+    assessment covered the operational volume, so a centerline-only figure
+    satisfied the fail-closed ground-risk evidence requirement.
+    """
+
+    def readiness_for(buffer_m: float):
+        estimate = estimate_mission_distance_time(
+            make_mission(), _vehicle_with_dimension()
+        )
+        ground_risk, _ = compute_ground_risk(
+            estimate=estimate,
+            population_provider=GridPopulationProvider(
+                origin_lat=51.995,
+                origin_lon=3.995,
+                step_lat_deg=0.001,
+                step_lon_deg=0.001,
+                density_ppl_km2=[[12.0] * 16 for _ in range(16)],
+            ),
+            characteristic_dimension_m=1.0,
+            max_speed_mps=25.0,
+            geod=Geod(ellps="WGS84"),
+            max_segment_length_m=100.0,
+            population_assessment_buffer_m=buffer_m,
+        )
+        return evaluate_operational_readiness(
+            estimate.model_copy(update={"ground_risk": ground_risk})
+        )
+
+    centerline = readiness_for(0.0)
+    buffered = readiness_for(250.0)
+
+    assert "ground_risk_footprint" in centerline.missing_evidence
+    assert "ground_risk_footprint" not in buffered.missing_evidence
