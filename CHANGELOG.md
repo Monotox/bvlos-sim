@@ -7,6 +7,8 @@ and this project adheres to semantic versioning once public releases begin.
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-07-24
+
 ### Changed
 
 - **Breaking:** everything moved under a single `bvlos_sim` package. The
