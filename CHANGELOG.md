@@ -37,6 +37,16 @@ and this project adheres to semantic versioning once public releases begin.
 
 ### Fixed
 
+- `fetch_terrain.py` and `fetch_all.py` gain `--void-policy {fail,interpolate}`.
+  A single SRTM void aborted the whole fetch, so the documented "fetch your own
+  area" command died on the project's own coordinates and left the output
+  directory empty. `fetch_all` now also warns and continues instead of
+  discarding the assets it already wrote.
+- The bundled Alpine terrain asset no longer claims sea level in the Alps: five
+  SRTM voids had been written as `0.0` and are now filled from the nearest
+  sampled elevation. The example README's terrain range is corrected, and its
+  claim that the bundled wind grid exercises spatiotemporal interpolation is
+  replaced with a warning that only the 10 m band holds real values.
 - `population-grid.v2` evidence is emitted with a YAML serializer instead of
   Python `repr()`, so metadata containing quotes or other special characters no
   longer corrupts the file.

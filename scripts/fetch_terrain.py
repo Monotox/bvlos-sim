@@ -29,12 +29,16 @@ def _axis(start: float, stop: float, step: float) -> list[float]:
     return [round(start + i * step, 8) for i in range(rounded_intervals + 1)]
 
 
+VOID_POLICIES = ("fail", "interpolate")
+
+
 def _sample_grid(
     lat_min: float,
     lat_max: float,
     lon_min: float,
     lon_max: float,
     step: float,
+    void_policy: str = "fail",
 ) -> tuple[list[float], list[float], list[list[float]]]:
     if not -90.0 <= lat_min < lat_max <= 90.0:
         raise ValueError("latitude bounds must lie between -90 and 90")
@@ -68,9 +72,14 @@ def _sample_grid(
         for col_lon in lons:
             elev = elevation_data.get_elevation(row_lat, col_lon)
             if elev is None:
-                raise ValueError(
-                    f"SRTM coverage missing at lat={row_lat}, lon={col_lon}"
-                )
+                if void_policy != "interpolate":
+                    raise ValueError(
+                        f"SRTM coverage missing at lat={row_lat}, lon={col_lon}; "
+                        "re-run with --void-policy interpolate to fill voids "
+                        "from surrounding samples"
+                    )
+                row.append(None)
+                continue
             try:
                 value = float(elev)
             except (TypeError, ValueError) as exc:
@@ -87,7 +96,53 @@ def _sample_grid(
         rows.append(row)
     print()
 
+    if void_policy == "interpolate":
+        rows = _fill_voids(rows, lats=lats, lons=lons)
+
     return lats, lons, rows
+
+
+def _fill_voids(
+    rows: list[list[float | None]],
+    *,
+    lats: list[float],
+    lons: list[float],
+) -> list[list[float]]:
+    """Fill SRTM voids from the nearest sampled elevation.
+
+    A void is missing data, not sea level: writing 0.0 would silently claim the
+    ground is at the datum. Filling from the nearest real sample keeps the grid
+    usable while staying honest about where the number came from.
+    """
+
+    known = [
+        (i, j, value)
+        for i, row in enumerate(rows)
+        for j, value in enumerate(row)
+        if value is not None
+    ]
+    if not known:
+        raise ValueError("SRTM returned no elevations for the requested area")
+    filled: list[list[float]] = []
+    voids = 0
+    for i, row in enumerate(rows):
+        out_row: list[float] = []
+        for j, value in enumerate(row):
+            if value is not None:
+                out_row.append(value)
+                continue
+            voids += 1
+            _, _, nearest = min(
+                known, key=lambda k: (k[0] - i) ** 2 + (k[1] - j) ** 2
+            )
+            out_row.append(nearest)
+        filled.append(out_row)
+    if voids:
+        print(
+            f"  filled {voids} SRTM void(s) from the nearest sampled elevation",
+            file=sys.stderr,
+        )
+    return filled
 
 
 def main() -> None:
@@ -98,6 +153,15 @@ def main() -> None:
     parser.add_argument("lon_max", type=float)
     parser.add_argument("step_deg", type=float, help="Grid step in degrees")
     parser.add_argument("--output", default="terrain.yaml", metavar="PATH")
+    parser.add_argument(
+        "--void-policy",
+        choices=VOID_POLICIES,
+        default="fail",
+        help=(
+            "What to do when SRTM has no data for a cell: fail (default) or "
+            "interpolate from the nearest sampled elevation"
+        ),
+    )
     args = parser.parse_args()
 
     if srtm is None:
@@ -127,7 +191,12 @@ def main() -> None:
 
     try:
         lats, lons, rows = _sample_grid(
-            args.lat_min, args.lat_max, args.lon_min, args.lon_max, args.step_deg
+            args.lat_min,
+            args.lat_max,
+            args.lon_min,
+            args.lon_max,
+            args.step_deg,
+            void_policy=args.void_policy,
         )
     except (RuntimeError, ValueError) as exc:
         sys.exit(f"Error: {exc}")

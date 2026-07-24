@@ -43,3 +43,19 @@ def test_constraints_example_validates_inside_minimal_mission() -> None:
     assert constraint_blocks
     mission.update(yaml.safe_load(constraint_blocks[0]))
     MissionPlan.model_validate(mission)
+
+
+def test_alpine_terrain_asset_has_no_sea_level_voids() -> None:
+    """SRTM voids were written as 0.0, claiming sea level in the Alps."""
+
+    import yaml
+
+    asset = (
+        Path(__file__).resolve().parents[1]
+        / "examples/real_world/assets/terrain.yaml"
+    )
+    elevations = yaml.safe_load(asset.read_text(encoding="utf-8"))["elevations_m"]
+    values = [value for row in elevations for value in row]
+
+    assert 0.0 not in values
+    assert min(values) > 100.0

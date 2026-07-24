@@ -102,6 +102,15 @@ def main() -> None:
         metavar="DIR",
         help="Directory for output files (default: current directory)",
     )
+    parser.add_argument(
+        "--void-policy",
+        choices=("fail", "interpolate"),
+        default="fail",
+        help=(
+            "What to do when SRTM has no data for a terrain cell: fail "
+            "(default) or interpolate from the nearest sampled elevation"
+        ),
+    )
     args = parser.parse_args()
 
     if _requests is None:
@@ -154,22 +163,32 @@ def main() -> None:
             f"lon [{lon_min}, {lon_max}] step {args.step_deg}° …"
         )
         print("       (SRTM tiles downloaded and cached on first run)")
-        lats, lons, rows = _sample_grid(
-            lat_min, lat_max, lon_min, lon_max, args.step_deg
-        )
-        terrain_grid = {
-            "origin_lat": lats[0],
-            "origin_lon": lons[0],
-            "step_lat_deg": args.step_deg,
-            "step_lon_deg": args.step_deg,
-            "elevations_m": rows,
-        }
-        terrain_path.write_text(
-            yaml.dump(terrain_grid, default_flow_style=None, sort_keys=False),
-            encoding="utf-8",
-        )
-        print(f"       → {terrain_path} ({len(lats)} rows × {len(lons)} cols)")
-        step += 1
+        try:
+            lats, lons, rows = _sample_grid(
+                lat_min,
+                lat_max,
+                lon_min,
+                lon_max,
+                args.step_deg,
+                void_policy=args.void_policy,
+            )
+        except (RuntimeError, ValueError) as exc:
+            # One unavailable asset must not discard the ones already fetched.
+            print(f"Warning: terrain skipped - {exc}", file=sys.stderr)
+        else:
+            terrain_grid = {
+                "origin_lat": lats[0],
+                "origin_lon": lons[0],
+                "step_lat_deg": args.step_deg,
+                "step_lon_deg": args.step_deg,
+                "elevations_m": rows,
+            }
+            terrain_path.write_text(
+                yaml.dump(terrain_grid, default_flow_style=None, sort_keys=False),
+                encoding="utf-8",
+            )
+            print(f"       -> {terrain_path} ({len(lats)} rows x {len(lons)} cols)")
+            step += 1
 
     # --- wind ---
     wind_path = out_dir / "wind_grid.yaml"

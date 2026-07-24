@@ -68,3 +68,6 @@ values:
       - *id016
     - - *id016
       - *id016
+metadata: {vertical_reference: AGL, note: 'Only the 10 m band holds real forecast
+    values; the upper bands are zero. The provider queries altitude_m as metres AMSL,
+    so this grid does not describe the demo route. Re-fetch with scripts/fetch_wind.py.'}
