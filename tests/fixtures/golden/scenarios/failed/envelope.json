@@ -327,6 +327,7 @@
     ],
     "link": null,
     "metadata": {
+      "applied_default_max_segment_length_m": 500.0,
       "applied_default_min_groundspeed_mps": 3.0,
       "capabilities_source": "explicit",
       "estimator_version": "v1",

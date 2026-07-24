@@ -224,7 +224,9 @@ def test_cli_rth_reserve_gate_failure_maps_to_infeasible_exit_code(
         },
     ]
     vehicle_payload = make_vehicle_payload()
-    vehicle_payload["energy"]["battery_capacity_wh"] = 120.0
+    # Sized so the mission fits but the RTH leg from "far" does not; see
+    # tests/test_estimator_energy.py::_rth_gate_low_capacity_vehicle.
+    vehicle_payload["energy"]["battery_capacity_wh"] = 80.0
     mission_path = tmp_path / "mission.yaml"
     vehicle_path = tmp_path / "vehicle.yaml"
     _write_yaml(mission_path, mission_payload)

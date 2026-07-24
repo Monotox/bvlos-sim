@@ -73,7 +73,10 @@ def _mission_with_intermediate_rth_breach(*, require_gate: bool = False):
 
 def _rth_gate_low_capacity_vehicle() -> VehicleProfile:
     vehicle = make_vehicle()
-    vehicle.energy.battery_capacity_wh = 120.0
+    # Sized so the mission itself still fits while the RTH leg from "far" does
+    # not: the outbound leg climbs and cruises, so it costs far less than the
+    # whole-leg climb power the estimator used to charge.
+    vehicle.energy.battery_capacity_wh = 80.0
     return vehicle
 
 
@@ -399,7 +402,7 @@ def test_rth_reserve_gate_infeasible_uses_first_failing_leg() -> None:
     assert result.failure.route_item_index == 0
     assert result.failure.route_item_id == "far"
     assert result.failure.context["reserve_margin_wh"] < 0.0
-    assert result.failure.context["reserve_threshold_wh"] == pytest.approx(30.0)
+    assert result.failure.context["reserve_threshold_wh"] == pytest.approx(20.0)
     assert result.totals_are_partial is False
     assert result.energy is not None
     assert result.energy.is_feasible is True
@@ -534,6 +537,117 @@ def test_usable_capacity_curve_derates_usable_energy_not_reserve_threshold() -> 
     assert result.energy is not None
     assert result.energy.reserve_threshold_wh == pytest.approx(225.0)
     assert result.energy.usable_energy_wh == pytest.approx(495.0)
+
+
+def _long_descending_leg_mission():
+    """A leg that covers ground while losing one metre of altitude."""
+
+    mission = make_mission()
+    mission.constraints.require_rth_reserve = False
+    mission.route = [
+        RouteItem(
+            id="climb",
+            action=MissionAction.WAYPOINT,
+            lat=mission.planned_home.lat,
+            lon=mission.planned_home.lon,
+            altitude_m=120.0,
+        ),
+        RouteItem(
+            id="far",
+            action=MissionAction.WAYPOINT,
+            lat=mission.planned_home.lat,
+            lon=mission.planned_home.lon + 0.1464,
+            altitude_m=119.0,
+        ),
+    ]
+    return mission
+
+
+def test_descent_power_cannot_lower_energy_of_a_mostly_horizontal_leg() -> None:
+    """Characterising the descent must never buy endurance.
+
+    A 10 km leg that ends one metre lower is horizontal flight with a few
+    seconds of descent in it. Charging the whole leg at descent power made
+    supplying descent_power_w reduce total energy by a third and flipped
+    INFEASIBLE to FEASIBLE on identical inputs.
+    """
+
+    mission = _long_descending_leg_mission()
+    without_descent = make_vehicle()
+    with_descent = make_vehicle()
+    with_descent.energy.descent_power_w = 250.0
+    assert with_descent.energy.descent_power_w < with_descent.energy.cruise_power_w
+
+    baseline = estimate_mission_distance_time(mission, without_descent)
+    characterised = estimate_mission_distance_time(mission, with_descent)
+
+    assert baseline.energy is not None and characterised.energy is not None
+    # The descent is real, so a small reduction is expected; a whole-leg
+    # rebilling would cut roughly a third of the mission energy.
+    assert characterised.energy.total_energy_wh <= baseline.energy.total_energy_wh
+    assert characterised.energy.total_energy_wh > baseline.energy.total_energy_wh * 0.99
+
+
+def test_mixed_leg_power_is_the_time_weighted_blend_of_its_phases() -> None:
+    mission = _long_descending_leg_mission()
+    vehicle = make_vehicle()
+    vehicle.energy.descent_power_w = 250.0
+
+    result = estimate_mission_distance_time(mission, vehicle)
+
+    assert result.energy is not None
+    mixed = [
+        (leg, energy)
+        for leg, energy in zip(result.legs, result.energy.legs)
+        if leg.route_item_id == "far"
+    ]
+    assert mixed
+    leg, energy = mixed[0]
+    assert leg.horizontal_distance_m > 1_000.0
+    profile = leg.timing_profile
+    assert profile is not None
+    vertical_time_s = profile.vertical_time_s
+    horizontal_time_s = leg.time_s - vertical_time_s
+    assert horizontal_time_s > vertical_time_s
+    expected_power_w = (
+        vehicle.energy.descent_power_w * vertical_time_s
+        + vehicle.energy.cruise_power_w * horizontal_time_s
+    ) / leg.time_s
+    assert energy.power_w == pytest.approx(expected_power_w)
+
+
+def test_usable_capacity_curve_derates_rth_reserve_margins() -> None:
+    """A declared derating curve must reach the contingency budget too.
+
+    The curve used to gate the mission total only, leaving every RTH margin
+    computed against the nameplate pack.
+    """
+
+    nameplate = make_vehicle()
+    nameplate.energy.battery_capacity_wh = 150.0
+    baseline = try_estimate_mission_distance_time(
+        _mission_with_intermediate_rth_breach(require_gate=True), nameplate
+    )
+    assert baseline.status == EstimateStatus.SUCCESS
+    assert baseline.rth_is_feasible is True
+
+    derated_vehicle = make_vehicle()
+    derated_vehicle.energy.battery_capacity_wh = 150.0
+    derated_vehicle.energy.usable_capacity_curve = [
+        UsableCapacityPoint(soc=0.0, usable_fraction=0.0),
+        UsableCapacityPoint(soc=1.0, usable_fraction=0.55),
+    ]
+    derated = try_estimate_mission_distance_time(
+        _mission_with_intermediate_rth_breach(require_gate=True), derated_vehicle
+    )
+
+    assert derated.status == EstimateStatus.INFEASIBLE
+    assert derated.failure is not None
+    assert derated.failure.code == FailureCode.RTH_RESERVE_BELOW_THRESHOLD
+    # The mission itself still fits: only the contingency budget moved.
+    assert derated.energy is not None and derated.energy.is_feasible is True
+    assert derated.energy.rth_reserve_timeline is not None
+    assert any(not point.is_feasible for point in derated.energy.rth_reserve_timeline)
 
 
 def test_missing_energy_reference_conditions_warns() -> None:

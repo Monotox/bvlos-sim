@@ -8,6 +8,7 @@ from pyproj import Geod
 
 from estimator.core.constants import (
     DEFAULT_MAX_CRAB_ANGLE_DEG,
+    DEFAULT_MAX_SEGMENT_LENGTH_M,
     DEFAULT_MIN_GROUNDSPEED_MPS,
 )
 from estimator.core.enums import (
@@ -156,12 +157,16 @@ def resolve_options(
     if min_ground is None:
         min_ground = DEFAULT_MIN_GROUNDSPEED_MPS
 
+    max_segment_length_m = source_values.max_segment_length_m
+    if max_segment_length_m is None:
+        max_segment_length_m = DEFAULT_MAX_SEGMENT_LENGTH_M
+
     return ResolvedOptions(
         wind_east_mps=source_values.wind_east_mps,
         wind_north_mps=source_values.wind_north_mps,
         min_groundspeed_mps=min_ground,
         options_source=source_values.source,
-        max_segment_length_m=source_values.max_segment_length_m,
+        max_segment_length_m=max_segment_length_m,
         fidelity=source_values.fidelity or FidelityMode.V1,
     )
 
@@ -267,6 +272,8 @@ def build_estimation_context(
 
     if resolved_options.min_groundspeed_mps == DEFAULT_MIN_GROUNDSPEED_MPS:
         metadata["applied_default_min_groundspeed_mps"] = DEFAULT_MIN_GROUNDSPEED_MPS
+    if resolved_options.max_segment_length_m == DEFAULT_MAX_SEGMENT_LENGTH_M:
+        metadata["applied_default_max_segment_length_m"] = DEFAULT_MAX_SEGMENT_LENGTH_M
 
     return EstimationContext(
         mission=mission,

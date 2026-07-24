@@ -640,12 +640,11 @@ def _evaluate_straight_horizontal_path(
     leg_index: int | None = None,
 ) -> HorizontalPathEvaluation:
     max_segment_length_m = context.resolved_options.max_segment_length_m
-    sample_fractions = (
-        sub_segment_midpoint_fractions(
-            geometry.horizontal_distance_m, max_segment_length_m
-        )
-        if max_segment_length_m is not None
-        else (0.0,)
+    # Always sample at sub-segment midpoints. Sampling at the departure end
+    # (fraction 0.0) bills the whole leg at the wind it left home in, which
+    # understates energy whenever the wind builds along the route.
+    sample_fractions = sub_segment_midpoint_fractions(
+        geometry.horizontal_distance_m, max_segment_length_m
     )
     n_segments = len(sample_fractions)
     segment_length_m = geometry.horizontal_distance_m / n_segments
@@ -694,7 +693,7 @@ def _evaluate_straight_horizontal_path(
             wind_sampler=sample_wind,
             segment_index=segment_index,
             n_segments=n_segments,
-            use_midpoint_iteration=max_segment_length_m is not None,
+            use_midpoint_iteration=True,
             leg_index=leg_index,
         )
         total_s += segment.time_s

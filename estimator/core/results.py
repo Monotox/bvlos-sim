@@ -221,6 +221,16 @@ class EnergyEstimate(BaseModel):
         default=None, exclude_if=lambda value: value is None
     )
 
+    @property
+    def deliverable_capacity_wh(self) -> float:
+        """Full-charge energy the pack can deliver, after usable-curve derating.
+
+        Derived rather than serialized, so contingency checks can budget
+        against the derated pack without widening the result contract.
+        """
+
+        return self.usable_energy_wh + self.reserve_threshold_wh
+
 
 class ResourceSystemEstimate(BaseModel):
     """Per-resource deterministic feasibility result."""

@@ -29,6 +29,8 @@
       "code": "WIND_TRIANGLE_NO_SOLUTION",
       "context": {
         "action": "waypoint",
+        "n_segments": 3,
+        "segment_index": 0,
         "tas_mps": 18.0,
         "track_azimuth_deg": 0.0,
         "wind_east_mps": 30.0,
@@ -37,7 +39,7 @@
       "kind": "infeasible",
       "leg_index": 0,
       "level": "error",
-      "message": "No wind-triangle solution exists for required crosswind correction.",
+      "message": "No wind-triangle solution in sub-segment 1/3.",
       "route_item_id": "wp1",
       "route_item_index": 0
     }
@@ -91,6 +93,8 @@
       "code": "WIND_TRIANGLE_NO_SOLUTION",
       "context": {
         "action": "waypoint",
+        "n_segments": 3,
+        "segment_index": 0,
         "tas_mps": 18.0,
         "track_azimuth_deg": 0.0,
         "wind_east_mps": 30.0,
@@ -98,7 +102,7 @@
       },
       "kind": "infeasible",
       "leg_index": 0,
-      "message": "No wind-triangle solution exists for required crosswind correction.",
+      "message": "No wind-triangle solution in sub-segment 1/3.",
       "route_item_id": "wp1",
       "route_item_index": 0
     },
@@ -107,6 +111,7 @@
     "legs": [],
     "link": null,
     "metadata": {
+      "applied_default_max_segment_length_m": 500.0,
       "applied_default_min_groundspeed_mps": 3.0,
       "capabilities_source": "explicit",
       "estimator_version": "v1",

@@ -98,6 +98,9 @@ def test_external_power_must_cover_rth_peak_power() -> None:
 def test_external_power_reports_rth_shortfall_when_gate_is_disabled() -> None:
     mission = _one_way_mission()
     mission.constraints.require_rth_reserve = False
+    # Keep the leg short enough that the descent dominates it, so the route
+    # really does draw descent power while the RTH cruise peak does not fit.
+    mission.route[0].lon = mission.planned_home.lon + 0.001
     mission.route[0].altitude_reference = AltitudeReference.AMSL
     mission.route[0].altitude_m = 0.0
     vehicle = make_vehicle()
@@ -149,7 +152,7 @@ def test_onboard_resource_fails_when_only_rth_reserve_is_insufficient() -> None:
             {
                 "resource_id": "small-pack",
                 "kind": "onboard_battery",
-                "battery_capacity_wh": 120.0,
+                "battery_capacity_wh": 80.0,
             }
         )
     ]
@@ -173,7 +176,7 @@ def test_hybrid_resource_accounts_for_residual_rth_energy() -> None:
             {
                 "resource_id": "small-hybrid",
                 "kind": "hybrid",
-                "battery_capacity_wh": 80.0,
+                "battery_capacity_wh": 20.0,
                 "continuous_power_w": 400.0,
             }
         )

@@ -2,6 +2,7 @@
 
 from estimator.core.constants import (
     DEFAULT_MAX_CRAB_ANGLE_DEG,
+    DEFAULT_MAX_SEGMENT_LENGTH_M,
     DEFAULT_MIN_GROUNDSPEED_MPS,
     EPS_DISTANCE_M,
 )
@@ -67,6 +68,7 @@ from estimator.core.results import (
 
 __all__ = [
     "DEFAULT_MAX_CRAB_ANGLE_DEG",
+    "DEFAULT_MAX_SEGMENT_LENGTH_M",
     "DEFAULT_MIN_GROUNDSPEED_MPS",
     "EPS_DISTANCE_M",
     "EnergyEstimate",

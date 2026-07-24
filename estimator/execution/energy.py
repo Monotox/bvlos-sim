@@ -50,6 +50,9 @@ _INDUCED_POWER_SOURCES = frozenset(
     }
 )
 _CRUISE_MASS_EXPONENT = 0.5
+# Upper bound on emergency/RTH path sample spacing, independent of the transit
+# sampling option so a coarse transit setting cannot coarsen contingency energy.
+_EMERGENCY_SAMPLE_LENGTH_M = 100.0
 
 
 @dataclass(frozen=True)
@@ -122,12 +125,11 @@ def evaluate_energy_feasibility(
     hover_capable = context.capabilities.hover
     energy_legs: list[EnergyLegEstimate] = []
     for leg in context.route_legs:
-        base_power, failure = _resolve_leg_power(
-            energy_model, leg, hover_capable=hover_capable
+        power, failure = _resolve_leg_energy(
+            context, energy_model, leg, hover_capable=hover_capable
         )
         if failure is not None:
             return EnergyEvaluation(energy=None, failure=failure)
-        power = _apply_energy_fidelity(context, leg, base_power)
 
         energy_legs.append(
             EnergyLegEstimate(
@@ -360,9 +362,9 @@ def _resolve_leg_power(
     if leg.phase == LegPhase.LOITER_DWELL:
         return _HOVER_LOITER_POWER_RESOLVERS[hover_capable](energy_model, leg)
 
-    # Route actions may combine horizontal and vertical motion in one leg. The
-    # result model carries one conservative phase power, so prefer the
-    # configured climb/descent calibration whenever vertical work is present.
+    # Resolve the power of the leg's vertical work. Route actions may combine
+    # horizontal and vertical motion in one leg; _resolve_leg_energy costs the
+    # two portions separately, so this covers only the climb/descent share.
     if leg.vertical_delta_m > 0.0:
         return _resolve_climb_power(energy_model, leg)
     if leg.vertical_delta_m < 0.0:
@@ -373,6 +375,110 @@ def _resolve_leg_power(
         return resolver(energy_model, leg)
 
     return _unsupported_phase_energy_failure(leg)
+
+
+def _resolve_leg_energy(
+    context: EstimationContext,
+    energy_model: EnergyModel,
+    leg: LegEstimate,
+    *,
+    hover_capable: bool,
+) -> tuple[EnergyPower, EstimatorFailure | None]:
+    """Resolve a leg's time-averaged power, splitting mixed legs by phase.
+
+    A route action may climb or descend while also covering ground. Charging
+    the whole leg at the vertical power understates energy whenever descent
+    power is below cruise, so that supplying descent_power_w could *raise*
+    reported endurance. The vertical and horizontal portions are therefore
+    costed separately, each adjusted for its own reference conditions, and
+    recombined into the effective power that the leg's duration implies.
+    """
+
+    vertical_base, failure = _resolve_leg_power(
+        energy_model, leg, hover_capable=hover_capable
+    )
+    if failure is not None:
+        return vertical_base, failure
+    vertical_power = _apply_energy_fidelity(context, leg, vertical_base)
+
+    if (
+        leg.phase == LegPhase.LOITER_DWELL
+        or leg.vertical_delta_m == 0.0
+        or leg.horizontal_distance_m <= 0.0
+        or leg.time_s <= 0.0
+    ):
+        return vertical_power, None
+
+    cruise_base, cruise_failure = _resolve_cruise_power(energy_model, leg)
+    if cruise_failure is not None:
+        return vertical_power, cruise_failure
+    cruise_power = _apply_energy_fidelity(context, leg, cruise_base)
+
+    profile = leg.timing_profile
+    if profile is None:
+        # Phase durations are unknown without the estimator's timing split.
+        # Never understate: charge the whole leg at the costlier phase power.
+        return (
+            max(vertical_power, cruise_power, key=lambda power: power.power_w),
+            None,
+        )
+
+    vertical_time_s = min(max(profile.vertical_time_s, 0.0), leg.time_s)
+    horizontal_time_s = leg.time_s - vertical_time_s
+    if horizontal_time_s <= 0.0:
+        return vertical_power, None
+    if vertical_time_s <= 0.0:
+        return cruise_power, None
+
+    effective_power_w = (
+        vertical_power.power_w * vertical_time_s
+        + cruise_power.power_w * horizontal_time_s
+    ) / leg.time_s
+    return (
+        EnergyPower(
+            power_w=effective_power_w,
+            source=vertical_power.source,
+            mass_multiplier=_blend_leg_multiplier(
+                vertical_power.mass_multiplier,
+                cruise_power.mass_multiplier,
+                vertical_time_s=vertical_time_s,
+                horizontal_time_s=horizontal_time_s,
+            ),
+            density_multiplier=_blend_leg_multiplier(
+                vertical_power.density_multiplier,
+                cruise_power.density_multiplier,
+                vertical_time_s=vertical_time_s,
+                horizontal_time_s=horizontal_time_s,
+            ),
+        ),
+        None,
+    )
+
+
+def _blend_leg_multiplier(
+    vertical_multiplier: float | None,
+    cruise_multiplier: float | None,
+    *,
+    vertical_time_s: float,
+    horizontal_time_s: float,
+) -> float | None:
+    """Time-weight the two phases' reference-condition factors.
+
+    Reported for diagnostics only; the effective power is already blended.
+    """
+
+    if vertical_multiplier is None and cruise_multiplier is None:
+        return None
+    total_time_s = vertical_time_s + horizontal_time_s
+    if total_time_s <= 0.0:
+        if vertical_multiplier is not None:
+            return vertical_multiplier
+        return cruise_multiplier
+    applied_vertical = 1.0 if vertical_multiplier is None else vertical_multiplier
+    applied_cruise = 1.0 if cruise_multiplier is None else cruise_multiplier
+    return (
+        applied_vertical * vertical_time_s + applied_cruise * horizontal_time_s
+    ) / total_time_s
 
 
 def _apply_energy_fidelity(
@@ -585,18 +691,25 @@ def _build_energy_estimate(
     ), None
 
 
+def _deliverable_capacity_wh(energy_model: EnergyModel) -> float:
+    """Energy a full pack can actually deliver, after usable-curve derating.
+
+    Contingency checks must budget against this rather than the nameplate
+    capacity, otherwise declaring a derating curve tightens the mission gate
+    while leaving every RTH and divert margin untouched.
+    """
+
+    return energy_model.battery_capacity_wh * _usable_capacity_fraction_at_soc(
+        energy_model, soc=1.0
+    )
+
+
 def _usable_energy_wh(
     energy_model: EnergyModel,
     *,
     reserve_threshold_wh: float,
 ) -> float:
-    if energy_model.usable_capacity_curve is None:
-        return energy_model.battery_capacity_wh - reserve_threshold_wh
-    return (
-        energy_model.battery_capacity_wh
-        * _usable_capacity_fraction_at_soc(energy_model, soc=1.0)
-        - reserve_threshold_wh
-    )
+    return _deliverable_capacity_wh(energy_model) - reserve_threshold_wh
 
 
 def _usable_capacity_fraction_at_soc(
@@ -638,6 +751,7 @@ def _build_rth_reserve_timeline(
         return None, failure
 
     energy_used_by_leg = _energy_used_by_leg(legs)
+    deliverable_capacity_wh = _deliverable_capacity_wh(energy_model)
     timeline: list[RthReserveTimelinePoint] = []
     elapsed_time_s = 0.0
     for leg in context.route_legs:
@@ -660,7 +774,7 @@ def _build_rth_reserve_timeline(
         if rth is None:
             raise ValueError("RTH kinematics failed without a structured failure.")
         rth_energy_wh = rth.total_energy_wh
-        energy_remaining_wh = energy_model.battery_capacity_wh - energy_used_by_leg.get(
+        energy_remaining_wh = deliverable_capacity_wh - energy_used_by_leg.get(
             leg.leg_index, 0.0
         )
         reserve_after_rth_wh = energy_remaining_wh - rth_energy_wh
@@ -855,7 +969,12 @@ def _emergency_path_segments(
     track_rad = math.radians(track_deg)
     target_east_m = geodesic_distance_m * math.sin(track_rad)
     target_north_m = geodesic_distance_m * math.cos(track_rad)
-    sample_length_m = context.resolved_options.max_segment_length_m or 100.0
+    # The contingency path is integrated at least as finely as the transit
+    # default; a coarser transit setting must never coarsen the RTH estimate.
+    sample_length_m = min(
+        context.resolved_options.max_segment_length_m or _EMERGENCY_SAMPLE_LENGTH_M,
+        _EMERGENCY_SAMPLE_LENGTH_M,
+    )
     turn_radius_m = context.vehicle.performance.turn_radius_m
     if start_heading_deg is not None and turn_radius_m is not None:
         path = dubins_path_to_point(

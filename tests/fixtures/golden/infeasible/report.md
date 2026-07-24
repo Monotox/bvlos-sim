@@ -20,7 +20,7 @@
 
 ## Diagnostics
 
-- `error` `WIND_TRIANGLE_NO_SOLUTION`: No wind-triangle solution exists for required crosswind correction.
+- `error` `WIND_TRIANGLE_NO_SOLUTION`: No wind-triangle solution in sub-segment 1/3.
 
 ## Assumptions
 

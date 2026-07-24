@@ -305,7 +305,7 @@ def _energy_remaining_at_index(energy: EnergyEstimate, timeline_index: int) -> f
     used_wh = sum(
         leg.energy_wh for leg in energy.legs if leg.leg_index <= max_leg_index
     )
-    return energy.battery_capacity_wh - used_wh
+    return energy.deliverable_capacity_wh - used_wh
 
 
 def _no_estimate(

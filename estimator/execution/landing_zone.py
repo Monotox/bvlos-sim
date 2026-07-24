@@ -394,7 +394,7 @@ def _evaluate_state(
     del all_zone_count
     leg = route_state.leg
     available_zone_count = len(available_zones) if has_availability_filter else None
-    energy_remaining_wh = energy.battery_capacity_wh - route_state.energy_used_wh
+    energy_remaining_wh = energy.deliverable_capacity_wh - route_state.energy_used_wh
 
     if has_availability_filter and len(available_zones) == 0:
         return _state_record(
