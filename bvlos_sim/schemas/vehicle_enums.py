@@ -19,7 +19,16 @@ class AutopilotStack(StrEnum):
     GENERIC = "generic"
 
 
+class CalibrationStatus(StrEnum):
+    """Provenance of the vehicle's performance and energy coefficients."""
+
+    MANUFACTURER_DERIVED = "manufacturer_derived"
+    PLACEHOLDER_VALUES = "placeholder_values"
+    LOG_CALIBRATED = "log_calibrated"
+
+
 __all__ = [
     "AutopilotStack",
+    "CalibrationStatus",
     "VehicleClass",
 ]

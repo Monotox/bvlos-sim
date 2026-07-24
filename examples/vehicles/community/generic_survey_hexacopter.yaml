@@ -35,9 +35,10 @@ failsafe:
   emergency_land_percent: 10
 
 metadata:
-  calibration_status: placeholder_values
   notes: >
     All values are typical-class estimates for a mid-market 6-arm survey
     multirotor at 6 kg AUW. No specific manufacturer reference. Use as a
     conservative baseline only. Replace with measured values before any
     operational use.
+
+calibration_status: placeholder_values

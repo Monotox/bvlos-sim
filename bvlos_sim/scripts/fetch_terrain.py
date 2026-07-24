@@ -12,6 +12,11 @@ try:
 except ImportError:
     srtm = None  # type: ignore[assignment]
 
+try:  # package import
+    from ._attribution import SRTM, print_attribution
+except ImportError:  # executed as a script
+    from _attribution import SRTM, print_attribution  # type: ignore[no-redef]
+
 # SRTM tiles exist between 56 degrees south and 60 degrees north only.
 _SRTM_LAT_MIN = -56.0
 _SRTM_LAT_MAX = 60.0
@@ -145,6 +150,7 @@ def _fill_voids(
     return filled
 
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("lat_min", type=float)
@@ -215,6 +221,7 @@ def main() -> None:
         yaml.dump(grid, default_flow_style=None, sort_keys=False), encoding="utf-8"
     )
     print(f"Wrote {out} ({len(lats)} rows × {len(lons)} cols)")
+    print_attribution(SRTM)
 
 
 if __name__ == "__main__":

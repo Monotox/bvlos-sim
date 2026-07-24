@@ -22,6 +22,11 @@ from bvlos_sim.adapters.calibration import (
     write_calibration_profile,
 )
 from bvlos_sim.adapters.canonical_json import render_canonical_json
+from bvlos_sim.adapters.operational_readiness import evaluate_operational_readiness
+from bvlos_sim.estimator import try_estimate_mission_distance_time
+from bvlos_sim.estimator.core.enums import WarningCode
+from bvlos_sim.schemas.vehicle_enums import CalibrationStatus
+from tests.helpers import make_mission
 from bvlos_sim.adapters.flight_log import ingest_dataflash_log
 from bvlos_sim.adapters.io import InputLoadError, load_vehicle
 from bvlos_sim.adapters.phase_segmentation import segment_trace
@@ -717,3 +722,66 @@ def test_calibration_is_recorded_in_envelope_provenance(tmp_path: Path) -> None:
         calibrated["provenance"]["inputs"]["vehicle"]["sha256"]
         == plain["provenance"]["inputs"]["vehicle"]["sha256"]
     )
+
+
+def test_apply_stamps_the_vehicle_as_log_calibrated() -> None:
+    """Fitted coefficients are exactly what ENERGY_MODEL_UNCALIBRATED asks for."""
+    vehicle = _vehicle()
+    assert vehicle.calibration_status is CalibrationStatus.PLACEHOLDER_VALUES
+
+    calibrated = apply_calibration(
+        vehicle,
+        _calibration(_calibrated_param(CalibratedParameterName.CRUISE_SPEED_MPS, 20.0)),
+    )
+
+    assert calibrated.calibration_status is CalibrationStatus.LOG_CALIBRATED
+    assert vehicle.calibration_status is CalibrationStatus.PLACEHOLDER_VALUES
+
+
+def test_empty_calibration_does_not_clear_the_uncalibrated_warning() -> None:
+    """An empty profile overrides nothing, so it must not claim provenance."""
+    vehicle = _vehicle()
+    calibrated = apply_calibration(vehicle, _calibration())
+    assert calibrated.calibration_status is CalibrationStatus.PLACEHOLDER_VALUES
+
+
+@pytest.mark.parametrize(
+    "status",
+    [None, CalibrationStatus.PLACEHOLDER_VALUES],
+)
+def test_unvalidated_coefficients_raise_energy_model_uncalibrated(status) -> None:
+    vehicle = _vehicle().model_copy(update={"calibration_status": status})
+    result = try_estimate_mission_distance_time(make_mission(), vehicle)
+
+    assert WarningCode.ENERGY_MODEL_UNCALIBRATED in {w.code for w in result.warnings}
+    assert evaluate_operational_readiness(result).is_go is False
+
+
+@pytest.mark.parametrize(
+    "status",
+    [CalibrationStatus.MANUFACTURER_DERIVED, CalibrationStatus.LOG_CALIBRATED],
+)
+def test_declared_coefficient_provenance_clears_the_warning(status) -> None:
+    vehicle = _vehicle().model_copy(update={"calibration_status": status})
+    result = try_estimate_mission_distance_time(make_mission(), vehicle)
+
+    assert WarningCode.ENERGY_MODEL_UNCALIBRATED not in {
+        w.code for w in result.warnings
+    }
+
+
+def test_energy_model_uncalibrated_is_waivable() -> None:
+    """Unlike a vehicle-limit exceedance, coefficient provenance is a judgement call."""
+    mission = make_mission()
+    baseline = evaluate_operational_readiness(
+        try_estimate_mission_distance_time(mission, _vehicle())
+    )
+    assert "warnings" in baseline.failed_checks
+
+    mission.constraints.accepted_warning_codes = sorted(baseline.warning_codes)
+    readiness = evaluate_operational_readiness(
+        try_estimate_mission_distance_time(mission, _vehicle())
+    )
+
+    assert "ENERGY_MODEL_UNCALIBRATED" in readiness.acknowledged_warning_codes
+    assert "warnings" not in readiness.failed_checks

@@ -31,10 +31,11 @@ failsafe:
   emergency_land_percent: 10
 
 metadata:
-  calibration_status: manufacturer_derived
   source: "https://www.quantum-systems.com/trinity-f90/"
   notes: >
     Cruise power derived from published 90-minute endurance at 18 m/s (2x 99 Wh
     = 198 Wh). Hover power is estimated; Quantum-Systems does not publish
     VTOL-phase power separately. Turn radius estimated at 25 deg bank angle.
     Validate against observed logs before operational use.
+
+calibration_status: manufacturer_derived

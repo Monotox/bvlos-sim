@@ -7,6 +7,8 @@ Vehicle profiles for the pipeline demo and community reference aircraft.
 | `quadplane_v1.yaml` | VTOL | Baseline VTOL quadplane used by most pipeline demo missions. |
 | `quadplane_v1_ekf.yaml` | VTOL | Same airframe with GPS and battery sensor profiles for EKF twin-state stochastic propagation. |
 | `quadplane_resource_link.yaml` | VTOL | Variant with explicit resource and communication-link systems. |
+| `quadplane_v1_complete.yaml` | VTOL | Resource systems plus `characteristic_dimension_m`, so `pipeline_demo_001_go.yaml` can reach `GO`. Same `vehicle_id` as the baseline, so the bundled calibration profile applies. |
+| `quadplane_v1_ground_risk.yaml` | VTOL | Baseline plus `characteristic_dimension_m` for SORA iGRC. |
 | `community/` | Various | Five manufacturer-sourced profiles — see `community/README.md`. |
 
 ## Quick start

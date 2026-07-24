@@ -738,6 +738,24 @@ def test_cli_summary_format_input_load_error_includes_code_and_stage(
 
     assert result.exit_code == int(CliExitCode.INVALID_INPUT)
     assert result.stdout.startswith("ERROR   [INPUT_LOAD_ERROR: vehicle ")
+    # One line still has to say which file and why, or a typo in a path is
+    # indistinguishable from a schema mismatch.
+    assert str(vehicle_path) in result.stdout
+    assert "Unable to parse vehicle file." in result.stdout
+
+
+def test_cli_summary_format_missing_file_names_the_path(tmp_path: Path) -> None:
+    vehicle_path = tmp_path / "vehicle.yaml"
+    _write_yaml(vehicle_path, make_vehicle_payload())
+    missing = tmp_path / "does-not-exist.yaml"
+
+    result = runner.invoke(
+        app,
+        ["estimate", str(missing), str(vehicle_path), "--format", "summary"],
+    )
+
+    assert result.exit_code == int(CliExitCode.INVALID_INPUT)
+    assert str(missing) in result.stdout
 
 
 def test_cli_output_write_failure_falls_back_to_stdout_internal_error(

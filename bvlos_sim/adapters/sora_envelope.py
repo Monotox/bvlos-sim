@@ -12,7 +12,7 @@ from bvlos_sim.adapters.version import tool_version
 from bvlos_sim.schemas.sora import SORA_ASSESSMENT_SCHEMA_VERSION, SoraAssessment
 
 SORA_ENVELOPE_SCHEMA_VERSION = "sora-envelope.v3"
-VEHICLE_SCHEMA_VERSION = "vehicle.v4"
+VEHICLE_SCHEMA_VERSION = "vehicle.v5"
 
 
 class SoraProvenance(BaseModel):
@@ -29,7 +29,7 @@ class SoraResultEnvelope(BaseModel):
     tool_version: str
     sora_schema_version: Literal["sora-assessment.v3"]
     mission_schema_version: Literal["mission.v7"]
-    vehicle_schema_version: Literal["vehicle.v4"]
+    vehicle_schema_version: Literal["vehicle.v5"]
     determinism_metadata: DeterminismMetadata
     provenance: SoraProvenance
     result: SoraAssessment

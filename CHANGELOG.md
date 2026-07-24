@@ -7,6 +7,75 @@ and this project adheres to semantic versioning once public releases begin.
 
 ## [Unreleased]
 
+### Added
+
+- A complete-evidence reference mission that actually reaches `GO`:
+  `examples/missions/pipeline_demo_001_go.yaml` with
+  `examples/vehicles/quadplane_v1_complete.yaml` and the bundled calibration
+  profile. The project previously contained no `GO` verdict anywhere — not in a
+  golden fixture, an example, or a doc — so the passing branch of the readiness
+  gate was never exercised end to end and teams had no reference for what
+  complete evidence looks like. `tests/test_go_reference_mission.py` pins it,
+  including that dropping any single asset, or the calibration, returns it to
+  `NO-GO`.
+- `data/obstacles/demo.geojson`, the first obstacle asset outside
+  `tests/fixtures/`. Obstacle clearance is a gated evidence category and had no
+  worked example.
+- `NOTICE.md` recording the ODbL 1.0 (OpenStreetMap) and CC BY 4.0 (Open-Meteo)
+  terms that apply to bundled example assets and to anything fetched with the
+  `bvlos-fetch-*` commands. Each fetch script now prints the applicable
+  attribution to stderr. MIT never covered this data.
+- `.github/workflows/release.yml` publishing to PyPI from a version tag via
+  Trusted Publishing, plus `.github/dependabot.yml`. CI built and smoke-tested a
+  wheel but nothing ever published it, so the only way to install was a git
+  clone.
+- macOS to the CI test matrix, so the `OS Independent` classifier has a
+  non-Linux runner behind it.
+
+### Changed
+
+- **`vehicle.v4` is now `vehicle.v5`.** `calibration_status`
+  (`manufacturer_derived` | `placeholder_values` | `log_calibrated`) is a typed
+  top-level field instead of a free-form `metadata` convention the estimator
+  ignored. A profile that is `placeholder_values` or declares nothing raises the
+  new `ENERGY_MODEL_UNCALIBRATED` warning, which blocks `GO`. `--calibration`
+  stamps `log_calibrated` when it applies a fitted profile. Previously a `GO`
+  computed from invented power coefficients was indistinguishable from one
+  backed by flight data.
+- `constraints.accepted_warning_codes` rejects `MAX_WIND_EXCEEDED` and
+  `RESERVE_BELOW_FAILSAFE_ABORT_THRESHOLD`. Both report an exceedance of a limit
+  the vehicle profile declares, so a mission file could previously waive the
+  aircraft's own envelope and still print `GO`. The checklist row is now
+  `Warnings`, not `Advisory warnings`, because not all of them are advisory.
+
+### Fixed
+
+- `GEOFENCE_EVALUATED_2D_ONLY` is emitted only for zones declaring neither
+  `floor_m` nor `ceiling_m`. It previously fired whenever any geofence was
+  loaded, so every geofence-checked mission was structurally `NO-GO` until the
+  operator waived a warning that often did not apply — training operators to
+  treat waivers as boilerplate.
+- `min_terrain_clearance_m` no longer fails at the takeoff leg. Vertical-takeoff
+  and landing-transit legs are flown at the landing surface by definition and
+  are exempt; the RTL leg is exempt only on its final touchdown segment, so the
+  cruise home stays checked. Any clearance above the home's height over terrain
+  previously made every mission `INFEASIBLE` at leg 0, and the one test covering
+  it placed home 100 m above the terrain grid, hiding the case. Obstacle
+  clearance is still evaluated on every leg.
+- `OBSTACLE_ZERO_FEATURES` now also fires when `min_obstacle_clearance_m` is set
+  with no obstacle source configured at all. That path reported
+  `Obstacle clearance PASS` with `checked_obstacle_count: 0` and no warning.
+- Geofence predicates no longer turn floating-point noise into a verdict. A
+  materialized path sample meant to land on a zone boundary lands within a few
+  ULP of it, and which side differs by platform, so a required zone could report
+  a spurious excursion and a forbidden zone could miss a real touch. Zones are
+  now grown by 1e-9 deg (~0.11 mm) before any predicate runs, which is
+  fail-closed for both kinds. Caught by the new macOS CI job.
+- `--format summary` names the offending file and reason on an input error
+  instead of only `ERROR [INPUT_LOAD_ERROR: mission read]`.
+- Alpine demo figures in `README.md` and the getting-started tutorial, stale
+  since the demo assets were regenerated.
+
 ## [0.33.0] - 2026-07-24
 
 ### Added

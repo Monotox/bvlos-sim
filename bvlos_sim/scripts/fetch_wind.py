@@ -15,6 +15,11 @@ try:
 except ImportError:
     requests = None  # type: ignore[assignment]
 
+try:  # package import
+    from ._attribution import OPEN_METEO, print_attribution
+except ImportError:  # executed as a script
+    from _attribution import OPEN_METEO, print_attribution  # type: ignore[no-redef]
+
 _FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 _HISTORICAL_FORECAST_URL = "https://historical-forecast-api.open-meteo.com/v1/forecast"
 _HISTORICAL_FORECAST_START = date(2022, 1, 1)
@@ -210,6 +215,7 @@ def _hourly_datetime(value: object, *, index: int) -> datetime:
         ) from exc
 
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("lat", type=float, help="Centre latitude")
@@ -290,6 +296,7 @@ def main() -> None:
     )
     n_times = len(grid["axes"]["time_s"])
     print(f"Wrote {out} ({n_times} time steps × {len(_ALTITUDES_M)} altitude bands)")
+    print_attribution(OPEN_METEO)
 
 
 if __name__ == "__main__":

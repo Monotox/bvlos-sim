@@ -44,9 +44,14 @@ it is covered by golden-fixture and behavior tests (1600+ tests).
   extension point yet; track them in your ops process, not in the tool.
 - **Terrain is SRTM-only** — no coverage above ~60°N / below ~56°S.
 - **No REST API or web UI** — CLI and Python only (ticket 050).
+- **Not yet on PyPI.** The release workflow publishes from a version tag via
+  Trusted Publishing, but until the first tagged release lands, installation is
+  a git clone.
 - **No bundled qualification corpus.** Ingestion, validation, and calibration
   are implemented, but each team must supply and govern its own
-  representative flight logs and acceptance evidence.
+  representative flight logs and acceptance evidence. Until a vehicle declares
+  `calibration_status: manufacturer_derived` or carries a fitted calibration
+  profile, `ENERGY_MODEL_UNCALIBRATED` blocks the operational `GO`.
 - **Gust, visibility, and precipitation limits fail closed** — no built-in
   provider supplies those observations yet.
 

@@ -32,7 +32,7 @@ def test_minimal_mission_example_validates() -> None:
 
 
 def test_vehicle_example_validates() -> None:
-    blocks = _yaml_blocks("## Vehicle (`vehicle.v4`)")
+    blocks = _yaml_blocks("## Vehicle (`vehicle.v5`)")
     assert blocks, "missions.md lost its vehicle example"
     VehicleProfile.model_validate(yaml.safe_load(blocks[0]))
 

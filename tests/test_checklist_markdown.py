@@ -322,7 +322,7 @@ def test_checklist_warnings_shows_count_and_code() -> None:
         ],
     )
     output = render_checklist_markdown(_envelope(result))
-    assert "Advisory warnings" in output
+    assert "Warnings" in output
     assert "MAX_WIND_EXCEEDED" in output
     assert "2" in output
 

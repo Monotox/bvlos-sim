@@ -35,9 +35,10 @@ failsafe:
   emergency_land_percent: 10
 
 metadata:
-  calibration_status: manufacturer_derived
   source: "https://www.dji.com/matrice-300/specs"
   notes: >
     Hover power derived from published 55-minute hover endurance with 2x TB60
     (548.8 Wh total). Cruise power estimated at hover x 0.55. Validate against
     observed logs before operational use.
+
+calibration_status: manufacturer_derived

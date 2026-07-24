@@ -10,6 +10,7 @@ Mission YAML files for the pipeline inspection demo route (Lat 52°N, Lon 4°E a
 | `pipeline_demo_001_ekf.yaml` | Variant with GPS/battery sensor profile for EKF twin-state propagation. References `quadplane_v1_ekf`. |
 | `pipeline_demo_001_resource_link.yaml` | Variant with explicit resource and link systems. References `quadplane_resource_link`. |
 | `pipeline_demo_001_ground_risk.yaml` | Variant with a population-density grid for `estimate --format ground-risk`. References `quadplane_v1_ground_risk`. |
+| `pipeline_demo_001_go.yaml` | **Complete evidence.** Every gated category supplied, so it reaches `Status: GO`. References `quadplane_v1` via `quadplane_v1_complete.yaml`; needs `--calibration`. |
 
 ## Quick start
 

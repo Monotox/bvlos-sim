@@ -117,7 +117,7 @@ Formats:
   `Status: GO` or `Status: NO-GO`, and a `Blocked by:` line naming the missing
   evidence, failed checks, or blocking warnings. `GO` requires every check
   present and passed and no unacknowledged warnings (see
-  [Advisory warnings](#advisory-warnings)); missing evidence (`◌ N/A`) is
+  [Warnings](#warnings)); missing evidence (`◌ N/A`) is
   NO-GO, never an implicit pass.
 - `profile` — per-leg altitude table with terrain elevation and clearance
   columns when a terrain asset is configured.
@@ -455,31 +455,36 @@ Color thresholds (energy and RTH margin as percent of battery capacity):
 and opens directly in Google Earth and QGroundControl; GeoJSON opens in QGIS
 and QGroundControl.
 
-## Advisory warnings
+## Warnings
 
 Warnings mark conditions that do not make the mission infeasible but block an
 operational `GO` (they appear in `failed_checks` as `warnings`). The full JSON
 envelope carries each warning's `code`, `message`, and location; the checklist
-lists the codes on its `Advisory warnings` row.
+lists the codes on its `Warnings` row.
 
-A reviewed warning can be accepted per mission via
-`constraints.accepted_warning_codes` (see
+Most can be accepted per mission via `constraints.accepted_warning_codes` (see
 [Missions and vehicles](missions.md#constraints)): acknowledged codes stay in
 every artifact but stop blocking `GO`; any unlisted warning still blocks.
 
+Two cannot. `MAX_WIND_EXCEEDED` and `RESERVE_BELOW_FAILSAFE_ABORT_THRESHOLD`
+report that a limit the vehicle profile itself declares was exceeded, so
+listing either is a schema error rather than a waiver. They are marked
+**non-waivable** below.
+
 | Code | Meaning |
 |------|---------|
-| `MAX_WIND_EXCEEDED` | Leg wind exceeds `vehicle.performance.max_wind_mps` (not enforced as a hard limit). |
-| `RESERVE_BELOW_FAILSAFE_ABORT_THRESHOLD` | Predicted landing reserve is below the autopilot abort threshold. |
+| `MAX_WIND_EXCEEDED` | **Non-waivable.** Leg wind exceeds `vehicle.performance.max_wind_mps` (not enforced as a hard limit). |
+| `RESERVE_BELOW_FAILSAFE_ABORT_THRESHOLD` | **Non-waivable.** Predicted landing reserve is below the autopilot abort threshold. |
 | `RESERVE_BELOW_FAILSAFE_WARN_THRESHOLD` | Predicted landing reserve is below the low-battery warning threshold. |
-| `GEOFENCE_EVALUATED_2D_ONLY` | Geofence intersection is 2D; declared `floor_m`/`ceiling_m` bounds are checked, per-zone AGL is not modeled. |
+| `GEOFENCE_EVALUATED_2D_ONLY` | At least one zone declares neither `floor_m` nor `ceiling_m`, so it is evaluated as an unbounded 2D column. Zones declaring either bound are altitude-constrained and do not raise this. |
 | `GEOFENCE_ZERO_ZONES` | A geofence file is configured but contains zero zones — the clearance check evaluated no airspace. |
-| `OBSTACLE_ZERO_FEATURES` | An obstacle file is configured but contains zero obstacles — the clearance check evaluated no vertical structure. |
+| `OBSTACLE_ZERO_FEATURES` | No obstacle was consulted: either the configured file contains zero obstacles, or `min_obstacle_clearance_m` is set with no `assets.obstacles_file` at all. |
 | `OBSTACLE_KEEP_OUT_NOT_CONFIGURED` | Every obstacle has zero radius and uncertainty and `min_obstacle_clearance_m` is unset, so the keep-out volume has no width. |
 | `DEPARTURE_TIME_MISSING` | A geofence has a time window but the mission has no `departure_time`; the zone is treated as always active. |
 | `DIVERT_ENERGY_TAS_ONLY` | A scenario divert estimate used TAS without wind correction. |
 | `POPULATION_DENSITY_DIMENSION_MISSING` | Population grid present but the vehicle omits `characteristic_dimension_m`; iGRC cannot be computed. |
 | `GUST_DATA_UNAVAILABLE` | `max_gust_mps` is set but no provider supplies gust data. |
+| `ENERGY_MODEL_UNCALIBRATED` | `vehicle.calibration_status` is absent or `placeholder_values`, so every energy figure rests on unvalidated coefficients. Supply a fitted profile with `--calibration`, or declare `manufacturer_derived`. |
 | `ENERGY_REFERENCE_CONDITIONS_MISSING` | The vehicle declares `operating_mass_kg` without `reference_mass_kg` (or a reference density), so mass/density scaling is inert. |
 | `ROUTE_ACTIONS_AFTER_RTL` | Route items after an RTL are estimated but unreachable. |
 | `LOITER_RADIUS_IGNORED` | `loiter_radius_m` is ignored; loiter is modeled as station-keep. |

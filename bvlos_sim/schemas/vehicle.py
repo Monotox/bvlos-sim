@@ -13,7 +13,11 @@ from bvlos_sim.schemas.resource_link import ResourceSystemConfig
 from bvlos_sim.schemas.numeric import FiniteFloat
 from bvlos_sim.schemas.vehicle_capabilities import VehicleCapabilities
 from bvlos_sim.schemas.vehicle_energy import EnergyModel, FailsafeProfile
-from bvlos_sim.schemas.vehicle_enums import AutopilotStack, VehicleClass
+from bvlos_sim.schemas.vehicle_enums import (
+    AutopilotStack,
+    CalibrationStatus,
+    VehicleClass,
+)
 from bvlos_sim.schemas.vehicle_mass import MassProfile
 from bvlos_sim.schemas.vehicle_performance import PerformanceProfile
 from bvlos_sim.schemas.vehicle_controller import ControllerProfile
@@ -112,9 +116,19 @@ class VehicleProfile(BaseModel):
     sitl: SitlProfile | None = None
     sensors: SensorProfile | None = None
     controller: ControllerProfile | None = None
+    calibration_status: CalibrationStatus | None = Field(
+        default=None,
+        description=(
+            "Provenance of the performance and energy coefficients. Anything "
+            "other than manufacturer_derived or log_calibrated — including "
+            "omitting the field — raises ENERGY_MODEL_UNCALIBRATED, which "
+            "blocks the operational GO verdict until the operator supplies a "
+            "calibration profile or acknowledges the code."
+        ),
+    )
     metadata: dict[str, Any] = Field(
         default_factory=dict,
-        description="Free-form notes such as source links, version, or calibration status ignored by estimator v1.",
+        description="Free-form notes such as source links or version, ignored by estimator v1. Calibration provenance belongs in the typed calibration_status field.",
     )
 
     @model_validator(mode="after")

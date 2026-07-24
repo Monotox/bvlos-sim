@@ -21,6 +21,11 @@ try:
 except ImportError:
     requests = None  # type: ignore[assignment]
 
+try:  # package import
+    from ._attribution import WORLDPOP, print_attribution
+except ImportError:  # executed as a script
+    from _attribution import WORLDPOP, print_attribution  # type: ignore[no-redef]
+
 _WORLDPOP_DENSITY_URL = (
     "https://worldpop.arcgis.com/arcgis/rest/services/"
     "WorldPop_Population_Density_1km/ImageServer/getSamples"
@@ -165,6 +170,7 @@ def _sample_grid(
     return lats, lons, rows
 
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("lat_min", type=float)
@@ -254,6 +260,7 @@ def main() -> None:
         encoding="utf-8",
     )
     print(f"Wrote {output} ({len(lats)} rows x {len(lons)} cols)")
+    print_attribution(WORLDPOP)
 
 
 if __name__ == "__main__":

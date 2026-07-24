@@ -9,7 +9,7 @@ from shapely.geometry.base import BaseGeometry
 from shapely.ops import transform as transform_geometry
 from shapely.validation import explain_validity
 
-from bvlos_sim.estimator.core.enums import FailureCode, FailureKind
+from bvlos_sim.estimator.core.enums import FailureCode, FailureKind, LegPhase
 from bvlos_sim.estimator.core.obstacle import Obstacle, ObstacleGeometryType
 from bvlos_sim.estimator.core.results import (
     EstimatorContextValue,
@@ -27,6 +27,21 @@ from bvlos_sim.estimator.execution.spatial_sampling import (
 # Buffer used only to locate where a conflict starts and ends. Proximity itself
 # is decided by a distance test, so this never widens the keep-out volume.
 _MIN_FOOTPRINT_BUFFER_M = 1e-6
+
+# Vertical columns flown at the launch or landing point. The aircraft is
+# deliberately at ground level for the whole leg, so a transit clearance minimum
+# would make every mission infeasible at leg 0.
+_VERTICAL_GROUND_PHASES = frozenset(
+    {LegPhase.VERTICAL_TAKEOFF, LegPhase.LANDING_TRANSIT}
+)
+
+# RTL cruises home at altitude and only touches down on its final segment. That
+# one segment is exempt; the rest of the return path stays checked, because
+# flying home into a hillside is exactly what the constraint is for.
+#
+# Neither exemption applies to obstacle clearance: a mast beside the pad is a
+# real conflict during a vertical takeoff.
+_DESCENT_TO_GROUND_PHASES = frozenset({LegPhase.RTL_TRANSIT})
 
 
 @dataclass(frozen=True)
@@ -112,7 +127,10 @@ def evaluate_obstacle_clearance(context: EstimationContext) -> ObstacleEvaluatio
 
     violations: list[ObstacleClearanceViolation] = []
     for leg_samples in samples_by_leg:
-        if terrain_active and terrain_provider is not None:
+        on_ground = (
+            bool(leg_samples) and leg_samples[0].leg.phase in _VERTICAL_GROUND_PHASES
+        )
+        if terrain_active and terrain_provider is not None and not on_ground:
             terrain_violations, missing_sample = _continuous_terrain_checks(
                 leg_samples,
                 terrain_provider=terrain_provider,
@@ -172,8 +190,11 @@ def _continuous_terrain_checks(
         # Endpoint-only sampling cannot prove clearance over a custom terrain
         # surface. Fail closed unless the provider supplies a segment maximum.
         return [], samples[0]
+    touches_down = samples[0].leg.phase in _DESCENT_TO_GROUND_PHASES
     violations: list[ObstacleClearanceViolation] = []
-    for start, end in segments:
+    for index, (start, end) in enumerate(segments):
+        if touches_down and index == len(segments) - 1:
+            continue
         elevation_m = conservative_maximum(
             start.lat,
             start.lon,

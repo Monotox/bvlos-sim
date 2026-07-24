@@ -35,9 +35,10 @@ failsafe:
   emergency_land_percent: 10
 
 metadata:
-  calibration_status: manufacturer_derived
   source: "https://www.autelrobotics.com/product/autel-evo-max-4t/"
   notes: >
     Hover power derived from published 42-minute hover endurance (86.4 Wh
     battery). Cruise power estimated at hover x 0.55. Validate against observed
     logs before operational use.
+
+calibration_status: manufacturer_derived
