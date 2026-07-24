@@ -105,9 +105,15 @@ estimation:
 Wind precedence, strongest first: CLI `--wind-layer` flags → mission
 `assets.wind_grid_file` → `estimation.wind_layers` → scalar
 `wind_east_mps`/`wind_north_mps`. Scenario `initial_conditions` override
-mission `estimation` for scenario runs. Fidelity v2 does *not* enable
-sub-segment sampling by itself — set `max_segment_length_m` separately (it
-also works in v1).
+mission `estimation` for scenario runs.
+
+`max_segment_length_m` defaults to `500.0` and works in both fidelity modes.
+Every straight leg is integrated in sub-segments of at most that length and
+sampled at each sub-segment's midpoint, so a leg crossing a wind gradient is
+never billed at the wind it departed in. Legs shorter than the interval still
+resolve to a single midpoint sample. Lower it for finer integration over long
+legs in strongly varying wind; the estimate reports
+`metadata.applied_default_max_segment_length_m` when the default was used.
 
 ### Assets
 

@@ -7,6 +7,46 @@ and this project adheres to semantic versioning once public releases begin.
 
 ## [Unreleased]
 
+### Fixed
+
+- Mixed climb/descent legs are no longer billed entirely at the vertical phase
+  power. A route action that changes altitude while covering ground is now
+  costed by phase time — the climb or descent portion at `climb_power_w` /
+  `descent_power_w`, the remainder at `cruise_power_w` — and the leg reports the
+  time-weighted effective power, so `energy_wh == power_w * time_s / 3600` still
+  holds. Previously the sign of `vertical_delta_m` alone selected one power for
+  the whole leg, which **understated** energy whenever `descent_power_w` was
+  below cruise: on a 10 km leg ending one metre lower, supplying the documented
+  optional `descent_power_w` cut reported mission energy by 36 % and turned
+  `INFEASIBLE reserve −64.2 %` into `FEASIBLE reserve 66.5 %` on otherwise
+  identical inputs. The same defect **overstated** energy on climb legs by up to
+  2.2×, rejecting missions that were in fact feasible. Both directions are now
+  correct; expect climb-heavy missions to report materially lower energy.
+- Return-to-home and landing-zone divert margins now budget against the derated
+  pack. `usable_capacity_curve` reached only the mission-level gate, leaving
+  every contingency margin computed against nameplate `battery_capacity_wh` — a
+  declared derating had literally no effect on the RTH timeline. A 300 Wh pack
+  with a `0.55` curve reported a `+59.5 Wh` worst-case RTH margin where the
+  derated arithmetic gives `−75.5 Wh`. Emergency-path sampling keeps its own
+  100 m bound, so a coarser transit setting cannot coarsen contingency energy.
+
+### Changed
+
+- `max_segment_length_m` now defaults to `500.0` instead of being unset, and
+  every straight leg is sampled at its sub-segment midpoints. Leaving it unset
+  previously selected a zeroth-order rule that sampled the leg once at its
+  **departure end**, so a leg flying into building wind was billed at the wind
+  it left home in: measured 30 % low in energy and 33 % low in time on a 13.7 km
+  leg through a routine gradient. Legs shorter than the interval still resolve
+  to a single midpoint sample, and the 500 m default tracks 100 m sampling
+  within 1 %. Estimates report `metadata.applied_default_max_segment_length_m`
+  when the default was applied, mirroring the existing minimum-groundspeed
+  metadata. This changes default numeric output: golden fixtures were
+  regenerated, and wind-triangle failures now name the sub-segment that failed
+  (`No wind-triangle solution in sub-segment 1/3`) with `segment_index` and
+  `n_segments` context. Set `max_segment_length_m` explicitly to pin the
+  integration interval.
+
 ### Added
 
 - Machine-readable preflight validation report (Ticket 107). Every command with

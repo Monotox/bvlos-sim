@@ -27,6 +27,14 @@ straight-leg sub-segment sampling by itself.
 - Users can choose fidelity and layered/sub-segment behavior independently.
 - Existing v1 golden outputs remain stable unless explicitly running the v2 mode.
 
+> **Superseded.** The second criterion was met by leaving unset
+> `max_segment_length_m` on a zeroth-order rule that sampled each leg once, at
+> its departure end. That kept fixtures stable but understated energy whenever
+> the wind built along a leg — measured at 30 % on a 13.7 km leg through a
+> routine gradient. `max_segment_length_m` now resolves to a 500 m default and
+> every leg is sampled at sub-segment midpoints. Fixture stability is no longer
+> a constraint on the default integration.
+
 ## Integrated Surfaces
 
 - Mission YAML configures `estimation.fidelity`, `estimation.wind_layers`,
