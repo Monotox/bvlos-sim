@@ -209,9 +209,17 @@ def _render_estimate_summary(envelope: EstimatorResultEnvelope) -> str:
             code = str(error_diag.code)
             input_name = error_diag.context.get("input_name")
             stage = error_diag.context.get("stage")
-            if input_name and stage:
-                return f"ERROR   [{code}: {input_name} {stage}]"
-            return f"ERROR   [{code}]"
+            label = f"{input_name} {stage}" if input_name and stage else None
+            # One line still has to be actionable: without the offending path a
+            # typo is indistinguishable from a schema mismatch.
+            path = error_diag.context.get("path")
+            detail = f"{code}: {label}" if label else code
+            if path:
+                detail = f"{detail} ({path})"
+            line = f"ERROR   [{detail}]"
+            if error_diag.message:
+                line = f"{line}   {error_diag.message}"
+            return line
         return "ERROR"
     return format_estimate_summary(result)
 
