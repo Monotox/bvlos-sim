@@ -676,3 +676,44 @@ def test_cli_estimate_with_mismatched_calibration_is_invalid_input(
 
 
 __all__: list[str] = []
+
+
+def test_calibration_is_recorded_in_envelope_provenance(tmp_path: Path) -> None:
+    """A run made under a calibration is not the base vehicle's run.
+
+    Provenance enumerated a fixed set of inputs, so two runs differing in
+    flight time and landing reserve had byte-identical provenance naming the
+    base vehicle hash.
+    """
+
+    runner = CliRunner()
+    repo = Path(__file__).resolve().parents[1]
+    args = [
+        "estimate",
+        str(repo / "examples/missions/pipeline_demo_001.yaml"),
+        str(repo / "examples/vehicles/quadplane_v1.yaml"),
+        "--format",
+        "json",
+    ]
+
+    plain = json.loads(runner.invoke(app, args).stdout)
+    calibrated = json.loads(
+        runner.invoke(
+            app,
+            [
+                *args,
+                "--calibration",
+                str(repo / "examples/calibration/quadplane_v1_calibration.json"),
+            ],
+        ).stdout
+    )
+
+    assert "calibration" not in plain["provenance"]["inputs"]
+    calibration = calibrated["provenance"]["inputs"]["calibration"]
+    assert len(calibration["sha256"]) == 64
+    # The base vehicle hash is unchanged, which is exactly why the calibration
+    # needs its own entry.
+    assert (
+        calibrated["provenance"]["inputs"]["vehicle"]["sha256"]
+        == plain["provenance"]["inputs"]["vehicle"]["sha256"]
+    )

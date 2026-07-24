@@ -180,7 +180,7 @@ def test_estimate_no_clobber_allows_new_output_file(tmp_path: Path) -> None:
 
     assert result.exit_code == int(CliExitCode.SUCCESS)
     payload = json.loads(output.read_text(encoding="utf-8"))
-    assert payload["schema_version"] == "estimator-envelope.v9"
+    assert payload["schema_version"] == "estimator-envelope.v10"
 
 
 def test_estimate_overwrites_existing_output_without_no_clobber(

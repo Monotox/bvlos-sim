@@ -7,6 +7,15 @@ and this project adheres to semantic versioning once public releases begin.
 
 ## [Unreleased]
 
+### Changed
+
+- Output envelopes are now `estimator-envelope.v10`. `provenance.inputs` gains
+  a `calibration` entry, so a run made under `--calibration` no longer has
+  byte-identical provenance to the base vehicle it overrode.
+  `input_schema_versions` gains `obstacles` and `calibration`, and `population`
+  is corrected to `population-grid.v2` — the only version the loader accepts.
+  `schema-versions` prints the same set.
+
 ### Added
 
 - The ground-risk report now states its SORA version, the population assessment

@@ -91,7 +91,9 @@ def validate(
         mission_model, mission_document = load_mission(mission)
         vehicle_model, vehicle_document = load_vehicle(vehicle)
         if calibration is not None:
-            vehicle_model = load_and_apply_calibration(vehicle_model, calibration)
+            vehicle_model, _ = load_and_apply_calibration(
+                vehicle_model, calibration
+            )
         normalized_trace, _trace_document = load_flight_trace(trace)
         _validate_trace_references(
             normalized_trace.mission_ref,

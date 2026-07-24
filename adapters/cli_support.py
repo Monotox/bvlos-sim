@@ -140,6 +140,7 @@ class MissionAssetBundle:
     geofence_document: InputDocument | None = None
     landing_zones: list[LandingZone] | None = None
     landing_zone_document: InputDocument | None = None
+    calibration_document: InputDocument | None = None
     mission_id: str | None = None
 
     def envelope_inputs(
@@ -157,6 +158,7 @@ class MissionAssetBundle:
             population=self.population_document,
             obstacles=self.obstacle_document,
             wind_grid=self.wind_grid_document,
+            calibration=self.calibration_document,
         )
 
     def known_documents(self) -> dict[str, InputDocument | None]:

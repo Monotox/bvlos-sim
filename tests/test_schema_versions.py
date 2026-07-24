@@ -1,6 +1,10 @@
 """Tests for the read-only contract-version discovery command."""
 
 import json
+from pathlib import Path
+import tempfile
+
+import yaml
 from typing import get_args
 
 from typer.testing import CliRunner
@@ -11,6 +15,8 @@ from adapters.envelope import (
     GEOFENCE_SCHEMA_VERSION,
     LANDING_ZONE_SCHEMA_VERSION,
     MISSION_SCHEMA_VERSION,
+    CALIBRATION_SCHEMA_VERSION,
+    OBSTACLE_SCHEMA_VERSION,
     POPULATION_SCHEMA_VERSION,
     RESULT_ENVELOPE_SCHEMA_VERSION,
     TERRAIN_SCHEMA_VERSION,
@@ -95,6 +101,8 @@ def test_input_schema_versions_match_constants() -> None:
         "terrain": TERRAIN_SCHEMA_VERSION,
         "population": POPULATION_SCHEMA_VERSION,
         "wind_grid": WIND_GRID_SCHEMA_VERSION,
+        "obstacles": OBSTACLE_SCHEMA_VERSION,
+        "calibration": CALIBRATION_SCHEMA_VERSION,
         "scenario": SCENARIO_INPUT_SCHEMA_VERSION,
         "uncertainty": UNCERTAINTY_INPUT_SCHEMA_VERSION,
         "stochastic": STOCHASTIC_INPUT_SCHEMA_VERSION,
@@ -119,3 +127,40 @@ def test_version_flag_unchanged() -> None:
     result = runner.invoke(app, ["--version"])
     assert result.exit_code == 0
     assert result.stdout.strip() == f"bvlos-sim {tool_version()}"
+
+
+def test_population_schema_version_matches_the_loader() -> None:
+    """The advertised version must be the one the loader actually accepts.
+
+    Comparing the CLI output to the same constants is tautological, so the
+    constant drifted to population-grid.v1 while the loader required v2 and
+    rejected v1 assets with exit 11.
+    """
+
+    import pytest
+
+    from adapters.assets.population_grid import (
+        PopulationGridLoadError,
+        load_population_grid,
+    )
+
+    asset = (
+        Path(__file__).resolve().parents[1]
+        / "examples"
+        / "missions"
+        / "assets"
+        / "pipeline_population_grid.yaml"
+    )
+    base = yaml.safe_load(asset.read_text())
+    assert base["schema_version"] == POPULATION_SCHEMA_VERSION
+    tmp = Path(tempfile.mkdtemp())
+
+    load_population_grid(asset)  # the advertised version really loads
+
+    stale = tmp / "stale.yaml"
+    stale.write_text(
+        yaml.safe_dump(dict(base, schema_version="population-grid.v1")),
+        encoding="utf-8",
+    )
+    with pytest.raises(PopulationGridLoadError):
+        load_population_grid(stale)

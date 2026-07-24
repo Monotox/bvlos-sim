@@ -19,13 +19,15 @@ from estimator.core.enums import FailureCode, WarningCode
 from estimator.core.results import EstimatorContextValue
 from schemas.mission import MISSION_SCHEMA_VERSION
 
-RESULT_ENVELOPE_SCHEMA_VERSION = "estimator-envelope.v9"
+RESULT_ENVELOPE_SCHEMA_VERSION = "estimator-envelope.v10"
 VEHICLE_SCHEMA_VERSION = "vehicle.v4"
 GEOFENCE_SCHEMA_VERSION = "geofence-geojson.v1"
 LANDING_ZONE_SCHEMA_VERSION = "landing-zone-geojson.v1"
 TERRAIN_SCHEMA_VERSION = "terrain-grid.v1"
-POPULATION_SCHEMA_VERSION = "population-grid.v1"
+POPULATION_SCHEMA_VERSION = "population-grid.v2"
 WIND_GRID_SCHEMA_VERSION = "wind-grid.v1"
+OBSTACLE_SCHEMA_VERSION = "obstacle-geojson.v1"
+CALIBRATION_SCHEMA_VERSION = "calibration-profile.v1"
 
 _ASSUMPTIONS = [
     "Estimator v1 is deterministic and uses no randomness.",
@@ -232,7 +234,7 @@ class DeterminismMetadata(BaseModel):
 class EstimatorResultEnvelope(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: Literal["estimator-envelope.v9"]
+    schema_version: Literal["estimator-envelope.v10"]
     tool_version: str
     input_schema_versions: dict[str, str]
     status: EstimateStatus
@@ -255,6 +257,10 @@ class EnvelopeInputs:
     population: InputDocument | None = None
     obstacles: InputDocument | None = None
     wind_grid: InputDocument | None = None
+    # A calibration overrides vehicle performance, so a run made under one is
+    # not the run the base vehicle hash describes. Without this the two are
+    # byte-identical in provenance.
+    calibration: InputDocument | None = None
 
 
 def _build_provenance(inputs: EnvelopeInputs) -> Provenance:
@@ -297,6 +303,11 @@ def _build_provenance(inputs: EnvelopeInputs) -> Provenance:
         provenance_inputs["wind_grid"] = ProvenanceInput(
             format=inputs.wind_grid.format,
             sha256=inputs.wind_grid.sha256,
+        )
+    if inputs.calibration is not None:
+        provenance_inputs["calibration"] = ProvenanceInput(
+            format=inputs.calibration.format,
+            sha256=inputs.calibration.sha256,
         )
 
     return Provenance(
@@ -516,6 +527,8 @@ def _input_schema_versions() -> dict[str, str]:
         "terrain": TERRAIN_SCHEMA_VERSION,
         "population": POPULATION_SCHEMA_VERSION,
         "wind_grid": WIND_GRID_SCHEMA_VERSION,
+        "obstacles": OBSTACLE_SCHEMA_VERSION,
+        "calibration": CALIBRATION_SCHEMA_VERSION,
     }
 
 

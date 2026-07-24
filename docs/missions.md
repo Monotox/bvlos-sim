@@ -198,7 +198,7 @@ route point violates when it is horizontally within
 `radius_m + min_obstacle_clearance_m + uncertainty_m` and clears the top by
 less than `min_obstacle_clearance_m + uncertainty_m`.
 
-**Population** — the diagnostic grid (`population-grid.v1`, or unversioned)
+**Population** — the diagnostic grid (`population-grid.v2`, or unversioned)
 feeds `estimate --format ground-risk` only. The operational `sora` command
 requires `population-grid.v2` with provenance metadata; see
 [SORA evidence](#sora-evidence).
@@ -208,7 +208,8 @@ requires `population-grid.v2` with provenance metadata; see
 ```yaml
 link_systems:
   - link_id: c2_primary
-    kind: direct          # direct | cellular | satellite | hybrid
+    kind: direct_radio    # direct_radio | mesh_network | cellular_lte_5g
+                          # | satellite | starlink | hybrid
     required: true
     priority: 1
     availability: available
@@ -424,7 +425,7 @@ GRB was fed back through Step 2; Annex E compliance is always
 
 Input schemas (`mission.v7`, `vehicle.v4`, `scenario.v1`, `uncertainty.v2`,
 `stochastic.v2`, `batch.v1`, the GeoJSON asset schemas, `population-grid.v2`)
-and output envelopes (`estimator-envelope.v9`, `scenario-report.v3`, and the
+and output envelopes (`estimator-envelope.v10`, `scenario-report.v3`, and the
 rest printed by [`schema-versions`](cli.md#schema-versions)) are stable public
 contracts. Within a published version, fields are not removed or renamed, enum
 and exit-code meanings do not change, and canonical JSON rendering stays

@@ -455,7 +455,10 @@ def estimate(
         mission_model, mission_document = load_mission(mission)
         vehicle_model, vehicle_document = load_vehicle(vehicle)
         if calibration is not None:
-            vehicle_model = load_and_apply_calibration(vehicle_model, calibration)
+            vehicle_model, calibration_document = load_and_apply_calibration(
+                vehicle_model, calibration
+            )
+            mission_assets.calibration_document = calibration_document
         mission_assets.mission_id = mission_model.mission_id
         _populate_mission_assets(
             mission_assets,

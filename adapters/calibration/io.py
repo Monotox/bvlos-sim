@@ -49,17 +49,20 @@ def load_calibration_profile(
         ) from exc
 
 
-def load_and_apply_calibration(vehicle: VehicleProfile, path: Path) -> VehicleProfile:
+def load_and_apply_calibration(
+    vehicle: VehicleProfile, path: Path
+) -> tuple[VehicleProfile, InputDocument]:
     """Load a calibration profile and apply it to ``vehicle``.
 
     CLI-facing seam shared by ``estimate``, ``scenario``, and ``validate``: it maps
     a vehicle mismatch or an override that breaks a vehicle invariant onto an
     ``InputLoadError`` so the commands' existing error handling reports it as
-    invalid input. Returns the calibrated vehicle copy.
+    invalid input. Returns the calibrated vehicle copy and the loaded document,
+    so callers can record the calibration in provenance.
     """
     calibration, document = load_calibration_profile(path)
     try:
-        return apply_calibration(vehicle, calibration)
+        return apply_calibration(vehicle, calibration), document
     except CalibrationMismatchError as exc:
         raise InputLoadError(
             str(exc),

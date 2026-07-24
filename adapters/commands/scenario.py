@@ -333,7 +333,10 @@ def scenario(
         mission_model, mission_document = load_mission(mission_path)
         vehicle_model, vehicle_document = load_vehicle(vehicle_path)
         if calibration is not None:
-            vehicle_model = load_and_apply_calibration(vehicle_model, calibration)
+            vehicle_model, calibration_document = load_and_apply_calibration(
+                vehicle_model, calibration
+            )
+            mission_assets.calibration_document = calibration_document
 
         _populate_mission_assets(
             mission_assets,
