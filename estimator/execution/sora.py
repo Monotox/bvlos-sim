@@ -289,16 +289,18 @@ def _conservative_route_max_agl_m(
     geod = Geod(ellps="WGS84")
     maximum_agl_m = float("-inf")
     for leg in estimate.legs:
+        # path_coordinates are stored (lon, lat); the fallback keeps that order
+        # so the unpacking below cannot transpose a materialized turn arc.
         coordinates = leg.path_coordinates or (
-            (leg.start_lat, leg.start_lon),
-            (leg.end_lat, leg.end_lon),
+            (leg.start_lon, leg.start_lat),
+            (leg.end_lon, leg.end_lat),
         )
         if len(coordinates) == 1:
             coordinates = (coordinates[0], coordinates[0])
         leg_max_altitude_m = max(leg.start_alt_amsl_m, leg.end_alt_amsl_m)
         for start, end in zip(coordinates, coordinates[1:]):
-            start_lat, start_lon = start
-            end_lat, end_lon = end
+            start_lon, start_lat = start
+            end_lon, end_lat = end
             terrain_min_m = minimum_method(
                 start_lat,
                 start_lon,

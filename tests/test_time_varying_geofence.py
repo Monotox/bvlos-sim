@@ -19,6 +19,7 @@ from estimator import (
     try_estimate_mission_distance_time,
 )
 from schemas import MissionPlan
+from schemas.mission import MissionAction, RouteItem
 from tests.helpers import (
     make_mission,
     make_mission_payload,
@@ -233,3 +234,112 @@ def test_checklist_shows_departure_time_when_set(tmp_path: Path) -> None:
     assert "Departure time" in result.output
     assert "2026-06-01T14:00:00Z" in result.output
     assert "Status: NO-GO" in result.output
+
+
+def test_inactive_required_zone_does_not_gate_the_route_altitude() -> None:
+    """An out-of-window required zone must not enforce its altitude band.
+
+    The active set was computed for the coverage union but the unfiltered list
+    was handed to the altitude check, so a night-only low-ceiling zone forced
+    ROUTE_EXITS_REQUIRED_ZONE on a mid-afternoon flight.
+    """
+
+    covering_ring = [
+        (51.95, 3.95),
+        (51.95, 4.10),
+        (52.10, 4.10),
+        (52.10, 3.95),
+        (51.95, 3.95),
+    ]
+
+    def required(zone_id: str, **extra) -> GeofenceZone:
+        payload = {
+            "id": zone_id,
+            "kind": "required",
+            "geometry": {
+                "polygons": [
+                    {"exterior": [{"lat": lat, "lon": lon} for lat, lon in covering_ring]}
+                ]
+            },
+        }
+        payload.update(extra)
+        return GeofenceZone.model_validate(payload)
+
+    daytime_zone = required("ALWAYS")
+    night_zone = required(
+        "NIGHT_LOW_CEILING",
+        active_from=datetime(2026, 6, 1, 22, 0, tzinfo=UTC),
+        active_until=datetime(2026, 6, 1, 23, 0, tzinfo=UTC),
+        ceiling_m=10.0,
+    )
+
+    mission = make_mission()
+    mission.constraints.require_rth_reserve = False
+    mission.departure_time = datetime(2026, 6, 1, 14, 0, tzinfo=UTC)
+    mission.route = [
+        RouteItem(
+            id="wp",
+            action=MissionAction.WAYPOINT,
+            lat=52.02,
+            lon=4.03,
+            altitude_m=120.0,
+        )
+    ]
+
+    result = try_estimate_mission_distance_time(
+        mission,
+        make_vehicle(),
+        geofences=[daytime_zone, night_zone],
+    )
+
+    assert result.status == EstimateStatus.SUCCESS
+    assert result.geofence is not None
+    assert result.geofence.is_feasible is True
+    assert result.geofence.conflicts == []
+
+
+def test_active_required_zone_still_gates_the_route_altitude() -> None:
+    """The same zone inside its window must still block the flight."""
+
+    covering_ring = [
+        (51.95, 3.95),
+        (51.95, 4.10),
+        (52.10, 4.10),
+        (52.10, 3.95),
+        (51.95, 3.95),
+    ]
+    night_zone = GeofenceZone.model_validate(
+        {
+            "id": "NIGHT_LOW_CEILING",
+            "kind": "required",
+            "geometry": {
+                "polygons": [
+                    {"exterior": [{"lat": lat, "lon": lon} for lat, lon in covering_ring]}
+                ]
+            },
+            "active_from": datetime(2026, 6, 1, 22, 0, tzinfo=UTC),
+            "active_until": datetime(2026, 6, 1, 23, 0, tzinfo=UTC),
+            "ceiling_m": 10.0,
+        }
+    )
+
+    mission = make_mission()
+    mission.constraints.require_rth_reserve = False
+    mission.departure_time = datetime(2026, 6, 1, 22, 30, tzinfo=UTC)
+    mission.route = [
+        RouteItem(
+            id="wp",
+            action=MissionAction.WAYPOINT,
+            lat=52.02,
+            lon=4.03,
+            altitude_m=120.0,
+        )
+    ]
+
+    result = try_estimate_mission_distance_time(
+        mission, make_vehicle(), geofences=[night_zone]
+    )
+
+    assert result.status == EstimateStatus.INFEASIBLE
+    assert result.failure is not None
+    assert result.failure.code == FailureCode.ROUTE_EXITS_REQUIRED_ZONE

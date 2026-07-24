@@ -9,6 +9,32 @@ and this project adheres to semantic versioning once public releases begin.
 
 ### Fixed
 
+- Geofence checks now follow the flown path instead of a planar endpoint chord.
+  `_leg_geometry` built a two-point `LineString` in degree space with no
+  densification and no longitude normalisation, while every other spatial check
+  walks the leg geodesically via `route_leg_samples`. Three consequences, all
+  silent: a 40 km leg at 60 °N bows ~54 m poleward of its chord, so a forbidden
+  zone sitting in that gap was flown through and reported `conflicts: []`; a
+  route leaving a ±30 m **required** corridor was reported fully covered; and a
+  leg crossing the antimeridian produced a 359.98°-wide line that flagged a zone
+  16 000 km away while missing one 500 m along the actual path. The check now
+  builds each leg from the shared sampler — including materialized turn arcs —
+  unwraps longitudes so an antimeridian crossing stays continuous, and lifts
+  zones onto the same axis. A route that cannot be sampled now fails closed with
+  `INVALID_GEOMETRY` instead of silently passing.
+- Out-of-window required geofence zones no longer gate the verdict. The active
+  set was computed for the coverage union but the *unfiltered* list was passed to
+  the altitude check, so a night-only low-ceiling required zone forced
+  `ROUTE_EXITS_REQUIRED_ZONE` on a mid-afternoon flight. This was fail-safe in
+  direction (false NO-GO) but the only workaround was hand-editing the
+  authority's zone file, destroying the audit trail.
+- The SORA route-AGL check no longer transposes latitude and longitude on
+  materialized turn arcs. `path_coordinates` are stored `(lon, lat)` and consumed
+  in that order everywhere else, but `_conservative_route_max_agl_m` unpacked
+  them as `(lat, lon)`, matching only its fallback tuple. On a `fidelity: v2`
+  route with a real turn, 18 of 20 terrain queries went to a different continent
+  — aborting with "terrain coverage cannot prove maximum AGL" on a tight grid,
+  or verifying height over the wrong ground on a wide one.
 - Mixed climb/descent legs are no longer billed entirely at the vertical phase
   power. A route action that changes altitude while covering ground is now
   costed by phase time — the climb or descent portion at `climb_power_w` /

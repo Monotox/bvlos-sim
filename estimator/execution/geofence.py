@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime, time, timedelta
 
+from shapely.affinity import translate
 from shapely.geometry import LineString, Point
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
@@ -20,6 +21,11 @@ from estimator.core.results import (
 )
 from estimator.execution.runtime import EstimationContext
 from estimator.execution.spatial import polygon_set_to_shapely
+from estimator.execution.spatial_sampling import (
+    SpatialSample,
+    SpatialSamplingError,
+    route_leg_samples,
+)
 
 
 @dataclass(frozen=True)
@@ -47,6 +53,23 @@ def evaluate_geofence_feasibility(context: EstimationContext) -> GeofenceEvaluat
             return GeofenceEvaluation(geofence=None, failure=failure)
         compiled_zones.append(compiled)
 
+    leg_geometries, sampling_failure = _leg_geometries(context)
+    if sampling_failure is not None:
+        return GeofenceEvaluation(geofence=None, failure=sampling_failure)
+    assert leg_geometries is not None
+
+    lon_min, lon_max = _longitude_span(leg_geometries)
+    if lon_min < -180.0 or lon_max > 180.0:
+        compiled_zones = [
+            CompiledGeofence(
+                zone=compiled.zone,
+                geometry=_wrap_aware_geometry(
+                    compiled.geometry, lon_min=lon_min, lon_max=lon_max
+                ),
+            )
+            for compiled in compiled_zones
+        ]
+
     departure_time = _mission_departure_time(context)
     time_windowed = _has_time_windowed_zones(compiled_zones)
     if time_windowed and departure_time is None:
@@ -61,7 +84,7 @@ def evaluate_geofence_feasibility(context: EstimationContext) -> GeofenceEvaluat
 
     conflicts: list[GeofenceConflict] = []
     elapsed_start_s = 0.0
-    for leg in context.route_legs:
+    for leg, leg_geometry in zip(context.route_legs, leg_geometries):
         elapsed_end_s = elapsed_start_s + leg.time_s
         if time_windowed:
             active_forbidden_zones = _active_zones_for_leg(
@@ -82,7 +105,6 @@ def evaluate_geofence_feasibility(context: EstimationContext) -> GeofenceEvaluat
             active_required_zones = required_zones
             required_union = _required_union(required_zones)
 
-        leg_geometry = _leg_geometry(leg)
         conflicts.extend(
             _forbidden_conflicts(
                 forbidden_zones=active_forbidden_zones,
@@ -91,7 +113,7 @@ def evaluate_geofence_feasibility(context: EstimationContext) -> GeofenceEvaluat
             )
         )
         required_conflict = _required_conflict(
-            required_zones=required_zones,
+            required_zones=active_required_zones,
             required_union=required_union,
             leg=leg,
             leg_geometry=leg_geometry,
@@ -278,16 +300,104 @@ def _intervals_overlap(
     return left_start <= right_end and left_end >= right_start
 
 
-def _leg_geometry(leg: LegEstimate) -> BaseGeometry:
-    if leg.path_coordinates is not None:
-        if len(leg.path_coordinates) == 1:
-            return Point(leg.path_coordinates[0])
-        return LineString(leg.path_coordinates)
-    start = (leg.start_lon, leg.start_lat)
-    end = (leg.end_lon, leg.end_lat)
-    if start == end:
-        return Point(start)
-    return LineString([start, end])
+def _leg_geometries(
+    context: EstimationContext,
+) -> tuple[list[BaseGeometry] | None, EstimatorFailure | None]:
+    """Build every leg's flown path as a densified, longitude-unwrapped line.
+
+    A two-point line between the leg endpoints is a planar chord in degree
+    space, not the flown path: it cuts inside the geodesic by tens of metres on
+    a long leg away from the equator, and it wraps the wrong way round the globe
+    across the antimeridian. Both make the check miss zones the aircraft
+    actually enters. The shared sampler walks the true path - including
+    materialized turn arcs - so the geofence check sees what every other spatial
+    check sees.
+    """
+
+    legs = list(context.route_legs)
+    if not legs:
+        return [], None
+
+    try:
+        samples = route_leg_samples(
+            legs,
+            geod=context.geod,
+            max_segment_length_m=context.resolved_options.max_segment_length_m,
+        )
+    except SpatialSamplingError as error:
+        return None, _sampling_failure(error)
+
+    return [
+        _sampled_leg_geometry(leg, leg_samples)
+        for leg, leg_samples in zip(legs, samples)
+    ], None
+
+
+def _sampled_leg_geometry(
+    leg: LegEstimate,
+    samples: list[SpatialSample],
+) -> BaseGeometry:
+    coordinates = _unwrapped_longitudes(
+        [(sample.lon, sample.lat) for sample in samples]
+    )
+    if not coordinates:
+        return Point(leg.start_lon, leg.start_lat)
+    if len(coordinates) == 1:
+        return Point(coordinates[0])
+    return LineString(coordinates)
+
+
+def _unwrapped_longitudes(
+    coordinates: list[tuple[float, float]],
+) -> list[tuple[float, float]]:
+    """Make a path continuous across the antimeridian.
+
+    Longitudes are re-expressed on an unbroken axis, so a leg from 179.98 to
+    -179.98 becomes 179.98 to 180.02 rather than a line spanning the globe the
+    long way. Zones are lifted onto the same axis in _wrap_aware_geometry.
+    """
+
+    unwrapped: list[tuple[float, float]] = []
+    previous_lon: float | None = None
+    offset = 0.0
+    for lon, lat in coordinates:
+        if previous_lon is not None:
+            delta = lon - previous_lon
+            if delta > 180.0:
+                offset -= 360.0
+            elif delta < -180.0:
+                offset += 360.0
+        unwrapped.append((lon + offset, lat))
+        previous_lon = lon
+    return unwrapped
+
+
+def _wrap_aware_geometry(
+    geometry: BaseGeometry,
+    *,
+    lon_min: float,
+    lon_max: float,
+) -> BaseGeometry:
+    """Repeat a zone at +/-360 deg when the route runs off the standard axis."""
+
+    parts = [geometry]
+    if lon_max > 180.0:
+        parts.append(translate(geometry, xoff=360.0))
+    if lon_min < -180.0:
+        parts.append(translate(geometry, xoff=-360.0))
+    if len(parts) == 1:
+        return geometry
+    return unary_union(parts)
+
+
+def _longitude_span(geometries: list[BaseGeometry]) -> tuple[float, float]:
+    bounds = [geometry.bounds for geometry in geometries if not geometry.is_empty]
+    if not bounds:
+        return 0.0, 0.0
+    return (
+        min(bound[0] for bound in bounds),
+        max(bound[2] for bound in bounds),
+    )
 
 
 def _forbidden_conflicts(
@@ -408,6 +518,23 @@ def _failure_from_conflict(conflict: GeofenceConflict) -> EstimatorFailure:
         route_item_index=conflict.route_item_index,
         route_item_id=conflict.route_item_id,
         context=context,
+    )
+
+
+def _sampling_failure(error: SpatialSamplingError) -> EstimatorFailure:
+    """Fail closed: an unmappable route must not pass the geofence check."""
+
+    leg = error.leg
+    return EstimatorFailure(
+        kind=FailureKind.INVALID_INPUT,
+        code=FailureCode.INVALID_GEOMETRY,
+        message=(
+            f"Route geometry could not be sampled for geofence evaluation: {error}"
+        ),
+        leg_index=leg.leg_index,
+        route_item_index=leg.route_item_index,
+        route_item_id=leg.route_item_id,
+        context={"stage": "geofence_route_sampling"},
     )
 
 

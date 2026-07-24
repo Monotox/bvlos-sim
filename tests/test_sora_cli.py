@@ -1,11 +1,19 @@
 import json
 from pathlib import Path
 
+import pytest
 import yaml
 from typer.testing import CliRunner
 
 from adapters.cli import CliExitCode, app
-from tests.helpers import make_mission_payload, make_vehicle_payload
+from estimator import (
+    EstimationOptions,
+    LegPhase,
+    estimate_mission_distance_time,
+)
+from estimator.execution.sora import _conservative_route_max_agl_m
+from schemas.mission import MissionAction, RouteItem
+from tests.helpers import make_mission, make_mission_payload, make_vehicle, make_vehicle_payload
 
 _RUNNER = CliRunner()
 
@@ -594,3 +602,99 @@ def test_operational_footprint_assembly_forces_highest_population_band(
         assessment["population_evidence"]["operational_footprint_assemblies_present"]
         is True
     )
+
+
+# ---------------------------------------------------------------------------
+# Route AGL verification: stored path coordinate order
+# ---------------------------------------------------------------------------
+
+
+class _RecordingTerrainProvider:
+    """Records every segment the AGL check asks about, as (lat, lon) pairs."""
+
+    provider_id = "recording"
+
+    def __init__(self) -> None:
+        self.queried: list[tuple[float, float]] = []
+
+    def elevation_at(self, lat: float, lon: float) -> float | None:
+        return 0.0
+
+    def conservative_max_elevation_along_segment(
+        self, start_lat, start_lon, end_lat, end_lon, *, geod
+    ):
+        return 0.0
+
+    def conservative_min_elevation_along_segment(
+        self, start_lat, start_lon, end_lat, end_lon, *, geod
+    ):
+        self.queried.append((start_lat, start_lon))
+        self.queried.append((end_lat, end_lon))
+        return 0.0
+
+
+def _turning_mission():
+    mission = make_mission()
+    mission.constraints.require_rth_reserve = False
+    mission.route = [
+        RouteItem(
+            id="north",
+            action=MissionAction.WAYPOINT,
+            lat=52.05,
+            lon=4.0,
+            altitude_m=120.0,
+        ),
+        RouteItem(
+            id="east",
+            action=MissionAction.WAYPOINT,
+            lat=52.05,
+            lon=4.08,
+            altitude_m=120.0,
+        ),
+    ]
+    return mission
+
+
+@pytest.mark.parametrize("fidelity", ["v1", "v2"])
+def test_route_agl_check_never_transposes_stored_path_coordinates(
+    fidelity: str,
+) -> None:
+    """Materialized turn arcs store (lon, lat); the AGL walk must not swap them.
+
+    Unpacking them as (lat, lon) sent every turn-arc query to lat 4.0, lon 52.05
+    - a different continent - so the check either aborted on a narrow terrain
+    grid or verified height over the wrong ground.
+    """
+
+    estimate = estimate_mission_distance_time(
+        _turning_mission(),
+        make_vehicle(),
+        options=EstimationOptions(fidelity=fidelity),
+    )
+    provider = _RecordingTerrainProvider()
+
+    _conservative_route_max_agl_m(estimate, terrain_provider=provider)
+
+    assert provider.queried
+    for lat, lon in provider.queried:
+        assert 51.9 <= lat <= 52.2, f"latitude {lat} is not on the mission route"
+        assert 3.9 <= lon <= 4.2, f"longitude {lon} is not on the mission route"
+
+
+def test_route_agl_check_covers_materialized_turn_arcs() -> None:
+    """The v2 arc must contribute more sampled segments than the v1 corner."""
+
+    v1 = estimate_mission_distance_time(
+        _turning_mission(), make_vehicle(), options=EstimationOptions(fidelity="v1")
+    )
+    v2 = estimate_mission_distance_time(
+        _turning_mission(), make_vehicle(), options=EstimationOptions(fidelity="v2")
+    )
+    v1_provider = _RecordingTerrainProvider()
+    v2_provider = _RecordingTerrainProvider()
+
+    _conservative_route_max_agl_m(v1, terrain_provider=v1_provider)
+    _conservative_route_max_agl_m(v2, terrain_provider=v2_provider)
+
+    assert any(leg.phase == LegPhase.TURN_ARC for leg in v2.legs)
+    assert len(v2_provider.queried) > len(v1_provider.queried)

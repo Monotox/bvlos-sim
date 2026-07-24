@@ -66,10 +66,20 @@ constraints:
   require_rth_reserve: true           # hard per-leg return-to-home reserve gate
   max_wind_mps: 12.0                  # sustained-wind limit at every path sample
   max_crosswind_mps: 8.0              # cross-track wind limit
-  min_distance_to_landing_zone_m: 2500.0
+  min_distance_to_landing_zone_m: 2500.0  # NOTE: this is a MAXIMUM (see below)
   min_obstacle_clearance_m: 15.0      # separation buffer around obstacles
   min_terrain_clearance_m: 30.0       # sampled terrain clearance (needs terrain asset)
 ```
+
+!!! warning "`min_distance_to_landing_zone_m` is an upper bound"
+
+    Despite the `min_` prefix, this is the **maximum tolerated** straight-line
+    distance from any route state to an emergency landing zone. **Raising it
+    makes the check more permissive, not stricter.** On the demo route, `500`
+    fails every sampled state, `2500` fails 69 of 166, and `8000` passes. Set it
+    to the furthest distance you are willing to be from a landing zone, and do
+    not raise it to "tighten" the constraint. The reserve-based divert check
+    runs independently of this value and is unaffected by it.
 
 Advisory warnings block the operational `GO` verdict by default.
 `accepted_warning_codes` is the explicit, reviewable opt-out: codes listed

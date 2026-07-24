@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
+from pyproj import Geod
 
 from adapters.geofence_geojson import GeofenceLoadError, load_geofences
 from estimator import (
@@ -522,3 +523,165 @@ def test_geojson_importer_rejects_non_object_root(tmp_path: Path) -> None:
         load_geofences(path)
 
     assert exc_info.value.failure.code == FailureCode.INVALID_GEOMETRY
+
+
+# ---------------------------------------------------------------------------
+# Flown-path geometry: geodesic bow and antimeridian
+# ---------------------------------------------------------------------------
+
+
+def _long_eastbound_mission(*, lat: float, lon: float, end_lat: float, end_lon: float):
+    mission = make_mission()
+    mission.planned_home.lat = lat
+    mission.planned_home.lon = lon
+    mission.planned_home.altitude_amsl_m = 0.0
+    mission.constraints.require_rth_reserve = False
+    mission.route = [
+        RouteItem(
+            id="east",
+            action=MissionAction.WAYPOINT,
+            lat=end_lat,
+            lon=end_lon,
+            altitude_m=120.0,
+        )
+    ]
+    return mission
+
+
+def _box(*, lat_lo: float, lat_hi: float, lon_lo: float, lon_hi: float):
+    return [
+        (lat_lo, lon_lo),
+        (lat_lo, lon_hi),
+        (lat_hi, lon_hi),
+        (lat_hi, lon_lo),
+        (lat_lo, lon_lo),
+    ]
+
+
+def test_forbidden_zone_on_the_geodesic_but_off_the_chord_is_detected() -> None:
+    """The check must follow the flown path, not a planar endpoint chord.
+
+    A 40 km leg at 60 N bows about 54 m poleward of the straight line between
+    its endpoints in degree space. A zone sitting in that gap is flown through
+    while a two-point LineString misses it entirely - a silent GO.
+    """
+
+    geod = Geod(ellps="WGS84")
+    start_lat, start_lon = 60.0, 10.0
+    end_lon, end_lat, _ = geod.fwd(start_lon, start_lat, 90.0, 40_000.0)
+    (mid_lon, mid_lat), = geod.npts(start_lon, start_lat, end_lon, end_lat, 1)
+    bow_deg = mid_lat - (start_lat + end_lat) / 2.0
+    assert bow_deg > 0.0
+
+    zone = _zone(
+        zone_id="BOW",
+        kind=GeofenceKind.FORBIDDEN,
+        exterior=_box(
+            lat_lo=mid_lat - 0.4 * bow_deg,
+            lat_hi=mid_lat + 0.4 * bow_deg,
+            lon_lo=mid_lon - 0.005,
+            lon_hi=mid_lon + 0.005,
+        ),
+    )
+
+    result = try_estimate_mission_distance_time(
+        _long_eastbound_mission(
+            lat=start_lat, lon=start_lon, end_lat=end_lat, end_lon=end_lon
+        ),
+        make_vehicle(),
+        geofences=[zone],
+    )
+
+    assert result.status == EstimateStatus.INFEASIBLE
+    assert result.geofence is not None and result.geofence.is_feasible is False
+    assert result.geofence.conflicts[0].code == FailureCode.ROUTE_ENTERS_FORBIDDEN_ZONE
+
+
+def test_leg_leaving_a_narrow_required_corridor_is_detected() -> None:
+    """Required coverage is tested against the flown path, not the chord."""
+
+    geod = Geod(ellps="WGS84")
+    start_lat, start_lon = 60.0, 10.0
+    end_lon, end_lat, _ = geod.fwd(start_lon, start_lat, 90.0, 40_000.0)
+    band_deg = 30.0 / 111_320.0  # +-30 m, narrower than the ~54 m bow
+
+    corridor = _zone(
+        zone_id="CORRIDOR",
+        kind=GeofenceKind.REQUIRED,
+        exterior=[
+            (start_lat - band_deg, start_lon - 0.01),
+            (end_lat - band_deg, end_lon + 0.01),
+            (end_lat + band_deg, end_lon + 0.01),
+            (start_lat + band_deg, start_lon - 0.01),
+            (start_lat - band_deg, start_lon - 0.01),
+        ],
+    )
+
+    result = try_estimate_mission_distance_time(
+        _long_eastbound_mission(
+            lat=start_lat, lon=start_lon, end_lat=end_lat, end_lon=end_lon
+        ),
+        make_vehicle(),
+        geofences=[corridor],
+    )
+
+    assert result.status == EstimateStatus.INFEASIBLE
+    assert result.geofence is not None and result.geofence.is_feasible is False
+    assert result.geofence.conflicts[0].code == FailureCode.ROUTE_EXITS_REQUIRED_ZONE
+
+
+def test_antimeridian_leg_flags_a_zone_on_its_path() -> None:
+    geod = Geod(ellps="WGS84")
+    start_lat, start_lon = -17.7, 179.98
+    zone_lon, zone_lat, _ = geod.fwd(start_lon, start_lat, 90.0, 500.0)
+    half = 0.002
+
+    zone = _zone(
+        zone_id="NEAR",
+        kind=GeofenceKind.FORBIDDEN,
+        exterior=_box(
+            lat_lo=zone_lat - half,
+            lat_hi=zone_lat + half,
+            lon_lo=zone_lon - half,
+            lon_hi=zone_lon + half,
+        ),
+    )
+
+    result = try_estimate_mission_distance_time(
+        _long_eastbound_mission(
+            lat=start_lat, lon=start_lon, end_lat=-17.7, end_lon=-179.98
+        ),
+        make_vehicle(),
+        geofences=[zone],
+    )
+
+    assert result.status == EstimateStatus.INFEASIBLE
+    assert result.geofence is not None and result.geofence.is_feasible is False
+
+
+def test_antimeridian_leg_ignores_a_zone_on_the_far_side_of_the_globe() -> None:
+    """The wrong-way wrap used to raise a conflict 16 000 km off the route."""
+
+    half = 0.002
+    zone = _zone(
+        zone_id="FAR",
+        kind=GeofenceKind.FORBIDDEN,
+        exterior=_box(
+            lat_lo=-17.7 - half,
+            lat_hi=-17.7 + half,
+            lon_lo=-half,
+            lon_hi=half,
+        ),
+    )
+
+    result = try_estimate_mission_distance_time(
+        _long_eastbound_mission(
+            lat=-17.7, lon=179.98, end_lat=-17.7, end_lon=-179.98
+        ),
+        make_vehicle(),
+        geofences=[zone],
+    )
+
+    assert result.status == EstimateStatus.SUCCESS
+    assert result.geofence is not None and result.geofence.is_feasible is True
+    assert result.geofence.conflicts == []
