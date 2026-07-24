@@ -17,7 +17,9 @@ from schemas import (
     LinkSystemConfig,
     ResourceSystemConfig,
     ScenarioPlan,
+    UsableCapacityPoint,
 )
+from schemas.mission import MissionAction, RouteItem
 from tests.helpers import (
     make_mission,
     make_mission_payload,
@@ -311,3 +313,51 @@ def test_scenario_link_systems_override_mission_link_systems() -> None:
     assert result.estimate is not None
     assert result.estimate.link is not None
     assert result.estimate.link.selected_link_id == "satcom"
+
+
+def test_declaring_a_resource_system_does_not_void_capacity_derating() -> None:
+    """A resource system replaces the battery and RTH gates, not the derating.
+
+    engine.py hands both gates to the resource path whenever any resource
+    system is declared, and that path budgeted against the nameplate pack, so
+    declaring one silently voided usable_capacity_curve: an INFEASIBLE mission
+    became SUCCESS with RTH reported feasible.
+    """
+
+    def run(*, with_resource: bool, derated: bool):
+        mission = make_mission()
+        mission.constraints.require_rth_reserve = True
+        mission.constraints.min_landing_reserve_percent = 25.0
+        mission.route = [
+            RouteItem(
+                id="far",
+                action=MissionAction.WAYPOINT,
+                lat=mission.planned_home.lat,
+                lon=mission.planned_home.lon + 0.05,
+                altitude_m=120.0,
+            )
+        ]
+        vehicle = make_vehicle()
+        vehicle.energy.battery_capacity_wh = 170.0
+        if derated:
+            vehicle.energy.usable_capacity_curve = [
+                UsableCapacityPoint(soc=0.0, usable_fraction=0.0),
+                UsableCapacityPoint(soc=1.0, usable_fraction=0.55),
+            ]
+        if with_resource:
+            vehicle.resource_systems = [
+                ResourceSystemConfig.model_validate(
+                    {"resource_id": "pack", "kind": "onboard_battery"}
+                )
+            ]
+        return try_estimate_mission_distance_time(mission, vehicle)
+
+    # Derated: infeasible either way. Declaring the resource system must not
+    # buy back the 76.5 Wh the curve removed.
+    assert run(with_resource=False, derated=True).status == EstimateStatus.INFEASIBLE
+    assert run(with_resource=True, derated=True).status == EstimateStatus.INFEASIBLE
+
+    # Control: with no curve the same mission is feasible on both paths, so the
+    # gate above is the derating and not a blanket tightening.
+    assert run(with_resource=False, derated=False).status == EstimateStatus.SUCCESS
+    assert run(with_resource=True, derated=False).status == EstimateStatus.SUCCESS

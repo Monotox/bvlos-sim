@@ -233,7 +233,7 @@ def _rth_reserve_is_feasible(
         )
 
     capacity_wh = _battery_capacity(system, energy)
-    threshold_wh = capacity_wh * _reserve_threshold_percent(system, energy) / 100.0
+    threshold_wh = _battery_reserve_threshold_wh(system, energy)
     if system.kind == ResourceSystemKind.ONBOARD_BATTERY:
         energy_used_by_leg = _energy_used_by_leg(energy)
         rth_energy_factor_by_leg = {leg.leg_index: 1.0 for leg in route_legs}
@@ -315,11 +315,52 @@ def _route_constraint_reason(
     return None
 
 
+def _usable_capacity_fraction(energy: EnergyEstimate) -> float:
+    if energy.battery_capacity_wh <= 0.0:
+        return 1.0
+    return energy.deliverable_capacity_wh / energy.battery_capacity_wh
+
+
+def _battery_nameplate_capacity(
+    system: ResourceSystemConfig,
+    energy: EnergyEstimate,
+) -> float:
+    """Rated capacity, used only to size the reserve threshold."""
+
+    if system.battery_capacity_wh is None:
+        return energy.battery_capacity_wh
+    return system.battery_capacity_wh
+
+
 def _battery_capacity(system: ResourceSystemConfig, energy: EnergyEstimate) -> float:
+    """Deliverable capacity after usable-curve derating, never nameplate.
+
+    Declaring any resource system hands the mission battery gate and the RTH
+    gate to this module, so it has to apply the same derating those gates do.
+    Budgeting a resource pack at nameplate let a declared usable_capacity_curve
+    stop derating anything the moment a resource system existed. A pack
+    declared on the resource system is derated too: it is the same aircraft.
+    """
+
+    return _battery_nameplate_capacity(system, energy) * _usable_capacity_fraction(
+        energy
+    )
+
+
+def _battery_reserve_threshold_wh(
+    system: ResourceSystemConfig,
+    energy: EnergyEstimate,
+) -> float:
+    """Reserve threshold sized on rated capacity, as the mission gate does.
+
+    Deriving it from the derated capacity would shrink the threshold in step
+    with the pack, making a derated aircraft easier to clear than a healthy one.
+    """
+
     return (
-        system.battery_capacity_wh
-        if system.battery_capacity_wh is not None
-        else energy.battery_capacity_wh
+        _battery_nameplate_capacity(system, energy)
+        * _reserve_threshold_percent(system, energy)
+        / 100.0
     )
 
 
@@ -345,7 +386,7 @@ def _battery_resource_estimate(
     enforce_rth_reserve: bool,
 ) -> ResourceSystemEstimate:
     capacity_wh = _battery_capacity(system, energy)
-    threshold_wh = capacity_wh * _reserve_threshold_percent(system, energy) / 100.0
+    threshold_wh = _battery_reserve_threshold_wh(system, energy)
     reserve_after_wh = capacity_wh - energy.total_energy_wh
     limiting_reason = _route_constraint_reason(system, metrics)
     if limiting_reason is None and energy.total_energy_wh > capacity_wh:
@@ -424,7 +465,7 @@ def _hybrid_resource_estimate(
 ) -> ResourceSystemEstimate:
     residual_energy_wh = _hybrid_residual_energy_wh(system, energy)
     capacity_wh = _battery_capacity(system, energy)
-    threshold_wh = capacity_wh * _reserve_threshold_percent(system, energy) / 100.0
+    threshold_wh = _battery_reserve_threshold_wh(system, energy)
     reserve_after_wh = capacity_wh - residual_energy_wh
     limiting_reason = _route_constraint_reason(system, metrics)
     if limiting_reason is None and residual_energy_wh > capacity_wh:

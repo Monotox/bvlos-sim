@@ -156,35 +156,67 @@ def _failure_from_violation(violation: WeatherViolation) -> EstimatorFailure:
     )
 
 
+def _cross_track_component_mps(
+    wind_east_mps: float,
+    wind_north_mps: float,
+    track_deg: float,
+) -> float:
+    track_rad = math.radians(track_deg)
+    right_east = math.cos(track_rad)
+    right_north = -math.sin(track_rad)
+    return wind_east_mps * right_east + wind_north_mps * right_north
+
+
 def _legs_with_weather_observations(
     context: EstimationContext,
 ) -> list[LegEstimate]:
+    """Observe every leg over its whole duration and altitude band.
+
+    A leg's stored wind comes from the horizontal integration, whose elapsed
+    time runs out when the climb or descent takes longer than the ground track
+    does - a close but much higher waypoint. The altitudes past that point were
+    never queried, so trusting the stored value evaluated the wind limits on the
+    departure-end wind. The stored observation is kept only when it is the
+    harsher of the two.
+    """
+
     observed: list[LegEstimate] = []
     elapsed_time_s = 0.0
     for leg in context.route_legs:
-        if leg.wind_speed_mps is not None:
-            observed.append(leg)
-        else:
-            samples = sample_wind_interval(
-                context.wind_provider,
-                lat=(leg.start_lat + leg.end_lat) * 0.5,
-                lon=(leg.start_lon + leg.end_lon) * 0.5,
-                start_altitude_amsl_m=leg.start_alt_amsl_m,
-                end_altitude_amsl_m=leg.end_alt_amsl_m,
-                start_elapsed_time_s=elapsed_time_s,
-                duration_s=leg.time_s,
-            )
-            worst = max(samples, key=lambda sample: context.wind_speed(sample.wind))
-            observed.append(
-                leg.model_copy(
-                    update={
-                        "wind_east_mps": worst.wind.wind_east_mps,
-                        "wind_north_mps": worst.wind.wind_north_mps,
-                        "wind_speed_mps": context.wind_speed(worst.wind),
-                    }
-                )
-            )
+        samples = sample_wind_interval(
+            context.wind_provider,
+            lat=(leg.start_lat + leg.end_lat) * 0.5,
+            lon=(leg.start_lon + leg.end_lon) * 0.5,
+            start_altitude_amsl_m=leg.start_alt_amsl_m,
+            end_altitude_amsl_m=leg.end_alt_amsl_m,
+            start_elapsed_time_s=elapsed_time_s,
+            duration_s=leg.time_s,
+        )
+        worst = max(samples, key=lambda sample: context.wind_speed(sample.wind))
+        worst_speed_mps = context.wind_speed(worst.wind)
         elapsed_time_s += leg.time_s
+
+        if leg.wind_speed_mps is not None and leg.wind_speed_mps >= worst_speed_mps:
+            observed.append(leg)
+            continue
+
+        update: dict[str, float | None] = {
+            "wind_east_mps": worst.wind.wind_east_mps,
+            "wind_north_mps": worst.wind.wind_north_mps,
+            "wind_speed_mps": worst_speed_mps,
+        }
+        if leg.ground_track_deg is not None:
+            cross_track_mps = _cross_track_component_mps(
+                worst.wind.wind_east_mps,
+                worst.wind.wind_north_mps,
+                leg.ground_track_deg,
+            )
+            if (
+                leg.wind_cross_track_mps is None
+                or abs(cross_track_mps) > abs(leg.wind_cross_track_mps)
+            ):
+                update["wind_cross_track_mps"] = cross_track_mps
+        observed.append(leg.model_copy(update=update))
     return observed
 
 

@@ -28,6 +28,25 @@ and this project adheres to semantic versioning once public releases begin.
 
 ### Fixed
 
+- Declaring any resource system no longer voids `usable_capacity_curve`
+  derating. A non-empty `vehicle.resource_systems` hands both the battery gate
+  and the RTH gate to `resource_link.py`, which budgeted against the nameplate
+  pack — so the moment an operator declared a resource system, the derating
+  curve stopped derating anything. A 170 Wh pack that can only deliver 93.5 Wh
+  was budgeted at 170 Wh, turning `INFEASIBLE / RTH_RESERVE_BELOW_THRESHOLD`
+  into `SUCCESS` with RTH reported feasible. Resource capacity is now derated
+  (including a pack declared on the resource system itself), while the reserve
+  threshold stays sized on rated capacity so a derated aircraft is not easier to
+  clear than a healthy one.
+- Wind limits are now evaluated over each leg's full duration and altitude band.
+  A leg's stored wind comes from the horizontal integration, whose elapsed time
+  runs out early whenever the climb or descent outlasts the ground track — an
+  ordinary close-but-much-higher waypoint. The altitudes past that point were
+  never queried, and `_legs_with_weather_observations` trusted the stored value,
+  so `max_wind_mps` and `max_crosswind_mps` were checked against the
+  departure-end wind: a leg climbing into a 10 m/s band under an 8 m/s limit
+  reported `success` at `worst_wind 2.0`. Each leg is now sampled across its
+  whole span and the harsher of stored and sampled observation is used.
 - Every surface that grades a scenario now publishes the same operational
   verdict, via a single `scenario_readiness()` helper. The verdict was computed
   in the envelope but recomputed — or ignored — everywhere else, so the same run

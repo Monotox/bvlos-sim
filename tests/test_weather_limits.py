@@ -1,6 +1,7 @@
 import yaml
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from adapters.cli import CliExitCode, app
@@ -12,11 +13,18 @@ from estimator import (
 )
 from estimator.environment.wind import (
     ConstantWindProvider,
+    LayeredWindProvider,
     TimedWindChange,
     TimeVaryingWindProvider,
+    WindLayer,
 )
-from schemas.mission import AltitudeReference, MissionAction, MissionPlan
-from tests.helpers import make_mission_payload, make_vehicle, make_vehicle_payload
+from schemas.mission import AltitudeReference, MissionAction, MissionPlan, RouteItem
+from tests.helpers import (
+    make_mission,
+    make_mission_payload,
+    make_vehicle,
+    make_vehicle_payload,
+)
 
 _RUNNER = CliRunner()
 
@@ -323,3 +331,53 @@ def test_summary_shows_weather_fail(tmp_path: Path) -> None:
     )
 
     assert "weather FAIL" in result.stdout
+
+
+def test_wind_limit_sees_the_altitudes_a_climb_dominated_leg_reaches() -> None:
+    """A leg whose climb outlasts its ground track must still be observed.
+
+    The stored per-leg wind comes from the horizontal integration, whose
+    elapsed time runs out early when the climb takes longer than the ground
+    track. The altitudes above that point were never queried, so the wind limit
+    was evaluated on the departure-end wind and a 10 m/s band went unseen.
+    """
+
+    provider = LayeredWindProvider(
+        [
+            WindLayer(altitude_m=0.0, wind_east_mps=2.0, wind_north_mps=0.0),
+            WindLayer(altitude_m=300.0, wind_east_mps=10.0, wind_north_mps=0.0),
+        ]
+    )
+
+    def run(delta_lon: float):
+        mission = make_mission()
+        mission.constraints.require_rth_reserve = False
+        mission.constraints.max_wind_mps = 8.0
+        mission.route = [
+            RouteItem(
+                id="up",
+                action=MissionAction.WAYPOINT,
+                lat=52.0,
+                lon=4.0 + delta_lon,
+                altitude_reference=AltitudeReference.AMSL,
+                altitude_m=320.0,
+            )
+        ]
+        return try_estimate_mission_distance_time(
+            mission, make_vehicle(), wind_provider=provider
+        )
+
+    climb_dominated = run(0.006)
+    horizontal_dominated = run(0.05)
+
+    for result in (climb_dominated, horizontal_dominated):
+        assert result.weather is not None
+        assert result.weather.is_feasible is False
+        assert result.weather.worst_wind_speed_mps == pytest.approx(10.0)
+        assert result.status == EstimateStatus.INFEASIBLE
+
+    climb_leg = next(
+        leg for leg in climb_dominated.legs if leg.route_item_id == "up"
+    )
+    # The defect only appears when the vertical phase outlasts the ground track.
+    assert climb_leg.horizontal_distance_m < 1_000.0
